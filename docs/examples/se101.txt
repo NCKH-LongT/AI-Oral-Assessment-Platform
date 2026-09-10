@@ -1,0 +1,7 @@
+Dependency Injection
+
+Dependency Injection (DI) là kỹ thuật cung cấp dependency từ bên ngoài thay vì một đối tượng tự khởi tạo dependency của nó. Ví dụ, OrderService nhận PaymentGateway qua constructor. Khi kiểm thử, truyền FakePaymentGateway để kiểm soát kết quả.
+
+DI giúp giảm coupling giữa module, hỗ trợ thay thế implementation và tăng khả năng unit test. Dependency inversion là nguyên lý phụ thuộc vào abstraction thay vì concrete implementation; DI là một kỹ thuật có thể hỗ trợ hiện thực nguyên lý này.
+
+Các hình thức DI gồm constructor injection, setter injection và method injection. Constructor injection thể hiện rõ dependency bắt buộc. Không dùng service locator thay cho DI nếu muốn các dependency được thể hiện rõ trong interface.

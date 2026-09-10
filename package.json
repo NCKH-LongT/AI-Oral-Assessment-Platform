@@ -1,0 +1,21 @@
+{
+  "name": "ai-oral-assessment-platform",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/admin-web",
+    "apps/desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/admin-web",
+    "build": "npm run build -w apps/admin-web",
+    "typecheck": "npm run typecheck -w apps/admin-web",
+    "lint": "npm run lint -w apps/admin-web",
+    "desktop": "npm run start -w apps/desktop",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "prettier": "^3.9.6"
+  }
+}

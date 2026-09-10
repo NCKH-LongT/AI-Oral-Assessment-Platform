@@ -13,6 +13,16 @@ Nền tảng thi vấn đáp với **FastAPI + Next.js + Electron**, PostgreSQL/
 
 Cần Docker Engine/Docker Desktop **đang chạy**, Docker Compose và Python 3 để tạo cấu hình. Khuyến nghị máy phát triển có ít nhất 4 CPU, 8 GB RAM; Whisper cần tải model trong lần sử dụng đầu tiên.
 
+Nếu dùng Docker Desktop trên Linux, khởi động daemon và chọn đúng context trước khi chạy Compose:
+
+```bash
+systemctl --user enable --now docker-desktop
+docker context use desktop-linux
+docker info
+```
+
+`docker info` phải hiển thị cả phần `Server`. Nếu máy cài Docker Engine thay vì Docker Desktop, dùng service `docker.service` và context `default` theo cấu hình của máy.
+
 ```bash
 git clone https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform.git
 cd AI-Oral-Assessment-Platform
@@ -232,7 +242,9 @@ tests/e2e/              Playwright: login, responsive, thi và playback
 
 | Hiện tượng | Cách kiểm tra |
 | --- | --- |
-| Không kết nối Docker daemon | Mở Docker Desktop hoặc khởi động Docker Engine, chạy `docker info` |
+| Không kết nối Docker daemon tại `/var/run/docker.sock` | Với Docker Desktop trên Linux: `systemctl --user start docker-desktop && docker context use desktop-linux`; sau đó chạy `docker info` |
+| Cổng 3000 đang được sử dụng | Dừng tiến trình web development cũ, hoặc đổi `WEB_PORT` và `ALLOWED_ORIGINS` trong `.env`; kiểm tra bằng `ss -ltnp '( sport = :3000 )'` |
+| Container `oral-assessment-*` bị trùng tên sau lần chạy lỗi | Chạy `docker compose down --remove-orphans`, rồi `docker compose up -d --wait`; lệnh này giữ nguyên volume dữ liệu |
 | Không đăng nhập được admin | Xem `.env`; bootstrap chỉ tạo lần đầu, sửa biến không đổi mật khẩu tài khoản đã có |
 | Tài liệu chờ mãi | Kiểm tra `docker compose logs worker`; worker phải chạy |
 | PDF không có nội dung | OCR file scan trước khi upload; MVP chỉ trích xuất text sẵn có |

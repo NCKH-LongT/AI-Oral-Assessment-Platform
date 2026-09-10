@@ -7,6 +7,7 @@ Nền tảng thi vấn đáp với **FastAPI + Next.js + Electron**, PostgreSQL/
 - [Hướng triển khai và các quyết định giai đoạn 1](docs/architecture/phase-1.md)
 - [Tài liệu yêu cầu gốc](AI_Oral_Assessment_PROJECT_GUIDE.md)
 - [Biên bản kiểm thử](docs/validation.md)
+- [CI thành công: Docker build, migration và E2E](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34502364619)
 
 ## 1. Chạy nhanh bằng Docker Compose
 
@@ -221,7 +222,6 @@ apps/desktop/            Electron sandbox, preload whitelist, Whisper local
 services/api/app/       Auth, CRUD, RAG/AI, exam state, upload, STT, worker
 services/api/alembic/   Migration có schema cố định
 services/api/tests/     Kiểm thử nghiệp vụ và tích hợp API
-infrastructure/        Vị trí dành cho cấu hình hạ tầng mở rộng
 docs/                   Kiến trúc, kiểm thử, tài liệu mẫu và ảnh giao diện
 scripts/setup_env.py    Tạo cấu hình ngẫu nhiên cho lần chạy đầu
 tests/e2e/              Playwright: login, responsive, thi và playback

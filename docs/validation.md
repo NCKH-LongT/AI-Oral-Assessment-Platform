@@ -14,6 +14,8 @@ Ngày kiểm tra: 10/09/2026. Chỉ ghi kết quả đã chạy; kiểm thử AI
 | Cùng bộ test trên PostgreSQL 16 + pgvector 0.8.2 | Đạt |
 | Alembic upgrade → downgrade → upgrade trên PostgreSQL | Đạt |
 | Compose parse/validation | Đạt |
+| Docker build API/web + khởi động toàn bộ Compose trên GitHub Actions | Đạt |
+| Playwright trên Compose với PostgreSQL/Redis/MinIO thật | 2/2 test đạt |
 | Whisper tiny CPU: nhận dạng file giọng nói tiếng Anh thật | Đạt; nhận dạng đúng nội dung mẫu |
 | Playwright: đăng nhập, tạo môn qua UI, layout mobile | Đạt |
 | Playwright: preview không ghi, ghi từng câu, nộp transcript/media, phát audio/video thật | Đạt |
@@ -37,4 +39,6 @@ Ngày kiểm tra: 10/09/2026. Chỉ ghi kết quả đã chạy; kiểm thử AI
 - 100 bài synthetic để qua Phase Gate, load test lớp học, mất mạng/crash và recovery.
 - Chất lượng trên PDF scan (MVP không OCR), installer Electron ký số, cấu hình HTTPS theo domain cụ thể.
 
-Docker daemon không có trên máy phát triển. Workflow `MVP checks` có job build image, khởi động Compose (PostgreSQL/Redis/MinIO/API/worker/web) và chạy browser E2E. Kết quả CI được cập nhật sau khi đẩy repository.
+Docker daemon không có trên máy phát triển; việc build và chạy Compose đã được xác minh trên GitHub Actions. Cả hai job `checks` và `compose-e2e` thành công trên commit `7d298b6`.
+
+[CI đã chạy thành công: MVP checks #1](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34502364619). Bộ kiểm tra này gồm migration PostgreSQL, Ruff, 9 test API, TypeScript, ESLint, production build, Electron syntax, npm audit và 2 bài Playwright trên Docker Compose. STT bằng audio thật được kiểm tra riêng ở máy local; test trình duyệt stub STT và dùng Gemini demo.

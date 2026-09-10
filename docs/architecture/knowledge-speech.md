@@ -46,6 +46,14 @@ Module audio dùng chung cho server và subprocess desktop. FFmpeg lọc highpas
 
 Google adapter dùng OAuth service-account credentials ở backend và REST `v1/speech:recognize`; chia PCM 55 giây/đoạn, không bỏ phần cuối. Không tự fallback nhà cung cấp khi lỗi. Không có credentials Google trong admin response hoặc IPC. STT và Gemini chấm là hai cấu hình độc lập; demo chấm vẫn có thể dùng Google STT khi admin chọn.
 
+### Upload credentials từ admin
+
+`POST /admin/settings/speech/google-credentials` nhận multipart `file` tối đa 64 KB, chỉ ADMIN. Kiểm tra JSON service account, project/email/key ID/private key, token URI cố định `https://oauth2.googleapis.com/token`, domain `googleapis.com` và parse khóa bằng Google auth. Không dùng URL do JSON tùy ý cung cấp để gửi private key/token. Lỗi trả thông báo chung không chứa nội dung file; upload không gọi Google hoặc đổi STT policy.
+
+Khóa lưu riêng ở `DATA_DIR/secrets/google-stt.json` (600, thư mục 700), ghi file tạm và atomic replace. Không lưu private key trong database, audit, response hoặc endpoint download. Audit chỉ lưu người upload, project và email service account. Compose dùng volume `app_data` sẵn có cho API/worker cùng UID; mỗi lần STT đọc credentials hiện tại nên không phải restart. Triển khai nhiều host cần filesystem dùng chung và sao lưu volume chứa khóa.
+
+File upload được ưu tiên trước file cấu hình bằng biến môi trường. File upload còn tồn tại nhưng lỗi/không đọc được không tự chuyển sang tài khoản cũ. Admin thấy `ready`, `missing`, `unreadable` hoặc `invalid`, nguồn upload/environment và metadata công khai khi file hợp lệ; `ready` chỉ xác nhận file/khóa đọc được, không xác nhận API/billing/quota. Không có migration mới cho chức năng này.
+
 `review_jobs` là hàng đợi database bền vững. Chỉ ADMIN tạo job cho câu đã GRADED thuộc bài đã nộp, có AUDIO COMPLETED; bắt buộc lý do. Yêu cầu lặp khi job còn PENDING trả cùng ID. Worker kiểm tra checksum audio gốc, nhận dạng Google, chấm theo snapshot rồi lưu kết quả trước/sau và audit. Trong khi chờ, chưa công nhận điểm cuối. Lỗi giữ đánh giá trước và cho phép tạo lần thử mới; job đã hoàn thành/lỗi không bị ghi đè. Transcript sinh viên và payload idempotency không thay đổi. Worker crash rollback giao dịch, có thể gọi lại nhà cung cấp khi chạy tiếp.
 
 UI xem bài hiển thị transcript sinh viên, transcript Google dùng cho đánh giá hiện tại, audio/video, điểm và lịch sử. Spinner STT/nộp câu trả lời dùng `role=status`; khóa textarea, ghi lại và thử STT trong lúc nộp.

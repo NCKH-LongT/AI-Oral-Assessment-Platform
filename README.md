@@ -136,7 +136,19 @@ Audio gốc → bản WAV mono 16 kHz → lọc nhiễu/chuẩn hóa âm lượn
 
 Google STT dùng credentials riêng, **không dùng `GEMINI_API_KEY`**. Bật Cloud Speech-to-Text API và billing trong Google Cloud, tạo service account có quyền gọi Speech-to-Text, lưu JSON credentials ngoài Git. Tham khảo [xác thực Google Cloud STT](https://docs.cloud.google.com/speech-to-text/docs/v1/authentication).
 
-Trong `.env`, đặt đường dẫn tuyệt đối tới file trên máy host:
+**Upload trực tiếp từ admin (khuyến nghị):**
+
+1. Vào **Cấu hình giọng nói → Credentials Google Cloud**.
+2. Chọn file JSON **service account**, tối đa **64 KB**, bấm **Upload JSON Google** hoặc **Thay file JSON Google**.
+3. Kiểm tra trạng thái **Đọc được credentials hợp lệ**, project và email tài khoản. Chọn **Google Cloud Speech-to-Text** rồi **Lưu cấu hình STT**, hoặc dùng Google nhận dạng lại trong trang xem bài.
+
+API kiểm tra JSON, loại tài khoản, token URI của Google và private key trước khi lưu. File không hợp lệ không thay thế credentials đang hoạt động. Chỉ ADMIN được upload; không có chức năng tải lại private key từ web. Upload không tự đổi provider và không tự bật API/billing trên Google Cloud.
+
+Credentials upload lưu tại `DATA_DIR/secrets/google-stt.json`, quyền file `600`, thư mục `700`; cập nhật bằng thay file nguyên khối để worker không đọc phải bản đang ghi dở. Compose đã chia sẻ volume `app_data` giữa API và worker nên **không cần sửa `.env`, mount file host hay restart** khi upload/thay khóa. File upload được ưu tiên hơn `GOOGLE_STT_CREDENTIALS_FILE`. Trạng thái hiển thị kiểm tra file/private key, chưa chứng minh quyền truy cập hoặc quota của Google.
+
+Giữ và sao lưu volume `app_data` khi chuyển máy chủ; xóa volume hoặc mất quyền đọc vẫn có thể làm mất cấu hình và cần upload lại. Khi triển khai nhiều máy, API và worker phải dùng chung filesystem chứa `DATA_DIR/secrets`. Không đưa JSON hoặc backup chứa khóa lên Git.
+
+**Cách gắn file trên host vẫn được hỗ trợ:** trong `.env`, đặt đường dẫn tuyệt đối tới file:
 
 ```dotenv
 GOOGLE_STT_CREDENTIALS_HOST_FILE=/absolute/path/google-stt.json
@@ -150,7 +162,7 @@ docker compose -f docker-compose.yml -f docker-compose.google.yml up -d --build 
 
 Compose gắn credentials chỉ đọc vào API và worker. Sau đó admin chọn **Google Cloud Speech-to-Text**, hoặc dùng nút Google trong trang xem bài. Khi triển khai native, đặt `GOOGLE_STT_CREDENTIALS_FILE=/absolute/path/google-stt.json` cho cả API và worker. Source không đưa credentials vào frontend/Electron.
 
-Adapter gửi PCM thành các đoạn tối đa 55 giây để đáp ứng [giới hạn nhận dạng đồng bộ của Google](https://docs.cloud.google.com/speech-to-text/docs/v1/quotas). Chia đoạn cố định có thể ảnh hưởng từ ngay tại ranh giới; cần kiểm tra transcript với audio khi chấm lại. Chọn Google sẽ gửi audio đã xử lý ra Google Cloud và có thể phát sinh phí. Chưa xác nhận chất lượng bằng credentials thật trong bộ kiểm thử này.
+Adapter gửi PCM thành các đoạn tối đa 55 giây để đáp ứng [giới hạn nhận dạng đồng bộ của Google](https://docs.cloud.google.com/speech-to-text/docs/v1/quotas). Chia đoạn cố định có thể ảnh hưởng từ ngay tại ranh giới; cần kiểm tra transcript với audio khi chấm lại. Chọn Google sẽ gửi audio đã xử lý ra Google Cloud và có thể phát sinh phí. Đã thử kết nối/nhận dạng thành công với credentials thật và mẫu tiếng Anh 11 giây; chưa đánh giá chất lượng tiếng Việt trong lớp học.
 
 ## 4. Chạy Electron với STT local
 

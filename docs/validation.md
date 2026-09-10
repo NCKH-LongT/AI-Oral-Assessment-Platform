@@ -1,5 +1,17 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Upload credentials Google qua admin — 11/09/2026
+
+- 20 test API/audio/migration/seed đạt trên SQLite và PostgreSQL/pgvector; database PostgreSQL kiểm thử tách riêng dữ liệu ứng dụng.
+- Kiểm tra chỉ ADMIN được upload, JSON tối đa 64 KB, cấu trúc service account/private key/token URI, không trả khóa bí mật qua API hoặc audit. JSON lỗi và lỗi ghi file giữ nguyên credentials cũ.
+- Kiểm tra file quyền `600`, thư mục `700`, ưu tiên file upload so với cấu hình môi trường; các trạng thái thiếu, không đọc được và không hợp lệ; một tiến trình Python mới đọc được credentials đã lưu.
+- Upload file service account thật thành công qua trình duyệt; worker đọc được ngay từ volume dùng chung. Sau khi bỏ mount file host và tạo lại container API/worker, credentials vẫn sẵn sàng.
+- Google Cloud STT thật nhận dạng thành công mẫu tiếng Anh JFK 11 giây với credentials upload sau khi tạo lại container. Trạng thái cấu hình vẫn là `local_server`; upload không tự đổi provider.
+- Docker build và Compose health đạt; Ruff, TypeScript, ESLint và `git diff --check` đạt.
+- Playwright trên Compose: 2/2 test đạt, bao gồm upload JSON lỗi qua giao diện và xác nhận credentials đang dùng được giữ nguyên. Ảnh trang [cấu hình STT](screenshots/speech-settings.png) đã che metadata tài khoản thật.
+
+Trạng thái credentials trên giao diện kiểm tra khả năng đọc và tính hợp lệ của file/key; không thay thế kiểm tra quyền, API, billing hoặc quota trên Google Cloud. Chưa đánh giá chất lượng tiếng Việt trong lớp học từ thử nghiệm mẫu tiếng Anh.
+
 ## Bản mở rộng giáo trình & STT — 11/09/2026
 
 | Hạng mục đã chạy                                                               | Kết quả                                                                           |
@@ -22,7 +34,7 @@ STT policy được kiểm tra quyền admin, lưu/đọc cấu hình, yêu cầ
 
 Playwright kiểm tra upload PDF, chọn hai LO/hai chương/hai tài liệu, trang cấu hình có ba provider, layout mobile, spinner khi STT/nộp, khóa sửa transcript/ghi lại khi bận và phát WebM audio/video. Audio/video là bản ghi thật từ thiết bị giả lập Chromium; STT browser được stub để không phụ thuộc mạng/model. Ảnh: [kiến thức](screenshots/knowledge.png), [cấu hình STT](screenshots/speech-settings.png), [xem bài](screenshots/review.png).
 
-Chưa xác nhận bằng credentials thật: Google Cloud STT, Gemini chấm và chất lượng tiếng Việt trong lớp có tạp âm. Bộ lọc giảm nhiễu không phải source separation; không bảo đảm tách được người khác nói chồng. Chưa kiểm tra Electron GUI Windows/macOS, microphone/camera phần cứng và tải đồng thời cả lớp. Playwright Electron sử dụng cấu hình khởi chạy kiểm thử của Playwright; không thay thế kiểm thử sandbox/installer production.
+Tại thời điểm kiểm tra bản mở rộng này, chưa xác nhận bằng credentials thật: Google Cloud STT, Gemini chấm và chất lượng tiếng Việt trong lớp có tạp âm. Google Cloud STT đã được kiểm tra bổ sung trong mục upload credentials phía trên. Bộ lọc giảm nhiễu không phải source separation; không bảo đảm tách được người khác nói chồng. Chưa kiểm tra Electron GUI Windows/macOS, microphone/camera phần cứng và tải đồng thời cả lớp. Playwright Electron sử dụng cấu hình khởi chạy kiểm thử của Playwright; không thay thế kiểm thử sandbox/installer production.
 
 ## Biên bản MVP ban đầu
 

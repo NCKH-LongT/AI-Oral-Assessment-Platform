@@ -7,6 +7,7 @@ os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "sqlite://")
 os.environ["AI_PROVIDER"] = "demo"
 os.environ["REDIS_URL"] = ""
 os.environ["STORAGE_BACKEND"] = "local"
+os.environ["GOOGLE_STT_CREDENTIALS_FILE"] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

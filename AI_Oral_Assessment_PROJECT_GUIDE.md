@@ -1,6 +1,8 @@
 # AI Oral Assessment Platform
 ## Project Guide for Codex / AI Coding Agent
 
+> **Bổ sung cấu hình Google:** ADMIN có thể upload/thay JSON service account trực tiếp từ trang Cấu hình giọng nói. Credentials nằm trong volume riêng của ứng dụng, dùng chung API/worker, không trả private key về web và không đưa vào Git. Xem [README](README.md#google-cloud-speech-to-text).
+
 > Tài liệu này là nguồn mô tả kiến trúc và kế hoạch triển khai chính của dự án.
 > Mục tiêu là để Codex hoặc AI Coding Agent có thể đọc tài liệu này, hiểu hệ thống, chia nhỏ công việc và xây dựng theo từng giai đoạn mà không phá vỡ kiến trúc tổng thể.
 

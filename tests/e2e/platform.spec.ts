@@ -160,13 +160,11 @@ test("login, responsive layout and admin course form", async ({ page }) => {
       has: page.getByRole("heading", { name: courseName, exact: true }),
     })
     .click();
-  await page
-    .getByLabel("File giáo trình (tối đa 100 MB)")
-    .setInputFiles({
-      name: "textbook.pdf",
-      mimeType: "application/pdf",
-      buffer: textbookPDF(),
-    });
+  await page.getByLabel("File giáo trình (tối đa 100 MB)").setInputFiles({
+    name: "textbook.pdf",
+    mimeType: "application/pdf",
+    buffer: textbookPDF(),
+  });
   await page
     .getByRole("button", { name: "Tải giáo trình PDF", exact: true })
     .click();
@@ -184,13 +182,11 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     await expect(page.getByText(code, { exact: true })).toBeVisible();
   }
   for (const name of ["notes-a.txt", "notes-b.txt"]) {
-    await page
-      .getByLabel("Tài liệu (tối đa 20 MB)")
-      .setInputFiles({
-        name,
-        mimeType: "text/plain",
-        buffer: Buffer.from("Dependency injection improves testability"),
-      });
+    await page.getByLabel("Tài liệu (tối đa 20 MB)").setInputFiles({
+      name,
+      mimeType: "text/plain",
+      buffer: Buffer.from("Dependency injection improves testability"),
+    });
     await page
       .getByRole("button", { name: "Tải tài liệu lên", exact: true })
       .click();
@@ -227,9 +223,35 @@ test("login, responsive layout and admin course form", async ({ page }) => {
   await expect(
     page.getByLabel("Nhà cung cấp STT").locator("option"),
   ).toHaveCount(3);
+  const beforeCredentials = await (
+    await page.request.get("/api/admin/settings/speech")
+  ).json();
+  await page
+    .getByLabel("File JSON service account Google (tối đa 64 KB)")
+    .setInputFiles({
+      name: "invalid-google.json",
+      mimeType: "application/json",
+      buffer: Buffer.from('{"type":"authorized_user"}'),
+    });
+  await page
+    .getByRole("button", {
+      name: /^(Upload JSON Google|Thay file JSON Google)$/,
+    })
+    .click();
+  await expect(page.locator("p[role=alert]")).toContainText(
+    "JSON service account không hợp lệ",
+  );
+  const afterCredentials = await (
+    await page.request.get("/api/admin/settings/speech")
+  ).json();
+  expect(afterCredentials.google_credentials).toEqual(
+    beforeCredentials.google_credentials,
+  );
   await page.screenshot({
     path: "docs/screenshots/speech-settings.png",
     fullPage: true,
+    mask: [page.getByText(/^Project:/)],
+    maskColor: "#eef2ef",
   });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(

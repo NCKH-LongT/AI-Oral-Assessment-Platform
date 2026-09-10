@@ -10,9 +10,10 @@ from pathlib import Path
 from threading import Lock
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
+from . import google_credentials
 from .audio_processing import prepare_audio
 from .config import settings
 from .db import get_db
@@ -32,8 +33,16 @@ def policy(db):
 
 
 def google_ready():
-    filename = settings().google_stt_credentials_file
-    return bool(filename and Path(filename).is_file())
+    return google_credentials.status()["status"] == "ready"
+
+
+def settings_view(db):
+    credentials = google_credentials.status()
+    return policy(db) | {
+        "google_configured": credentials["status"] == "ready",
+        "google_credentials": credentials,
+        "server_model": settings().stt_model,
+    }
 
 
 @router.get("/stt/config")
@@ -43,17 +52,47 @@ def speech_config(db: Session = Depends(get_db), user=Depends(current_user)):
 
 @router.get("/admin/settings/speech")
 def speech_settings(db: Session = Depends(get_db), user=Depends(admin)):
-    return policy(db) | {"google_configured": google_ready(), "server_model": settings().stt_model}
+    return settings_view(db)
 
 
 @router.put("/admin/settings/speech")
 def save_speech_settings(body: SpeechPolicy, db: Session = Depends(get_db), user=Depends(admin)):
     if body.provider == "google" and not google_ready():
-        fail(422, "GOOGLE_NOT_CONFIGURED", "Cần cấu hình GOOGLE_STT_CREDENTIALS_FILE trên API và worker")
+        fail(
+            422,
+            "GOOGLE_NOT_CONFIGURED",
+            "Chưa đọc được credentials Google hợp lệ. Upload JSON trong Cấu hình giọng nói",
+        )
     db.merge(SystemSetting(key="speech", value=body.model_dump()))
     db.add(Audit(user_id=user.id, event="SPEECH_SETTINGS_UPDATED", details=body.model_dump()))
     db.commit()
-    return body.model_dump() | {"google_configured": google_ready(), "server_model": settings().stt_model}
+    return settings_view(db)
+
+
+@router.post("/admin/settings/speech/google-credentials")
+def upload_google_credentials(file: UploadFile = File(), db: Session = Depends(get_db), user=Depends(admin)):
+    if not (file.filename or "").lower().endswith(".json"):
+        fail(422, "INVALID_CREDENTIALS_FILE", "Chọn file JSON service account của Google")
+    raw = file.file.read(google_credentials.MAX_BYTES + 1)
+    if not raw or len(raw) > google_credentials.MAX_BYTES:
+        fail(413, "CREDENTIALS_SIZE", "File credentials phải có nội dung và không vượt 64 KB")
+    try:
+        metadata = google_credentials.save(raw)
+    except (ValueError, TypeError, KeyError):
+        fail(
+            422,
+            "INVALID_GOOGLE_CREDENTIALS",
+            "JSON service account không hợp lệ: kiểm tra project, email, private key và token URI Google. File đang dùng được giữ nguyên",
+        )
+    except OSError:
+        fail(
+            503,
+            "CREDENTIALS_STORAGE_FAILED",
+            "Không lưu được credentials. Kiểm tra quyền ghi DATA_DIR của API và volume dùng chung với worker",
+        )
+    db.add(Audit(user_id=user.id, event="GOOGLE_CREDENTIALS_UPLOADED", details=metadata))
+    db.commit()
+    return settings_view(db)
 
 
 @lru_cache
@@ -78,14 +117,10 @@ def whisper(path, language):
 
 def google_transcribe(path, language):
     from google.auth.transport.requests import Request
-    from google.oauth2 import service_account
 
     if not google_ready():
         raise ValueError("Google STT credentials missing")
-    credentials = service_account.Credentials.from_service_account_file(
-        settings().google_stt_credentials_file,
-        scopes=["https://www.googleapis.com/auth/cloud-platform"],
-    )
+    credentials = google_credentials.load()
     credentials.refresh(Request())
     texts, confidences = [], []
     deadline = time.monotonic() + 240

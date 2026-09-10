@@ -5,12 +5,19 @@ import { Empty, Form } from "./shared";
 
 type Settings = SpeechPolicy & {
   google_configured: boolean;
+  google_credentials: {
+    status: "ready" | "missing" | "unreadable" | "invalid";
+    source: "upload" | "environment" | "none";
+    project_id?: string;
+    client_email?: string;
+  };
   server_model: string;
 };
 export default function SpeechSettings() {
   const [value, setValue] = useState<Settings | null>(null),
     [error, setError] = useState(""),
-    [saved, setSaved] = useState(false);
+    [saved, setSaved] = useState(false),
+    [uploaded, setUploaded] = useState(false);
   useEffect(() => {
     api<Settings>("/admin/settings/speech")
       .then(setValue)
@@ -24,6 +31,76 @@ export default function SpeechSettings() {
         Áp dụng cho lần nhận dạng tiếp theo trên web và desktop. Audio/video gốc
         luôn được lưu để đối chiếu.
       </p>
+      <section className="panel">
+        <h2>Credentials Google Cloud</h2>
+        <p role="status">
+          {
+            {
+              ready: "Đọc được credentials hợp lệ",
+              missing: "Chưa tìm thấy file credentials",
+              unreadable: "Không đọc được file credentials",
+              invalid: "File credentials không hợp lệ",
+            }[value.google_credentials.status]
+          }
+        </p>
+        {value.google_configured && (
+          <p style={{ overflowWrap: "anywhere" }}>
+            Project: <strong>{value.google_credentials.project_id}</strong>
+            <br />
+            Tài khoản: {value.google_credentials.client_email}
+            <br />
+            Nguồn:{" "}
+            {value.google_credentials.source === "upload"
+              ? "Upload từ admin, lưu trong hệ thống"
+              : "File cấu hình trên máy chủ"}
+          </p>
+        )}
+        <Form
+          label={
+            value.google_configured
+              ? "Thay file JSON Google"
+              : "Upload JSON Google"
+          }
+          onSubmit={async (d) => {
+            setUploaded(false);
+            const file = d.get("file");
+            if (!(file instanceof File) || !file.size || file.size > 64 * 1024)
+              throw new Error("Chọn file JSON có nội dung, tối đa 64 KB.");
+            setValue(
+              await api<Settings>("/admin/settings/speech/google-credentials", {
+                method: "POST",
+                body: d,
+              }),
+            );
+            setUploaded(true);
+          }}
+        >
+          <label>
+            File JSON service account Google (tối đa 64 KB)
+            <input
+              type="file"
+              name="file"
+              accept=".json,application/json"
+              required
+            />
+          </label>
+          <p className="muted">
+            File được lưu riêng để API và worker cùng dùng, giữ lại khi khởi
+            động lại Docker. JSON lỗi sẽ không thay thế file đang hoạt động.
+            Khóa bí mật không được hiển thị hoặc tải xuống từ web.
+          </p>
+        </Form>
+        {uploaded && (
+          <p role="status">
+            Đã lưu credentials Google. Không cần khởi động lại API hoặc worker.
+          </p>
+        )}
+        <p className="muted">
+          Trạng thái trên kiểm tra file và private key. Google Cloud vẫn cần bật
+          Speech-to-Text API, billing và cấp quyền phù hợp. Upload file không
+          đổi nhà cung cấp STT đã chọn.
+        </p>
+      </section>
       <Form
         label="Lưu cấu hình STT"
         onSubmit={async (d) => {
@@ -78,9 +155,8 @@ export default function SpeechSettings() {
         </p>
         <p className="muted">
           Server nội bộ: model {value.server_model}.{" "}
-          {value.google_configured
-            ? "Đã gắn tệp credentials Google trên server."
-            : "Google chưa cấu hình. Làm theo README để gắn credentials cho API và worker."}
+          {!value.google_configured &&
+            "Upload JSON Google ở phía trên để sử dụng Google STT."}
         </p>
         <p className="muted">
           Khi chọn Google, bản audio dùng nhận dạng được gửi tới Google Cloud và

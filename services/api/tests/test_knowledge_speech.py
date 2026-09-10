@@ -249,13 +249,11 @@ def test_real_audio_filter_preserves_original_and_reduces_rumble(tmp_path):
 
 
 def test_google_splits_long_audio_without_loss(tmp_path, monkeypatch):
-    from google.oauth2 import service_account
-
     calls = []
     monkeypatch.setattr(speech, "google_ready", lambda: True)
     monkeypatch.setattr(
-        service_account.Credentials,
-        "from_service_account_file",
+        speech.google_credentials,
+        "load",
         lambda *a, **k: SimpleNamespace(token="test-token", refresh=lambda _: None),
     )
     real_client = httpx.Client

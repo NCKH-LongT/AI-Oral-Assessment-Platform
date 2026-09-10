@@ -583,7 +583,11 @@ def google_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), use
     if session.status not in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"} or attempt.status != "GRADED":
         fail(409, "NOT_FINISHED", "Chờ sinh viên nộp bài và hoàn tất chấm lần đầu")
     if not google_ready():
-        fail(422, "GOOGLE_NOT_CONFIGURED", "Cần cấu hình Google Cloud Speech-to-Text trên API và worker")
+        fail(
+            422,
+            "GOOGLE_NOT_CONFIGURED",
+            "Upload JSON Google hợp lệ trong Cấu hình giọng nói trước khi nhận dạng lại",
+        )
     existing = db.scalar(select(ReviewJob).where(ReviewJob.attempt_id == key, ReviewJob.status == "PENDING"))
     if existing:
         return data(existing, "status")

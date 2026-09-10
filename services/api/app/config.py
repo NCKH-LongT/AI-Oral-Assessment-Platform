@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     confidence_threshold: float = Field(default=0.85, ge=0, le=1)
     stt_model: str = "base"
     stt_language: str = "vi"
+    google_stt_credentials_file: str = ""
     max_document_mb: int = 20
+    max_textbook_mb: int = 100
     media_chunk_bytes: int = 4 * 1024 * 1024
     max_media_mb: int = 200
     bootstrap_admin: str = "admin"

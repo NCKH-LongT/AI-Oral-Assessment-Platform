@@ -6,16 +6,26 @@ import {
   Clock3,
   GraduationCap,
   Mic,
+  LoaderCircle,
   Square,
   UploadCloud,
 } from "lucide-react";
-import { api, send, errorText, ExamSession, StudentExam } from "./api";
+import {
+  api,
+  send,
+  errorText,
+  ExamSession,
+  StudentExam,
+  SpeechPolicy,
+} from "./api";
 import { Action, Badge, Empty } from "./shared";
 
 type STT = { transcript: string; stt_confidence: number };
 declare global {
   interface Window {
-    oralDesktop?: { transcribe: (audio: ArrayBuffer) => Promise<STT> };
+    oralDesktop?: {
+      transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
+    };
   }
 }
 type PendingAnswer = {
@@ -57,7 +67,9 @@ export default function Student() {
   const [stream, setStream] = useState<MediaStream | null>(null),
     [micLevel, setMicLevel] = useState(0),
     [recording, setRecording] = useState(false),
-    [processing, setProcessing] = useState(false);
+    [processing, setProcessing] = useState(false),
+    [submitting, setSubmitting] = useState(false),
+    [speechStage, setSpeechStage] = useState("Đang tải cấu hình nhận dạng…");
   const [answer, setAnswer] = useState<PendingAnswer | null>(null),
     [jobs, setJobs] = useState<UploadJob[]>([]),
     [remaining, setRemaining] = useState(0),
@@ -181,8 +193,23 @@ export default function Student() {
     setStream(s);
   }
   async function transcribe(audio: Blob): Promise<STT> {
-    if (window.oralDesktop)
-      return window.oralDesktop.transcribe(await audio.arrayBuffer());
+    setSpeechStage("Đang tải cấu hình nhận dạng…");
+    const policy = await api<SpeechPolicy>("/stt/config");
+    const providerLabel = {
+      local: "Whisper trên máy của bạn",
+      google: "Google",
+      local_server: "Whisper trên server",
+    }[policy.provider];
+    setSpeechStage(
+      `${policy.preprocessing === "denoise" ? "Đang lọc nhiễu và nhận dạng" : "Đang nhận dạng"} bằng ${providerLabel}. Vui lòng đợi…`,
+    );
+    if (policy.provider === "local") {
+      if (!window.oralDesktop)
+        throw new Error(
+          "Admin chọn STT local. Vui lòng dùng ứng dụng desktop để nhận dạng.",
+        );
+      return window.oralDesktop.transcribe(await audio.arrayBuffer(), policy);
+    }
     const form = new FormData();
     form.set("file", audio, "answer.webm");
     return api<STT>("/stt", { method: "POST", body: form });
@@ -325,32 +352,37 @@ export default function Student() {
     }
   }
   async function submit() {
-    if (!answer || !session) return;
+    if (!answer || !session || submitting || processing) return;
     if (!answer.audio.size || !answer.video.size)
       throw new Error("Media rỗng. Vui lòng ghi âm lại.");
-    const confidence =
-      answer.transcript === answer.originalText ? answer.confidence : 0;
-    await api(`/question-attempts/${answer.attemptId}/submit`, {
-      method: "POST",
-      body: JSON.stringify({
-        transcript: answer.transcript,
-        stt_confidence: confidence,
-      }),
-      headers: { "Idempotency-Key": answer.key },
-    });
-    const added: UploadJob[] = (["AUDIO", "VIDEO"] as const).map((kind) => ({
-      id: crypto.randomUUID(),
-      attemptId: answer.attemptId,
-      kind,
-      blob: kind === "AUDIO" ? answer.audio : answer.video,
-      progress: 0,
-      status: "pending",
-    }));
-    setJobs((all) => [...all, ...added]);
-    setAnswer(null);
-    setError("");
-    added.forEach((j) => void runUpload(j));
-    await refreshSession(session.id);
+    setSubmitting(true);
+    try {
+      const confidence =
+        answer.transcript === answer.originalText ? answer.confidence : 0;
+      await api(`/question-attempts/${answer.attemptId}/submit`, {
+        method: "POST",
+        body: JSON.stringify({
+          transcript: answer.transcript,
+          stt_confidence: confidence,
+        }),
+        headers: { "Idempotency-Key": answer.key },
+      });
+      const added: UploadJob[] = (["AUDIO", "VIDEO"] as const).map((kind) => ({
+        id: crypto.randomUUID(),
+        attemptId: answer.attemptId,
+        kind,
+        blob: kind === "AUDIO" ? answer.audio : answer.video,
+        progress: 0,
+        status: "pending",
+      }));
+      setJobs((all) => [...all, ...added]);
+      setAnswer(null);
+      setError("");
+      added.forEach((j) => void runUpload(j));
+      await refreshSession(session.id);
+    } finally {
+      setSubmitting(false);
+    }
   }
   if (!session)
     return (
@@ -505,7 +537,23 @@ export default function Student() {
                       Đang ghi âm và ghi hình
                     </>
                   ) : processing ? (
-                    "Đang chuyển giọng nói thành văn bản…"
+                    <span
+                      role="status"
+                      aria-live="polite"
+                      className="processing-status"
+                    >
+                      <LoaderCircle className="spin" size={20} />
+                      {speechStage}
+                    </span>
+                  ) : submitting ? (
+                    <span
+                      role="status"
+                      aria-live="polite"
+                      className="processing-status"
+                    >
+                      <LoaderCircle className="spin" size={20} />
+                      Đang nộp câu trả lời, vui lòng đợi…
+                    </span>
                   ) : answer ? (
                     "Kiểm tra transcript trước khi nộp"
                   ) : (
@@ -514,6 +562,7 @@ export default function Student() {
                 </div>
                 {!answer &&
                   !processing &&
+                  !submitting &&
                   (recording ? (
                     <button
                       className="button stop"
@@ -537,7 +586,7 @@ export default function Student() {
                       Transcript
                       <textarea
                         rows={7}
-                        disabled={processing}
+                        disabled={processing || submitting}
                         value={answer.transcript}
                         onChange={(e) =>
                           setAnswer({ ...answer, transcript: e.target.value })
@@ -551,13 +600,15 @@ export default function Student() {
                     </p>
                     <div className="inline">
                       <Action
-                        disabled={processing || !answer.transcript.trim()}
+                        disabled={
+                          processing || submitting || !answer.transcript.trim()
+                        }
                         action={submit}
                       >
                         Nộp câu trả lời & tiếp tục →
                       </Action>
                       <Action
-                        disabled={processing}
+                        disabled={processing || submitting}
                         className="button secondary"
                         action={async () => {
                           setProcessing(true);
@@ -578,7 +629,7 @@ export default function Student() {
                         Thử STT lại
                       </Action>
                       <button
-                        disabled={processing}
+                        disabled={processing || submitting}
                         className="text-button"
                         onClick={() => {
                           setAnswer(null);
@@ -647,7 +698,7 @@ export default function Student() {
               </small>
               {deviceError && <p className="error">{deviceError}</p>}
               <Action
-                disabled={recording || processing}
+                disabled={recording || processing || submitting}
                 className="button secondary"
                 action={devices}
               >

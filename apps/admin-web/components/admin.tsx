@@ -27,6 +27,9 @@ import {
   Exam,
 } from "./api";
 import { Action, Badge, Empty, Field, Form } from "./shared";
+import { TextbookPanel, TopicPanel } from "./knowledge";
+import SpeechSettings from "./speech-settings";
+import { GoogleReview } from "./google-review";
 
 export default function Admin({
   user,
@@ -80,8 +83,7 @@ export default function Admin({
   useEffect(() => {
     if (page !== "results") return;
     const timer = setInterval(() => {
-
-    void load();
+      void load();
       if (review)
         api<Review>(`/admin/results/${review.id}`)
           .then(setReview)
@@ -90,6 +92,7 @@ export default function Admin({
     return () => clearInterval(timer);
   }, [page, load, review?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (loading) return <Empty>Đang tải dữ liệu…</Empty>;
+  if (page === "speech" && user.role === "ADMIN") return <SpeechSettings />;
   if (selected && page === "courses")
     return (
       <CourseWorkspace
@@ -99,12 +102,21 @@ export default function Admin({
         back={() => {
           setSelected(null);
 
-    void load();
+          void load();
         }}
       />
     );
   if (review && page === "results")
-    return <ReviewPage review={review} back={() => setReview(null)} />;
+    return (
+      <ReviewPage
+        review={review}
+        admin={user.role === "ADMIN"}
+        refresh={async () =>
+          setReview(await api<Review>(`/admin/results/${review.id}`))
+        }
+        back={() => setReview(null)}
+      />
+    );
   return (
     <>
       {error && (
@@ -556,6 +568,12 @@ function CourseWorkspace({
       </div>
       {tab === "knowledge" && (
         <>
+          <TextbookPanel
+            courseId={course.id}
+            data={data}
+            editable={editable}
+            reload={load}
+          />
           <div className="two-col">
             <section className="panel">
               <h2>Chuẩn đầu ra (LO)</h2>
@@ -601,60 +619,12 @@ function CourseWorkspace({
                 </Form>
               )}
             </section>
-            <section className="panel">
-              <h2>Chủ đề</h2>
-              {data.topics.map((t) => (
-                <div className="list-item" key={t.id}>
-                  <div>
-                    <strong>{t.name}</strong>
-                    <p>
-                      {
-                        data.outcomes.find(
-                          (l) => l.id === t.learning_outcome_id,
-                        )?.code
-                      }{" "}
-                      · {t.description}
-                    </p>
-                  </div>
-                  {editable && (
-                    <Action
-                      className="text-button danger"
-                      action={() =>
-                        mutate(`/admin/topics/${t.id}`, undefined, "DELETE")
-                      }
-                    >
-                      Xóa
-                    </Action>
-                  )}
-                </div>
-              ))}
-              {editable && (
-                <Form
-                  label="Thêm chủ đề"
-                  onSubmit={(d) =>
-                    mutate(`/admin/courses/${course.id}/topics`, {
-                      name: d.get("name"),
-                      description: d.get("description"),
-                      learning_outcome_id: d.get("learning_outcome_id"),
-                    })
-                  }
-                >
-                  <Field label="Tên chủ đề" name="name" />
-                  <label>
-                    Chuẩn đầu ra
-                    <select name="learning_outcome_id" required>
-                      <option value="">Chọn LO</option>
-                      {data.outcomes.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.code}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <Field label="Mô tả" name="description" required={false} />
-                </Form>
-              )}
-            </section>
+            <TopicPanel
+              courseId={course.id}
+              data={data}
+              editable={editable}
+              reload={load}
+            />
           </div>
           <section className="panel">
             <div className="section-title">
@@ -669,6 +639,7 @@ function CourseWorkspace({
               <Form
                 label="Tải tài liệu lên"
                 onSubmit={async (d) => {
+                  if (!d.get("topic_id")) d.delete("topic_id");
                   await api(`/admin/courses/${course.id}/documents`, {
                     method: "POST",
                     body: d,
@@ -679,8 +650,8 @@ function CourseWorkspace({
                 <div className="form-grid">
                   <label>
                     Chủ đề
-                    <select name="topic_id" required>
-                      <option value="">Chọn chủ đề</option>
+                    <select name="topic_id">
+                      <option value="">Lưu vào môn học, gắn chủ đề sau</option>
                       {data.topics.map((t) => (
                         <option value={t.id} key={t.id}>
                           {t.name}
@@ -1252,7 +1223,17 @@ function ExamForm({
     </section>
   );
 }
-function ReviewPage({ review, back }: { review: Review; back: () => void }) {
+function ReviewPage({
+  review,
+  back,
+  admin,
+  refresh,
+}: {
+  review: Review;
+  back: () => void;
+  admin: boolean;
+  refresh: () => Promise<void>;
+}) {
   return (
     <>
       <button className="text-button back" onClick={back}>
@@ -1293,7 +1274,7 @@ function ReviewPage({ review, back }: { review: Review; back: () => void }) {
           <h3>{a.question.text}</h3>
           <div className="review-grid">
             <div>
-              <span className="eyebrow">TRANSCRIPT</span>
+              <span className="eyebrow">TRANSCRIPT SINH VIÊN ĐÃ NỘP</span>
               <p className="transcript">
                 {a.transcript || "Chưa có câu trả lời"}
               </p>
@@ -1349,6 +1330,17 @@ function ReviewPage({ review, back }: { review: Review; back: () => void }) {
               )}
             </div>
           </div>
+          <GoogleReview
+            attempt={a}
+            enabled={
+              admin &&
+              a.status === "GRADED" &&
+              ["SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"].includes(
+                review.status,
+              )
+            }
+            refresh={refresh}
+          />
           {a.assessment?.retrieved_chunks?.length ? (
             <details>
               <summary>

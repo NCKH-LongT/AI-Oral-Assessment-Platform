@@ -44,13 +44,17 @@ app.whenReady().then(() => {
   win.webContents.on("will-navigate", (event, url) => {
     if (new URL(url).origin !== webURL.origin) event.preventDefault();
   });
-  ipcMain.handle("oral:transcribe", async (event, buffer) => {
+  ipcMain.handle("oral:transcribe", async (event, buffer, policy) => {
     if (
       !event.senderFrame ||
       new URL(event.senderFrame.url).origin !== webURL.origin ||
       !(buffer instanceof ArrayBuffer) ||
       buffer.byteLength > 30 * 1024 * 1024 ||
-      !buffer.byteLength
+      !buffer.byteLength ||
+      !policy ||
+      policy.provider !== "local" ||
+      !["off", "denoise"].includes(policy.preprocessing) ||
+      !["vi", "en"].includes(policy.language)
     )
       throw new Error("Invalid STT request");
     if (sttBusy) throw new Error("STT đang bận");
@@ -66,7 +70,12 @@ app.whenReady().then(() => {
           {
             shell: false,
             windowsHide: true,
-            env: { ...process.env, STT_MODEL: process.env.STT_MODEL || "base" },
+            env: {
+              ...process.env,
+              STT_MODEL: process.env.STT_MODEL || "base",
+              STT_LANGUAGE: policy.language,
+              STT_PREPROCESSING: policy.preprocessing,
+            },
           },
         );
         let output = "",
@@ -74,7 +83,7 @@ app.whenReady().then(() => {
         const timer = setTimeout(() => {
           child.kill();
           reject(new Error("STT timeout. Thử model nhỏ hơn."));
-        }, 300000);
+        }, 420000);
         child.stdout.on("data", (data) => {
           output += data;
           if (output.length > 1000000) child.kill();
@@ -92,7 +101,7 @@ app.whenReady().then(() => {
           if (code !== 0)
             return reject(
               new Error(
-                "STT local thất bại. Kiểm tra faster-whisper và model.",
+                "STT local thất bại. Kiểm tra FFmpeg, faster-whisper, model và giới hạn 10 phút mỗi câu.",
               ),
             );
           try {

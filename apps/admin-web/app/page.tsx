@@ -117,6 +117,9 @@ export default function Home() {
         { id: "courses", label: "Môn học & đề thi", icon: BookOpen },
         { id: "users", label: "Người dùng", icon: Users },
         { id: "results", label: "Kết quả & xem lại", icon: ClipboardCheck },
+        ...(user.role === "ADMIN"
+          ? [{ id: "speech", label: "Cấu hình giọng nói", icon: AudioLines }]
+          : []),
       ];
   return (
     <div className="app-shell">

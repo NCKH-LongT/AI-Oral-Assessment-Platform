@@ -34,15 +34,15 @@ Mở **http://localhost:3000**. Đăng nhập bằng `BOOTSTRAP_ADMIN` và `BOOT
 
 Các dịch vụ:
 
-| Dịch vụ | Vai trò / truy cập |
-| --- | --- |
-| web | Giao diện quản trị và phòng thi, `localhost:3000` |
-| api | FastAPI, chỉ trong mạng Docker; web chuyển tiếp `/api/*` |
-| worker | Xử lý tài liệu và chấm bài nền |
-| migrate | Chạy Alembic và tạo admin ban đầu, kết thúc sau khi thành công |
-| postgres | PostgreSQL 16 + pgvector, volume `postgres_data` |
-| minio | Object storage; console `localhost:9001`, tài khoản từ `.env` |
-| redis | Giới hạn số lần đăng nhập; volume `redis_data` |
+| Dịch vụ  | Vai trò / truy cập                                             |
+| -------- | -------------------------------------------------------------- |
+| web      | Giao diện quản trị và phòng thi, `localhost:3000`              |
+| api      | FastAPI, chỉ trong mạng Docker; web chuyển tiếp `/api/*`       |
+| worker   | Xử lý tài liệu và chấm bài nền                                 |
+| migrate  | Chạy Alembic và tạo admin ban đầu, kết thúc sau khi thành công |
+| postgres | PostgreSQL 16 + pgvector, volume `postgres_data`               |
+| minio    | Object storage; console `localhost:9001`, tài khoản từ `.env`  |
+| redis    | Giới hạn số lần đăng nhập; volume `redis_data`                 |
 
 ```bash
 docker compose ps
@@ -75,10 +75,11 @@ Tài khoản: `teacher.demo` và `student.demo`, dùng mật khẩu vừa nhập
 
 1. **Người dùng:** admin tạo tài khoản sinh viên hoặc giảng viên; mật khẩu tối thiểu 12 ký tự. Giảng viên có thể xem danh sách sinh viên để giao bài.
 2. **Môn học & đề thi → Tạo môn học:** nhập mã, tên, mô tả. Giảng viên chỉ quản lý môn do mình tạo; admin quản lý mọi môn.
-3. **01 · Kiến thức:** tạo Learning Outcome (LO), tạo chủ đề gắn với LO, rồi tải tài liệu theo chủ đề. Hỗ trợ PDF có text, PPTX, DOCX, TXT UTF-8; tối đa 20 MB/file. Chờ trạng thái **Sẵn sàng**. Có thể tìm thử ở mục kiểm tra RAG.
+3. **01 · Kiến thức:** tải **một giáo trình PDF cho cả môn** (tối đa 100 MB), chờ **Sẵn sàng**, kiểm tra/sửa chương và tiêu đề mục theo số trang PDF. Tạo các LO, rồi tạo chủ đề với **ít nhất một LO và một chương/mục**; có thể chọn nhiều. Tài liệu bổ sung PDF/PPTX/DOCX/TXT tối đa 20 MB/file, có thể tải trước vào môn hoặc gắn ngay vào chủ đề. Khi sửa chủ đề, chọn nhiều tài liệu đã tải; cùng một tài liệu/chương/LO có thể dùng cho nhiều chủ đề. Dùng mục kiểm tra RAG để đối chiếu phạm vi truy xuất.
 4. **02 · Rubric:** thêm các tiêu chí, mô tả, điểm tối đa và trọng số. Sửa rubric tạo version mới; các đề đã công bố giữ bản cũ.
 5. **03 · Bài thi & giao bài:** chọn rubric, thời gian và blueprint (chủ đề, độ khó, số câu; tối đa 20 câu). Lưu bản nháp, bấm **Sinh câu hỏi & công bố**. Mỗi chủ đề cần tài liệu sẵn sàng. Sau đó chọn sinh viên và giao bài.
-6. **Kết quả & xem lại:** mở từng bài để xem câu hỏi, transcript, điểm AI đề xuất theo tiêu chí, RAG evidence, audio và video. Bài có lỗi AI/độ tin cậy thấp giữ trạng thái **Cần xem lại**, chưa có điểm chính thức. Manual override/regrade dành cho giai đoạn 2.
+6. **Kết quả & xem lại:** mở bài để xem transcript đã nộp, điểm theo tiêu chí, RAG, audio/video. Sau khi bài đã nộp và chấm lần đầu, **admin** có thể mở **Nhận dạng lại bằng Google & chấm lại**, nhập lý do rồi chạy. Audio được nhận dạng lại và chấm theo rubric/AI/kiến thức của đề đã công bố. Trang tự cập nhật; lưu cả transcript sinh viên, transcript Google, đánh giá trước/sau và lý do. Nếu lỗi, đánh giá trước được giữ nguyên. Demo vẫn không có điểm AI; sửa điểm thủ công chưa triển khai.
+7. **Cấu hình giọng nói** (admin): chọn STT local trên desktop, Google Cloud hoặc Whisper trên server nội bộ; chọn bật/tắt lọc nhiễu và ngôn ngữ Việt/Anh. Cấu hình lưu trong database, áp dụng cho lần nhận dạng tiếp theo.
 
 ### Sinh viên
 
@@ -86,8 +87,8 @@ Tài khoản: `teacher.demo` và `student.demo`, dùng mật khẩu vừa nhập
 2. Cho phép camera và mic; kiểm tra preview và thanh tín hiệu khi nói. Bước này **chưa ghi**.
 3. Bấm **Bắt đầu thi**. Server tính thời gian toàn bài.
 4. Đọc câu hỏi → **Bắt đầu trả lời** → nói → **Kết thúc trả lời**. Chỉ khoảng thời gian này được ghi âm/ghi hình.
-5. Chờ STT, kiểm tra transcript. Có thể thử STT lại hoặc ghi lại trước khi nộp. Transcript sửa tay được đánh dấu cần giảng viên kiểm tra.
-6. **Nộp câu trả lời & tiếp tục**: transcript được lưu; audio/video tải nền theo chunk, không chặn câu tiếp theo. Nếu upload lỗi, bấm tải lại và giữ ứng dụng mở.
+5. Chờ biểu tượng loading lọc nhiễu/STT, kiểm tra transcript. Mỗi câu tối đa 10 phút và audio STT tối đa 30 MB. Có thể thử STT lại hoặc ghi lại trước khi nộp. Transcript sửa tay được đánh dấu cần giảng viên kiểm tra.
+6. **Nộp câu trả lời & tiếp tục**: có spinner trong lúc lưu, khóa sửa transcript/ghi lại để tránh thao tác trùng; audio/video tải nền theo chunk. Nếu upload lỗi, bấm tải lại và giữ ứng dụng mở.
 7. Trả lời đủ câu, chờ mọi minh chứng **Đã lưu**, bấm **Nộp bài thi**. Điểm chỉ hiện khi server xác nhận; bài demo luôn cần xem lại.
 
 Dùng Chrome/Chromium hoặc Electron. Camera/mic cần **HTTPS hoặc localhost**. Không mở qua `http://IP-máy-chủ` nếu cần truy cập thiết bị. MVP chưa lưu bản ghi bền vững ở client: không đóng tab/ứng dụng trước khi nộp xong.
@@ -96,7 +97,7 @@ Dùng Chrome/Chromium hoặc Electron. Camera/mic cần **HTTPS hoặc localhost
 
 ### Gemini: câu hỏi, embedding và chấm
 
-Mặc định `AI_PROVIDER=demo`: vector hashing để thử quy trình, câu hỏi mẫu, **không tạo điểm AI** và không gọi nhà cung cấp.
+Mặc định `AI_PROVIDER=demo`: vector hashing để thử quy trình, câu hỏi mẫu, **không tạo điểm AI** và không gọi LLM. STT có cấu hình riêng; chọn Google STT hoặc Google chấm lại vẫn gọi Google dù AI chấm đang ở demo.
 
 Để chạy Gemini, sửa `.env`:
 
@@ -121,13 +122,35 @@ Gemini structured output được kiểm tra lại ở server: đủ tiêu chí,
 
 ### Whisper STT
 
-Image API đã có `faster-whisper`, FFmpeg và thư viện CPU. Web gửi audio vào API để STT. Model tải lần đầu và cache trong volume `app_data` (`/data/models`). Có thể tải trước:
+Image API đã có `faster-whisper`, FFmpeg và thư viện CPU. Mặc định cả web và desktop dùng Whisper trên server nội bộ; admin có thể đổi trong **Cấu hình giọng nói**. Model server tải lần đầu và cache trong volume `app_data` (`/data/models`). Có thể tải trước:
 
 ```bash
-docker compose exec api python -c 'from app.stt import model; model()'
+docker compose exec api python -c 'from app.speech import model; model()'
 ```
 
-`STT_MODEL=base` cân bằng tốc độ/kích thước cho thử nghiệm; thử `small` nếu cần đối chiếu chất lượng tiếng Việt. `STT_LANGUAGE=vi`. Cần đo thực tế trên máy triển khai. Confidence STT hiện là heuristic, không phải xác suất chính xác đã hiệu chuẩn.
+`STT_MODEL=base` là mặc định. `STT_LANGUAGE=vi` chỉ là giá trị khởi tạo; cấu hình ngôn ngữ đã lưu trong admin được ưu tiên. Cần đo chất lượng tiếng Việt trên máy triển khai. Confidence Whisper là heuristic, không phải xác suất chính xác đã hiệu chuẩn.
+
+Audio gốc → bản WAV mono 16 kHz → lọc nhiễu/chuẩn hóa âm lượng (nếu bật) → STT → transcript. Bộ lọc FFmpeg giảm tiếng ù/nhiễu nền, **không phải mô hình tách người nói hoặc tách vocal khỏi mọi loại nhạc**. File evidence gốc không bị thay đổi. Cài đặt native có `imageio-ffmpeg` làm phương án dự phòng khi máy chưa cài FFmpeg; có thể chỉ định `FFMPEG_BINARY`.
+
+### Google Cloud Speech-to-Text
+
+Google STT dùng credentials riêng, **không dùng `GEMINI_API_KEY`**. Bật Cloud Speech-to-Text API và billing trong Google Cloud, tạo service account có quyền gọi Speech-to-Text, lưu JSON credentials ngoài Git. Tham khảo [xác thực Google Cloud STT](https://docs.cloud.google.com/speech-to-text/docs/v1/authentication).
+
+Trong `.env`, đặt đường dẫn tuyệt đối tới file trên máy host:
+
+```dotenv
+GOOGLE_STT_CREDENTIALS_HOST_FILE=/absolute/path/google-stt.json
+```
+
+Khởi động với cấu hình bổ sung (file phải đọc được bởi UID 10001 trong container):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.google.yml up -d --build --wait
+```
+
+Compose gắn credentials chỉ đọc vào API và worker. Sau đó admin chọn **Google Cloud Speech-to-Text**, hoặc dùng nút Google trong trang xem bài. Khi triển khai native, đặt `GOOGLE_STT_CREDENTIALS_FILE=/absolute/path/google-stt.json` cho cả API và worker. Source không đưa credentials vào frontend/Electron.
+
+Adapter gửi PCM thành các đoạn tối đa 55 giây để đáp ứng [giới hạn nhận dạng đồng bộ của Google](https://docs.cloud.google.com/speech-to-text/docs/v1/quotas). Chia đoạn cố định có thể ảnh hưởng từ ngay tại ranh giới; cần kiểm tra transcript với audio khi chấm lại. Chọn Google sẽ gửi audio đã xử lý ra Google Cloud và có thể phát sinh phí. Chưa xác nhận chất lượng bằng credentials thật trong bộ kiểm thử này.
 
 ## 4. Chạy Electron với STT local
 
@@ -137,7 +160,7 @@ Cần Node.js **22.12+**, Python **3.12**, môi trường desktop và server/web
 npm ci
 python3.12 -m venv .venv
 # Linux/macOS
-.venv/bin/pip install 'faster-whisper>=1.1,<2'
+.venv/bin/pip install -r services/api/requirements.lock
 ORAL_WEB_URL=http://localhost:3000 ORAL_PYTHON="$PWD/.venv/bin/python" npm run desktop
 ```
 
@@ -145,13 +168,15 @@ Windows PowerShell:
 
 ```powershell
 py -3.12 -m venv .venv
-.\.venv\Scripts\pip install "faster-whisper>=1.1,<2"
+.\.venv\Scripts\pip install "faster-whisper>=1.1,<2" "imageio-ffmpeg>=0.6,<0.7"
 $env:ORAL_WEB_URL = "http://localhost:3000"
 $env:ORAL_PYTHON = "$PWD\.venv\Scripts\python.exe"
 npm run desktop
 ```
 
-Electron dùng cùng giao diện web nhưng chuyển audio qua IPC có giới hạn đến tiến trình Whisper local. File tạm được xóa sau STT; renderer không có quyền `fs`, `shell` hay `child_process`. Lần đầu cần mạng để tải model. Đây là source chạy development; chưa có installer ký số hoặc auto-update.
+Để nhận dạng trên máy sinh viên, admin chọn **Whisper local trên máy sinh viên (desktop)**. Electron lấy policy từ server, chuyển audio và lựa chọn lọc nhiễu/ngôn ngữ qua IPC tới Whisper local. Nếu admin chọn Google/server nội bộ thì Electron dùng API tương ứng. Trình duyệt web sẽ báo cần desktop khi policy là local; không tự chuyển sang Google.
+
+File tạm được xóa sau STT; renderer không có quyền `fs`, `shell` hay `child_process`. Lần đầu cần mạng để tải model. Giữ nguyên cấu trúc repository vì desktop dùng chung module xử lý audio ở `services/api/app/audio_processing.py`. Đây là source chạy development; chưa có installer ký số hoặc auto-update.
 
 ## 5. Phát triển không dùng Docker
 
@@ -240,18 +265,33 @@ tests/e2e/              Playwright: login, responsive, thi và playback
 
 ## 9. Xử lý lỗi thường gặp
 
-| Hiện tượng | Cách kiểm tra |
-| --- | --- |
-| Không kết nối Docker daemon tại `/var/run/docker.sock` | Với Docker Desktop trên Linux: `systemctl --user start docker-desktop && docker context use desktop-linux`; sau đó chạy `docker info` |
-| Cổng 3000 đang được sử dụng | Dừng tiến trình web development cũ, hoặc đổi `WEB_PORT` và `ALLOWED_ORIGINS` trong `.env`; kiểm tra bằng `ss -ltnp '( sport = :3000 )'` |
-| Container `oral-assessment-*` bị trùng tên sau lần chạy lỗi | Chạy `docker compose down --remove-orphans`, rồi `docker compose up -d --wait`; lệnh này giữ nguyên volume dữ liệu |
-| Không đăng nhập được admin | Xem `.env`; bootstrap chỉ tạo lần đầu, sửa biến không đổi mật khẩu tài khoản đã có |
-| Tài liệu chờ mãi | Kiểm tra `docker compose logs worker`; worker phải chạy |
-| PDF không có nội dung | OCR file scan trước khi upload; MVP chỉ trích xuất text sẵn có |
-| Tài liệu FAILED | Kiểm tra định dạng, cấu hình Gemini, mạng; dùng nút Thử lại |
-| Công bố đề không được | Mọi chủ đề blueprint cần tài liệu READY với embedding hiện tại |
-| Camera/mic bị chặn | Dùng localhost/HTTPS, cấp quyền trình duyệt và hệ điều hành |
-| STT chậm hoặc lỗi tải model | Tải model trước, kiểm tra mạng tới Hugging Face; thử model nhỏ hơn |
-| Gemini lỗi/hết quota | Transcript vẫn giữ; bài chuyển cần xem lại, không tự dùng điểm giả |
-| Upload thất bại | Giữ tab mở, kết nối mạng và bấm Tải lại; chưa có resume sau khi đóng ứng dụng |
-| Không có điểm cuối | Kiểm tra worker, trạng thái review và `AI_PROVIDER`; demo luôn không có điểm chính thức |
+### Cập nhật từ bản MVP trước
+
+```bash
+git pull --ff-only
+docker compose up -d --build --wait
+```
+
+Nếu đang dùng Google, thêm `-f docker-compose.yml -f docker-compose.google.yml` như hướng dẫn ở trên. Migration `0002` tự chạy trước API/worker, chuyển ánh xạ LO/tài liệu cũ sang quan hệ nhiều–nhiều và giữ các bài thi/evidence cũ. Sao lưu database trước khi nâng cấp; không dùng `docker compose down -v`. Không downgrade `0002` tự động; khôi phục backup nếu cần quay về code cũ. Sau cập nhật, tải lại trang web và mở lại Electron. Chủ đề cũ chưa có chương vẫn xem được; thêm giáo trình và gắn chương khi sửa chủ đề.
+
+Chi tiết mô hình, giới hạn PDF/header và xử lý audio: [Thiết kế giáo trình & STT](docs/architecture/knowledge-speech.md).
+
+| Hiện tượng                                                  | Cách kiểm tra                                                                                                                           |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Không kết nối Docker daemon tại `/var/run/docker.sock`      | Với Docker Desktop trên Linux: `systemctl --user start docker-desktop && docker context use desktop-linux`; sau đó chạy `docker info`   |
+| Cổng 3000 đang được sử dụng                                 | Dừng tiến trình web development cũ, hoặc đổi `WEB_PORT` và `ALLOWED_ORIGINS` trong `.env`; kiểm tra bằng `ss -ltnp '( sport = :3000 )'` |
+| Container `oral-assessment-*` bị trùng tên sau lần chạy lỗi | Chạy `docker compose down --remove-orphans`, rồi `docker compose up -d --wait`; lệnh này giữ nguyên volume dữ liệu                      |
+| Không đăng nhập được admin                                  | Xem `.env`; bootstrap chỉ tạo lần đầu, sửa biến không đổi mật khẩu tài khoản đã có                                                      |
+| Tài liệu chờ mãi                                            | Kiểm tra `docker compose logs worker`; worker phải chạy                                                                                 |
+| PDF không có nội dung                                       | OCR file scan trước khi upload; MVP chỉ trích xuất text sẵn có                                                                          |
+| Tài liệu FAILED                                             | Kiểm tra định dạng, cấu hình Gemini, mạng; dùng nút Thử lại                                                                             |
+| Công bố đề không được                                       | Mọi chủ đề blueprint cần tài liệu READY với embedding hiện tại                                                                          |
+| Camera/mic bị chặn                                          | Dùng localhost/HTTPS, cấp quyền trình duyệt và hệ điều hành                                                                             |
+| STT chậm hoặc lỗi tải model                                 | Tải model trước, kiểm tra mạng tới Hugging Face; thử model nhỏ hơn                                                                      |
+| Không chọn được Google STT                                  | Cấu hình JSON service account và Compose override cho cả API/worker; kiểm tra quyền đọc file và API/billing/quota của Google            |
+| Web yêu cầu desktop khi STT                                 | Admin đang chọn local; mở Electron hoặc đổi policy sang server nội bộ                                                                   |
+| Giáo trình PDF xử lý lỗi                                    | Có thể dùng Thử lại khi lỗi dịch vụ, hoặc Thay PDF bị lỗi sau khi sửa/OCR file                                                          |
+| Google chấm lại FAILED                                      | Đánh giá trước được giữ; kiểm tra credentials/âm thanh/model AI snapshot rồi tạo lần thử mới                                            |
+| Gemini lỗi/hết quota                                        | Transcript vẫn giữ; bài chuyển cần xem lại, không tự dùng điểm giả                                                                      |
+| Upload thất bại                                             | Giữ tab mở, kết nối mạng và bấm Tải lại; chưa có resume sau khi đóng ứng dụng                                                           |
+| Không có điểm cuối                                          | Kiểm tra worker, trạng thái review và `AI_PROVIDER`; demo luôn không có điểm chính thức                                                 |

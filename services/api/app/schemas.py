@@ -31,9 +31,45 @@ class LOIn(Input):
 
 
 class TopicIn(Input):
-    learning_outcome_id: str
+    learning_outcome_id: str | None = None
+    learning_outcome_ids: list[str] = Field(default_factory=list, max_length=100)
+    chapter_ids: list[str] = Field(default_factory=list, max_length=500)
+    document_ids: list[str] = Field(default_factory=list, max_length=100)
     name: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=3000)
+
+    @model_validator(mode="after")
+    def mappings(self):
+        if not self.learning_outcome_ids and self.learning_outcome_id:
+            self.learning_outcome_ids = [self.learning_outcome_id]
+        if not self.learning_outcome_ids:
+            raise ValueError("Chọn ít nhất một LO")
+        if not self.chapter_ids and not self.learning_outcome_id:
+            raise ValueError("Chọn ít nhất một chương/mục giáo trình")
+        return self
+
+
+class SectionIn(Input):
+    title: str = Field(min_length=1, max_length=300)
+    level: int = Field(default=1, ge=1, le=6)
+    start_page: int = Field(ge=1)
+    end_page: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def page_range(self):
+        if self.end_page < self.start_page:
+            raise ValueError("Trang kết thúc phải từ trang bắt đầu trở đi")
+        return self
+
+
+class SpeechPolicy(Input):
+    provider: Literal["local", "google", "local_server"] = "local_server"
+    preprocessing: Literal["off", "denoise"] = "denoise"
+    language: Literal["vi", "en"] = "vi"
+
+
+class ReviewIn(Input):
+    reason: str = Field(min_length=5, max_length=2000)
 
 
 class Criterion(Input):

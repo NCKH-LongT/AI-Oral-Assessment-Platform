@@ -8,6 +8,35 @@ const env = Object.fromEntries(
     .map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]),
 );
 const password = "Synthetic-e2e-password-123";
+
+function textbookPDF() {
+  const content = (text: string) => `BT /F1 18 Tf 50 720 Td (${text}) Tj ET`;
+  const a = content("Chapter 1: Injection"),
+    b = content("Chapter 2: Databases");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${a.length} >>\nstream\n${a}\nendstream`,
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 7 0 R >>",
+    `<< /Length ${b.length} >>\nstream\n${b}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((o, i) => {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets
+    .slice(1)
+    .map((o) => `${String(o).padStart(10, "0")} 00000 n \n`)
+    .join("");
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(pdf);
+}
 async function post(request: APIRequestContext, path: string, data?: unknown) {
   const response = await request.post("/api" + path, { data });
   expect(response.ok(), await response.text()).toBeTruthy();
@@ -114,9 +143,7 @@ test("login, responsive layout and admin course form", async ({ page }) => {
   await page.getByRole("button", { name: "Tạo môn học", exact: true }).click();
   const courseName = "Môn học tạo từ giao diện " + Date.now();
   await page.getByLabel("Mã môn học", { exact: true }).fill("UI-" + Date.now());
-  await page
-    .getByLabel("Tên môn học", { exact: true })
-    .fill(courseName);
+  await page.getByLabel("Tên môn học", { exact: true }).fill(courseName);
   await page
     .getByRole("button", { name: "Tạo môn học", exact: true })
     .last()
@@ -127,6 +154,83 @@ test("login, responsive layout and admin course form", async ({ page }) => {
       exact: true,
     }),
   ).toBeVisible();
+  await page
+    .getByRole("button")
+    .filter({
+      has: page.getByRole("heading", { name: courseName, exact: true }),
+    })
+    .click();
+  await page
+    .getByLabel("File giáo trình (tối đa 100 MB)")
+    .setInputFiles({
+      name: "textbook.pdf",
+      mimeType: "application/pdf",
+      buffer: textbookPDF(),
+    });
+  await page
+    .getByRole("button", { name: "Tải giáo trình PDF", exact: true })
+    .click();
+  await expect(
+    page.getByText("Chapter 1: Injection", { exact: true }),
+  ).toBeVisible({ timeout: 30000 });
+  for (const code of ["LO1", "LO2"]) {
+    await page.getByLabel("Mã LO", { exact: true }).fill(code);
+    await page
+      .getByLabel("Mô tả chuẩn đầu ra", { exact: true })
+      .fill("Explain " + code);
+    await page
+      .getByRole("button", { name: "Thêm chuẩn đầu ra", exact: true })
+      .click();
+    await expect(page.getByText(code, { exact: true })).toBeVisible();
+  }
+  for (const name of ["notes-a.txt", "notes-b.txt"]) {
+    await page
+      .getByLabel("Tài liệu (tối đa 20 MB)")
+      .setInputFiles({
+        name,
+        mimeType: "text/plain",
+        buffer: Buffer.from("Dependency injection improves testability"),
+      });
+    await page
+      .getByRole("button", { name: "Tải tài liệu lên", exact: true })
+      .click();
+    await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+  }
+  await page
+    .getByLabel("Tên chủ đề", { exact: true })
+    .fill("Topic with many mappings");
+  for (const group of [
+    "Chuẩn đầu ra (chọn ít nhất 1)",
+    "Chương/mục giáo trình (chọn ít nhất 1)",
+    "Tài liệu bổ sung (có thể chọn nhiều)",
+  ]) {
+    const choices = page
+      .getByRole("group", { name: group })
+      .getByRole("checkbox");
+    await expect(choices).toHaveCount(2);
+    for (const choice of await choices.all()) await choice.check();
+  }
+  await page.getByRole("button", { name: "Thêm chủ đề", exact: true }).click();
+  await expect(
+    page.getByText("2 tài liệu bổ sung · 2 chương/mục giáo trình"),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "docs/screenshots/knowledge.png",
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Cấu hình giọng nói", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Cấu hình giọng nói", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Nhà cung cấp STT").locator("option"),
+  ).toHaveCount(3);
+  await page.screenshot({
+    path: "docs/screenshots/speech-settings.png",
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(
@@ -151,15 +255,29 @@ test("student records only during answer, submits media, admin plays real WebM",
     };
   });
   // Browser capture/upload/playback are real; STT is deterministic here (tested independently).
-  await page.route("**/api/stt", (route) =>
+  await page.route("**/api/stt/config", (route) =>
     route.fulfill({
+      json: {
+        provider: "local_server",
+        preprocessing: "denoise",
+        language: "vi",
+      },
+    }),
+  );
+  await page.route("**/api/stt", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await route.fulfill({
       json: {
         transcript:
           "Dependency injection cung cấp dependency từ bên ngoài và giúp kiểm thử.",
         stt_confidence: 0.96,
       },
-    }),
-  );
+    });
+  });
+  await page.route("**/api/question-attempts/*/submit", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await route.continue();
+  });
   await page.goto("/");
   await page
     .getByLabel("Tên đăng nhập", { exact: true })
@@ -197,11 +315,23 @@ test("student records only during answer, submits media, admin plays real WebM",
       .getByRole("button", { name: "Kết thúc trả lời", exact: true })
       .click();
     await expect(
+      page.getByRole("status").filter({ hasText: "Đang lọc nhiễu" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Ghi lại", exact: true }),
+    ).toBeDisabled();
+    await expect(
       page.getByRole("textbox", { name: "Transcript", exact: true }),
     ).toHaveValue(/Dependency injection/);
     await page
       .getByRole("button", { name: "Nộp câu trả lời & tiếp tục" })
       .click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Đang nộp câu trả lời" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Transcript", exact: true }),
+    ).toBeDisabled();
     await expect(
       page.getByText(`Đã trả lời ${i + 1}/2 câu`, { exact: true }),
     ).toBeVisible();

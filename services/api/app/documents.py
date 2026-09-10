@@ -1,4 +1,5 @@
 import io
+import re
 import zipfile
 
 from docx import Document as Docx
@@ -6,7 +7,41 @@ from pptx import Presentation
 from pypdf import PdfReader
 
 from . import ai, storage
-from .models import Chunk, Topic
+from .models import BookSection, Chunk, Topic
+
+HEADING = re.compile(r"^(?:(?:chương|chapter|phần|part)\s+[\divxlc]+\b|\d+(?:\.\d+){1,4}\s+)", re.I)
+
+
+def suggest_sections(data, pages):
+    reader = PdfReader(io.BytesIO(data))
+    entries = []
+
+    def visit(outline, level=1):
+        for item in outline:
+            if isinstance(item, list):
+                visit(item, min(level + 1, 6))
+            else:
+                page = reader.get_destination_page_number(item)
+                if page is not None and 0 <= page < len(pages):
+                    entries.append((page + 1, str(item.title)[:300], level, "BOOKMARK"))
+
+    visit(reader.outline)
+    if not entries:
+        for page, content in pages:
+            for line in content.splitlines():
+                line = line.strip()
+                if len(line) <= 200 and HEADING.match(line) and not re.search(r"\.{3,}\s*\d+$", line):
+                    entries.append((page, line, 2 if re.match(r"\d+\.", line) else 1, "HEADING"))
+    if not entries:
+        entries = [(1, "Toàn bộ giáo trình — hãy chia chương theo mục lục", 1, "FALLBACK")]
+    entries = sorted(set(entries), key=lambda row: (row[0], row[2]))[:500]
+    sections = []
+    for i, (page, title, level, source) in enumerate(entries):
+        next_page = next((e[0] for e in entries[i + 1 :] if e[2] <= level and e[0] > page), len(pages) + 1)
+        sections.append(
+            dict(title=title, level=level, start_page=page, end_page=next_page - 1, source=source)
+        )
+    return sections
 
 
 def extract(data: bytes, filename: str):
@@ -62,17 +97,25 @@ def chunk_text(text, limit=2400):
 
 def process_document(db, document):
     document.embedding_model = ai.embedding_name()
-    topic = db.get(Topic, document.topic_id)
-    pages = extract(storage.get(document.storage_key), document.filename)
+    topic = db.get(Topic, document.topic_id) if document.topic_id else None
+    raw = storage.get(document.storage_key)
+    pages = extract(raw, document.filename)
+    document.page_count = len(pages)
+    sections = []
+    if document.kind == "TEXTBOOK":
+        sections = suggest_sections(raw, pages)
+        db.add_all(BookSection(course_id=document.course_id, document_id=document.id, **s) for s in sections)
     chunks = []
     for page, text in pages:
-        for content in chunk_text(text):
+        default_heading = " / ".join(s["title"] for s in sections if s["start_page"] <= page <= s["end_page"])
+        for heading, content in heading_chunks(text, default_heading):
             chunks.append(
                 Chunk(
                     document_id=document.id,
                     course_id=document.course_id,
                     topic_id=document.topic_id,
-                    learning_outcome_id=topic.learning_outcome_id,
+                    learning_outcome_id=topic.learning_outcome_id if topic else None,
+                    heading=heading or None,
                     page=page,
                     content=content,
                     embedding=ai.embed(content),
@@ -84,3 +127,16 @@ def process_document(db, document):
         raise ValueError("Không tìm thấy văn bản; PDF scan cần OCR trước khi upload")
     db.add_all(chunks)
     document.status = "READY"
+
+
+def heading_chunks(text, default_heading=""):
+    """Keep recognizable numbered headings as boundaries, even within the same page."""
+    heading, lines = default_heading, []
+    for line in text.splitlines():
+        if len(line.strip()) <= 200 and HEADING.match(line.strip()):
+            for content in chunk_text("\n".join(lines)):
+                yield heading, content
+            heading, lines = line.strip(), []
+        lines.append(line)
+    for content in chunk_text("\n".join(lines)):
+        yield heading, content

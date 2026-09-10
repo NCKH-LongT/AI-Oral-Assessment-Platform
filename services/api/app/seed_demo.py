@@ -8,7 +8,19 @@ from sqlalchemy import select
 from . import ai, storage
 from .db import SessionLocal
 from .documents import process_document
-from .models import Assignment, Course, Document, Exam, LearningOutcome, Rubric, Topic, User, uid
+from .models import (
+    Assignment,
+    Course,
+    Document,
+    Exam,
+    LearningOutcome,
+    Rubric,
+    Topic,
+    TopicDocument,
+    TopicOutcome,
+    User,
+    uid,
+)
 from .routes_admin import publish
 from .security import hasher
 
@@ -56,6 +68,7 @@ def seed():
         )
         db.add(topic)
         db.flush()
+        db.add(TopicOutcome(topic_id=topic.id, outcome_id=lo.id))
         sample = Path(__file__).parent / "sample.txt"
         key = f"documents/{uid()}/se101.txt"
         storage.put(key, sample.read_bytes())
@@ -68,6 +81,7 @@ def seed():
         )
         db.add(document)
         db.flush()
+        db.add(TopicDocument(topic_id=topic.id, document_id=document.id))
         process_document(db, document)
         rubric = Rubric(
             course_id=course.id,

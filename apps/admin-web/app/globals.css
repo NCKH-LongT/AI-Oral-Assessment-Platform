@@ -1040,6 +1040,46 @@ footer {
 .spin {
   animation: rotate 1s linear infinite;
 }
+.processing-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.processing-status svg {
+  flex-shrink: 0;
+}
+.choice-list {
+  border: 1px solid var(--line, #e1e7e5);
+  border-radius: 10px;
+  padding: 12px;
+  max-height: 280px;
+  overflow: auto;
+}
+.choice-list label {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 8px 0;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.choice-list input[type="checkbox"] {
+  width: auto;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.panel pre {
+  max-width: 100%;
+  overflow: auto;
+  max-height: 350px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 hr {
   border: 0;
   border-top: 1px solid var(--line);

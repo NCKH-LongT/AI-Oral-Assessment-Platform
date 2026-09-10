@@ -1,8 +1,10 @@
 import hashlib
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -10,22 +12,27 @@ from . import ai, storage
 from . import schemas as s
 from .config import settings
 from .db import get_db
+from .knowledge import chunk_scope, set_mappings, topic_data
 from .models import (
     Assignment,
     Attempt,
     Audit,
+    BookSection,
     Course,
     Document,
     Exam,
     ExamSession,
     LearningOutcome,
+    ReviewJob,
     Rubric,
     Topic,
+    TopicDocument,
     Upload,
     User,
     uid,
 )
 from .security import admin, by_id, course_access, editor, fail, hasher, public_user, staff
+from .speech import google_ready, policy
 
 router = APIRouter()
 
@@ -114,8 +121,22 @@ def workspace(course_id: str, db: Session = Depends(get_db), user=Depends(staff)
 
     return {
         "outcomes": rows(LearningOutcome, "code", "description", "weight"),
-        "topics": rows(Topic, "name", "description", "learning_outcome_id"),
-        "documents": rows(Document, "filename", "status", "error", "topic_id", "version", "embedding_model"),
+        "topics": [
+            topic_data(db, t)
+            for t in db.scalars(select(Topic).where(Topic.course_id == course_id).order_by(Topic.created_at))
+        ],
+        "documents": rows(
+            Document,
+            "filename",
+            "status",
+            "error",
+            "topic_id",
+            "version",
+            "embedding_model",
+            "kind",
+            "page_count",
+        ),
+        "chapters": rows(BookSection, "document_id", "title", "level", "start_page", "end_page", "source"),
         "rubrics": rows(Rubric, "name", "version", "criteria"),
         "exams": rows(Exam, "name", "status", "blueprint", "time_limit", "rubric_id"),
     }
@@ -152,23 +173,20 @@ def delete_outcome(key: str, db: Session = Depends(get_db), user=Depends(editor)
 @router.post("/courses/{course_id}/topics", status_code=201)
 def create_topic(course_id: str, body: s.TopicIn, db: Session = Depends(get_db), user=Depends(editor)):
     course_access(db, course_id, user)
-    if by_id(db, LearningOutcome, body.learning_outcome_id).course_id != course_id:
-        fail(422, "CROSS_COURSE", "Chuẩn đầu ra không thuộc môn học")
-    row = Topic(course_id=course_id, **body.model_dump())
+    row = Topic(course_id=course_id, learning_outcome_id=body.learning_outcome_ids[0], name=body.name)
     db.add(row)
+    set_mappings(db, row, body)
     db.commit()
-    return data(row, "name", "learning_outcome_id", "description")
+    return topic_data(db, row)
 
 
 @router.put("/topics/{key}")
 def update_topic(key: str, body: s.TopicIn, db: Session = Depends(get_db), user=Depends(editor)):
-    row = by_id(db, Topic, key)
+    row = by_id(db, Topic, key, lock=True)
     course_access(db, row.course_id, user)
-    if body.learning_outcome_id != row.learning_outcome_id:
-        fail(409, "IMMUTABLE_MAPPING", "Tạo chủ đề mới nếu cần thay chuẩn đầu ra để bảo toàn RAG")
-    row.name, row.description = body.name, body.description
+    set_mappings(db, row, body)
     db.commit()
-    return data(row, "name", "learning_outcome_id", "description")
+    return topic_data(db, row)
 
 
 @router.delete("/topics/{key}")
@@ -188,34 +206,124 @@ def delete_topic(key: str, db: Session = Depends(get_db), user=Depends(editor)):
 @router.post("/courses/{course_id}/documents", status_code=201)
 async def upload_document(
     course_id: str,
-    topic_id: str = Form(),
+    topic_id: str | None = Form(default=None),
+    kind: str = Form(default="SUPPLEMENT"),
     file: UploadFile = File(),
     db: Session = Depends(get_db),
     user=Depends(editor),
 ):
     course_access(db, course_id, user)
-    if by_id(db, Topic, topic_id).course_id != course_id:
+    if kind not in {"TEXTBOOK", "SUPPLEMENT"}:
+        fail(422, "INVALID_KIND", "Loại tài liệu không hợp lệ")
+    if topic_id and by_id(db, Topic, topic_id).course_id != course_id:
         fail(422, "CROSS_COURSE", "Chủ đề không thuộc môn học")
     filename = Path(file.filename or "").name[:250]
     ext = filename.rsplit(".", 1)[-1].lower()
+    if kind == "TEXTBOOK":
+        if ext != "pdf" or topic_id:
+            fail(422, "TEXTBOOK_PDF", "Giáo trình là PDF dùng chung cho môn, không chọn chủ đề")
+        if db.scalar(select(Document.id).where(Document.course_id == course_id, Document.kind == "TEXTBOOK")):
+            fail(409, "TEXTBOOK_EXISTS", "Môn học đã có giáo trình PDF")
     if ext not in {"pdf", "pptx", "docx", "txt"}:
         fail(422, "INVALID_FORMAT", "Chỉ nhận PDF, PPTX, DOCX, TXT")
-    content = await file.read(settings().max_document_mb * 1024 * 1024 + 1)
-    if not content or len(content) > settings().max_document_mb * 1024 * 1024:
+    limit = (settings().max_textbook_mb if kind == "TEXTBOOK" else settings().max_document_mb) * 1024 * 1024
+    content = await file.read(limit + 1)
+    if not content or len(content) > limit:
         fail(413, "DOCUMENT_SIZE", "Tài liệu rỗng hoặc quá lớn")
     key = f"documents/{uid()}/{filename}"
     storage.put(key, content)
     row = Document(
         course_id=course_id,
         topic_id=topic_id,
+        kind=kind,
         filename=filename,
         storage_key=key,
         embedding_model=ai.embedding_name(),
     )
     db.add(row)
+    db.flush()
+    if topic_id:
+        db.add(TopicDocument(topic_id=topic_id, document_id=row.id))
     db.add(Audit(user_id=user.id, event="DOCUMENT_UPLOADED", details={"course_id": course_id}))
     db.commit()
     return data(row, "filename", "status")
+
+
+@router.get("/documents/{key}/content")
+def document_content(key: str, db: Session = Depends(get_db), user=Depends(staff)):
+    document = by_id(db, Document, key)
+    course_access(db, document.course_id, user)
+    return Response(
+        storage.get(document.storage_key),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": "attachment; filename*=UTF-8''" + quote(document.filename, safe="")},
+    )
+
+
+@router.put("/documents/{key}/file")
+async def replace_failed_textbook(
+    key: str, file: UploadFile = File(), db: Session = Depends(get_db), user=Depends(editor)
+):
+    row = by_id(db, Document, key, lock=True)
+    course_access(db, row.course_id, user)
+    if row.kind != "TEXTBOOK" or row.status != "FAILED":
+        fail(
+            409,
+            "INVALID_STATE",
+            "Chỉ thay PDF giáo trình xử lý lỗi; giáo trình đã dùng phải được giữ để đối chiếu",
+        )
+    name = Path(file.filename or "").name[:250]
+    limit = settings().max_textbook_mb * 1024 * 1024
+    content = await file.read(limit + 1)
+    if not name.lower().endswith(".pdf") or not content.startswith(b"%PDF-") or len(content) > limit:
+        fail(422, "INVALID_PDF", "Cần file PDF hợp lệ trong giới hạn dung lượng giáo trình")
+    storage_key = f"documents/{uid()}/{name}"
+    storage.put(storage_key, content)
+    row.storage_key, row.filename = storage_key, name
+    row.status, row.error, row.version = "PENDING", None, row.version + 1
+    db.add(
+        Audit(
+            user_id=user.id,
+            event="FAILED_TEXTBOOK_REPLACED",
+            details={"document_id": key, "version": row.version},
+        )
+    )
+    db.commit()
+    return data(row, "filename", "status", "version")
+
+
+@router.post("/documents/{key}/chapters", status_code=201)
+def add_section(key: str, body: s.SectionIn, db: Session = Depends(get_db), user=Depends(editor)):
+    doc = by_id(db, Document, key)
+    course_access(db, doc.course_id, user)
+    if doc.kind != "TEXTBOOK" or doc.status != "READY" or body.end_page > (doc.page_count or 0):
+        fail(422, "INVALID_PAGES", "Chọn số trang PDF hợp lệ của giáo trình đã xử lý")
+    row = BookSection(course_id=doc.course_id, document_id=doc.id, **body.model_dump(), source="MANUAL")
+    db.add(row)
+    db.commit()
+    return data(row, "title", "level", "start_page", "end_page", "source")
+
+
+@router.put("/chapters/{key}")
+def update_section(key: str, body: s.SectionIn, db: Session = Depends(get_db), user=Depends(editor)):
+    row = by_id(db, BookSection, key, lock=True)
+    course_access(db, row.course_id, user)
+    if body.end_page > (by_id(db, Document, row.document_id).page_count or 0):
+        fail(422, "INVALID_PAGES", "Trang vượt số trang PDF")
+    for field, value in body.model_dump().items():
+        setattr(row, field, value)
+    row.source = "MANUAL"
+    db.commit()
+    return data(row, "title", "level", "start_page", "end_page", "source")
+
+
+@router.delete("/chapters/{key}")
+def delete_section(key: str, db: Session = Depends(get_db), user=Depends(editor)):
+    row = by_id(db, BookSection, key)
+    course_access(db, row.course_id, user)
+    db.delete(row)
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/documents/{key}/retry")
@@ -325,30 +433,57 @@ def publish(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     if not docs:
         fail(409, "KNOWLEDGE_NOT_READY", "Cần tài liệu READY với cấu hình embedding hiện tại")
     questions = []
+    topic_scopes = {}
+    mappings = {}
     for row in exam.blueprint:
         topic = by_id(db, Topic, row["topic_id"])
-        chunks = ai.retrieve(db, exam.course_id, topic.id, topic.name, [d.id for d in docs])
+        topic_scopes[topic.id] = chunk_scope(db, exam.course_id, topic.id, ai.embedding_name())
+        mappings[topic.id] = topic_data(db, topic)
+        mappings[topic.id]["outcomes"] = [
+            data(by_id(db, LearningOutcome, lo), "code", "description", "weight")
+            for lo in mappings[topic.id]["learning_outcome_ids"]
+        ]
+        mappings[topic.id]["chapters"] = [
+            data(by_id(db, BookSection, chapter), "title", "level", "start_page", "end_page")
+            for chapter in mappings[topic.id]["chapter_ids"]
+        ]
+        chunks = ai.retrieve(
+            db, exam.course_id, topic.id, topic.name, [d.id for d in docs], topic_scopes[topic.id]
+        )
         if not chunks:
             fail(409, "NO_EVIDENCE", f"Chủ đề {topic.name} chưa có tài liệu READY")
         for _ in range(row["count"]):
-            question = ai.generate_question(topic, row["difficulty"], chunks, [q["text"] for q in questions])
+            question = ai.generate_question(
+                topic,
+                row["difficulty"],
+                chunks,
+                [q["text"] for q in questions],
+                outcomes=mappings[topic.id]["outcomes"],
+            )
             questions.append(
                 question
                 | {
                     "topic_id": topic.id,
                     "learning_outcome_id": topic.learning_outcome_id,
+                    "learning_outcome_ids": mappings[topic.id]["learning_outcome_ids"],
+                    "chapter_ids": mappings[topic.id]["chapter_ids"],
                     "difficulty": row["difficulty"],
                 }
             )
     doc_ids = sorted(d.id for d in docs)
     exam.snapshot = {
-        "exam_version": 1,
+        "exam_version": 2,
+        "generation_prompt_version": "topic-los-v2",
+        "topic_chunk_ids": topic_scopes,
+        "topic_mappings": mappings,
         "rubric_id": rubric.id,
         "rubric_version": rubric.version,
         "criteria": rubric.criteria,
         "document_ids": doc_ids,
         "questions": questions,
-        "knowledge_version": hashlib.sha256(",".join(doc_ids).encode()).hexdigest(),
+        "knowledge_version": hashlib.sha256(
+            ",".join(sorted({c for ids in topic_scopes.values() for c in ids})).encode()
+        ).hexdigest(),
         "ai_provider": settings().ai_provider,
         "llm_model": settings().llm_model,
         "embedding_model": ai.embedding_name(),
@@ -413,8 +548,79 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
                     for e in db.scalars(
                         select(Upload).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED")
                     )
-                ]
+                ],
+                "reviews": [
+                    data(
+                        j,
+                        "status",
+                        "reason",
+                        "policy",
+                        "original",
+                        "result",
+                        "error",
+                        "created_at",
+                        "completed_at",
+                        "requested_by",
+                    )
+                    for j in db.scalars(
+                        select(ReviewJob)
+                        .where(ReviewJob.attempt_id == a.id)
+                        .order_by(ReviewJob.created_at.desc())
+                    )
+                ],
             }
             for a in attempts
         ],
     }
+
+
+@router.post("/attempts/{key}/google-review", status_code=202)
+def google_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), user=Depends(admin)):
+    attempt = by_id(db, Attempt, key, lock=True)
+    session = by_id(db, ExamSession, attempt.session_id, lock=True)
+    exam = by_id(db, Exam, session.exam_id)
+    course_access(db, exam.course_id, user)
+    if session.status not in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"} or attempt.status != "GRADED":
+        fail(409, "NOT_FINISHED", "Chờ sinh viên nộp bài và hoàn tất chấm lần đầu")
+    if not google_ready():
+        fail(422, "GOOGLE_NOT_CONFIGURED", "Cần cấu hình Google Cloud Speech-to-Text trên API và worker")
+    existing = db.scalar(select(ReviewJob).where(ReviewJob.attempt_id == key, ReviewJob.status == "PENDING"))
+    if existing:
+        return data(existing, "status")
+    audio = db.scalar(
+        select(Upload).where(Upload.attempt_id == key, Upload.kind == "AUDIO", Upload.status == "COMPLETED")
+    )
+    if not audio:
+        fail(409, "AUDIO_NOT_READY", "Chưa có audio gốc đã tải lên hoàn tất")
+    previous = db.scalar(
+        select(ReviewJob)
+        .where(ReviewJob.attempt_id == key, ReviewJob.status == "COMPLETED")
+        .order_by(ReviewJob.created_at.desc())
+        .limit(1)
+    )
+    job = ReviewJob(
+        attempt_id=key,
+        requested_by=user.id,
+        reason=body.reason,
+        policy=policy(db) | {"provider": "google"},
+        original={
+            "transcript": previous.result["transcript"] if previous else attempt.transcript,
+            "stt_confidence": previous.result["stt_confidence"] if previous else attempt.stt_confidence,
+            "submitted_transcript": attempt.transcript,
+            "assessment": attempt.assessment,
+            "audio_id": audio.id,
+            "audio_sha256": audio.sha256,
+        },
+    )
+    db.add(job)
+    session.status, session.final_score = "REVIEW_REQUIRED", None
+    db.flush()
+    db.add(
+        Audit(
+            user_id=user.id,
+            event="GOOGLE_REVIEW_REQUESTED",
+            details={"job_id": job.id, "attempt_id": key, "reason": body.reason},
+        )
+    )
+    db.commit()
+    return data(job, "status")

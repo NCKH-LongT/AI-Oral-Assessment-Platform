@@ -17,3 +17,6 @@ dist/
 playwright-report/
 test-results/
 .DS_Store
+secrets/
+*service-account*.json
+google-stt*.json

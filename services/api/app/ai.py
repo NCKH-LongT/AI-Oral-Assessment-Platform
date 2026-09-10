@@ -10,6 +10,7 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import cast, select
 
 from .config import settings
+from .knowledge import scope_query
 from .models import Chunk, Document
 from .schemas import GradeOutput, QuestionOutput
 
@@ -50,17 +51,16 @@ def embed(text, task="RETRIEVAL_DOCUMENT"):
     return [v / norm for v in vector]
 
 
-def retrieve(db, course_id, topic_id, text, document_ids=None):
+def retrieve(db, course_id, topic_id, text, document_ids=None, chunk_ids=None):
     vector = embed(text, "RETRIEVAL_QUERY")
     query = (
-        select(Chunk)
-        .join(Document)
-        .where(
-            Chunk.course_id == course_id,
-            Chunk.topic_id == topic_id,
-            Document.status == "READY",
-            Document.embedding_model == embedding_name(),
-        )
+        scope_query(db, course_id, topic_id)
+        if chunk_ids is None
+        else select(Chunk).join(Document).where(Chunk.id.in_(chunk_ids))
+    ).where(
+        Chunk.course_id == course_id,
+        Document.status == "READY",
+        Document.embedding_model == embedding_name(),
     )
     if document_ids is not None:
         query = query.where(Chunk.document_id.in_(document_ids))
@@ -83,6 +83,7 @@ def retrieve(db, course_id, topic_id, text, document_ids=None):
             "page": c.page,
             "topic_id": c.topic_id,
             "learning_outcome_id": c.learning_outcome_id,
+            "heading": c.heading,
         }
         for c in rows
     ]
@@ -117,7 +118,7 @@ def structured(instruction, data, schema):
     )
 
 
-def generate_question(topic, difficulty, chunks, previous):
+def generate_question(topic, difficulty, chunks, previous, outcomes=None):
     if not chunks:
         raise ValueError("Không có RAG evidence cho chủ đề")
     if settings().ai_provider == "demo":
@@ -127,9 +128,15 @@ def generate_question(topic, difficulty, chunks, previous):
             "reference_chunk_ids": [c["id"] for c in chunks],
         }
     result = structured(
-        "Generate exactly one oral assessment question constrained by topic and difficulty. "
+        "Generate exactly one oral assessment question constrained by topic, supplied learning outcomes and difficulty. "
         "Avoid previous questions. Cite only supplied chunk IDs.",
-        {"topic": topic.name, "difficulty": difficulty, "evidence": chunks, "previous_questions": previous},
+        {
+            "topic": topic.name,
+            "learning_outcomes": outcomes or [],
+            "difficulty": difficulty,
+            "evidence": chunks,
+            "previous_questions": previous,
+        },
         QuestionOutput,
     ).model_dump()
     if not set(result["reference_chunk_ids"]) <= {c["id"] for c in chunks}:

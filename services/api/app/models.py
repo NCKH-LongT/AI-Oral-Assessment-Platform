@@ -2,7 +2,7 @@ import time
 import uuid
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -62,8 +62,19 @@ class Topic(Entity, Base):
 
 class Document(Entity, Base):
     __tablename__ = "documents"
+    __table_args__ = (
+        Index(
+            "one_textbook_per_course",
+            "course_id",
+            unique=True,
+            postgresql_where=text("kind = 'TEXTBOOK'"),
+            sqlite_where=text("kind = 'TEXTBOOK'"),
+        ),
+    )
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
-    topic_id: Mapped[str] = mapped_column(ForeignKey("topics.id"))
+    topic_id: Mapped[str | None] = mapped_column(ForeignKey("topics.id"))
+    kind: Mapped[str] = mapped_column(String(20), default="SUPPLEMENT")
+    page_count: Mapped[int | None] = mapped_column(Integer)
     filename: Mapped[str] = mapped_column(String(250))
     storage_key: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), default="PENDING")
@@ -76,8 +87,9 @@ class Chunk(Entity, Base):
     __tablename__ = "document_chunks"
     document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), index=True)
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"), index=True)
-    topic_id: Mapped[str] = mapped_column(ForeignKey("topics.id"))
-    learning_outcome_id: Mapped[str] = mapped_column(ForeignKey("learning_outcomes.id"))
+    topic_id: Mapped[str | None] = mapped_column(ForeignKey("topics.id"))
+    learning_outcome_id: Mapped[str | None] = mapped_column(ForeignKey("learning_outcomes.id"))
+    heading: Mapped[str | None] = mapped_column(Text)
     page: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list] = mapped_column(JSON().with_variant(Vector(768), "postgresql"))
@@ -152,3 +164,51 @@ class Audit(Entity, Base):
     user_id: Mapped[str | None] = mapped_column(String(36))
     event: Mapped[str] = mapped_column(String(80))
     details: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class BookSection(Entity, Base):
+    __tablename__ = "book_sections"
+    course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
+    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"))
+    title: Mapped[str] = mapped_column(String(300))
+    level: Mapped[int] = mapped_column(Integer, default=1)
+    start_page: Mapped[int] = mapped_column(Integer)
+    end_page: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(20), default="MANUAL")
+
+
+class TopicOutcome(Base):
+    __tablename__ = "topic_outcomes"
+    topic_id: Mapped[str] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), primary_key=True)
+    outcome_id: Mapped[str] = mapped_column(ForeignKey("learning_outcomes.id"), primary_key=True)
+
+
+class TopicSection(Base):
+    __tablename__ = "topic_sections"
+    topic_id: Mapped[str] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), primary_key=True)
+    section_id: Mapped[str] = mapped_column(ForeignKey("book_sections.id"), primary_key=True)
+
+
+class TopicDocument(Base):
+    __tablename__ = "topic_documents"
+    topic_id: Mapped[str] = mapped_column(ForeignKey("topics.id", ondelete="CASCADE"), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id"), primary_key=True)
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSON)
+
+
+class ReviewJob(Entity, Base):
+    __tablename__ = "review_jobs"
+    attempt_id: Mapped[str] = mapped_column(ForeignKey("question_attempts.id"), index=True)
+    requested_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    reason: Mapped[str] = mapped_column(Text)
+    policy: Mapped[dict] = mapped_column(JSON)
+    original: Mapped[dict] = mapped_column(JSON)
+    result: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
+    error: Mapped[str | None] = mapped_column(Text)
+    completed_at: Mapped[float | None] = mapped_column(Float)

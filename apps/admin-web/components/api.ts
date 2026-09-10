@@ -22,6 +22,9 @@ export type Topic = {
   name: string;
   description: string;
   learning_outcome_id: string;
+  learning_outcome_ids: string[];
+  chapter_ids: string[];
+  document_ids: string[];
 };
 export type Criterion = {
   name: string;
@@ -49,9 +52,26 @@ export type Doc = {
   filename: string;
   status: string;
   error: string | null;
-  topic_id: string;
+  topic_id: string | null;
+  kind: "TEXTBOOK" | "SUPPLEMENT";
+  page_count: number | null;
+};
+export type Chapter = {
+  id: string;
+  document_id: string;
+  title: string;
+  level: number;
+  start_page: number;
+  end_page: number;
+  source: string;
+};
+export type SpeechPolicy = {
+  provider: "local" | "google" | "local_server";
+  preprocessing: "off" | "denoise";
+  language: "vi" | "en";
 };
 export type Workspace = {
+  chapters: Chapter[];
   outcomes: Outcome[];
   topics: Topic[];
   documents: Doc[];
@@ -70,6 +90,7 @@ export type Chunk = {
   content: string;
   page: number;
   document_id: string;
+  heading?: string | null;
 };
 export type Assessment = {
   score: number | null;
@@ -96,6 +117,20 @@ export type Review = Result & {
     stt_confidence: number | null;
     assessment: Assessment | null;
     evidence: { id: string; kind: string }[];
+    reviews: {
+      id: string;
+      status: string;
+      reason: string;
+      created_at: number;
+      error: string | null;
+      original: { transcript: string; assessment: Assessment | null };
+      result: {
+        transcript: string;
+        stt_confidence: number;
+        assessment: Assessment;
+        preprocessing: string;
+      } | null;
+    }[];
   }[];
 };
 export type StudentExam = {

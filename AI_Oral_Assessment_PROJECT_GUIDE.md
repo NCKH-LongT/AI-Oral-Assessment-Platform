@@ -4,6 +4,8 @@
 > Tài liệu này là nguồn mô tả kiến trúc và kế hoạch triển khai chính của dự án.
 > Mục tiêu là để Codex hoặc AI Coding Agent có thể đọc tài liệu này, hiểu hệ thống, chia nhỏ công việc và xây dựng theo từng giai đoạn mà không phá vỡ kiến trúc tổng thể.
 
+> **Cập nhật source ngày 11/09/2026:** giai đoạn 1 đã mở rộng một giáo trình PDF/môn, tách chương/header, chủ đề nhiều LO/chương/tài liệu, lọc nhiễu trước STT, admin chọn local/Google/server nội bộ, admin nhận dạng Google và chấm lại có lịch sử, spinner khi STT/nộp bài. Xem [thiết kế cập nhật](docs/architecture/knowledge-speech.md), [README](README.md) và [biên bản kiểm thử](docs/validation.md). Với các mục bên dưới mô tả STT local cố định hoặc regrade chỉ ở giai đoạn 2, áp dụng cập nhật này; các mục offline, OCR, manual override và production chưa tự động trở thành đã triển khai.
+
 ---
 
 # 1. Tổng quan dự án

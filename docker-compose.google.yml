@@ -1,0 +1,22 @@
+# Optional Google Cloud credentials, mounted read-only into backend services only.
+services:
+  api:
+    environment:
+      GOOGLE_STT_CREDENTIALS_FILE: /run/secrets/google-stt.json
+    volumes:
+      - type: bind
+        source: ${GOOGLE_STT_CREDENTIALS_HOST_FILE:?Set absolute path to Google service account JSON}
+        target: /run/secrets/google-stt.json
+        read_only: true
+        bind:
+          create_host_path: false
+  worker:
+    environment:
+      GOOGLE_STT_CREDENTIALS_FILE: /run/secrets/google-stt.json
+    volumes:
+      - type: bind
+        source: ${GOOGLE_STT_CREDENTIALS_HOST_FILE:?Set absolute path to Google service account JSON}
+        target: /run/secrets/google-stt.json
+        read_only: true
+        bind:
+          create_host_path: false

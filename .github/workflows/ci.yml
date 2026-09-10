@@ -34,14 +34,14 @@ jobs:
           node-version: "22"
           cache: npm
       - run: pip install -r services/api/requirements.lock && pip install --no-deps -e services/api
-      - name: PostgreSQL migration up, down, up
+      - name: PostgreSQL migration from MVP
         env:
           DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
         run: |
-          alembic -c services/api/alembic.ini upgrade head
+          alembic -c services/api/alembic.ini upgrade 0001
           alembic -c services/api/alembic.ini downgrade base
           alembic -c services/api/alembic.ini upgrade head
-          alembic -c services/api/alembic.ini downgrade base
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: ruff check services/api apps/desktop/transcribe.py scripts
       - run: pytest services/api/tests -q
       - run: npm ci

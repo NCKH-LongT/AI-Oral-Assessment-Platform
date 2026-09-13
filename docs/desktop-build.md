@@ -38,6 +38,8 @@ Các bộ cài mặc định chưa có code signing/notarization. Phân phối c
 
 Vào **Actions → Desktop installers → Run workflow**. Workflow `.github/workflows/desktop.yml` build trên Windows, Ubuntu, macOS; mỗi job upload artifact `OralAI-OS-ARCH`, lưu 14 ngày. Tải artifact của đúng hệ điều hành, giải nén và dùng bộ cài. Đây là build thủ công, không tự chạy ba hệ điều hành ở mọi push. CI chính vẫn chạy lint, test API/UI, test cấu hình desktop và Docker Compose. Repository hiện dùng GitHub Actions, chưa có Jenkinsfile. Compose đã chia sẻ volume `app_data` giữa API/worker nên không cần thêm dịch vụ hoặc volume để lưu cấu hình trên web.
 
+Bộ cài đã kiểm tra build ngày 13/09/2026: [tải artifacts Windows x64, Linux x64 và macOS ARM64](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34741414321). Artifacts cần tài khoản GitHub có quyền truy cập repository và hết hạn sau 14 ngày; chạy workflow lại để tạo bản mới. Bản macOS ARM64 dành cho Apple Silicon; build `-- --x64` trên macOS để tạo bản Intel. Build thành công không thay thế kiểm tra thiết bị thật hoặc ký bộ cài.
+
 ## STT local có cần Python không?
 
 - Nếu admin chọn **Whisper server** hoặc **Google STT**, máy học viên không cần Python/FFmpeg; bộ cài tiêu chuẩn đã đủ. Đây là mặc định cho các bộ cài không có bundle STT.

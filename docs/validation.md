@@ -11,7 +11,9 @@
 - CI trước đó lỗi pull `minio/minio` từ Docker Hub trên runner mới ([log CI](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34739076717)). Compose chuyển sang cùng bản `RELEASE.2025-09-07T16-13-09Z` trên Quay và ghim manifest digest; không nâng phiên bản storage hoặc đổi volume.
 - Docker API/worker/web đã rebuild và Compose đang chạy được cập nhật sau khi sao lưu PostgreSQL. Migration lên `0003` thành công: giữ 5 tài khoản, 4 phiên thi; số môn 7 → 8 và đề 4 → 5 do thêm môn/đề luyện tập. Health API/web đạt; credentials Google STT trên volume vẫn đọc được.
 - Electron đóng gói Linux: mở app/kết nối backend, preload Google, menu cấu hình local, kiểm tra health và tách quyền IPC. Kiểm tra lần đầu chưa có cấu hình → lưu domain → mở trang đăng nhập → đóng/mở app giữ domain thành công; xác nhận đổi máy chủ native được giả lập trong kiểm thử Playwright.
-- Đã build `.deb` và `.AppImage` Linux x64 bằng electron-builder. Windows/macOS có workflow build trên đúng OS; chưa kiểm tra GUI, microphone/camera phần cứng, code signing/notarization hoặc helper Whisper PyInstaller trên các OS này.
+- Đã build `.deb` và `.AppImage` Linux x64 bằng electron-builder. [Desktop installers #34741414321](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34741414321) đạt cả ba job trên OS đích: Windows x64 (NSIS), Linux x64 (deb/AppImage), macOS ARM64 (dmg/zip); chưa kiểm tra GUI, microphone/camera phần cứng, code signing/notarization hoặc helper Whisper PyInstaller trên các OS này.
+
+[CI #34741506218](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34741506218) trên commit `b0a5ad5` đạt cả `checks` và `compose-e2e`, xác nhận pull MinIO trên runner mới, migration, 30 test API và 8 kịch bản Playwright.
 
 Ảnh giao diện mới: [môn học/chủ đề](screenshots/knowledge.png), [cấu hình](screenshots/speech-settings.png). Hướng dẫn: [tài khoản và giao môn](architecture/accounts-courses-desktop.md), [build desktop](desktop-build.md).
 

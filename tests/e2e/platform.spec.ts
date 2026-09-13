@@ -214,6 +214,122 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     path: "docs/screenshots/knowledge.png",
     fullPage: true,
   });
+  await page.getByRole("button", { name: "02 · Rubric", exact: true }).click();
+  await page.getByLabel("Tên rubric", { exact: true }).fill("Rubric CRUD");
+  await page.getByRole("button", { name: "Lưu rubric", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Rubric CRUD v1" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Sửa rubric Rubric CRUD", exact: true })
+    .click();
+  await page.getByLabel("Tên rubric", { exact: true }).fill("Rubric đã sửa");
+  await page.getByRole("button", { name: "Lưu rubric", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Rubric đã sửa v2" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Sửa rubric Rubric đã sửa", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Hủy sửa rubric", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Tạo rubric", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "03 · Bài thi & giao bài", exact: true })
+    .click();
+  await page.getByLabel("Tên bài thi", { exact: true }).fill("Đề CRUD");
+  await page
+    .getByRole("combobox", { name: "Rubric", exact: true })
+    .selectOption({ label: "Rubric đã sửa · v2" });
+  await page.getByRole("button", { name: "Lưu bản nháp", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Đề CRUD", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Sửa bản nháp", exact: true }).click();
+  await page.getByLabel("Tên bài thi", { exact: true }).fill("Đề đã sửa");
+  await page.getByRole("button", { name: "Lưu bản nháp", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Đề đã sửa", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Sao chép thành bản nháp", exact: true })
+    .click();
+  await expect(page.getByLabel("Tên bài thi", { exact: true })).toHaveValue(
+    "Đề đã sửa (bản sao)",
+  );
+  await page
+    .getByRole("button", { name: "Hủy sửa đề thi", exact: true })
+    .click();
+  page.on("dialog", (dialog) => dialog.accept());
+  for (const name of ["Đề đã sửa", "Đề đã sửa (bản sao)"]) {
+    await page
+      .locator("section.panel")
+      .filter({ has: page.getByRole("heading", { name, exact: true }) })
+      .getByRole("button", { name: "Xóa", exact: true })
+      .click();
+    await expect(page.getByRole("heading", { name, exact: true })).toHaveCount(
+      0,
+    );
+  }
+  await page.getByRole("button", { name: "02 · Rubric", exact: true }).click();
+  await page.getByRole("button", { name: "Xóa", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Rubric đã sửa v2" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  await page
+    .getByLabel("Tên môn học", { exact: true })
+    .fill(courseName + " đã sửa");
+  await page
+    .getByRole("button", { name: "Cập nhật môn học", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: courseName + " đã sửa", exact: true }),
+  ).toBeVisible();
+  for (const action of ["Lưu trữ môn học", "Khôi phục môn học"]) {
+    await page
+      .getByRole("button")
+      .filter({
+        has: page.getByRole("heading", {
+          name: courseName + " đã sửa",
+          exact: true,
+        }),
+      })
+      .click();
+    await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+    await page.getByRole("button", { name: action, exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Môn học & đề thi", exact: true }),
+    ).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Tạo môn học", exact: true }).click();
+  await page
+    .getByLabel("Mã môn học", { exact: true })
+    .fill("DELETE-" + Date.now());
+  await page
+    .getByLabel("Tên môn học", { exact: true })
+    .fill("Môn trống để xóa");
+  await page
+    .getByRole("button", { name: "Tạo môn học", exact: true })
+    .last()
+    .click();
+  await page
+    .getByRole("button")
+    .filter({
+      has: page.getByRole("heading", { name: "Môn trống để xóa", exact: true }),
+    })
+    .click();
+  await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+  await page.getByRole("button", { name: "Xóa môn học", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Môn học & đề thi", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Môn trống để xóa", exact: true }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Cấu hình giọng nói", exact: true })
     .click();
@@ -321,6 +437,12 @@ test("student records only during answer, submits media, admin plays real WebM",
       () => (window as unknown as { recordingStarts: number }).recordingStarts,
     ),
   ).toBe(0);
+  await expect(
+    page.getByRole("button", { name: "Bắt đầu thi", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Bỏ qua kiểm tra độ ồn", exact: true })
+    .click();
   await page.getByRole("button", { name: "Bắt đầu thi", exact: true }).click();
   for (let i = 0; i < 2; i++) {
     await expect(

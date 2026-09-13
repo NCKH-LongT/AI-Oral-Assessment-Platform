@@ -518,7 +518,8 @@ function CourseWorkspace({
     [error, setError] = useState(""),
     [rag, setRag] = useState<Chunk[] | null>(null);
   const [editRubric, setEditRubric] = useState<Rubric | null>(null),
-    [editExam, setEditExam] = useState<Exam | null>(null);
+    [editExam, setEditExam] = useState<Exam | null>(null),
+    [formVersion, setFormVersion] = useState(0);
   const load = useCallback(async () => {
     const workspace = await api<Workspace>(
       `/admin/courses/${course.id}/workspace`,
@@ -751,15 +752,22 @@ function CourseWorkspace({
                   <div className="inline">
                     <button
                       className="text-button"
+                      aria-label={`Sửa rubric ${r.name}`}
                       onClick={() => setEditRubric(r)}
                     >
                       Sửa
                     </button>
                     <Action
                       className="text-button danger"
-                      action={() =>
-                        mutate(`/admin/rubrics/${r.id}`, undefined, "DELETE")
-                      }
+                      action={async () => {
+                        if (!window.confirm(`Xóa rubric “${r.name}”?`)) return;
+                        await mutate(
+                          `/admin/rubrics/${r.id}`,
+                          undefined,
+                          "DELETE",
+                        );
+                        if (editRubric?.id === r.id) setEditRubric(null);
+                      }}
                     >
                       Xóa
                     </Action>
@@ -792,8 +800,9 @@ function CourseWorkspace({
           ))}
           {editable && (
             <RubricForm
-              key={editRubric?.id || "new"}
+              key={editRubric?.id || `new-${formVersion}`}
               initial={editRubric}
+              cancel={() => setEditRubric(null)}
               save={async (body) => {
                 await mutate(
                   editRubric
@@ -803,6 +812,7 @@ function CourseWorkspace({
                   editRubric ? "PUT" : "POST",
                 );
                 setEditRubric(null);
+                setFormVersion((v) => v + 1);
               }}
             />
           )}
@@ -822,6 +832,25 @@ function CourseWorkspace({
                 </div>
                 <Badge status={e.status} />
               </div>
+              <p className="muted">
+                Rubric: {data.rubrics.find((r) => r.id === e.rubric_id)?.name}
+              </p>
+              <ul>
+                {e.blueprint.map((b, i) => (
+                  <li key={i}>
+                    {data.topics.find((t) => t.id === b.topic_id)?.name ||
+                      "Chủ đề đã xóa"}
+                    {" · "}
+                    {
+                      { EASY: "Dễ", MEDIUM: "Trung bình", HARD: "Khó" }[
+                        b.difficulty
+                      ]
+                    }
+                    {" · "}
+                    {b.count} câu
+                  </li>
+                ))}
+              </ul>
               {editable && e.status === "DRAFT" && (
                 <div className="inline">
                   <Action action={() => mutate(`/admin/exams/${e.id}/publish`)}>
@@ -835,13 +864,34 @@ function CourseWorkspace({
                   </button>
                   <Action
                     className="text-button danger"
-                    action={() =>
-                      mutate(`/admin/exams/${e.id}`, undefined, "DELETE")
-                    }
+                    action={async () => {
+                      if (!window.confirm(`Xóa đề nháp “${e.name}”?`)) return;
+                      await mutate(`/admin/exams/${e.id}`, undefined, "DELETE");
+                      if (editExam?.id === e.id) setEditExam(null);
+                    }}
                   >
                     Xóa
                   </Action>
                 </div>
+              )}
+              {editable && (
+                <Action
+                  className="button secondary"
+                  disabled={course.status !== "ACTIVE"}
+                  action={async () => {
+                    const copy = await send<Exam>(`/admin/exams/${e.id}/copy`);
+                    await load();
+                    setEditExam(copy);
+                  }}
+                >
+                  Sao chép thành bản nháp
+                </Action>
+              )}
+              {e.status === "PUBLISHED" && (
+                <p className="muted">
+                  Đề đã công bố được giữ nguyên để bảo toàn kết quả. Sao chép
+                  thành bản nháp để chỉnh sửa.
+                </p>
               )}
               {editable && e.status === "PUBLISHED" && (
                 <Form
@@ -876,8 +926,9 @@ function CourseWorkspace({
           ))}
           {editable && (
             <ExamForm
-              key={editExam?.id || "new"}
+              key={editExam?.id || `new-${formVersion}`}
               initial={editExam}
+              cancel={() => setEditExam(null)}
               data={data}
               course={course}
               save={async (body) => {
@@ -887,6 +938,7 @@ function CourseWorkspace({
                   editExam ? "PUT" : "POST",
                 );
                 setEditExam(null);
+                setFormVersion((v) => v + 1);
               }}
             />
           )}
@@ -937,6 +989,26 @@ function CourseWorkspace({
                 className="button secondary"
                 action={async () => {
                   await mutate(
+                    `/admin/courses/${course.id}/${course.status === "ARCHIVED" ? "restore" : "archive"}`,
+                  );
+                  back();
+                }}
+              >
+                {course.status === "ARCHIVED"
+                  ? "Khôi phục môn học"
+                  : "Lưu trữ môn học"}
+              </Action>
+              <p className="muted">
+                Chỉ xóa vĩnh viễn môn học khi không còn dữ liệu liên quan.
+              </p>
+              <Action
+                className="text-button danger"
+                action={async () => {
+                  if (
+                    !window.confirm(`Xóa vĩnh viễn môn học “${course.name}”?`)
+                  )
+                    return;
+                  await send(
                     `/admin/courses/${course.id}`,
                     undefined,
                     "DELETE",
@@ -944,7 +1016,7 @@ function CourseWorkspace({
                   back();
                 }}
               >
-                Lưu trữ môn học
+                Xóa môn học
               </Action>
             </>
           ) : (
@@ -958,9 +1030,11 @@ function CourseWorkspace({
 function RubricForm({
   initial,
   save,
+  cancel,
 }: {
   initial: Rubric | null;
   save: (body: unknown) => Promise<void>;
+  cancel: () => void;
 }) {
   const [criteria, setCriteria] = useState<Criterion[]>(
     initial?.criteria || [
@@ -981,6 +1055,11 @@ function RubricForm({
   return (
     <section className="panel">
       <h2>{initial ? "Sửa rubric" : "Tạo rubric"}</h2>
+      {initial && (
+        <button className="text-button" onClick={cancel}>
+          Hủy sửa rubric
+        </button>
+      )}
       <Form
         label="Lưu rubric"
         onSubmit={async (d) => save({ name: d.get("name"), criteria })}
@@ -1065,6 +1144,7 @@ function RubricForm({
         <button
           type="button"
           className="text-button"
+          disabled={criteria.length >= 20}
           onClick={() =>
             setCriteria([
               ...criteria,
@@ -1083,11 +1163,13 @@ function ExamForm({
   data,
   course,
   save,
+  cancel,
 }: {
   initial: Exam | null;
   data: Workspace;
   course: Course;
   save: (body: unknown) => Promise<void>;
+  cancel: () => void;
 }) {
   const [blueprint, setBlueprint] = useState<Blueprint[]>(
     initial?.blueprint || [
@@ -1097,6 +1179,11 @@ function ExamForm({
   return (
     <section className="panel">
       <h2>{initial ? "Sửa bản nháp" : "Tạo bài thi"}</h2>
+      {initial && (
+        <button className="text-button" onClick={cancel}>
+          Hủy sửa đề thi
+        </button>
+      )}
       <Form
         label="Lưu bản nháp"
         onSubmit={(d) =>

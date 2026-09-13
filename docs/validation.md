@@ -1,5 +1,17 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## CRUD và kiểm tra tiếng ồn — 13/09/2026
+
+- 23 test API/audio/migration đạt trên SQLite và PostgreSQL/pgvector. PostgreSQL chạy trên database kiểm thử riêng; dữ liệu E2E ở Compose project `oral-crud-check`, tách volume khỏi ứng dụng đang chạy.
+- Kiểm tra tạo/đọc/sửa/xóa môn trống, archive/restore, quyền ADMIN/giảng viên/REVIEWER/STUDENT, lỗi 409 khi môn/rubric còn tham chiếu; CRUD rubric và đề nháp; từ chối chuyển môn, sửa/xóa đề đã công bố; bản sao không có assignment/snapshot và không thay đổi đề gốc.
+- Hai unit test âm thanh đạt: RMS/dBFS, phòng yên lặng/ồn, nhiễu ngắt quãng, đột biến đơn lẻ, không tín hiệu và dữ liệu không hợp lệ.
+- Sáu kịch bản Playwright trên Docker Compose đạt: bốn tình huống tiếng ồn (yên lặng; ồn rồi kiểm tra lại; bỏ qua khi đang đo; tín hiệu bằng 0), luồng admin CRUD/kiến thức/cấu hình và luồng sinh viên ghi/nộp/phát lại WebM. Bộ chọn ô rubric trong test được sửa rồi kịch bản admin được chạy lại thành công.
+- Electron Linux mở qua Playwright: bridge desktop hoạt động, cảnh báo phòng ồn và khóa bắt đầu; kiểm tra lại phòng yên lặng cho bắt đầu; bỏ qua trong lúc đo; các track kiểm tra được giải phóng, số lần gọi MediaRecorder bằng 0. Chạy với camera/mic giả lập và PCM tổng hợp, không phải đo microphone phần cứng.
+- Ruff, ESLint, TypeScript, production build, Electron syntax và `git diff --check` đạt; `npm audit --audit-level=high` không có lỗ hổng được báo cáo. Docker build API/worker/web và health check Compose thử nghiệm đạt.
+- Đã sao lưu PostgreSQL trước cập nhật, recreate API/worker/web của Compose đang chạy, giữ các volume hiện có. Sau cập nhật API/web/PostgreSQL/Redis healthy, worker running, `http://localhost:3000/api/health` trả `status: ok`. Không có migration schema mới.
+
+Ngưỡng −40 dBFS/20% là heuristic chưa hiệu chuẩn trên thiết bị thật; không phải dBA/SPL hoặc chứng nhận điều kiện phòng thi. Chưa benchmark Spleeter so với FFmpeg trên tiếng Việt; thay đổi này giữ FFmpeg trước STT. Chưa kiểm tra GUI Windows/macOS hay microphone phần cứng. Xem [thiết kế và hướng dẫn](architecture/crud-noise-check.md).
+
 ## Upload credentials Google qua admin — 11/09/2026
 
 - 20 test API/audio/migration/seed đạt trên SQLite và PostgreSQL/pgvector; database PostgreSQL kiểm thử tách riêng dữ liệu ứng dụng.

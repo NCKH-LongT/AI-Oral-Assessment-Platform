@@ -1274,3 +1274,13 @@ hr {
     font-size: 10px;
   }
 }
+.noise-check {
+  border: 1px solid var(--border, #dce3df);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 20px 0;
+}
+.noise-check progress {
+  width: 100%;
+  margin-bottom: 12px;
+}

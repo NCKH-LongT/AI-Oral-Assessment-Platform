@@ -19,6 +19,7 @@ import {
   SpeechPolicy,
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
+import NoiseCheck from "./noise-check";
 
 type STT = { transcript: string; stt_confidence: number };
 declare global {
@@ -65,6 +66,7 @@ export default function Student() {
     [session, setSession] = useState<ExamSession | null>(null),
     [error, setError] = useState("");
   const [stream, setStream] = useState<MediaStream | null>(null),
+    [noiseReady, setNoiseReady] = useState(false),
     [micLevel, setMicLevel] = useState(0),
     [recording, setRecording] = useState(false),
     [processing, setProcessing] = useState(false),
@@ -172,11 +174,13 @@ export default function Student() {
   }, [stream]);
   async function devices() {
     setDeviceError("");
+    setNoiseReady(false);
     if (!navigator.mediaDevices || typeof MediaRecorder === "undefined")
       throw new Error(
         "Cần trình duyệt hỗ trợ MediaRecorder trên HTTPS hoặc localhost.",
       );
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    setStream(null);
     const s = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 640 }, height: { ideal: 480 } },
       audio: { echoCancellation: true, noiseSuppression: true },
@@ -414,6 +418,7 @@ export default function Student() {
               </p>
               <Action
                 action={async () => {
+                  setNoiseReady(false);
                   setSession(
                     await send<ExamSession>("/exam-sessions", {
                       exam_id: e.id,
@@ -501,6 +506,10 @@ export default function Student() {
                 <ol>
                   <li>Cho phép truy cập camera và microphone.</li>
                   <li>Kiểm tra hình ảnh và thanh tín hiệu microphone.</li>
+                  <li>
+                    Kiểm tra độ ồn, tìm chỗ yên lặng nếu được nhắc hoặc chọn bỏ
+                    qua.
+                  </li>
                   <li>Camera chỉ ghi khi bạn bấm “Bắt đầu trả lời”.</li>
                 </ol>
                 <p className="muted">
@@ -508,8 +517,15 @@ export default function Student() {
                   phục bản ghi khi đóng ứng dụng; giữ cửa sổ mở đến khi nộp bài
                   thành công.
                 </p>
+                {stream && !deviceError && (
+                  <NoiseCheck
+                    key={stream.id}
+                    stream={stream}
+                    onReady={setNoiseReady}
+                  />
+                )}
                 <Action
-                  disabled={!stream || !!deviceError}
+                  disabled={!stream || !!deviceError || !noiseReady}
                   action={async () =>
                     setSession(
                       await send<ExamSession>(

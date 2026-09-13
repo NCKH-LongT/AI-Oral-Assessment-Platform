@@ -81,11 +81,13 @@ Tài khoản: `teacher.demo` và `student.demo`, dùng mật khẩu vừa nhập
 6. **Kết quả & xem lại:** mở bài để xem transcript đã nộp, điểm theo tiêu chí, RAG, audio/video. Sau khi bài đã nộp và chấm lần đầu, **admin** có thể mở **Nhận dạng lại bằng Google & chấm lại**, nhập lý do rồi chạy. Audio được nhận dạng lại và chấm theo rubric/AI/kiến thức của đề đã công bố. Trang tự cập nhật; lưu cả transcript sinh viên, transcript Google, đánh giá trước/sau và lý do. Nếu lỗi, đánh giá trước được giữ nguyên. Demo vẫn không có điểm AI; sửa điểm thủ công chưa triển khai.
 7. **Cấu hình giọng nói** (admin): chọn STT local trên desktop, Google Cloud hoặc Whisper trên server nội bộ; chọn bật/tắt lọc nhiễu và ngôn ngữ Việt/Anh. Cấu hình lưu trong database, áp dụng cho lần nhận dạng tiếp theo.
 
+**CRUD:** trong môn học → **Cài đặt**, sửa thông tin, lưu trữ/khôi phục hoặc xóa vĩnh viễn môn học trống. Môn còn LO/chủ đề/tài liệu/rubric/đề thi được bảo vệ khỏi xóa; dùng lưu trữ để giữ lịch sử. Tab Rubric có tạo, xem, sửa, hủy sửa và xóa; rubric đang được đề thi dùng trả thông báo rõ để đổi rubric/xóa đề nháp trước. Đề nháp có tạo, xem blueprint, sửa, hủy sửa và xóa. Đề đã công bố giữ nguyên; **Sao chép thành bản nháp** tạo đề mới để sửa và công bố lại, không sao chép lượt thi/giao bài/kết quả. Các thao tác xóa có xác nhận trên giao diện.
+
 ### Sinh viên
 
 1. Đăng nhập → **Bài thi của tôi** → mở bài được giao.
 2. Cho phép camera và mic; kiểm tra preview và thanh tín hiệu khi nói. Bước này **chưa ghi**.
-3. Bấm **Bắt đầu thi**. Server tính thời gian toàn bài.
+3. Bấm **Kiểm tra độ ồn**, giữ im lặng và tắt loa trong 5 giây. Nếu quá ồn, tìm chỗ yên lặng rồi **Kiểm tra lại độ ồn**; có thể **Bỏ qua kiểm tra độ ồn**, kể cả lúc đang đo. Sau khi đạt hoặc bỏ qua, bấm **Bắt đầu thi**; lúc này server mới tính thời gian toàn bài. Bỏ qua không thay thế quyền camera/mic.
 4. Đọc câu hỏi → **Bắt đầu trả lời** → nói → **Kết thúc trả lời**. Chỉ khoảng thời gian này được ghi âm/ghi hình.
 5. Chờ biểu tượng loading lọc nhiễu/STT, kiểm tra transcript. Mỗi câu tối đa 10 phút và audio STT tối đa 30 MB. Có thể thử STT lại hoặc ghi lại trước khi nộp. Transcript sửa tay được đánh dấu cần giảng viên kiểm tra.
 6. **Nộp câu trả lời & tiếp tục**: có spinner trong lúc lưu, khóa sửa transcript/ghi lại để tránh thao tác trùng; audio/video tải nền theo chunk. Nếu upload lỗi, bấm tải lại và giữ ứng dụng mở.
@@ -131,6 +133,8 @@ docker compose exec api python -c 'from app.speech import model; model()'
 `STT_MODEL=base` là mặc định. `STT_LANGUAGE=vi` chỉ là giá trị khởi tạo; cấu hình ngôn ngữ đã lưu trong admin được ưu tiên. Cần đo chất lượng tiếng Việt trên máy triển khai. Confidence Whisper là heuristic, không phải xác suất chính xác đã hiệu chuẩn.
 
 Audio gốc → bản WAV mono 16 kHz → lọc nhiễu/chuẩn hóa âm lượng (nếu bật) → STT → transcript. Bộ lọc FFmpeg giảm tiếng ù/nhiễu nền, **không phải mô hình tách người nói hoặc tách vocal khỏi mọi loại nhạc**. File evidence gốc không bị thay đổi. Cài đặt native có `imageio-ffmpeg` làm phương án dự phòng khi máy chưa cài FFmpeg; có thể chỉ định `FFMPEG_BINARY`.
+
+**Có nên thay bằng Spleeter?** Chưa có bằng chứng tốt hơn cho dữ liệu vấn đáp của dự án. [Spleeter của Deezer](https://github.com/deezer/spleeter) thiết kế cho tách nguồn âm nhạc, gồm giọng hát/nhạc đệm; đó không phải bảo đảm khử tiếng quạt, xe cộ hoặc tách đúng học viên khỏi người khác nói. Giữ FFmpeg hiện tại; trước khi thêm Spleeter cần so sánh WER/CER tiếng Việt, độ trễ và RAM trên cùng tập thu âm có transcript chuẩn. Đây là xử lý trước **STT** (speech-to-text), không phải **TTS** (text-to-speech). Xem [thiết kế kiểm tra độ ồn và đánh giá Spleeter](docs/architecture/crud-noise-check.md).
 
 ### Google Cloud Speech-to-Text
 
@@ -190,6 +194,8 @@ npm run desktop
 
 File tạm được xóa sau STT; renderer không có quyền `fs`, `shell` hay `child_process`. Lần đầu cần mạng để tải model. Giữ nguyên cấu trúc repository vì desktop dùng chung module xử lý audio ở `services/api/app/audio_processing.py`. Đây là source chạy development; chưa có installer ký số hoặc auto-update.
 
+Kiểm tra độ ồn dùng module `apps/admin-web/lib/noise-check.ts` dựa trên Web Audio API tích hợp trong Chromium/Electron, dùng chung với web; không cần cài thư viện Python/model bổ sung. Module yêu cầu luồng mic không có noise suppression, echo cancellation hoặc auto gain, đo tại máy rồi giải phóng luồng. Không tạo file hoặc upload âm thanh kiểm tra. Ngưỡng mặc định là −40 dBFS ở ít nhất 20% cửa sổ đo; đây là mức tín hiệu tương đối phụ thuộc microphone, **không phải dB SPL/dBA**. Mic không có tín hiệu không tự được coi là phòng yên lặng. Chưa hiệu chuẩn ngưỡng bằng microphone phần cứng; kiểm tra là bước hỗ trợ trước thi, không phải cơ chế chống gian lận phía server.
+
 ## 5. Phát triển không dùng Docker
 
 Chạy mọi lệnh từ **thư mục gốc repository**. SQLite + storage local dùng cho thử nghiệm một máy; PostgreSQL/MinIO trong Compose là cấu hình triển khai chuẩn.
@@ -248,6 +254,7 @@ npm run lint
 npm run typecheck
 npm run build
 npm run check -w apps/desktop
+npm run test:audio
 npm audit --audit-level=high
 docker compose config --quiet
 ```
@@ -260,6 +267,8 @@ npm run test:e2e
 ```
 
 E2E dùng camera/mic giả lập, ghi và phát **WebM thật**; STT trong browser test được thay bằng kết quả cố định. Test không gọi Gemini trả phí. CI kiểm tra migration PostgreSQL, test, lint/typecheck/build, Docker build và E2E trên toàn bộ Compose.
+
+Bản CRUD/kiểm tra độ ồn không đổi schema, dependency hoặc service: Dockerfile và Compose hiện có đã đóng gói đủ frontend/API/FFmpeg. Cập nhật bản đang chạy bằng `docker compose up -d --build --wait` (giữ các file `-f` override nếu đang dùng). Không xóa volume. Repository hiện dùng `.github/workflows/ci.yml`, chưa có Jenkinsfile/Jenkins deployment; workflow đã bổ sung `npm run test:audio` và tự chạy các bài Playwright mới.
 
 ## 8. Cấu trúc source
 

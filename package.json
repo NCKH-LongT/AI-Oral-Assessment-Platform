@@ -12,7 +12,8 @@
     "typecheck": "npm run typecheck -w apps/admin-web",
     "lint": "npm run lint -w apps/admin-web",
     "desktop": "npm run start -w apps/desktop",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:audio": "node --experimental-strip-types --test tests/noise-check.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.1",

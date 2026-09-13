@@ -1,5 +1,6 @@
 import hashlib
 import time
+from copy import deepcopy
 from pathlib import Path
 from urllib.parse import quote
 
@@ -102,11 +103,34 @@ def update_course(course_id: str, body: s.CourseIn, db: Session = Depends(get_db
 
 
 @router.delete("/courses/{course_id}")
+def delete_course(course_id: str, db: Session = Depends(get_db), user=Depends(editor)):
+    row = course_access(db, course_id, user)
+    for model in (LearningOutcome, Topic, Document, Rubric, Exam):
+        if db.scalar(select(model.id).where(model.course_id == course_id).limit(1)):
+            fail(
+                409,
+                "COURSE_IN_USE",
+                "Môn học còn dữ liệu. Xóa dữ liệu liên quan trước hoặc lưu trữ môn học để giữ lịch sử.",
+            )
+    db.delete(row)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/courses/{course_id}/archive")
 def archive_course(course_id: str, db: Session = Depends(get_db), user=Depends(editor)):
     row = course_access(db, course_id, user)
     row.status = "ARCHIVED"
     db.commit()
     return {"status": "ARCHIVED"}
+
+
+@router.post("/courses/{course_id}/restore")
+def restore_course(course_id: str, db: Session = Depends(get_db), user=Depends(editor)):
+    row = course_access(db, course_id, user)
+    row.status = "ACTIVE"
+    db.commit()
+    return {"status": "ACTIVE"}
 
 
 @router.get("/courses/{course_id}/workspace")
@@ -365,8 +389,14 @@ def update_rubric(key: str, body: s.RubricIn, db: Session = Depends(get_db), use
 
 @router.delete("/rubrics/{key}")
 def delete_rubric(key: str, db: Session = Depends(get_db), user=Depends(editor)):
-    row = by_id(db, Rubric, key)
+    row = by_id(db, Rubric, key, lock=True)
     course_access(db, row.course_id, user)
+    if db.scalar(select(Exam.id).where(Exam.rubric_id == key).limit(1)):
+        fail(
+            409,
+            "RUBRIC_IN_USE",
+            "Rubric đang được đề thi sử dụng. Đổi rubric hoặc xóa đề nháp liên quan trước; đề đã công bố giữ nguyên lịch sử.",
+        )
     db.delete(row)
     db.commit()
     return {"ok": True}
@@ -398,6 +428,8 @@ def update_exam(key: str, body: s.ExamIn, db: Session = Depends(get_db), user=De
     course_access(db, row.course_id, user)
     if row.status != "DRAFT":
         fail(409, "PUBLISHED", "Không sửa đề đã công bố")
+    if body.course_id != row.course_id:
+        fail(422, "CROSS_COURSE", "Không chuyển đề thi sang môn học khác")
     validate_exam(db, body, user)
     for field, value in body.model_dump().items():
         setattr(row, field, value)
@@ -414,6 +446,23 @@ def delete_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     db.delete(row)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/exams/{key}/copy", status_code=201)
+def copy_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
+    source = by_id(db, Exam, key)
+    body = s.ExamIn(
+        course_id=source.course_id,
+        rubric_id=source.rubric_id,
+        name=f"{source.name[:189]} (bản sao)",
+        time_limit=source.time_limit,
+        blueprint=deepcopy(source.blueprint),
+    )
+    validate_exam(db, body, user)
+    row = Exam(**body.model_dump())
+    db.add(row)
+    db.commit()
+    return data(row, "name", "status", "blueprint", "time_limit", "rubric_id")
 
 
 @router.post("/exams/{key}/publish")

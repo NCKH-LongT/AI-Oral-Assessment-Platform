@@ -7,6 +7,7 @@ Nền tảng thi vấn đáp với **FastAPI + Next.js + Electron**, PostgreSQL/
 - [Hướng triển khai và các quyết định giai đoạn 1](docs/architecture/phase-1.md)
 - [Tài liệu yêu cầu gốc](AI_Oral_Assessment_PROJECT_GUIDE.md)
 - [Biên bản kiểm thử](docs/validation.md)
+- [Hướng dẫn chạy app desktop](#4-chạy-app-desktop)
 - [CI thành công: Docker build, migration và E2E](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34502364619)
 
 ## Cập nhật tài khoản và desktop
@@ -196,16 +197,89 @@ Compose gắn credentials chỉ đọc vào API và worker. Sau đó admin chọ
 
 Adapter gửi PCM thành các đoạn tối đa 55 giây để đáp ứng [giới hạn nhận dạng đồng bộ của Google](https://docs.cloud.google.com/speech-to-text/docs/v1/quotas). Chia đoạn cố định có thể ảnh hưởng từ ngay tại ranh giới; cần kiểm tra transcript với audio khi chấm lại. Chọn Google sẽ gửi audio đã xử lý ra Google Cloud và có thể phát sinh phí. Đã thử kết nối/nhận dạng thành công với credentials thật và mẫu tiếng Anh 11 giây; chưa đánh giá chất lượng tiếng Việt trong lớp học.
 
-## 4. Chạy Electron với STT local
+## 4. Chạy app desktop
 
-Cần Node.js **22.12+**, Python **3.12**, môi trường desktop và server/web đang chạy.
+Desktop cần kết nối web/backend OralAI đang chạy. Nếu dùng **Whisper server** hoặc **Google STT**, máy học viên không cần Python/FFmpeg. Python chỉ cần khi chọn Whisper local và bộ cài không có helper STT đi kèm.
+
+### 4.1. Chạy nhanh từ source
+
+Cần Node.js **22.12+** và môi trường desktop có giao diện. Mở terminal tại **thư mục gốc repository** (thư mục chứa `docker-compose.yml` và `package.json`).
+
+Nếu chạy backend trên cùng máy, hoàn tất cấu hình Docker ở mục 1, rồi khởi động nếu chưa chạy:
+
+```bash
+docker compose up -d --wait
+```
+
+Mở `http://localhost:3000` trên trình duyệt để xác nhận web hoạt động. Nếu kết nối server của trường qua domain thì không cần chạy Docker trên máy học viên.
+
+Cài thư viện JavaScript lần đầu hoặc sau khi cập nhật dependency:
 
 ```bash
 npm ci
+```
+
+Khởi động app trên Ubuntu/Linux hoặc macOS:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE npm run desktop
+```
+
+Trên Windows PowerShell:
+
+```powershell
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+npm run desktop
+```
+
+Lệnh trên loại bỏ biến `ELECTRON_RUN_AS_NODE` nếu terminal đang có, để Electron mở cửa sổ ứng dụng. Bản chạy từ source mặc định kết nối `http://localhost:3000` khi chưa có địa chỉ đã lưu. Để đổi máy chủ, mở menu **OralAI → Cấu hình máy chủ…** như mục 4.3. Đóng cửa sổ để thoát app; Docker backend vẫn tiếp tục chạy.
+
+### 4.2. Chạy bằng bộ cài
+
+Tải bộ cài từ **GitHub → Actions → Desktop installers → run thành công → Artifacts**, chọn đúng hệ điều hành và giải nén artifact. Nếu artifact đã hết hạn, chạy lại workflow. Hướng dẫn tự build: [Desktop đa nền tảng](docs/desktop-build.md).
+
+| Hệ điều hành | Cách cài và mở |
+| --- | --- |
+| Windows x64 | Chạy bộ cài `.exe`, hoàn tất cài đặt rồi mở **OralAI** từ Start Menu. |
+| Ubuntu x64 | Cài `.deb` theo lệnh bên dưới, rồi mở **OralAI** trong danh sách ứng dụng hoặc chạy `oralai`. |
+| macOS | Mở `.dmg`, kéo **OralAI** vào Applications rồi mở ứng dụng. Artifact macOS hiện có là ARM64 cho Apple Silicon; máy Intel cần bản x64. |
+
+Ví dụ trên Ubuntu, khi file bộ cài nằm trong `apps/desktop/dist/` và terminal ở thư mục gốc repository:
+
+```bash
+sudo apt install ./apps/desktop/dist/OralAI-0.1.0-linux-amd64.deb
+oralai
+```
+
+Nếu tải file về Downloads, thay đường dẫn bằng vị trí file thực tế. Có thể chạy AppImage mà không cài `.deb`:
+
+```bash
+chmod +x ./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
+./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
+```
+
+Nếu AppImage báo thiếu FUSE, dùng `.deb` hoặc chạy `APPIMAGE_EXTRACT_AND_RUN=1 ./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage`. Bộ cài hiện chưa ký số/notarization; hướng dẫn build và ký bộ cài nằm trong [docs/desktop-build.md](docs/desktop-build.md).
+
+### 4.3. Chọn máy chủ và đăng nhập
+
+1. Lần đầu mở bản đóng gói, app hiện **Cấu hình máy chủ**. Nếu app đã mở, vào **OralAI → Cấu hình máy chủ…**.
+2. Nhập `http://localhost:3000` nếu backend chạy trên **chính máy đang mở desktop**. Máy học viên khác nhập domain HTTPS của server, ví dụ `https://oral.example.edu`. Domain phải phục vụ cả web và API; không thêm `/api` vào ô này.
+3. Bấm **Kiểm tra kết nối**, sau đó **Lưu & kết nối** và xác nhận. Địa chỉ được lưu trên máy cho những lần mở tiếp theo.
+4. Đăng nhập bằng tài khoản được cấp. Nút **Đăng nhập bằng Google** xuất hiện khi admin đã cấu hình và bật Google OAuth; desktop mở trình duyệt hệ thống để đăng nhập, sau đó quay lại app.
+5. Mở **Bài thi của tôi** (học viên) hoặc **Học & thi thử** (nhân sự), chọn đề trong môn **Luyện tập vấn đáp**, cấp quyền camera/mic và làm theo bước kiểm tra thiết bị/tiếng ồn. Có nút bỏ qua kiểm tra tiếng ồn nếu cần. Giữ ứng dụng mở đến khi nộp bài thành công.
+
+`ORAL_WEB_URL` nếu có trong môi trường sẽ ưu tiên hơn địa chỉ đã lưu khi khởi động. Bỏ biến này nếu muốn dùng địa chỉ lưu bằng menu. Không cần build lại app khi đổi domain. Trước khi đổi máy chủ, nộp xong bài đang làm vì app sẽ tải lại giao diện.
+
+### 4.4. Tùy chọn: nhận dạng Whisper local
+
+Chỉ làm bước này nếu admin chọn STT chạy trên máy học viên và chưa có helper đi kèm bộ cài. Cần Python **3.12**. Với bản chạy từ source, dùng các lệnh dưới đây tại thư mục gốc repository sau khi đã chạy `npm ci`.
+
+Linux/macOS:
+
+```bash
 python3.12 -m venv .venv
-# Linux/macOS
 .venv/bin/pip install -r services/api/requirements.lock
-ORAL_WEB_URL=http://localhost:3000 ORAL_PYTHON="$PWD/.venv/bin/python" npm run desktop
+ORAL_PYTHON="$PWD/.venv/bin/python" env -u ELECTRON_RUN_AS_NODE npm run desktop
 ```
 
 Windows PowerShell:
@@ -213,14 +287,14 @@ Windows PowerShell:
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\pip install "faster-whisper>=1.1,<2" "imageio-ffmpeg>=0.6,<0.7"
-$env:ORAL_WEB_URL = "http://localhost:3000"
 $env:ORAL_PYTHON = "$PWD\.venv\Scripts\python.exe"
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
 npm run desktop
 ```
 
 Để nhận dạng trên máy sinh viên, admin chọn **Whisper local trên máy sinh viên (desktop)**. Electron lấy policy từ server, chuyển audio và lựa chọn lọc nhiễu/ngôn ngữ qua IPC tới Whisper local. Nếu admin chọn Google/server nội bộ thì Electron dùng API tương ứng. Trình duyệt web sẽ báo cần desktop khi policy là local; không tự chuyển sang Google.
 
-File tạm được xóa sau STT; renderer không có quyền `fs`, `shell` hay `child_process`. Lần đầu cần mạng để tải model. Khi chạy từ source, giữ nguyên cấu trúc repository để dùng module xử lý audio chung. Bộ cài electron-builder đã mang theo các module cần thiết; xem hướng dẫn build bên trên. Chưa có installer ký số hoặc auto-update.
+File tạm được xóa sau STT; renderer không có quyền `fs`, `shell` hay `child_process`. Lần đầu cần mạng để tải model. Khi chạy từ source, giữ nguyên cấu trúc repository để dùng module xử lý audio chung. Bộ cài electron-builder đã mang theo script và module xử lý audio chung; xem [cách đóng gói thêm helper Whisper](docs/desktop-build.md) nếu không muốn cài Python trên máy học viên. Chưa có installer ký số hoặc auto-update.
 
 Kiểm tra độ ồn dùng module `apps/admin-web/lib/noise-check.ts` dựa trên Web Audio API tích hợp trong Chromium/Electron, dùng chung với web; không cần cài thư viện Python/model bổ sung. Module yêu cầu luồng mic không có noise suppression, echo cancellation hoặc auto gain, đo tại máy rồi giải phóng luồng. Không tạo file hoặc upload âm thanh kiểm tra. Ngưỡng mặc định là −40 dBFS ở ít nhất 20% cửa sổ đo; đây là mức tín hiệu tương đối phụ thuộc microphone, **không phải dB SPL/dBA**. Mic không có tín hiệu không tự được coi là phòng yên lặng. Chưa hiệu chuẩn ngưỡng bằng microphone phần cứng; kiểm tra là bước hỗ trợ trước thi, không phải cơ chế chống gian lận phía server.
 

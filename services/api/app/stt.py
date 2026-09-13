@@ -5,14 +5,14 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 from .db import get_db
-from .security import fail, student
+from .security import current_user, fail
 from .speech import policy, transcribe_file
 
 router = APIRouter()
 
 
 @router.post("/stt")
-def stt(file: UploadFile = File(), db: Session = Depends(get_db), user=Depends(student)):
+def stt(file: UploadFile = File(), db: Session = Depends(get_db), user=Depends(current_user)):
     config = policy(db)
     if config["provider"] == "local":
         fail(409, "DESKTOP_REQUIRED", "Admin chọn STT local. Vui lòng dùng ứng dụng desktop")

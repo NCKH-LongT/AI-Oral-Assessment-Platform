@@ -1,5 +1,19 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Google login, giao môn, cấu hình web và desktop — 13/09/2026
+
+- 30 test API/audio/migration đạt trên SQLite và PostgreSQL/pgvector. Test PostgreSQL dùng database riêng; E2E dùng Compose project `oral-accounts-check`, không dùng volume dữ liệu đang chạy.
+- Kiểm tra Google state/nonce, ID token audience, email đã xác minh, chống dùng lại callback/poll token, callback đang xử lý, không tự ghép tài khoản mật khẩu; request Google được giả lập, chưa đăng nhập với OAuth client thật.
+- Kiểm tra quyền ADMIN hiện hành, bảo vệ admin ACTIVE cuối cùng; giao/gỡ môn, đề công bố sau khi giao môn, chặn đề nháp; bootstrap môn mặc định idempotent và mọi vai trò có thể thi thử.
+- Kiểm tra cấu hình AI/OAuth/STT chỉ cho ADMIN, che secret trong response, quyền file 600, xóa key rõ ràng, request/job giữ cấu hình nhất quán. Bảy test tài khoản/cấu hình được chạy lại sau điều chỉnh đọc cấu hình mới khi lưu.
+- Tám kịch bản Playwright đạt trên Docker: Google desktop giả lập, bốn tình huống tiếng ồn, admin CRUD/UI, sinh viên nộp/phát lại WebM, giao môn/đổi quyền/cấu hình secret. Sau khi bổ sung popup chương/chủ đề, kịch bản admin được chạy lại và đạt.
+- Ruff, ESLint, TypeScript, Next.js production build trong Docker, Electron syntax, hai unit test audio, unit test domain desktop và npm audit đạt (0 vulnerabilities được báo cáo tại thời điểm kiểm tra).
+- Docker API/worker/web đã rebuild và Compose đang chạy được cập nhật sau khi sao lưu PostgreSQL. Migration lên `0003` thành công: giữ 5 tài khoản, 4 phiên thi; số môn 7 → 8 và đề 4 → 5 do thêm môn/đề luyện tập. Health API/web đạt; credentials Google STT trên volume vẫn đọc được.
+- Electron đóng gói Linux: mở app/kết nối backend, preload Google, menu cấu hình local, kiểm tra health và tách quyền IPC. Kiểm tra lần đầu chưa có cấu hình → lưu domain → mở trang đăng nhập → đóng/mở app giữ domain thành công; xác nhận đổi máy chủ native được giả lập trong kiểm thử Playwright.
+- Đã build `.deb` và `.AppImage` Linux x64 bằng electron-builder. Windows/macOS có workflow build trên đúng OS; chưa kiểm tra GUI, microphone/camera phần cứng, code signing/notarization hoặc helper Whisper PyInstaller trên các OS này.
+
+Ảnh giao diện mới: [môn học/chủ đề](screenshots/knowledge.png), [cấu hình](screenshots/speech-settings.png). Hướng dẫn: [tài khoản và giao môn](architecture/accounts-courses-desktop.md), [build desktop](desktop-build.md).
+
 ## CRUD và kiểm tra tiếng ồn — 13/09/2026
 
 - 23 test API/audio/migration đạt trên SQLite và PostgreSQL/pgvector. PostgreSQL chạy trên database kiểm thử riêng; dữ liệu E2E ở Compose project `oral-crud-check`, tách volume khỏi ứng dụng đang chạy.

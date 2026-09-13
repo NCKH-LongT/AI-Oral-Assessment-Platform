@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 
 from . import google_credentials
 from .audio_processing import prepare_audio
-from .config import settings
 from .db import get_db
 from .models import Audit, SystemSetting
+from .runtime_settings import settings
 from .schemas import SpeechPolicy
 from .security import admin, current_user, fail
 
@@ -95,16 +95,16 @@ def upload_google_credentials(file: UploadFile = File(), db: Session = Depends(g
     return settings_view(db)
 
 
-@lru_cache
-def model():
+@lru_cache(maxsize=1)
+def model(name):
     from faster_whisper import WhisperModel
 
-    return WhisperModel(settings().stt_model, device="cpu", compute_type="int8")
+    return WhisperModel(name, device="cpu", compute_type="int8")
 
 
 def whisper(path, language):
     with _lock:
-        segments, info = model().transcribe(str(path), language=language, vad_filter=True)
+        segments, info = model(settings().stt_model).transcribe(str(path), language=language, vad_filter=True)
         segments = list(segments)
     confidence = sum(math.exp(min(0, s.avg_logprob)) for s in segments) / len(segments) if segments else 0
     return {

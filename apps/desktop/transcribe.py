@@ -10,7 +10,10 @@ from pathlib import Path
 from faster_whisper import WhisperModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "services" / "api"))
-from app.audio_processing import prepare_audio
+try:
+    from app.audio_processing import prepare_audio
+except ModuleNotFoundError:
+    from audio_processing import prepare_audio
 
 model = WhisperModel(os.getenv("STT_MODEL", "base"), device="cpu", compute_type="int8")
 with tempfile.TemporaryDirectory(prefix="oral-desktop-clean-") as folder:

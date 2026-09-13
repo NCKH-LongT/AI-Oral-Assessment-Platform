@@ -8,7 +8,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from . import ai, speech, storage
+from . import ai, runtime_settings, speech, storage
 from .db import SessionLocal
 from .documents import process_document
 from .models import Attempt, Audit, Chunk, Document, Exam, ExamSession, ReviewJob, Upload
@@ -56,6 +56,18 @@ def frozen_chunks(db, exam, attempt):
 
 def grade_answer(db, exam, session, attempt, transcript, confidence):
     snapshot = exam.snapshot
+    if snapshot.get("practice"):
+        return {
+            "score": None,
+            "review_required": True,
+            "confidence": 0,
+            "criteria": [],
+            "retrieved_chunks": [],
+            "model": "practice",
+            "rubric_version": snapshot["rubric_version"],
+            "knowledge_version": snapshot["knowledge_version"],
+            "reasoning_summary": "Đã hoàn thành câu luyện tập. Bài này không tính điểm chính thức.",
+        }
     if (
         snapshot["embedding_model"] != ai.embedding_name()
         or snapshot["ai_provider"] != ai.settings().ai_provider
@@ -119,6 +131,7 @@ def process_review(db, job):
     finalize(db, session)
 
 
+@runtime_settings.snapshot()
 def tick():
     with SessionLocal() as db:
         job = db.scalar(

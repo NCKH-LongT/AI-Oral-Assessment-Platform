@@ -26,9 +26,10 @@ import {
   Rubric,
   Exam,
 } from "./api";
-import { Action, Badge, Empty, Field, Form } from "./shared";
+import { Action, Badge, Empty, Field, Form, Modal } from "./shared";
 import { TextbookPanel, TopicPanel } from "./knowledge";
-import SpeechSettings from "./speech-settings";
+import PlatformSettings from "./platform-settings";
+import CourseStudents from "./course-students";
 import { GoogleReview } from "./google-review";
 
 export default function Admin({
@@ -92,12 +93,13 @@ export default function Admin({
     return () => clearInterval(timer);
   }, [page, load, review?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (loading) return <Empty>Đang tải dữ liệu…</Empty>;
-  if (page === "speech" && user.role === "ADMIN") return <SpeechSettings />;
+  if (page === "settings" && user.role === "ADMIN") return <PlatformSettings />;
   if (selected && page === "courses")
     return (
       <CourseWorkspace
         course={selected}
-        students={users.filter((u) => u.role === "STUDENT")}
+        students={users}
+        admin={user.role === "ADMIN"}
         editable={editable}
         back={() => {
           setSelected(null);
@@ -398,7 +400,7 @@ export default function Admin({
               <thead>
                 <tr>
                   <th>Người dùng</th>
-                  <th>Tên đăng nhập</th>
+                  <th>Email / Tên đăng nhập</th>
                   <th>Vai trò</th>
                 </tr>
               </thead>
@@ -413,9 +415,18 @@ export default function Admin({
                         {u.name}
                       </span>
                     </td>
-                    <td>{u.username}</td>
+                    <td>{u.email || u.username}</td>
                     <td>
                       <span className="pill">{u.role}</span>
+                      {user.role === "ADMIN" && (
+                        <RoleEditor
+                          user={u}
+                          saved={async () => {
+                            await load();
+                            if (u.id === user.id) window.location.reload();
+                          }}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -503,11 +514,13 @@ function ResultTable({
 }
 
 function CourseWorkspace({
+  admin,
   course,
   students,
   editable,
   back,
 }: {
+  admin: boolean;
   course: Course;
   students: User[];
   editable: boolean;
@@ -515,6 +528,9 @@ function CourseWorkspace({
 }) {
   const [data, setData] = useState<Workspace | null>(null),
     [tab, setTab] = useState("knowledge"),
+    [knowledgeTab, setKnowledgeTab] = useState("textbook"),
+    [rubricOpen, setRubricOpen] = useState(false),
+    [examOpen, setExamOpen] = useState(false),
     [error, setError] = useState(""),
     [rag, setRag] = useState<Chunk[] | null>(null);
   const [editRubric, setEditRubric] = useState<Rubric | null>(null),
@@ -556,6 +572,7 @@ function CourseWorkspace({
           { id: "knowledge", label: "01 · Kiến thức" },
           { id: "rubric", label: "02 · Rubric" },
           { id: "exams", label: "03 · Bài thi & giao bài" },
+          { id: "students", label: "04 · Học viên" },
           { id: "settings", label: "Cài đặt" },
         ].map((t) => (
           <button
@@ -567,15 +584,37 @@ function CourseWorkspace({
           </button>
         ))}
       </div>
+      {tab === "students" && (
+        <CourseStudents courseId={course.id} users={students} admin={admin} />
+      )}
       {tab === "knowledge" && (
         <>
-          <TextbookPanel
-            courseId={course.id}
-            data={data}
-            editable={editable}
-            reload={load}
-          />
-          <div className="two-col">
+          <div className="tabs sub-tabs">
+            {[
+              ["textbook", "Giáo trình"],
+              ["outcomes", "Chuẩn đầu ra"],
+              ["topics", "Chủ đề"],
+              ["documents", "Tài liệu bổ sung"],
+              ["rag", "Tra cứu kiến thức"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                className={knowledgeTab === id ? "active" : ""}
+                onClick={() => setKnowledgeTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {knowledgeTab === "textbook" && (
+            <TextbookPanel
+              courseId={course.id}
+              data={data}
+              editable={editable}
+              reload={load}
+            />
+          )}
+          {knowledgeTab === "outcomes" && (
             <section className="panel">
               <h2>Chuẩn đầu ra (LO)</h2>
               {data.outcomes.map((lo) => (
@@ -620,117 +659,125 @@ function CourseWorkspace({
                 </Form>
               )}
             </section>
+          )}
+          {knowledgeTab === "topics" && (
             <TopicPanel
               courseId={course.id}
               data={data}
               editable={editable}
               reload={load}
             />
-          </div>
-          <section className="panel">
-            <div className="section-title">
-              <h2>Tài liệu môn học</h2>
-              <span className="muted">PDF · PPTX · DOCX · TXT</span>
-            </div>
-            <p className="muted">
-              Tài liệu được tách nội dung và tạo embedding. Chờ trạng thái “Sẵn
-              sàng” trước khi công bố đề.
-            </p>
-            {editable && (
+          )}
+          {knowledgeTab === "documents" && (
+            <section className="panel">
+              <div className="section-title">
+                <h2>Tài liệu môn học</h2>
+                <span className="muted">PDF · PPTX · DOCX · TXT</span>
+              </div>
+              <p className="muted">
+                Tài liệu được tách nội dung và tạo embedding. Chờ trạng thái
+                “Sẵn sàng” trước khi công bố đề.
+              </p>
+              {editable && (
+                <Form
+                  label="Tải tài liệu lên"
+                  onSubmit={async (d) => {
+                    if (!d.get("topic_id")) d.delete("topic_id");
+                    await api(`/admin/courses/${course.id}/documents`, {
+                      method: "POST",
+                      body: d,
+                    });
+                    await load();
+                  }}
+                >
+                  <div className="form-grid">
+                    <label>
+                      Chủ đề
+                      <select name="topic_id">
+                        <option value="">
+                          Lưu vào môn học, gắn chủ đề sau
+                        </option>
+                        {data.topics.map((t) => (
+                          <option value={t.id} key={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Tài liệu (tối đa 20 MB)
+                      <input
+                        type="file"
+                        name="file"
+                        required
+                        accept=".pdf,.pptx,.docx,.txt"
+                      />
+                    </label>
+                  </div>
+                </Form>
+              )}
+              {data.documents.map((d) => (
+                <div className="list-item" key={d.id}>
+                  <FileText size={20} />
+                  <div className="grow">
+                    <strong>{d.filename}</strong>
+                    {d.error && <p className="error">{d.error}</p>}
+                  </div>
+                  <Badge status={d.status} />
+                  {d.status === "FAILED" && editable && (
+                    <Action
+                      className="text-button"
+                      action={() => mutate(`/admin/documents/${d.id}/retry`)}
+                    >
+                      Thử lại
+                    </Action>
+                  )}
+                </div>
+              ))}
+            </section>
+          )}
+          {knowledgeTab === "rag" && (
+            <section className="panel">
+              <h2>Kiểm tra truy xuất RAG</h2>
               <Form
-                label="Tải tài liệu lên"
-                onSubmit={async (d) => {
-                  if (!d.get("topic_id")) d.delete("topic_id");
-                  await api(`/admin/courses/${course.id}/documents`, {
-                    method: "POST",
-                    body: d,
-                  });
-                  await load();
-                }}
+                label="Tìm trong tài liệu"
+                onSubmit={async (d) =>
+                  setRag(
+                    await api<Chunk[]>(
+                      `/admin/courses/${course.id}/rag?topic_id=${d.get("topic_id")}&q=${encodeURIComponent(String(d.get("q")))}`,
+                    ),
+                  )
+                }
               >
                 <div className="form-grid">
                   <label>
                     Chủ đề
-                    <select name="topic_id">
-                      <option value="">Lưu vào môn học, gắn chủ đề sau</option>
+                    <select name="topic_id" required>
                       {data.topics.map((t) => (
-                        <option value={t.id} key={t.id}>
+                        <option key={t.id} value={t.id}>
                           {t.name}
                         </option>
                       ))}
                     </select>
                   </label>
-                  <label>
-                    Tài liệu (tối đa 20 MB)
-                    <input
-                      type="file"
-                      name="file"
-                      required
-                      accept=".pdf,.pptx,.docx,.txt"
-                    />
-                  </label>
+                  <Field name="q" label="Nội dung cần tìm" />
                 </div>
               </Form>
-            )}
-            {data.documents.map((d) => (
-              <div className="list-item" key={d.id}>
-                <FileText size={20} />
-                <div className="grow">
-                  <strong>{d.filename}</strong>
-                  {d.error && <p className="error">{d.error}</p>}
-                </div>
-                <Badge status={d.status} />
-                {d.status === "FAILED" && editable && (
-                  <Action
-                    className="text-button"
-                    action={() => mutate(`/admin/documents/${d.id}/retry`)}
-                  >
-                    Thử lại
-                  </Action>
-                )}
-              </div>
-            ))}
-          </section>
-          <section className="panel">
-            <h2>Kiểm tra truy xuất RAG</h2>
-            <Form
-              label="Tìm trong tài liệu"
-              onSubmit={async (d) =>
-                setRag(
-                  await api<Chunk[]>(
-                    `/admin/courses/${course.id}/rag?topic_id=${d.get("topic_id")}&q=${encodeURIComponent(String(d.get("q")))}`,
-                  ),
-                )
-              }
-            >
-              <div className="form-grid">
-                <label>
-                  Chủ đề
-                  <select name="topic_id" required>
-                    {data.topics.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <Field name="q" label="Nội dung cần tìm" />
-              </div>
-            </Form>
-            {rag?.map((c) => (
-              <blockquote key={c.id}>
-                <small>
-                  Trang/slide {c.page} · {c.id.slice(0, 8)}
-                </small>
-                <p>{c.content}</p>
-              </blockquote>
-            ))}
-            {rag?.length === 0 && (
-              <Empty>
-                Không có nội dung phù hợp. Kiểm tra tài liệu và chủ đề.
-              </Empty>
-            )}
-          </section>
+              {rag?.map((c) => (
+                <blockquote key={c.id}>
+                  <small>
+                    Trang/slide {c.page} · {c.id.slice(0, 8)}
+                  </small>
+                  <p>{c.content}</p>
+                </blockquote>
+              ))}
+              {rag?.length === 0 && (
+                <Empty>
+                  Không có nội dung phù hợp. Kiểm tra tài liệu và chủ đề.
+                </Empty>
+              )}
+            </section>
+          )}
         </>
       )}
       {tab === "rubric" && (
@@ -742,6 +789,17 @@ function CourseWorkspace({
               phiên bản rubric tại thời điểm công bố.
             </span>
           </div>
+          {editable && (
+            <button
+              className="button"
+              onClick={() => {
+                setEditRubric(null);
+                setRubricOpen(true);
+              }}
+            >
+              Tạo rubric
+            </button>
+          )}
           {data.rubrics.map((r) => (
             <section className="panel" key={r.id}>
               <div className="section-title">
@@ -753,7 +811,10 @@ function CourseWorkspace({
                     <button
                       className="text-button"
                       aria-label={`Sửa rubric ${r.name}`}
-                      onClick={() => setEditRubric(r)}
+                      onClick={() => {
+                        setEditRubric(r);
+                        setRubricOpen(true);
+                      }}
                     >
                       Sửa
                     </button>
@@ -774,52 +835,86 @@ function CourseWorkspace({
                   </div>
                 )}
               </div>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Tiêu chí</th>
-                      <th>Mô tả</th>
-                      <th>Điểm tối đa</th>
-                      <th>Trọng số</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {r.criteria.map((c) => (
-                      <tr key={c.name}>
-                        <td>{c.name}</td>
-                        <td>{c.description}</td>
-                        <td>{c.max_score}</td>
-                        <td>{c.weight}</td>
+              <details>
+                <summary>Xem tiêu chí</summary>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Tiêu chí</th>
+                        <th>Mô tả</th>
+                        <th>Điểm tối đa</th>
+                        <th>Trọng số</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {r.criteria.map((c) => (
+                        <tr key={c.name}>
+                          <td>{c.name}</td>
+                          <td>{c.description}</td>
+                          <td>{c.max_score}</td>
+                          <td>{c.weight}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
             </section>
           ))}
-          {editable && (
-            <RubricForm
-              key={editRubric?.id || `new-${formVersion}`}
-              initial={editRubric}
-              cancel={() => setEditRubric(null)}
-              save={async (body) => {
-                await mutate(
-                  editRubric
-                    ? `/admin/rubrics/${editRubric.id}`
-                    : `/admin/courses/${course.id}/rubrics`,
-                  body,
-                  editRubric ? "PUT" : "POST",
-                );
+          {editable && rubricOpen && (
+            <Modal
+              title="Thiết lập rubric"
+              close={() => {
+                setRubricOpen(false);
                 setEditRubric(null);
-                setFormVersion((v) => v + 1);
               }}
-            />
+            >
+              <RubricForm
+                key={editRubric?.id || `new-${formVersion}`}
+                initial={editRubric}
+                cancel={() => {
+                  setEditRubric(null);
+                  setRubricOpen(false);
+                }}
+                save={async (body) => {
+                  await mutate(
+                    editRubric
+                      ? `/admin/rubrics/${editRubric.id}`
+                      : `/admin/courses/${course.id}/rubrics`,
+                    body,
+                    editRubric ? "PUT" : "POST",
+                  );
+                  setEditRubric(null);
+                  setRubricOpen(false);
+                  setFormVersion((v) => v + 1);
+                }}
+              />
+            </Modal>
           )}
         </>
       )}
       {tab === "exams" && (
         <>
+          {editable && (
+            <button
+              className="button"
+              disabled={
+                !data.rubrics.length ||
+                !data.topics.length ||
+                course.status !== "ACTIVE"
+              }
+              onClick={() => {
+                setEditExam(null);
+                setExamOpen(true);
+              }}
+            >
+              Tạo bài thi
+            </button>
+          )}
+          {(!data.rubrics.length || !data.topics.length) && (
+            <p className="muted">Thêm chủ đề và rubric trước khi tạo đề thi.</p>
+          )}
           {data.exams.map((e) => (
             <section className="panel" key={e.id}>
               <div className="section-title">
@@ -835,22 +930,25 @@ function CourseWorkspace({
               <p className="muted">
                 Rubric: {data.rubrics.find((r) => r.id === e.rubric_id)?.name}
               </p>
-              <ul>
-                {e.blueprint.map((b, i) => (
-                  <li key={i}>
-                    {data.topics.find((t) => t.id === b.topic_id)?.name ||
-                      "Chủ đề đã xóa"}
-                    {" · "}
-                    {
-                      { EASY: "Dễ", MEDIUM: "Trung bình", HARD: "Khó" }[
-                        b.difficulty
-                      ]
-                    }
-                    {" · "}
-                    {b.count} câu
-                  </li>
-                ))}
-              </ul>
+              <details>
+                <summary>Xem phân bổ câu hỏi</summary>
+                <ul>
+                  {e.blueprint.map((b, i) => (
+                    <li key={i}>
+                      {data.topics.find((t) => t.id === b.topic_id)?.name ||
+                        "Chủ đề đã xóa"}
+                      {" · "}
+                      {
+                        { EASY: "Dễ", MEDIUM: "Trung bình", HARD: "Khó" }[
+                          b.difficulty
+                        ]
+                      }
+                      {" · "}
+                      {b.count} câu
+                    </li>
+                  ))}
+                </ul>
+              </details>
               {editable && e.status === "DRAFT" && (
                 <div className="inline">
                   <Action action={() => mutate(`/admin/exams/${e.id}/publish`)}>
@@ -858,7 +956,10 @@ function CourseWorkspace({
                   </Action>
                   <button
                     className="button secondary"
-                    onClick={() => setEditExam(e)}
+                    onClick={() => {
+                      setEditExam(e);
+                      setExamOpen(true);
+                    }}
                   >
                     Sửa bản nháp
                   </button>
@@ -882,6 +983,7 @@ function CourseWorkspace({
                     const copy = await send<Exam>(`/admin/exams/${e.id}/copy`);
                     await load();
                     setEditExam(copy);
+                    setExamOpen(true);
                   }}
                 >
                   Sao chép thành bản nháp
@@ -894,53 +996,68 @@ function CourseWorkspace({
                 </p>
               )}
               {editable && e.status === "PUBLISHED" && (
-                <Form
-                  label="Giao bài cho sinh viên đã chọn"
-                  onSubmit={(d) =>
-                    mutate(`/admin/exams/${e.id}/assign`, {
-                      student_ids: d.getAll("student_ids"),
-                    })
-                  }
-                >
-                  <label>Sinh viên</label>
-                  <div className="check-grid">
-                    {students.map((u) => (
-                      <label className="check" key={u.id}>
-                        <input
-                          type="checkbox"
-                          name="student_ids"
-                          value={u.id}
-                        />
-                        {u.name} <small>{u.username}</small>
-                      </label>
-                    ))}
-                  </div>
-                  {!students.length && (
-                    <p className="muted">
-                      Quản trị viên cần tạo tài khoản sinh viên trước.
-                    </p>
-                  )}
-                </Form>
+                <details>
+                  <summary>Giao riêng đề này cho học viên</summary>
+                  <Form
+                    label="Giao bài cho sinh viên đã chọn"
+                    onSubmit={(d) =>
+                      mutate(`/admin/exams/${e.id}/assign`, {
+                        student_ids: d.getAll("student_ids"),
+                      })
+                    }
+                  >
+                    <label>Sinh viên</label>
+                    <div className="check-grid">
+                      {students.map((u) => (
+                        <label className="check" key={u.id}>
+                          <input
+                            type="checkbox"
+                            name="student_ids"
+                            value={u.id}
+                          />
+                          {u.name} <small>{u.username}</small>
+                        </label>
+                      ))}
+                    </div>
+                    {!students.length && (
+                      <p className="muted">
+                        Quản trị viên cần tạo tài khoản sinh viên trước.
+                      </p>
+                    )}
+                  </Form>
+                </details>
               )}
             </section>
           ))}
-          {editable && (
-            <ExamForm
-              key={editExam?.id || `new-${formVersion}`}
-              initial={editExam}
-              cancel={() => setEditExam(null)}
-              data={data}
-              course={course}
-              save={async (body) => {
-                await mutate(
-                  editExam ? `/admin/exams/${editExam.id}` : "/admin/exams",
-                  body,
-                  editExam ? "PUT" : "POST",
-                );
+          {editable && examOpen && (
+            <Modal
+              title="Thiết lập đề thi"
+              close={() => {
+                setExamOpen(false);
                 setEditExam(null);
-                setFormVersion((v) => v + 1);
               }}
-            />
+            >
+              <ExamForm
+                key={editExam?.id || `new-${formVersion}`}
+                initial={editExam}
+                cancel={() => {
+                  setEditExam(null);
+                  setExamOpen(false);
+                }}
+                data={data}
+                course={course}
+                save={async (body) => {
+                  await mutate(
+                    editExam ? `/admin/exams/${editExam.id}` : "/admin/exams",
+                    body,
+                    editExam ? "PUT" : "POST",
+                  );
+                  setEditExam(null);
+                  setExamOpen(false);
+                  setFormVersion((v) => v + 1);
+                }}
+              />
+            </Modal>
           )}
         </>
       )}
@@ -1447,5 +1564,38 @@ function ReviewPage({
         </section>
       ))}
     </>
+  );
+}
+
+function RoleEditor({
+  user,
+  saved,
+}: {
+  user: User;
+  saved: () => Promise<void>;
+}) {
+  const [role, setRole] = useState(user.role);
+  return (
+    <div className="inline">
+      <select
+        aria-label={`Vai trò của ${user.name}`}
+        value={role}
+        onChange={(e) => setRole(e.target.value as User["role"])}
+      >
+        {["STUDENT", "TEACHER", "REVIEWER", "ADMIN"].map((r) => (
+          <option key={r}>{r}</option>
+        ))}
+      </select>
+      <Action
+        className="text-button"
+        disabled={role === user.role}
+        action={async () => {
+          await send(`/admin/users/${user.id}/role`, { role }, "PUT");
+          await saved();
+        }}
+      >
+        Lưu quyền
+      </Action>
+    </div>
   );
 }

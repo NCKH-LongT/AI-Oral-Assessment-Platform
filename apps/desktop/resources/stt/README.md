@@ -1,0 +1,1 @@
+Optional native STT bundle. Run `python scripts/build_desktop_stt.py` on the target OS/architecture before packaging. Generated `oral-stt/` is ignored by Git. Server/Google STT works without this bundle or Python on the learner's machine.

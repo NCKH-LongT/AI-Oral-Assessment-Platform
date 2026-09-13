@@ -108,7 +108,7 @@ def course_access(db, course_id, user):
 
 
 def public_user(user):
-    return {k: getattr(user, k) for k in ("id", "username", "name", "role", "status")}
+    return {k: getattr(user, k) for k in ("id", "username", "name", "role", "status", "email")}
 
 
 def by_id(db, model, key, lock=False):
@@ -119,3 +119,21 @@ def by_id(db, model, key, lock=False):
     if not row:
         fail(404, "NOT_FOUND", "Không tìm thấy dữ liệu")
     return row
+
+
+def cookies(response, access, refresh):
+    from .runtime_settings import settings as runtime_settings
+
+    cfg = runtime_settings()
+    secure = cfg.cookie_secure or cfg.public_origin.startswith("https://")
+    response.set_cookie(
+        "access_token", access, httponly=True, secure=secure, samesite="lax", max_age=cfg.access_minutes * 60
+    )
+    response.set_cookie(
+        "refresh_token",
+        refresh,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        max_age=cfg.refresh_days * 86400,
+    )

@@ -20,3 +20,4 @@ test-results/
 secrets/
 *service-account*.json
 google-stt*.json
+apps/desktop/resources/stt/oral-stt/

@@ -20,6 +20,8 @@ class Entity:
 class User(Entity, Base):
     __tablename__ = "users"
     username: Mapped[str] = mapped_column(String(80), unique=True)
+    email: Mapped[str | None] = mapped_column(String(320))
+    google_sub: Mapped[str | None] = mapped_column(String(255), unique=True)
     name: Mapped[str] = mapped_column(String(150))
     password_hash: Mapped[str] = mapped_column(Text)
     role: Mapped[str] = mapped_column(String(20))
@@ -41,6 +43,26 @@ class Course(Entity, Base):
     description: Mapped[str] = mapped_column(Text, default="")
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
+
+
+class CourseEnrollment(Entity, Base):
+    __tablename__ = "course_enrollments"
+    __table_args__ = (UniqueConstraint("course_id", "student_id"),)
+    course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
+    student_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+
+
+class OAuthFlow(Entity, Base):
+    __tablename__ = "oauth_flows"
+    state_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    nonce: Mapped[str] = mapped_column(String(100))
+    verifier: Mapped[str] = mapped_column(String(100))
+    poll_hash: Mapped[str | None] = mapped_column(String(64))
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    expires_at: Mapped[float] = mapped_column(Float)
+    consumed: Mapped[bool] = mapped_column(default=False)
+    completed: Mapped[bool] = mapped_column(default=False)
+    failed: Mapped[bool] = mapped_column(default=False)
 
 
 class LearningOutcome(Entity, Base):

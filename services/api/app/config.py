@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     stt_model: str = "base"
     stt_language: str = "vi"
     google_stt_credentials_file: str = ""
+    google_login_enabled: bool = False
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    public_origin: str = "http://localhost:3000"
     max_document_mb: int = 20
     max_textbook_mb: int = 100
     media_chunk_bytes: int = 4 * 1024 * 1024

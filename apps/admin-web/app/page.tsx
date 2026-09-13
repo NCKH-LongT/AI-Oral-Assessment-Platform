@@ -15,6 +15,7 @@ import { api, send, User } from "../components/api";
 import { Form, Field } from "../components/shared";
 import Admin from "../components/admin";
 import Student from "../components/student";
+import GoogleLogin from "../components/google-login";
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null),
@@ -98,6 +99,7 @@ export default function Home() {
             />
             <Field label="Mật khẩu" name="password" type="password" />
           </Form>
+          <GoogleLogin onLogin={setUser} />
           <p className="login-note">
             Sử dụng tài khoản do quản trị viên cung cấp.
             <br />
@@ -117,8 +119,9 @@ export default function Home() {
         { id: "courses", label: "Môn học & đề thi", icon: BookOpen },
         { id: "users", label: "Người dùng", icon: Users },
         { id: "results", label: "Kết quả & xem lại", icon: ClipboardCheck },
+        { id: "student", label: "Học & thi thử", icon: GraduationCap },
         ...(user.role === "ADMIN"
-          ? [{ id: "speech", label: "Cấu hình giọng nói", icon: AudioLines }]
+          ? [{ id: "settings", label: "Cấu hình hệ thống", icon: AudioLines }]
           : []),
       ];
   return (
@@ -180,7 +183,7 @@ export default function Home() {
           <span className="pill">MVP · Giai đoạn 1</span>
         </header>
         <div className="content">
-          {isStudent ? (
+          {isStudent || page === "student" ? (
             <Student />
           ) : (
             <Admin key={page} user={user} page={page} navigate={setPage} />

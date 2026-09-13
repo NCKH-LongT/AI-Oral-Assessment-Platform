@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from . import ai, storage
 from . import schemas as s
-from .config import settings
 from .db import get_db
 from .knowledge import chunk_scope, set_mappings, topic_data
 from .models import (
@@ -20,6 +19,7 @@ from .models import (
     Audit,
     BookSection,
     Course,
+    CourseEnrollment,
     Document,
     Exam,
     ExamSession,
@@ -32,6 +32,7 @@ from .models import (
     User,
     uid,
 )
+from .runtime_settings import settings
 from .security import admin, by_id, course_access, editor, fail, hasher, public_user, staff
 from .speech import google_ready, policy
 
@@ -105,7 +106,7 @@ def update_course(course_id: str, body: s.CourseIn, db: Session = Depends(get_db
 @router.delete("/courses/{course_id}")
 def delete_course(course_id: str, db: Session = Depends(get_db), user=Depends(editor)):
     row = course_access(db, course_id, user)
-    for model in (LearningOutcome, Topic, Document, Rubric, Exam):
+    for model in (LearningOutcome, Topic, Document, Rubric, Exam, CourseEnrollment):
         if db.scalar(select(model.id).where(model.course_id == course_id).limit(1)):
             fail(
                 409,
@@ -677,3 +678,78 @@ def google_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), use
     )
     db.commit()
     return data(job, "status")
+
+
+@router.put("/users/{key}/role")
+def change_role(key: str, body: s.RoleIn, db: Session = Depends(get_db), user=Depends(admin)):
+    admins = db.scalars(
+        select(User).where(User.role == "ADMIN", User.status == "ACTIVE").order_by(User.id).with_for_update()
+    ).all()
+    row = by_id(db, User, key, lock=True)
+    if row.role == "ADMIN" and body.role != "ADMIN" and row.status == "ACTIVE" and len(admins) <= 1:
+        fail(409, "LAST_ADMIN", "Cần giữ ít nhất một quản trị viên đang hoạt động")
+    before = row.role
+    row.role = body.role
+    db.add(
+        Audit(
+            user_id=user.id,
+            event="USER_ROLE_CHANGED",
+            details={"user_id": row.id, "before": before, "after": body.role},
+        )
+    )
+    db.commit()
+    return public_user(row)
+
+
+@router.get("/courses/{course_id}/students")
+def course_students(course_id: str, db: Session = Depends(get_db), user=Depends(staff)):
+    course_access(db, course_id, user)
+    return list(
+        db.scalars(select(CourseEnrollment.student_id).where(CourseEnrollment.course_id == course_id))
+    )
+
+
+@router.post("/courses/{course_id}/students")
+def enroll_students(course_id: str, body: s.AssignIn, db: Session = Depends(get_db), user=Depends(admin)):
+    course_access(db, course_id, user)
+    by_id(db, Course, course_id, lock=True)
+    for key in set(body.student_ids):
+        learner = by_id(db, User, key)
+        if learner.status != "ACTIVE":
+            fail(422, "INACTIVE_USER", "Tài khoản không hoạt động")
+        if not db.scalar(
+            select(CourseEnrollment.id).where(
+                CourseEnrollment.course_id == course_id, CourseEnrollment.student_id == key
+            )
+        ):
+            db.add(CourseEnrollment(course_id=course_id, student_id=key))
+    db.add(
+        Audit(
+            user_id=user.id,
+            event="COURSE_ENROLLED",
+            details={"course_id": course_id, "user_ids": body.student_ids},
+        )
+    )
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/courses/{course_id}/students/{student_id}")
+def unenroll_student(course_id: str, student_id: str, db: Session = Depends(get_db), user=Depends(admin)):
+    course_access(db, course_id, user)
+    row = db.scalar(
+        select(CourseEnrollment).where(
+            CourseEnrollment.course_id == course_id, CourseEnrollment.student_id == student_id
+        )
+    )
+    if row:
+        db.delete(row)
+    db.add(
+        Audit(
+            user_id=user.id,
+            event="COURSE_UNENROLLED",
+            details={"course_id": course_id, "user_id": student_id},
+        )
+    )
+    db.commit()
+    return {"ok": True}

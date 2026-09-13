@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { api, send, Chapter, Topic, Workspace } from "./api";
-import { Action, Badge, Field, Form } from "./shared";
+import { Action, Badge, Field, Form, Modal } from "./shared";
 
 type Props = {
   courseId: string;
@@ -13,6 +13,7 @@ type Props = {
 export function TextbookPanel({ courseId, data, editable, reload }: Props) {
   const book = data.documents.find((d) => d.kind === "TEXTBOOK");
   const [editing, setEditing] = useState<Chapter | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const chapters = [...data.chapters].sort(
     (a, b) => a.start_page - b.start_page || a.level - b.level,
   );
@@ -89,7 +90,13 @@ export function TextbookPanel({ courseId, data, editable, reload }: Props) {
           </div>
           {editable && (
             <div className="actions">
-              <button className="text-button" onClick={() => setEditing(c)}>
+              <button
+                className="text-button"
+                onClick={() => {
+                  setEditing(c);
+                  setModalOpen(true);
+                }}
+              >
                 Sửa mục
               </button>
               <Action
@@ -106,68 +113,91 @@ export function TextbookPanel({ courseId, data, editable, reload }: Props) {
         </div>
       ))}
       {editable && book?.status === "READY" && (
-        <Form
-          key={editing?.id || "new"}
-          label={editing ? "Lưu mục lục" : "Thêm chương/mục"}
-          onSubmit={async (d) => {
-            const body = {
-              title: d.get("title"),
-              level: Number(d.get("level")),
-              start_page: Number(d.get("start_page")),
-              end_page: Number(d.get("end_page")),
-            };
-            await send(
-              editing
-                ? `/admin/chapters/${editing.id}`
-                : `/admin/documents/${book.id}/chapters`,
-              body,
-              editing ? "PUT" : "POST",
-            );
+        <button
+          className="button"
+          onClick={() => {
             setEditing(null);
-            await reload();
+            setModalOpen(true);
           }}
         >
-          <Field
-            label="Tên chương / tiêu đề mục"
-            name="title"
-            defaultValue={editing?.title}
-          />
-          <div className="form-grid">
+          Thêm chương/mục
+        </button>
+      )}
+      {editable && book?.status === "READY" && modalOpen && (
+        <Modal
+          title="Thiết lập chương/mục"
+          close={() => {
+            setEditing(null);
+            setModalOpen(false);
+          }}
+        >
+          <Form
+            key={editing?.id || "new"}
+            label={editing ? "Lưu mục lục" : "Thêm chương/mục"}
+            onSubmit={async (d) => {
+              const body = {
+                title: d.get("title"),
+                level: Number(d.get("level")),
+                start_page: Number(d.get("start_page")),
+                end_page: Number(d.get("end_page")),
+              };
+              await send(
+                editing
+                  ? `/admin/chapters/${editing.id}`
+                  : `/admin/documents/${book.id}/chapters`,
+                body,
+                editing ? "PUT" : "POST",
+              );
+              setEditing(null);
+              setModalOpen(false);
+              await reload();
+            }}
+          >
             <Field
-              label="Cấp tiêu đề (1 = chương)"
-              name="level"
-              type="number"
-              min={1}
-              max={6}
-              defaultValue={editing?.level || 1}
+              label="Tên chương / tiêu đề mục"
+              name="title"
+              defaultValue={editing?.title}
             />
-            <Field
-              label="Từ trang PDF"
-              name="start_page"
-              type="number"
-              min={1}
-              max={book.page_count || 1}
-              defaultValue={editing?.start_page || 1}
-            />
-            <Field
-              label="Đến trang PDF"
-              name="end_page"
-              type="number"
-              min={1}
-              max={book.page_count || 1}
-              defaultValue={editing?.end_page || book.page_count || 1}
-            />
-          </div>
-          {editing && (
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => setEditing(null)}
-            >
-              Hủy sửa
-            </button>
-          )}
-        </Form>
+            <div className="form-grid">
+              <Field
+                label="Cấp tiêu đề (1 = chương)"
+                name="level"
+                type="number"
+                min={1}
+                max={6}
+                defaultValue={editing?.level || 1}
+              />
+              <Field
+                label="Từ trang PDF"
+                name="start_page"
+                type="number"
+                min={1}
+                max={book.page_count || 1}
+                defaultValue={editing?.start_page || 1}
+              />
+              <Field
+                label="Đến trang PDF"
+                name="end_page"
+                type="number"
+                min={1}
+                max={book.page_count || 1}
+                defaultValue={editing?.end_page || book.page_count || 1}
+              />
+            </div>
+            {editing && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setEditing(null);
+                  setModalOpen(false);
+                }}
+              >
+                Hủy sửa
+              </button>
+            )}
+          </Form>
+        </Modal>
       )}
     </section>
   );
@@ -208,9 +238,23 @@ function Choices({
 
 export function TopicPanel({ courseId, data, editable, reload }: Props) {
   const [editing, setEditing] = useState<Topic | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   return (
     <section className="panel">
-      <h2>Chủ đề · nhiều LO, chương và tài liệu</h2>
+      <div className="section-title">
+        <h2>Chủ đề</h2>
+        {editable && (
+          <button
+            className="button"
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+          >
+            Tạo chủ đề
+          </button>
+        )}
+      </div>
       {data.topics.map((t) => (
         <div className="list-item" key={t.id}>
           <div>
@@ -235,7 +279,13 @@ export function TopicPanel({ courseId, data, editable, reload }: Props) {
           </div>
           {editable && (
             <div className="actions">
-              <button className="text-button" onClick={() => setEditing(t)}>
+              <button
+                className="text-button"
+                onClick={() => {
+                  setEditing(t);
+                  setModalOpen(true);
+                }}
+              >
                 Sửa chủ đề
               </button>
               <Action
@@ -251,82 +301,98 @@ export function TopicPanel({ courseId, data, editable, reload }: Props) {
           )}
         </div>
       ))}
-      {editable && (
-        <Form
-          key={editing?.id || "new"}
-          label={editing ? "Lưu chủ đề" : "Thêm chủ đề"}
-          onSubmit={async (d) => {
-            const los = d.getAll("learning_outcome_ids"),
-              chapters = d.getAll("chapter_ids");
-            if (!los.length || !chapters.length)
-              throw new Error(
-                "Chọn ít nhất một LO và một chương/mục giáo trình.",
-              );
-            await send(
-              editing
-                ? `/admin/topics/${editing.id}`
-                : `/admin/courses/${courseId}/topics`,
-              {
-                name: d.get("name"),
-                description: d.get("description"),
-                learning_outcome_ids: los,
-                chapter_ids: chapters,
-                document_ids: d.getAll("document_ids"),
-              },
-              editing ? "PUT" : "POST",
-            );
+      {editable && modalOpen && (
+        <Modal
+          title="Thiết lập chủ đề"
+          close={() => {
             setEditing(null);
-            await reload();
+            setModalOpen(false);
           }}
         >
-          <Field label="Tên chủ đề" name="name" defaultValue={editing?.name} />
-          <Field
-            label="Mô tả chủ đề"
-            name="description"
-            required={false}
-            defaultValue={editing?.description}
-          />
-          <Choices
-            name="learning_outcome_ids"
-            label="Chuẩn đầu ra (chọn ít nhất 1)"
-            options={data.outcomes.map((l) => ({
-              id: l.id,
-              label: l.code + " · " + l.description,
-            }))}
-            selected={editing?.learning_outcome_ids}
-          />
-          <Choices
-            name="chapter_ids"
-            label="Chương/mục giáo trình (chọn ít nhất 1)"
-            options={data.chapters.map((c) => ({
-              id: c.id,
-              label: `${c.title} (tr. ${c.start_page}–${c.end_page})`,
-            }))}
-            selected={editing?.chapter_ids}
-          />
-          <Choices
-            name="document_ids"
-            label="Tài liệu bổ sung (có thể chọn nhiều)"
-            options={data.documents
-              .filter((d) => d.kind === "SUPPLEMENT")
-              .map((d) => ({ id: d.id, label: d.filename }))}
-            selected={editing?.document_ids}
-          />
-          <p className="muted">
-            Giáo trình được dùng qua các chương đã chọn. Có thể tải thêm nhiều
-            tài liệu bên dưới và gắn cùng tài liệu vào nhiều chủ đề. Đề đã công
-            bố giữ nguyên phạm vi kiến thức.
-          </p>
-          {editing && (
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => setEditing(null)}
-            >
-              Hủy sửa chủ đề
-            </button>
-          )}
-        </Form>
+          <Form
+            key={editing?.id || "new"}
+            label={editing ? "Lưu chủ đề" : "Thêm chủ đề"}
+            onSubmit={async (d) => {
+              const los = d.getAll("learning_outcome_ids"),
+                chapters = d.getAll("chapter_ids");
+              if (!los.length || !chapters.length)
+                throw new Error(
+                  "Chọn ít nhất một LO và một chương/mục giáo trình.",
+                );
+              await send(
+                editing
+                  ? `/admin/topics/${editing.id}`
+                  : `/admin/courses/${courseId}/topics`,
+                {
+                  name: d.get("name"),
+                  description: d.get("description"),
+                  learning_outcome_ids: los,
+                  chapter_ids: chapters,
+                  document_ids: d.getAll("document_ids"),
+                },
+                editing ? "PUT" : "POST",
+              );
+              setEditing(null);
+              setModalOpen(false);
+              await reload();
+            }}
+          >
+            <Field
+              label="Tên chủ đề"
+              name="name"
+              defaultValue={editing?.name}
+            />
+            <Field
+              label="Mô tả chủ đề"
+              name="description"
+              required={false}
+              defaultValue={editing?.description}
+            />
+            <Choices
+              name="learning_outcome_ids"
+              label="Chuẩn đầu ra (chọn ít nhất 1)"
+              options={data.outcomes.map((l) => ({
+                id: l.id,
+                label: l.code + " · " + l.description,
+              }))}
+              selected={editing?.learning_outcome_ids}
+            />
+            <Choices
+              name="chapter_ids"
+              label="Chương/mục giáo trình (chọn ít nhất 1)"
+              options={data.chapters.map((c) => ({
+                id: c.id,
+                label: `${c.title} (tr. ${c.start_page}–${c.end_page})`,
+              }))}
+              selected={editing?.chapter_ids}
+            />
+            <Choices
+              name="document_ids"
+              label="Tài liệu bổ sung (có thể chọn nhiều)"
+              options={data.documents
+                .filter((d) => d.kind === "SUPPLEMENT")
+                .map((d) => ({ id: d.id, label: d.filename }))}
+              selected={editing?.document_ids}
+            />
+            <p className="muted">
+              Giáo trình được dùng qua các chương đã chọn. Có thể tải thêm nhiều
+              tài liệu ở tab Tài liệu bổ sung và gắn cùng tài liệu vào nhiều chủ
+              đề. Đề đã công bố giữ nguyên phạm vi kiến thức.
+            </p>
+            {editing && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setEditing(null);
+                  setModalOpen(false);
+                }}
+              >
+                Hủy sửa chủ đề
+              </button>
+            )}
+          </Form>
+        </Modal>
       )}
     </section>
   );

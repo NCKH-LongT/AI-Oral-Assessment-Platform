@@ -9,6 +9,17 @@ Nền tảng thi vấn đáp với **FastAPI + Next.js + Electron**, PostgreSQL/
 - [Biên bản kiểm thử](docs/validation.md)
 - [CI thành công: Docker build, migration và E2E](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34502364619)
 
+## Cập nhật tài khoản và desktop
+
+- Đăng nhập bằng Google/Gmail trên web và desktop; tài khoản Google mới là học viên. Admin có thể đổi vai trò, kể cả cấp ADMIN, trong **Người dùng**; giữ ít nhất một admin hoạt động.
+- Mọi tài khoản có môn **Luyện tập vấn đáp** mặc định. Admin giao cả môn tại **Môn học → 04 · Học viên**; học viên thấy mọi đề đã công bố trong môn, kể cả đề công bố sau này.
+- Quản lý kiến thức chia tab con; tạo/sửa rubric và đề thi mở popup để giảm cuộn dọc. Form tạo mở qua nút **Tạo rubric** / **Tạo bài thi**.
+- **Cấu hình hệ thống** trên web: AI/Gemini key và model, Google OAuth Client ID/Secret, domain gốc, STT và JSON service account. Bỏ trống secret giữ nguyên; không trả secret về trình duyệt.
+- Desktop có menu đổi domain máy chủ và cấu hình bộ cài Windows/Ubuntu/macOS. Xem [cách build desktop](docs/desktop-build.md) và [thiết kế tài khoản/giao môn/cấu hình](docs/architecture/accounts-courses-desktop.md).
+
+Để bật đăng nhập thật, tạo Google OAuth Client loại **Web application**, cấu hình màn hình đồng ý/test users, thêm `https://DOMAIN/api/auth/google/callback` rồi nhập Client ID/Secret trên web. JSON service account STT không thay thế OAuth client. Không cần cấp quyền đọc/gửi Gmail.
+
+
 ## 1. Chạy nhanh bằng Docker Compose
 
 Cần Docker Engine/Docker Desktop **đang chạy**, Docker Compose và Python 3 để tạo cấu hình. Khuyến nghị máy phát triển có ít nhất 4 CPU, 8 GB RAM; Whisper cần tải model trong lần sử dụng đầu tiên.
@@ -79,7 +90,7 @@ Tài khoản: `teacher.demo` và `student.demo`, dùng mật khẩu vừa nhập
 4. **02 · Rubric:** thêm các tiêu chí, mô tả, điểm tối đa và trọng số. Sửa rubric tạo version mới; các đề đã công bố giữ bản cũ.
 5. **03 · Bài thi & giao bài:** chọn rubric, thời gian và blueprint (chủ đề, độ khó, số câu; tối đa 20 câu). Lưu bản nháp, bấm **Sinh câu hỏi & công bố**. Mỗi chủ đề cần tài liệu sẵn sàng. Sau đó chọn sinh viên và giao bài.
 6. **Kết quả & xem lại:** mở bài để xem transcript đã nộp, điểm theo tiêu chí, RAG, audio/video. Sau khi bài đã nộp và chấm lần đầu, **admin** có thể mở **Nhận dạng lại bằng Google & chấm lại**, nhập lý do rồi chạy. Audio được nhận dạng lại và chấm theo rubric/AI/kiến thức của đề đã công bố. Trang tự cập nhật; lưu cả transcript sinh viên, transcript Google, đánh giá trước/sau và lý do. Nếu lỗi, đánh giá trước được giữ nguyên. Demo vẫn không có điểm AI; sửa điểm thủ công chưa triển khai.
-7. **Cấu hình giọng nói** (admin): chọn STT local trên desktop, Google Cloud hoặc Whisper trên server nội bộ; chọn bật/tắt lọc nhiễu và ngôn ngữ Việt/Anh. Cấu hình lưu trong database, áp dụng cho lần nhận dạng tiếp theo.
+7. **Cấu hình hệ thống → STT & giọng nói** (admin): chọn STT local trên desktop, Google Cloud hoặc Whisper trên server nội bộ; chọn bật/tắt lọc nhiễu và ngôn ngữ Việt/Anh. Cấu hình lưu trong database, áp dụng cho lần nhận dạng tiếp theo.
 
 **CRUD:** trong môn học → **Cài đặt**, sửa thông tin, lưu trữ/khôi phục hoặc xóa vĩnh viễn môn học trống. Môn còn LO/chủ đề/tài liệu/rubric/đề thi được bảo vệ khỏi xóa; dùng lưu trữ để giữ lịch sử. Tab Rubric có tạo, xem, sửa, hủy sửa và xóa; rubric đang được đề thi dùng trả thông báo rõ để đổi rubric/xóa đề nháp trước. Đề nháp có tạo, xem blueprint, sửa, hủy sửa và xóa. Đề đã công bố giữ nguyên; **Sao chép thành bản nháp** tạo đề mới để sửa và công bố lại, không sao chép lượt thi/giao bài/kết quả. Các thao tác xóa có xác nhận trên giao diện.
 
@@ -192,7 +203,7 @@ npm run desktop
 
 Để nhận dạng trên máy sinh viên, admin chọn **Whisper local trên máy sinh viên (desktop)**. Electron lấy policy từ server, chuyển audio và lựa chọn lọc nhiễu/ngôn ngữ qua IPC tới Whisper local. Nếu admin chọn Google/server nội bộ thì Electron dùng API tương ứng. Trình duyệt web sẽ báo cần desktop khi policy là local; không tự chuyển sang Google.
 
-File tạm được xóa sau STT; renderer không có quyền `fs`, `shell` hay `child_process`. Lần đầu cần mạng để tải model. Giữ nguyên cấu trúc repository vì desktop dùng chung module xử lý audio ở `services/api/app/audio_processing.py`. Đây là source chạy development; chưa có installer ký số hoặc auto-update.
+File tạm được xóa sau STT; renderer không có quyền `fs`, `shell` hay `child_process`. Lần đầu cần mạng để tải model. Khi chạy từ source, giữ nguyên cấu trúc repository để dùng module xử lý audio chung. Bộ cài electron-builder đã mang theo các module cần thiết; xem hướng dẫn build bên trên. Chưa có installer ký số hoặc auto-update.
 
 Kiểm tra độ ồn dùng module `apps/admin-web/lib/noise-check.ts` dựa trên Web Audio API tích hợp trong Chromium/Electron, dùng chung với web; không cần cài thư viện Python/model bổ sung. Module yêu cầu luồng mic không có noise suppression, echo cancellation hoặc auto gain, đo tại máy rồi giải phóng luồng. Không tạo file hoặc upload âm thanh kiểm tra. Ngưỡng mặc định là −40 dBFS ở ít nhất 20% cửa sổ đo; đây là mức tín hiệu tương đối phụ thuộc microphone, **không phải dB SPL/dBA**. Mic không có tín hiệu không tự được coi là phòng yên lặng. Chưa hiệu chuẩn ngưỡng bằng microphone phần cứng; kiểm tra là bước hỗ trợ trước thi, không phải cơ chế chống gian lận phía server.
 
@@ -255,6 +266,7 @@ npm run typecheck
 npm run build
 npm run check -w apps/desktop
 npm run test:audio
+npm run test:desktop
 npm audit --audit-level=high
 docker compose config --quiet
 ```

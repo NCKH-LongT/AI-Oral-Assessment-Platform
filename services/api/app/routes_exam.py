@@ -7,15 +7,16 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from . import schemas as s
 from . import storage
 from .config import settings
 from .db import get_db
-from .models import Assignment, Attempt, Audit, Exam, ExamSession, Upload
-from .security import by_id, course_access, current_user, fail, student
+from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, Upload
+from .practice import COURSE_ID
+from .security import by_id, course_access, current_user, fail
 from .worker import finalize
 
 router = APIRouter()
@@ -51,6 +52,7 @@ def public_session(db, session):
     return {
         "id": session.id,
         "exam_name": exam.name,
+        "practice": bool(exam.snapshot.get("practice")),
         "status": session.status,
         "started_at": session.started_at,
         "time_limit": exam.time_limit,
@@ -72,9 +74,20 @@ def public_session(db, session):
 
 
 @router.get("/exams/available")
-def available(db: Session = Depends(get_db), user=Depends(student)):
+def available(db: Session = Depends(get_db), user=Depends(current_user)):
     exams = db.scalars(
-        select(Exam).join(Assignment).where(Assignment.student_id == user.id, Exam.status == "PUBLISHED")
+        select(Exam)
+        .where(
+            Exam.status == "PUBLISHED",
+            or_(
+                Exam.course_id == COURSE_ID,
+                Exam.course_id.in_(
+                    select(CourseEnrollment.course_id).where(CourseEnrollment.student_id == user.id)
+                ),
+                Exam.id.in_(select(Assignment.exam_id).where(Assignment.student_id == user.id)),
+            ),
+        )
+        .order_by(Exam.created_at)
     ).all()
     result = []
     for exam in exams:
@@ -85,6 +98,9 @@ def available(db: Session = Depends(get_db), user=Depends(student)):
             {
                 "id": exam.id,
                 "name": exam.name,
+                "course_id": exam.course_id,
+                "course_name": db.get(Course, exam.course_id).name,
+                "practice": bool(exam.snapshot.get("practice")),
                 "time_limit": exam.time_limit,
                 "question_count": len(exam.snapshot["questions"]),
                 "session_id": session.id if session else None,
@@ -95,11 +111,20 @@ def available(db: Session = Depends(get_db), user=Depends(student)):
 
 
 @router.post("/exam-sessions")
-def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depends(student)):
+def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depends(current_user)):
     exam = by_id(db, Exam, body.exam_id, lock=True)
-    if exam.status != "PUBLISHED" or not db.scalar(
-        select(Assignment).where(Assignment.exam_id == exam.id, Assignment.student_id == user.id)
-    ):
+    allowed = (
+        exam.course_id == COURSE_ID
+        or db.scalar(
+            select(CourseEnrollment.id).where(
+                CourseEnrollment.course_id == exam.course_id, CourseEnrollment.student_id == user.id
+            )
+        )
+        or db.scalar(
+            select(Assignment.id).where(Assignment.exam_id == exam.id, Assignment.student_id == user.id)
+        )
+    )
+    if exam.status != "PUBLISHED" or not allowed:
         fail(403, "NOT_ASSIGNED", "Bạn chưa được giao bài thi này")
     existing = db.scalar(
         select(ExamSession).where(ExamSession.exam_id == exam.id, ExamSession.student_id == user.id)
@@ -116,12 +141,12 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
 
 
 @router.get("/exam-sessions/{key}")
-def get_session(key: str, db: Session = Depends(get_db), user=Depends(student)):
+def get_session(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     return public_session(db, owned_session(db, key, user))
 
 
 @router.post("/exam-sessions/{key}/start")
-def start_session(key: str, db: Session = Depends(get_db), user=Depends(student)):
+def start_session(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     session = owned_session(db, key, user, lock=True)
     if session.status == "DEVICE_CHECK":
         session.status, session.started_at = "IN_PROGRESS", time.time()
@@ -133,7 +158,7 @@ def start_session(key: str, db: Session = Depends(get_db), user=Depends(student)
 
 
 @router.post("/question-attempts/{key}/start")
-def start_attempt(key: str, db: Session = Depends(get_db), user=Depends(student)):
+def start_attempt(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     attempt, session = owned_attempt(db, key, user, lock=True)
     active(db, session)
     earlier = db.scalar(
@@ -160,7 +185,7 @@ def submit(
     body: s.TranscriptIn,
     idempotency_key: str = Header(min_length=8, max_length=100),
     db: Session = Depends(get_db),
-    user=Depends(student),
+    user=Depends(current_user),
 ):
     attempt, session = owned_attempt(db, key, user, lock=True)
     if attempt.submit_key:
@@ -182,7 +207,7 @@ def submit(
 
 
 @router.post("/exam-sessions/{key}/finish")
-def finish(key: str, db: Session = Depends(get_db), user=Depends(student)):
+def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     session = owned_session(db, key, user, lock=True)
     if session.status in {"SUBMITTED", "COMPLETED", "REVIEW_REQUIRED"}:
         return public_session(db, session)
@@ -220,7 +245,7 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(student)):
 
 
 @router.post("/uploads/init")
-def init_upload(body: s.UploadIn, db: Session = Depends(get_db), user=Depends(student)):
+def init_upload(body: s.UploadIn, db: Session = Depends(get_db), user=Depends(current_user)):
     attempt, session = owned_attempt(db, body.attempt_id, user)
     if attempt.status == "READY" or session.status != "IN_PROGRESS":
         fail(409, "INVALID_STATE", "Chỉ upload khi câu trả lời đã bắt đầu và bài chưa nộp")
@@ -260,7 +285,7 @@ async def chunk(
     request: Request,
     x_chunk_sha256: str = Header(),
     db: Session = Depends(get_db),
-    user=Depends(student),
+    user=Depends(current_user),
 ):
     row = by_id(db, Upload, key, lock=True)
     owned_attempt(db, row.attempt_id, user)
@@ -286,7 +311,7 @@ async def chunk(
 
 
 @router.get("/uploads/{key}/status")
-def upload_status(key: str, db: Session = Depends(get_db), user=Depends(student)):
+def upload_status(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     row = by_id(db, Upload, key)
     owned_attempt(db, row.attempt_id, user)
     return {
@@ -297,7 +322,7 @@ def upload_status(key: str, db: Session = Depends(get_db), user=Depends(student)
 
 
 @router.post("/uploads/{key}/complete")
-def complete(key: str, db: Session = Depends(get_db), user=Depends(student)):
+def complete(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     row = by_id(db, Upload, key, lock=True)
     owned_attempt(db, row.attempt_id, user)
     if row.status == "COMPLETED":
@@ -325,9 +350,9 @@ def evidence(key: str, request: Request, db: Session = Depends(get_db), user=Dep
     row = by_id(db, Upload, key)
     attempt = by_id(db, Attempt, row.attempt_id)
     session = by_id(db, ExamSession, attempt.session_id)
-    if user.role == "STUDENT":
-        owned_session(db, session.id, user)
-    else:
+    if session.student_id != user.id:
+        if user.role == "STUDENT":
+            fail(403, "FORBIDDEN", "Minh chứng không thuộc tài khoản")
         course_access(db, by_id(db, Exam, session.exam_id).course_id, user)
     if row.status != "COMPLETED":
         fail(409, "NOT_READY", "Evidence chưa sẵn sàng")

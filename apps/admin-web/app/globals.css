@@ -1284,3 +1284,53 @@ hr {
   width: 100%;
   margin-bottom: 12px;
 }
+
+.modal {
+  width: min(920px, calc(100vw - 32px));
+  max-height: 88vh;
+  border: 0;
+  border-radius: 18px;
+  padding: 20px;
+  color: inherit;
+  background: #f6f8f6;
+  box-shadow: 0 20px 80px #142c2440;
+}
+.modal::backdrop {
+  background: #152c2470;
+}
+.modal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.sub-tabs {
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.scroll-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.wrap-code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.panel details {
+  margin: 12px 0;
+}
+.panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 10px 0;
+}
+.google-login {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+.course-filter {
+  max-width: 420px;
+  margin: 16px 0;
+}

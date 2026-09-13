@@ -149,3 +149,7 @@ class GradeOutput(Input):
     missing_concepts: list[str]
     reasoning_summary: str = Field(max_length=3000)
     reference_chunk_ids: list[str] = Field(min_length=1)
+
+
+class RoleIn(Input):
+    role: Literal["ADMIN", "TEACHER", "STUDENT", "REVIEWER"]

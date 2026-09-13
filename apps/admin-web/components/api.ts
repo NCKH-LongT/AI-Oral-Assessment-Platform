@@ -1,6 +1,7 @@
 export type User = {
   id: string;
   username: string;
+  email?: string | null;
   name: string;
   role: "ADMIN" | "TEACHER" | "STUDENT" | "REVIEWER";
 };
@@ -134,6 +135,9 @@ export type Review = Result & {
   }[];
 };
 export type StudentExam = {
+  course_id?: string;
+  course_name?: string;
+  practice?: boolean;
   id: string;
   name: string;
   time_limit: number;
@@ -142,6 +146,7 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  practice?: boolean;
   id: string;
   exam_name: string;
   status: string;

@@ -9,4 +9,4 @@ RUN useradd --create-home --uid 10001 oral && mkdir -p /data && chown oral:oral 
 USER oral
 ENV DATA_DIR=/data HF_HOME=/data/models
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

@@ -56,7 +56,7 @@ async function setup(request: APIRequestContext) {
   });
   const course = await post(request, "/admin/courses", {
     code: "E2E-" + suffix,
-    name: "Kiểm thử luồng thi vấn đáp",
+    name: "Kiểm thử luồng thi vấn đáp " + suffix,
     description: "Dữ liệu kiểm thử tự động",
   });
   const base = `/admin/courses/${course.id}`;
@@ -113,7 +113,7 @@ async function setup(request: APIRequestContext) {
   await post(request, `/admin/exams/${exam.id}/assign`, {
     student_ids: [student.id],
   });
-  return { student, exam };
+  return { student, exam, course };
 }
 
 test("login, responsive layout and admin course form", async ({ page }) => {
@@ -171,6 +171,7 @@ test("login, responsive layout and admin course form", async ({ page }) => {
   await expect(
     page.getByText("Chapter 1: Injection", { exact: true }),
   ).toBeVisible({ timeout: 30000 });
+  await page.getByRole("button", { name: "Chuẩn đầu ra", exact: true }).click();
   for (const code of ["LO1", "LO2"]) {
     await page.getByLabel("Mã LO", { exact: true }).fill(code);
     await page
@@ -181,6 +182,9 @@ test("login, responsive layout and admin course form", async ({ page }) => {
       .click();
     await expect(page.getByText(code, { exact: true })).toBeVisible();
   }
+  await page
+    .getByRole("button", { name: "Tài liệu bổ sung", exact: true })
+    .click();
   for (const name of ["notes-a.txt", "notes-b.txt"]) {
     await page.getByLabel("Tài liệu (tối đa 20 MB)").setInputFiles({
       name,
@@ -192,6 +196,8 @@ test("login, responsive layout and admin course form", async ({ page }) => {
       .click();
     await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
   }
+  await page.getByRole("button", { name: "Chủ đề", exact: true }).click();
+  await page.getByRole("button", { name: "Tạo chủ đề", exact: true }).click();
   await page
     .getByLabel("Tên chủ đề", { exact: true })
     .fill("Topic with many mappings");
@@ -215,6 +221,7 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     fullPage: true,
   });
   await page.getByRole("button", { name: "02 · Rubric", exact: true }).click();
+  await page.getByRole("button", { name: "Tạo rubric", exact: true }).click();
   await page.getByLabel("Tên rubric", { exact: true }).fill("Rubric CRUD");
   await page.getByRole("button", { name: "Lưu rubric", exact: true }).click();
   await expect(
@@ -235,11 +242,12 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     .getByRole("button", { name: "Hủy sửa rubric", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Tạo rubric", exact: true }),
+    page.getByRole("button", { name: "Tạo rubric", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "03 · Bài thi & giao bài", exact: true })
     .click();
+  await page.getByRole("button", { name: "Tạo bài thi", exact: true }).click();
   await page.getByLabel("Tên bài thi", { exact: true }).fill("Đề CRUD");
   await page
     .getByRole("combobox", { name: "Rubric", exact: true })
@@ -331,7 +339,10 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     page.getByRole("heading", { name: "Môn trống để xóa", exact: true }),
   ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Cấu hình giọng nói", exact: true })
+    .getByRole("button", { name: "Cấu hình hệ thống", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "STT & giọng nói", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Cấu hình giọng nói", exact: true }),
@@ -425,7 +436,13 @@ test("student records only during answer, submits media, admin plays real WebM",
   await expect(
     page.getByRole("heading", { name: "Bài thi của tôi" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Mở bài thi" }).click();
+  await page
+    .locator("section.panel")
+    .filter({
+      has: page.getByRole("heading", { name: exam.name, exact: true }),
+    })
+    .getByRole("button", { name: "Mở bài thi" })
+    .click();
   await page.getByRole("button", { name: "Cho phép camera & mic" }).click();
   await expect
     .poll(() =>
@@ -543,4 +560,118 @@ test("student records only during answer, submits media, admin plays real WebM",
     path: "docs/screenshots/review.png",
     fullPage: true,
   });
+});
+
+test("admin enrolls a course, promotes a user, and configures services without exposing secrets", async ({
+  page,
+  request,
+}) => {
+  const { course, exam } = await setup(request);
+  const learner = await post(request, "/admin/users", {
+    username: "course.learner." + Date.now(),
+    name: "Học viên giao môn",
+    role: "STUDENT",
+    password,
+  });
+  // Reuse only the admin auth cookies for this browser context.
+  await page.context().addCookies((await request.storageState()).cookies);
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Môn học & đề thi", exact: true })
+    .click();
+  await page
+    .getByRole("button")
+    .filter({
+      has: page.getByRole("heading", { name: course.name, exact: true }),
+    })
+    .click();
+  await page
+    .getByRole("button", { name: "04 · Học viên", exact: true })
+    .click();
+  await page
+    .getByLabel("Tìm người dùng", { exact: true })
+    .fill(learner.username);
+  await page.getByRole("checkbox", { name: new RegExp(learner.name) }).check();
+  await page
+    .getByRole("button", { name: "Thêm vào môn học", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Bỏ khỏi môn", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Người dùng", exact: true }).click();
+  const row = page.getByRole("row").filter({ hasText: learner.username });
+  await row.getByRole("combobox").selectOption("ADMIN");
+  await row.getByRole("button", { name: "Lưu quyền", exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get("/api/admin/users")).json()).find(
+          (u: { id: string }) => u.id === learner.id,
+        ).role,
+    )
+    .toBe("ADMIN");
+  // Return to student role to verify the student's course view.
+  await row.getByRole("combobox").selectOption("STUDENT");
+  await row.getByRole("button", { name: "Lưu quyền", exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get("/api/admin/users")).json()).find(
+          (u: { id: string }) => u.id === learner.id,
+        ).role,
+    )
+    .toBe("STUDENT");
+  await page
+    .getByRole("button", { name: "Cấu hình hệ thống", exact: true })
+    .click();
+  await page
+    .getByLabel("Gemini API key", { exact: true })
+    .fill("synthetic-config-test-key");
+  await page
+    .getByRole("button", { name: "Lưu cấu hình hệ thống", exact: true })
+    .click();
+  await expect(page.getByLabel("Gemini API key", { exact: true })).toHaveValue(
+    "",
+  );
+  const settingsResponse = await (
+    await request.get("/api/admin/settings/platform")
+  ).text();
+  expect(settingsResponse).not.toContain("synthetic-config-test-key");
+  await page.getByLabel("Xóa Gemini API key đã lưu", { exact: true }).check();
+  await page
+    .getByRole("button", { name: "Lưu cấu hình hệ thống", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Xóa Gemini API key đã lưu", { exact: true }),
+  ).not.toBeChecked();
+  await page
+    .getByRole("button", { name: "Đăng nhập Google", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Google OAuth Client Secret", { exact: true }),
+  ).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
+  await page
+    .getByLabel("Tên đăng nhập", { exact: true })
+    .fill(learner.username);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Vào không gian làm việc" }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Thi thử: Làm quen hệ thống",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Môn học", exact: true })
+    .selectOption(course.id);
+  await expect(
+    page.getByRole("heading", { name: exam.name, exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Thi thử: Làm quen hệ thống",
+      exact: true,
+    }),
+  ).toHaveCount(0);
 });

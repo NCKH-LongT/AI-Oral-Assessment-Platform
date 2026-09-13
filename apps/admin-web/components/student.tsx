@@ -25,6 +25,7 @@ type STT = { transcript: string; stt_confidence: number };
 declare global {
   interface Window {
     oralDesktop?: {
+      openGoogle?: (url: string) => Promise<void>;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
     };
   }
@@ -62,6 +63,7 @@ const mime = (kind: "audio" | "video") =>
   ).find((t) => MediaRecorder.isTypeSupported(t));
 
 export default function Student() {
+  const [courseFilter, setCourseFilter] = useState("");
   const [exams, setExams] = useState<StudentExam[]>([]),
     [session, setSession] = useState<ExamSession | null>(null),
     [error, setError] = useState("");
@@ -400,36 +402,64 @@ export default function Student() {
               bạn.
             </p>
           </div>
-          <GraduationCap size={38} />
+          <Action action={loadExams} className="button ghost">
+            <GraduationCap size={18} /> Làm mới bài thi
+          </Action>
         </div>
         {error && (
           <p role="alert" className="error">
             {error}
           </p>
         )}
+        <label className="course-filter">
+          Môn học
+          <select
+            value={courseFilter}
+            onChange={(e) => setCourseFilter(e.target.value)}
+          >
+            <option value="">Tất cả môn học</option>
+            {Array.from(
+              new Map(
+                exams
+                  .filter((e) => e.course_id)
+                  .map((e) => [e.course_id!, e.course_name || "Môn học"]),
+              ),
+            ).map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="course-grid">
-          {exams.map((e) => (
-            <section className="panel" key={e.id}>
-              <Badge status={e.status} />
-              <h2>{e.name}</h2>
-              <p className="muted">
-                {e.question_count} câu hỏi · {Math.round(e.time_limit / 60)}{" "}
-                phút
-              </p>
-              <Action
-                action={async () => {
-                  setNoiseReady(false);
-                  setSession(
-                    await send<ExamSession>("/exam-sessions", {
-                      exam_id: e.id,
-                    }),
-                  );
-                }}
-              >
-                Mở bài thi →
-              </Action>
-            </section>
-          ))}
+          {exams
+            .filter((e) => !courseFilter || e.course_id === courseFilter)
+            .map((e) => (
+              <section className="panel" key={e.id}>
+                <Badge status={e.status} />
+                <p className="eyebrow">
+                  {e.course_name}
+                  {e.practice ? " · LUYỆN TẬP" : ""}
+                </p>
+                <h2>{e.name}</h2>
+                <p className="muted">
+                  {e.question_count} câu hỏi · {Math.round(e.time_limit / 60)}{" "}
+                  phút
+                </p>
+                <Action
+                  action={async () => {
+                    setNoiseReady(false);
+                    setSession(
+                      await send<ExamSession>("/exam-sessions", {
+                        exam_id: e.id,
+                      }),
+                    );
+                  }}
+                >
+                  Mở bài thi →
+                </Action>
+              </section>
+            ))}
         </div>
         {!exams.length && (
           <Empty>
@@ -469,15 +499,26 @@ export default function Student() {
       {finished ? (
         <section className="panel finished">
           <CheckCircle2 size={52} />
-          <h2>Đã nộp bài thi</h2>
+          <h2>
+            {session.practice
+              ? "Đã hoàn thành bài luyện tập"
+              : "Đã nộp bài thi"}
+          </h2>
           <p>Transcript và minh chứng đã được lưu.</p>
-          <Badge status={session.status} />
-          <p>
-            Điểm chính thức:{" "}
-            {session.final_score === null
-              ? "Đang xử lý hoặc cần giảng viên xem lại"
-              : `${session.final_score}/10`}
-          </p>
+          {!session.practice && <Badge status={session.status} />}
+          {session.practice ? (
+            <p>
+              Bài luyện tập không tính điểm. Bạn đã thử xong quy trình thi vấn
+              đáp.
+            </p>
+          ) : (
+            <p>
+              Điểm chính thức:{" "}
+              {session.final_score === null
+                ? "Đang xử lý hoặc cần giảng viên xem lại"
+                : `${session.final_score}/10`}
+            </p>
+          )}
           <button
             className="button secondary"
             onClick={() => {

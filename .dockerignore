@@ -9,3 +9,6 @@ secrets
 **/__pycache__
 **/.data
 **/test-results
+
+**/dist
+**/resources/stt/oral-stt

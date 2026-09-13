@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { errorText } from "./api";
 const labels: Record<string, string> = {
@@ -152,5 +152,46 @@ export function Field({
         max={max}
       />
     </label>
+  );
+}
+
+export function Modal({
+  title,
+  close,
+  children,
+}: {
+  title: string;
+  close: () => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="modal"
+      aria-label={title}
+      onCancel={(e) => {
+        e.preventDefault();
+        close();
+      }}
+    >
+      <div className="modal-heading">
+        <strong>{title}</strong>
+        <button
+          type="button"
+          className="button secondary"
+          aria-label="Đóng cửa sổ"
+          onClick={close}
+        >
+          Đóng
+        </button>
+      </div>
+      {children}
+    </dialog>
   );
 }

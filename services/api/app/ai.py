@@ -9,9 +9,9 @@ import httpx
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import cast, select
 
-from .config import settings
 from .knowledge import scope_query
 from .models import Chunk, Document
+from .runtime_settings import settings
 from .schemas import GradeOutput, QuestionOutput
 
 PROMPT_VERSION = "mvp-1"

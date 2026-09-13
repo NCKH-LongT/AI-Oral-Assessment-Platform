@@ -13,11 +13,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException
 
-from . import routes_admin, routes_exam, schemas, speech, storage, stt
+from . import google_login, routes_admin, routes_exam, runtime_settings, schemas, speech, storage, stt
 from .config import settings
 from .db import get_db
 from .models import Audit, AuthSession, User
-from .security import current_user, digest, fail, hasher, issue_tokens, public_user, verify_password
+from .security import cookies, current_user, digest, fail, hasher, issue_tokens, public_user, verify_password
 
 cfg = settings()
 logging.basicConfig(level=logging.INFO)
@@ -50,7 +50,7 @@ async def boundary(request: Request, call_next):
     if (
         request.method not in {"GET", "HEAD", "OPTIONS"}
         and origin
-        and origin not in cfg.allowed_origins.split(",")
+        and origin not in [*cfg.allowed_origins.split(","), runtime_settings.settings().public_origin]
     ):
         return JSONResponse(
             status_code=403,
@@ -133,26 +133,7 @@ def health(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
     if cfg.redis_url:
         Redis.from_url(cfg.redis_url, socket_timeout=2).ping()
-    return {"status": "ok", "ai_provider": cfg.ai_provider}
-
-
-def cookies(response, access, refresh):
-    response.set_cookie(
-        "access_token",
-        access,
-        httponly=True,
-        secure=cfg.cookie_secure,
-        samesite="strict",
-        max_age=cfg.access_minutes * 60,
-    )
-    response.set_cookie(
-        "refresh_token",
-        refresh,
-        httponly=True,
-        secure=cfg.cookie_secure,
-        samesite="strict",
-        max_age=cfg.refresh_days * 86400,
-    )
+    return {"status": "ok", "ai_provider": runtime_settings.settings().ai_provider}
 
 
 @app.post("/auth/login")
@@ -213,3 +194,12 @@ app.include_router(routes_admin.router, prefix="/admin", tags=["Administration"]
 app.include_router(routes_exam.router, tags=["Exams and evidence"])
 app.include_router(stt.router, tags=["Speech to text"])
 app.include_router(speech.router, tags=["Speech configuration"])
+
+app.include_router(runtime_settings.router, tags=["Platform settings"])
+app.include_router(google_login.router, tags=["Google sign in"])
+
+
+@app.middleware("http")
+async def freeze_runtime_config(request: Request, call_next):
+    with runtime_settings.snapshot():
+        return await call_next(request)

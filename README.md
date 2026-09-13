@@ -19,6 +19,23 @@ Nền tảng thi vấn đáp với **FastAPI + Next.js + Electron**, PostgreSQL/
 
 Để bật đăng nhập thật, tạo Google OAuth Client loại **Web application**, cấu hình màn hình đồng ý/test users, thêm `https://DOMAIN/api/auth/google/callback` rồi nhập Client ID/Secret trên web. JSON service account STT không thay thế OAuth client. Không cần cấp quyền đọc/gửi Gmail.
 
+Cũng có thể cấu hình lần đầu trong file `.env` ở thư mục gốc. Điền hai credential và bật đăng nhập:
+
+```dotenv
+PUBLIC_ORIGIN=http://localhost:3000
+GOOGLE_LOGIN_ENABLED=true
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+```
+
+Với địa chỉ trên, đăng ký redirect URI `http://localhost:3000/api/auth/google/callback` trên Google. Nếu dùng domain thật, đặt `PUBLIC_ORIGIN=https://DOMAIN` và đăng ký URI tương ứng. Sau khi sửa `.env` của bản Docker đang chạy:
+
+```bash
+docker compose up -d --no-deps --force-recreate api worker
+```
+
+`docker compose restart` không nạp lại biến môi trường mới. Sau đó tải lại trang đăng nhập để thấy nút Google. Admin vẫn chỉnh được tại **Cấu hình hệ thống → Đăng nhập Google**; cấu hình đã lưu trên web được ưu tiên hơn `.env` và có hiệu lực cho request/job tiếp theo, không cần restart. Sau khi đã lưu cấu hình hệ thống trên web, thay credential tại web thay vì chỉ sửa `.env`. File `.env` chứa bí mật được bỏ qua bởi Git; `.env.example` chỉ chứa mẫu trống.
+
 
 ## 1. Chạy nhanh bằng Docker Compose
 

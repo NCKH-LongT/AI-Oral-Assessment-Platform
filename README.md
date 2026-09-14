@@ -7,7 +7,7 @@ Nền tảng thi vấn đáp với **FastAPI + Next.js + Electron**, PostgreSQL/
 - [Hướng triển khai và các quyết định giai đoạn 1](docs/architecture/phase-1.md)
 - [Tài liệu yêu cầu gốc](AI_Oral_Assessment_PROJECT_GUIDE.md)
 - [Biên bản kiểm thử](docs/validation.md)
-- [Hướng dẫn chạy app desktop](#4-chạy-app-desktop)
+- [Hướng dẫn chạy app desktop](readme-desktop.md)
 - [CI thành công: Docker build, migration và E2E](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34502364619)
 
 ## Cập nhật tài khoản và desktop
@@ -36,7 +36,6 @@ docker compose up -d --no-deps --force-recreate api worker
 ```
 
 `docker compose restart` không nạp lại biến môi trường mới. Sau đó tải lại trang đăng nhập để thấy nút Google. Admin vẫn chỉnh được tại **Cấu hình hệ thống → Đăng nhập Google**; cấu hình đã lưu trên web được ưu tiên hơn `.env` và có hiệu lực cho request/job tiếp theo, không cần restart. Sau khi đã lưu cấu hình hệ thống trên web, thay credential tại web thay vì chỉ sửa `.env`. File `.env` chứa bí mật được bỏ qua bởi Git; `.env.example` chỉ chứa mẫu trống.
-
 
 ## 1. Chạy nhanh bằng Docker Compose
 
@@ -238,11 +237,11 @@ Lệnh trên loại bỏ biến `ELECTRON_RUN_AS_NODE` nếu terminal đang có,
 
 Tải bộ cài từ **GitHub → Actions → Desktop installers → run thành công → Artifacts**, chọn đúng hệ điều hành và giải nén artifact. Nếu artifact đã hết hạn, chạy lại workflow. Hướng dẫn tự build: [Desktop đa nền tảng](docs/desktop-build.md).
 
-| Hệ điều hành | Cách cài và mở |
-| --- | --- |
-| Windows x64 | Chạy bộ cài `.exe`, hoàn tất cài đặt rồi mở **OralAI** từ Start Menu. |
-| Ubuntu x64 | Cài `.deb` theo lệnh bên dưới, rồi mở **OralAI** trong danh sách ứng dụng hoặc chạy `oralai`. |
-| macOS | Mở `.dmg`, kéo **OralAI** vào Applications rồi mở ứng dụng. Artifact macOS hiện có là ARM64 cho Apple Silicon; máy Intel cần bản x64. |
+| Hệ điều hành | Cách cài và mở                                                                                                                        |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows x64  | Chạy bộ cài `.exe`, hoàn tất cài đặt rồi mở **OralAI** từ Start Menu.                                                                 |
+| Ubuntu x64   | Cài `.deb` theo lệnh bên dưới, rồi mở **OralAI** trong danh sách ứng dụng hoặc chạy `oralai`.                                         |
+| macOS        | Mở `.dmg`, kéo **OralAI** vào Applications rồi mở ứng dụng. Artifact macOS hiện có là ARM64 cho Apple Silicon; máy Intel cần bản x64. |
 
 Ví dụ trên Ubuntu, khi file bộ cài nằm trong `apps/desktop/dist/` và terminal ở thư mục gốc repository:
 

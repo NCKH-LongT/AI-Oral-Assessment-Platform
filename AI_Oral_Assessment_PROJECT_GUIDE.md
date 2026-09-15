@@ -5,7 +5,7 @@
 
 > **Cập nhật 13/09/2026:** hoàn thiện CRUD môn/rubric/đề nháp, xóa môn trống, archive/restore riêng, chặn xóa rubric đang dùng, sao chép đề đã công bố thành bản nháp. Desktop/web có kiểm tra tiếng ồn 5 giây qua Web Audio, yêu cầu tìm nơi yên lặng khi quá ồn và có nút bỏ qua. Giữ bộ lọc FFmpeg trước STT; chưa thay bằng Spleeter khi chưa có benchmark. Không đổi schema/dependency/service Docker; CI GitHub Actions có test âm thanh, repository chưa có Jenkinsfile. Chi tiết hành vi API, ngưỡng tương đối và giới hạn: [CRUD & kiểm tra tiếng ồn](docs/architecture/crud-noise-check.md).
 
-> **Bổ sung cấu hình Google:** ADMIN có thể upload/thay JSON service account trực tiếp từ trang Cấu hình giọng nói. Credentials nằm trong volume riêng của ứng dụng, dùng chung API/worker, không trả private key về web và không đưa vào Git. Xem [README](README.md#google-cloud-speech-to-text).
+> **Cấu hình Google STT tùy chọn:** ADMIN có thể upload/thay JSON service account trong mục Google Cloud STT ở trang Cấu hình giọng nói. Gemini chấm transcript từ Whisper không cần JSON này; AI provider và STT provider độc lập. Credentials nằm trong volume riêng của ứng dụng, dùng chung API/worker, không trả private key về web và không đưa vào Git. Xem [README](README.md).
 
 > Tài liệu này là nguồn mô tả kiến trúc và kế hoạch triển khai chính của dự án.
 > Mục tiêu là để Codex hoặc AI Coding Agent có thể đọc tài liệu này, hiểu hệ thống, chia nhỏ công việc và xây dựng theo từng giai đoạn mà không phá vỡ kiến trúc tổng thể.

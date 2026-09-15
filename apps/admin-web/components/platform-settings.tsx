@@ -105,6 +105,11 @@ export default function PlatformSettings() {
             {tab === "ai" ? (
               <>
                 <h2>AI & mô hình</h2>
+                <p>
+                  Gemini sinh câu hỏi và chấm bài từ transcript, rubric và tài
+                  liệu. Chọn Whisper hoặc Google STT riêng trong tab STT & giọng
+                  nói. Gemini chỉ cần API key, không cần JSON Google STT.
+                </p>
                 <label>
                   Nhà cung cấp AI
                   <select
@@ -115,6 +120,14 @@ export default function PlatformSettings() {
                     <option value="gemini">Google Gemini</option>
                   </select>
                 </label>
+                {config.ai_provider === "demo" && (
+                  <p className="notice">
+                    Demo không gọi AI chấm điểm, kể cả khi đã nhập API key. Để
+                    chấm điểm, chọn Google Gemini và lưu cấu hình, sau đó xử lý
+                    tài liệu và công bố đề mới với cấu hình này. Đề đã công bố ở
+                    chế độ demo giữ nguyên chế độ cũ.
+                  </p>
+                )}
                 <label>
                   Gemini API key
                   <input

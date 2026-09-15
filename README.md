@@ -1,420 +1,121 @@
-# AI Oral Assessment Platform — Giai đoạn 1
+# OralAI — Thi vấn đáp và chấm điểm AI
 
-Nền tảng thi vấn đáp với **FastAPI + Next.js + Electron**, PostgreSQL/pgvector và MinIO. Sinh viên trả lời bằng giọng nói; server đánh giá từ **transcript + rubric + tài liệu RAG**. Audio/video chỉ là minh chứng để giảng viên xem lại.
+Ứng dụng web và desktop cho phép ghi câu trả lời, chuyển giọng nói thành text bằng Whisper, rồi dùng Gemini chấm theo rubric và tài liệu môn học. Audio/video được lưu làm minh chứng.
 
-![Giao diện đăng nhập](docs/screenshots/login.png)
+## Chạy nhanh
 
-- [Hướng triển khai và các quyết định giai đoạn 1](docs/architecture/phase-1.md)
-- [Tài liệu yêu cầu gốc](AI_Oral_Assessment_PROJECT_GUIDE.md)
-- [Biên bản kiểm thử](docs/validation.md)
-- [Hướng dẫn chạy app desktop](readme-desktop.md)
-- [CI thành công: Docker build, migration và E2E](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34502364619)
+Cần Docker Compose và Python 3. Chạy tại thư mục gốc repository:
 
-## Cập nhật tài khoản và desktop
-
-- Đăng nhập bằng Google/Gmail trên web và desktop; tài khoản Google mới là học viên. Admin có thể đổi vai trò, kể cả cấp ADMIN, trong **Người dùng**; giữ ít nhất một admin hoạt động.
-- Mọi tài khoản có môn **Luyện tập vấn đáp** mặc định. Admin giao cả môn tại **Môn học → 04 · Học viên**; học viên thấy mọi đề đã công bố trong môn, kể cả đề công bố sau này.
-- Quản lý kiến thức chia tab con; tạo/sửa rubric và đề thi mở popup để giảm cuộn dọc. Form tạo mở qua nút **Tạo rubric** / **Tạo bài thi**.
-- **Cấu hình hệ thống** trên web: AI/Gemini key và model, Google OAuth Client ID/Secret, domain gốc, STT và JSON service account. Bỏ trống secret giữ nguyên; không trả secret về trình duyệt.
-- Desktop có menu đổi domain máy chủ và cấu hình bộ cài Windows/Ubuntu/macOS. Xem [cách build desktop](docs/desktop-build.md) và [thiết kế tài khoản/giao môn/cấu hình](docs/architecture/accounts-courses-desktop.md).
-
-Để bật đăng nhập thật, tạo Google OAuth Client loại **Web application**, cấu hình màn hình đồng ý/test users, thêm `https://DOMAIN/api/auth/google/callback` rồi nhập Client ID/Secret trên web. JSON service account STT không thay thế OAuth client. Không cần cấp quyền đọc/gửi Gmail.
-
-Cũng có thể cấu hình lần đầu trong file `.env` ở thư mục gốc. Điền hai credential và bật đăng nhập:
-
-```dotenv
-PUBLIC_ORIGIN=http://localhost:3000
-GOOGLE_LOGIN_ENABLED=true
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
+```bash
+python3 scripts/setup_env.py
+docker compose up -d --build --wait
 ```
 
-Với địa chỉ trên, đăng ký redirect URI `http://localhost:3000/api/auth/google/callback` trên Google. Nếu dùng domain thật, đặt `PUBLIC_ORIGIN=https://DOMAIN` và đăng ký URI tương ứng. Sau khi sửa `.env` của bản Docker đang chạy:
+Mở **http://localhost:3000**, đăng nhập bằng `BOOTSTRAP_ADMIN` và `BOOTSTRAP_PASSWORD` trong `.env`. Script không ghi đè `.env` đã có. Mặc định hệ thống chạy demo, chưa chấm AI.
+
+## Dùng Gemini chấm điểm + Whisper nhận dạng
+
+Hai cấu hình này **độc lập**:
+
+| Chức năng                                     | Cấu hình                                               | Cần gì?                              |
+| --------------------------------------------- | ------------------------------------------------------ | ------------------------------------ |
+| Sinh câu hỏi, embedding tài liệu và chấm text | **AI & mô hình → Google Gemini**                       | Gemini API key                       |
+| Nhận dạng trên máy học viên                   | **STT & giọng nói → Whisper local trên máy sinh viên** | Desktop + Whisper local              |
+| Nhận dạng trên máy chủ                        | **STT & giọng nói → Whisper trên server nội bộ**       | Whisper trong API; Docker đã cài sẵn |
+| Nhận dạng bằng Google Cloud (tùy chọn)        | **STT & giọng nói → Google Cloud Speech-to-Text**      | JSON service account riêng           |
+
+**Gemini + Whisper không cần JSON Google STT.** Luồng xử lý: ghi âm → Whisper → transcript → Gemini chấm điểm. Khi nộp bài, worker chấm transcript đã gửi, không gọi Google STT để nhận dạng lại.
+
+Admin mở **Cấu hình hệ thống**:
+
+1. Tab **AI & mô hình**: chọn **Google Gemini**, nhập API key và lưu.
+2. Tab **STT & giọng nói**: chọn một trong hai lựa chọn **Whisper**, chọn ngôn ngữ/lọc nhiễu và bấm **Lưu cấu hình STT**.
+3. Xử lý tài liệu, tạo rubric và công bố đề mới với cấu hình Gemini.
+
+Nếu STT trước đó đã chọn Google, cần đổi và lưu lại ở bước 2. Bật Gemini không tự đổi lựa chọn STT đã lưu. Mục JSON Google chỉ dùng khi chủ động chọn Google STT hoặc dùng chức năng **Nhận dạng lại bằng Google & chấm lại**.
+
+Có thể đặt cấu hình ban đầu trong `.env`:
+
+```dotenv
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your-api-key
+STT_PROVIDER=local
+STT_MODEL=base
+STT_LANGUAGE=vi
+```
+
+`STT_PROVIDER=local` dùng Whisper trên desktop; `local_server` dùng Whisper trên API (mặc định); `google` dùng Google STT. `STT_MODEL` trên server điều khiển Whisper server; Whisper desktop đọc biến này trên máy học viên.
+
+**Cấu hình đã lưu trên web được ưu tiên hơn `.env`**: AI lưu trong `DATA_DIR/secrets/platform.json`, STT lưu trong database. Với hệ thống đã cấu hình, sửa trên web để có hiệu lực ở lần xử lý tiếp theo. Nếu dùng `.env`, nạp lại bằng:
 
 ```bash
 docker compose up -d --no-deps --force-recreate api worker
 ```
 
-`docker compose restart` không nạp lại biến môi trường mới. Sau đó tải lại trang đăng nhập để thấy nút Google. Admin vẫn chỉnh được tại **Cấu hình hệ thống → Đăng nhập Google**; cấu hình đã lưu trên web được ưu tiên hơn `.env` và có hiệu lực cho request/job tiếp theo, không cần restart. Sau khi đã lưu cấu hình hệ thống trên web, thay credential tại web thay vì chỉ sửa `.env`. File `.env` chứa bí mật được bỏ qua bởi Git; `.env.example` chỉ chứa mẫu trống.
+Đề đã công bố giữ cấu hình AI và rubric cũ. Đề demo không tự chuyển thành đề Gemini; tài liệu cần xử lý lại khi đổi model embedding. Bài luyện tập mặc định không tính điểm.
 
-## 1. Chạy nhanh bằng Docker Compose
+## Mở app desktop
 
-Cần Docker Engine/Docker Desktop **đang chạy**, Docker Compose và Python 3 để tạo cấu hình. Khuyến nghị máy phát triển có ít nhất 4 CPU, 8 GB RAM; Whisper cần tải model trong lần sử dụng đầu tiên.
-
-Nếu dùng Docker Desktop trên Linux, khởi động daemon và chọn đúng context trước khi chạy Compose:
-
-```bash
-systemctl --user enable --now docker-desktop
-docker context use desktop-linux
-docker info
-```
-
-`docker info` phải hiển thị cả phần `Server`. Nếu máy cài Docker Engine thay vì Docker Desktop, dùng service `docker.service` và context `default` theo cấu hình của máy.
-
-```bash
-git clone https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform.git
-cd AI-Oral-Assessment-Platform
-python3 scripts/setup_env.py
-docker compose up -d --build --wait
-```
-
-Mở **http://localhost:3000**. Đăng nhập bằng `BOOTSTRAP_ADMIN` và `BOOTSTRAP_PASSWORD` trong `.env`. Script tạo mật khẩu ngẫu nhiên và không ghi đè `.env` đã tồn tại. Không commit file này.
-
-Các dịch vụ:
-
-| Dịch vụ  | Vai trò / truy cập                                             |
-| -------- | -------------------------------------------------------------- |
-| web      | Giao diện quản trị và phòng thi, `localhost:3000`              |
-| api      | FastAPI, chỉ trong mạng Docker; web chuyển tiếp `/api/*`       |
-| worker   | Xử lý tài liệu và chấm bài nền                                 |
-| migrate  | Chạy Alembic và tạo admin ban đầu, kết thúc sau khi thành công |
-| postgres | PostgreSQL 16 + pgvector, volume `postgres_data`               |
-| minio    | Object storage; console `localhost:9001`, tài khoản từ `.env`  |
-| redis    | Giới hạn số lần đăng nhập; volume `redis_data`                 |
-
-```bash
-docker compose ps
-docker compose logs -f api worker web
-docker compose restart api worker
-docker compose down             # Giữ nguyên volume dữ liệu
-```
-
-`docker compose down -v` **xóa dữ liệu** trong các volume. Không dùng nếu cần giữ bài thi.
-
-Swagger: http://localhost:3000/api/docs. OpenAPI JSON: http://localhost:3000/api/openapi.json. Đăng nhập trên web trước để dùng cookie cùng origin khi thử API.
-
-### Dữ liệu mẫu tùy chọn
-
-Mặc định hệ thống chỉ tạo admin. Để thử ngay một môn, tài liệu, rubric, bài thi 2 câu và hai tài khoản mẫu:
-
-```bash
-# Chọn mật khẩu riêng cho tài khoản demo (tối thiểu 12 ký tự).
-read -rs -p 'Demo password: ' DEMO_PASSWORD
-export DEMO_PASSWORD
-docker compose exec -e DEMO_PASSWORD="$DEMO_PASSWORD" api python -m app.seed_demo
-unset DEMO_PASSWORD
-```
-
-Tài khoản: `teacher.demo` và `student.demo`, dùng mật khẩu vừa nhập. Seeder chỉ chạy trong `AI_PROVIDER=demo`, không chạy tự động và không đặt lại mật khẩu của tài khoản đã có. Có thể dùng [tài liệu TXT mẫu](docs/examples/se101.txt) để tạo môn thủ công.
-
-## 2. Hướng dẫn dùng web
-
-### Quản trị viên / giảng viên
-
-1. **Người dùng:** admin tạo tài khoản sinh viên hoặc giảng viên; mật khẩu tối thiểu 12 ký tự. Giảng viên có thể xem danh sách sinh viên để giao bài.
-2. **Môn học & đề thi → Tạo môn học:** nhập mã, tên, mô tả. Giảng viên chỉ quản lý môn do mình tạo; admin quản lý mọi môn.
-3. **01 · Kiến thức:** tải **một giáo trình PDF cho cả môn** (tối đa 100 MB), chờ **Sẵn sàng**, kiểm tra/sửa chương và tiêu đề mục theo số trang PDF. Tạo các LO, rồi tạo chủ đề với **ít nhất một LO và một chương/mục**; có thể chọn nhiều. Tài liệu bổ sung PDF/PPTX/DOCX/TXT tối đa 20 MB/file, có thể tải trước vào môn hoặc gắn ngay vào chủ đề. Khi sửa chủ đề, chọn nhiều tài liệu đã tải; cùng một tài liệu/chương/LO có thể dùng cho nhiều chủ đề. Dùng mục kiểm tra RAG để đối chiếu phạm vi truy xuất.
-4. **02 · Rubric:** thêm các tiêu chí, mô tả, điểm tối đa và trọng số. Sửa rubric tạo version mới; các đề đã công bố giữ bản cũ.
-5. **03 · Bài thi & giao bài:** chọn rubric, thời gian và blueprint (chủ đề, độ khó, số câu; tối đa 20 câu). Lưu bản nháp, bấm **Sinh câu hỏi & công bố**. Mỗi chủ đề cần tài liệu sẵn sàng. Sau đó chọn sinh viên và giao bài.
-6. **Kết quả & xem lại:** mở bài để xem transcript đã nộp, điểm theo tiêu chí, RAG, audio/video. Sau khi bài đã nộp và chấm lần đầu, **admin** có thể mở **Nhận dạng lại bằng Google & chấm lại**, nhập lý do rồi chạy. Audio được nhận dạng lại và chấm theo rubric/AI/kiến thức của đề đã công bố. Trang tự cập nhật; lưu cả transcript sinh viên, transcript Google, đánh giá trước/sau và lý do. Nếu lỗi, đánh giá trước được giữ nguyên. Demo vẫn không có điểm AI; sửa điểm thủ công chưa triển khai.
-7. **Cấu hình hệ thống → STT & giọng nói** (admin): chọn STT local trên desktop, Google Cloud hoặc Whisper trên server nội bộ; chọn bật/tắt lọc nhiễu và ngôn ngữ Việt/Anh. Cấu hình lưu trong database, áp dụng cho lần nhận dạng tiếp theo.
-
-**CRUD:** trong môn học → **Cài đặt**, sửa thông tin, lưu trữ/khôi phục hoặc xóa vĩnh viễn môn học trống. Môn còn LO/chủ đề/tài liệu/rubric/đề thi được bảo vệ khỏi xóa; dùng lưu trữ để giữ lịch sử. Tab Rubric có tạo, xem, sửa, hủy sửa và xóa; rubric đang được đề thi dùng trả thông báo rõ để đổi rubric/xóa đề nháp trước. Đề nháp có tạo, xem blueprint, sửa, hủy sửa và xóa. Đề đã công bố giữ nguyên; **Sao chép thành bản nháp** tạo đề mới để sửa và công bố lại, không sao chép lượt thi/giao bài/kết quả. Các thao tác xóa có xác nhận trên giao diện.
-
-### Sinh viên
-
-1. Đăng nhập → **Bài thi của tôi** → mở bài được giao.
-2. Cho phép camera và mic; kiểm tra preview và thanh tín hiệu khi nói. Bước này **chưa ghi**.
-3. Bấm **Kiểm tra độ ồn**, giữ im lặng và tắt loa trong 5 giây. Nếu quá ồn, tìm chỗ yên lặng rồi **Kiểm tra lại độ ồn**; có thể **Bỏ qua kiểm tra độ ồn**, kể cả lúc đang đo. Sau khi đạt hoặc bỏ qua, bấm **Bắt đầu thi**; lúc này server mới tính thời gian toàn bài. Bỏ qua không thay thế quyền camera/mic.
-4. Đọc câu hỏi → **Bắt đầu trả lời** → nói → **Kết thúc trả lời**. Chỉ khoảng thời gian này được ghi âm/ghi hình.
-5. Chờ biểu tượng loading lọc nhiễu/STT, kiểm tra transcript. Mỗi câu tối đa 10 phút và audio STT tối đa 30 MB. Có thể thử STT lại hoặc ghi lại trước khi nộp. Transcript sửa tay được đánh dấu cần giảng viên kiểm tra.
-6. **Nộp câu trả lời & tiếp tục**: có spinner trong lúc lưu, khóa sửa transcript/ghi lại để tránh thao tác trùng; audio/video tải nền theo chunk. Nếu upload lỗi, bấm tải lại và giữ ứng dụng mở.
-7. Trả lời đủ câu, chờ mọi minh chứng **Đã lưu**, bấm **Nộp bài thi**. Điểm chỉ hiện khi server xác nhận; bài demo luôn cần xem lại.
-
-Dùng Chrome/Chromium hoặc Electron. Camera/mic cần **HTTPS hoặc localhost**. Không mở qua `http://IP-máy-chủ` nếu cần truy cập thiết bị. MVP chưa lưu bản ghi bền vững ở client: không đóng tab/ứng dụng trước khi nộp xong.
-
-## 3. Bật AI thật và STT
-
-### Gemini: câu hỏi, embedding và chấm
-
-Mặc định `AI_PROVIDER=demo`: vector hashing để thử quy trình, câu hỏi mẫu, **không tạo điểm AI** và không gọi LLM. STT có cấu hình riêng; chọn Google STT hoặc Google chấm lại vẫn gọi Google dù AI chấm đang ở demo.
-
-Để chạy Gemini, sửa `.env`:
-
-```dotenv
-AI_PROVIDER=gemini
-GEMINI_API_KEY=your-key
-LLM_MODEL=gemini-2.5-flash
-EMBEDDING_MODEL=gemini-embedding-001
-CONFIDENCE_THRESHOLD=0.85
-TOP_K=5
-```
-
-```bash
-docker compose up -d --force-recreate api worker
-```
-
-Chọn model hiện được tài khoản của bạn hỗ trợ. Các tên model là cấu hình, không gắn cứng vào source. API key chỉ nằm ở server. Gemini nhận các đoạn kiến thức cần dùng và transcript; audio/video không gửi vào LLM chấm.
-
-**Sau khi đổi provider hoặc embedding model:** upload lại tài liệu để tạo embedding phù hợp, tạo/công bố đề mới. Không dùng vector demo cho chấm thật. Nếu thay model/prompt khi còn bài cũ, bài đó sẽ được chuyển review thay vì chấm bằng cấu hình khác snapshot.
-
-Gemini structured output được kiểm tra lại ở server: đủ tiêu chí, đúng khoảng điểm, trích dẫn chunk tồn tại. Server tự tính tổng điểm; không tin điểm client hoặc tổng điểm do model đưa ra. Lỗi mạng/model/JSON không làm mất transcript.
-
-### Whisper STT
-
-Image API đã có `faster-whisper`, FFmpeg và thư viện CPU. Mặc định cả web và desktop dùng Whisper trên server nội bộ; admin có thể đổi trong **Cấu hình giọng nói**. Model server tải lần đầu và cache trong volume `app_data` (`/data/models`). Có thể tải trước:
-
-```bash
-docker compose exec api python -c 'from app.speech import model; model()'
-```
-
-`STT_MODEL=base` là mặc định. `STT_LANGUAGE=vi` chỉ là giá trị khởi tạo; cấu hình ngôn ngữ đã lưu trong admin được ưu tiên. Cần đo chất lượng tiếng Việt trên máy triển khai. Confidence Whisper là heuristic, không phải xác suất chính xác đã hiệu chuẩn.
-
-Audio gốc → bản WAV mono 16 kHz → lọc nhiễu/chuẩn hóa âm lượng (nếu bật) → STT → transcript. Bộ lọc FFmpeg giảm tiếng ù/nhiễu nền, **không phải mô hình tách người nói hoặc tách vocal khỏi mọi loại nhạc**. File evidence gốc không bị thay đổi. Cài đặt native có `imageio-ffmpeg` làm phương án dự phòng khi máy chưa cài FFmpeg; có thể chỉ định `FFMPEG_BINARY`.
-
-**Có nên thay bằng Spleeter?** Chưa có bằng chứng tốt hơn cho dữ liệu vấn đáp của dự án. [Spleeter của Deezer](https://github.com/deezer/spleeter) thiết kế cho tách nguồn âm nhạc, gồm giọng hát/nhạc đệm; đó không phải bảo đảm khử tiếng quạt, xe cộ hoặc tách đúng học viên khỏi người khác nói. Giữ FFmpeg hiện tại; trước khi thêm Spleeter cần so sánh WER/CER tiếng Việt, độ trễ và RAM trên cùng tập thu âm có transcript chuẩn. Đây là xử lý trước **STT** (speech-to-text), không phải **TTS** (text-to-speech). Xem [thiết kế kiểm tra độ ồn và đánh giá Spleeter](docs/architecture/crud-noise-check.md).
-
-### Google Cloud Speech-to-Text
-
-Google STT dùng credentials riêng, **không dùng `GEMINI_API_KEY`**. Bật Cloud Speech-to-Text API và billing trong Google Cloud, tạo service account có quyền gọi Speech-to-Text, lưu JSON credentials ngoài Git. Tham khảo [xác thực Google Cloud STT](https://docs.cloud.google.com/speech-to-text/docs/v1/authentication).
-
-**Upload trực tiếp từ admin (khuyến nghị):**
-
-1. Vào **Cấu hình giọng nói → Credentials Google Cloud**.
-2. Chọn file JSON **service account**, tối đa **64 KB**, bấm **Upload JSON Google** hoặc **Thay file JSON Google**.
-3. Kiểm tra trạng thái **Đọc được credentials hợp lệ**, project và email tài khoản. Chọn **Google Cloud Speech-to-Text** rồi **Lưu cấu hình STT**, hoặc dùng Google nhận dạng lại trong trang xem bài.
-
-API kiểm tra JSON, loại tài khoản, token URI của Google và private key trước khi lưu. File không hợp lệ không thay thế credentials đang hoạt động. Chỉ ADMIN được upload; không có chức năng tải lại private key từ web. Upload không tự đổi provider và không tự bật API/billing trên Google Cloud.
-
-Credentials upload lưu tại `DATA_DIR/secrets/google-stt.json`, quyền file `600`, thư mục `700`; cập nhật bằng thay file nguyên khối để worker không đọc phải bản đang ghi dở. Compose đã chia sẻ volume `app_data` giữa API và worker nên **không cần sửa `.env`, mount file host hay restart** khi upload/thay khóa. File upload được ưu tiên hơn `GOOGLE_STT_CREDENTIALS_FILE`. Trạng thái hiển thị kiểm tra file/private key, chưa chứng minh quyền truy cập hoặc quota của Google.
-
-Giữ và sao lưu volume `app_data` khi chuyển máy chủ; xóa volume hoặc mất quyền đọc vẫn có thể làm mất cấu hình và cần upload lại. Khi triển khai nhiều máy, API và worker phải dùng chung filesystem chứa `DATA_DIR/secrets`. Không đưa JSON hoặc backup chứa khóa lên Git.
-
-**Cách gắn file trên host vẫn được hỗ trợ:** trong `.env`, đặt đường dẫn tuyệt đối tới file:
-
-```dotenv
-GOOGLE_STT_CREDENTIALS_HOST_FILE=/absolute/path/google-stt.json
-```
-
-Khởi động với cấu hình bổ sung (file phải đọc được bởi UID 10001 trong container):
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.google.yml up -d --build --wait
-```
-
-Compose gắn credentials chỉ đọc vào API và worker. Sau đó admin chọn **Google Cloud Speech-to-Text**, hoặc dùng nút Google trong trang xem bài. Khi triển khai native, đặt `GOOGLE_STT_CREDENTIALS_FILE=/absolute/path/google-stt.json` cho cả API và worker. Source không đưa credentials vào frontend/Electron.
-
-Adapter gửi PCM thành các đoạn tối đa 55 giây để đáp ứng [giới hạn nhận dạng đồng bộ của Google](https://docs.cloud.google.com/speech-to-text/docs/v1/quotas). Chia đoạn cố định có thể ảnh hưởng từ ngay tại ranh giới; cần kiểm tra transcript với audio khi chấm lại. Chọn Google sẽ gửi audio đã xử lý ra Google Cloud và có thể phát sinh phí. Đã thử kết nối/nhận dạng thành công với credentials thật và mẫu tiếng Anh 11 giây; chưa đánh giá chất lượng tiếng Việt trong lớp học.
-
-## 4. Chạy app desktop
-
-Desktop cần kết nối web/backend OralAI đang chạy. Nếu dùng **Whisper server** hoặc **Google STT**, máy học viên không cần Python/FFmpeg. Python chỉ cần khi chọn Whisper local và bộ cài không có helper STT đi kèm.
-
-### 4.1. Chạy nhanh từ source
-
-Cần Node.js **22.12+** và môi trường desktop có giao diện. Mở terminal tại **thư mục gốc repository** (thư mục chứa `docker-compose.yml` và `package.json`).
-
-Nếu chạy backend trên cùng máy, hoàn tất cấu hình Docker ở mục 1, rồi khởi động nếu chưa chạy:
-
-```bash
-docker compose up -d --wait
-```
-
-Mở `http://localhost:3000` trên trình duyệt để xác nhận web hoạt động. Nếu kết nối server của trường qua domain thì không cần chạy Docker trên máy học viên.
-
-Cài thư viện JavaScript lần đầu hoặc sau khi cập nhật dependency:
+Cần Node.js **22.12+** và giao diện đồ họa. Tại thư mục gốc:
 
 ```bash
 npm ci
-```
-
-Khởi động app trên Ubuntu/Linux hoặc macOS:
-
-```bash
 env -u ELECTRON_RUN_AS_NODE npm run desktop
 ```
 
-Trên Windows PowerShell:
-
-```powershell
-Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-npm run desktop
-```
-
-Lệnh trên loại bỏ biến `ELECTRON_RUN_AS_NODE` nếu terminal đang có, để Electron mở cửa sổ ứng dụng. Bản chạy từ source mặc định kết nối `http://localhost:3000` khi chưa có địa chỉ đã lưu. Để đổi máy chủ, mở menu **OralAI → Cấu hình máy chủ…** như mục 4.3. Đóng cửa sổ để thoát app; Docker backend vẫn tiếp tục chạy.
-
-### 4.2. Chạy bằng bộ cài
-
-Tải bộ cài từ **GitHub → Actions → Desktop installers → run thành công → Artifacts**, chọn đúng hệ điều hành và giải nén artifact. Nếu artifact đã hết hạn, chạy lại workflow. Hướng dẫn tự build: [Desktop đa nền tảng](docs/desktop-build.md).
-
-| Hệ điều hành | Cách cài và mở                                                                                                                        |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows x64  | Chạy bộ cài `.exe`, hoàn tất cài đặt rồi mở **OralAI** từ Start Menu.                                                                 |
-| Ubuntu x64   | Cài `.deb` theo lệnh bên dưới, rồi mở **OralAI** trong danh sách ứng dụng hoặc chạy `oralai`.                                         |
-| macOS        | Mở `.dmg`, kéo **OralAI** vào Applications rồi mở ứng dụng. Artifact macOS hiện có là ARM64 cho Apple Silicon; máy Intel cần bản x64. |
-
-Ví dụ trên Ubuntu, khi file bộ cài nằm trong `apps/desktop/dist/` và terminal ở thư mục gốc repository:
-
-```bash
-sudo apt install ./apps/desktop/dist/OralAI-0.1.0-linux-amd64.deb
-oralai
-```
-
-Nếu tải file về Downloads, thay đường dẫn bằng vị trí file thực tế. Có thể chạy AppImage mà không cài `.deb`:
-
-```bash
-chmod +x ./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
-./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
-```
-
-Nếu AppImage báo thiếu FUSE, dùng `.deb` hoặc chạy `APPIMAGE_EXTRACT_AND_RUN=1 ./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage`. Bộ cài hiện chưa ký số/notarization; hướng dẫn build và ký bộ cài nằm trong [docs/desktop-build.md](docs/desktop-build.md).
-
-### 4.3. Chọn máy chủ và đăng nhập
-
-1. Lần đầu mở bản đóng gói, app hiện **Cấu hình máy chủ**. Nếu app đã mở, vào **OralAI → Cấu hình máy chủ…**.
-2. Nhập `http://localhost:3000` nếu backend chạy trên **chính máy đang mở desktop**. Máy học viên khác nhập domain HTTPS của server, ví dụ `https://oral.example.edu`. Domain phải phục vụ cả web và API; không thêm `/api` vào ô này.
-3. Bấm **Kiểm tra kết nối**, sau đó **Lưu & kết nối** và xác nhận. Địa chỉ được lưu trên máy cho những lần mở tiếp theo.
-4. Đăng nhập bằng tài khoản được cấp. Nút **Đăng nhập bằng Google** xuất hiện khi admin đã cấu hình và bật Google OAuth; desktop mở trình duyệt hệ thống để đăng nhập, sau đó quay lại app.
-5. Mở **Bài thi của tôi** (học viên) hoặc **Học & thi thử** (nhân sự), chọn đề trong môn **Luyện tập vấn đáp**, cấp quyền camera/mic và làm theo bước kiểm tra thiết bị/tiếng ồn. Có nút bỏ qua kiểm tra tiếng ồn nếu cần. Giữ ứng dụng mở đến khi nộp bài thành công.
-
-`ORAL_WEB_URL` nếu có trong môi trường sẽ ưu tiên hơn địa chỉ đã lưu khi khởi động. Bỏ biến này nếu muốn dùng địa chỉ lưu bằng menu. Không cần build lại app khi đổi domain. Trước khi đổi máy chủ, nộp xong bài đang làm vì app sẽ tải lại giao diện.
-
-### 4.4. Tùy chọn: nhận dạng Whisper local
-
-Chỉ làm bước này nếu admin chọn STT chạy trên máy học viên và chưa có helper đi kèm bộ cài. Cần Python **3.12**. Với bản chạy từ source, dùng các lệnh dưới đây tại thư mục gốc repository sau khi đã chạy `npm ci`.
-
-Linux/macOS:
+Với Whisper local, chuẩn bị Python trước khi mở app (Linux/macOS):
 
 ```bash
 python3.12 -m venv .venv
-.venv/bin/pip install -r services/api/requirements.lock
+.venv/bin/pip install "faster-whisper>=1.1,<2" "imageio-ffmpeg>=0.6,<0.7"
 ORAL_PYTHON="$PWD/.venv/bin/python" env -u ELECTRON_RUN_AS_NODE npm run desktop
 ```
 
-Windows PowerShell:
+Whisper tải model ở lần chạy đầu. Máy học viên dùng Whisper server không cần Python. Đổi server tại **OralAI → Cấu hình máy chủ…**; dùng `http://localhost:3000` hoặc domain HTTPS, không thêm `/api`.
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\pip install "faster-whisper>=1.1,<2" "imageio-ffmpeg>=0.6,<0.7"
-$env:ORAL_PYTHON = "$PWD\.venv\Scripts\python.exe"
-Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-npm run desktop
-```
+Hướng dẫn Windows, bộ cài và kết nối server: [Desktop](readme-desktop.md).
 
-Để nhận dạng trên máy sinh viên, admin chọn **Whisper local trên máy sinh viên (desktop)**. Electron lấy policy từ server, chuyển audio và lựa chọn lọc nhiễu/ngôn ngữ qua IPC tới Whisper local. Nếu admin chọn Google/server nội bộ thì Electron dùng API tương ứng. Trình duyệt web sẽ báo cần desktop khi policy là local; không tự chuyển sang Google.
+## Quy trình sử dụng
 
-File tạm được xóa sau STT; renderer không có quyền `fs`, `shell` hay `child_process`. Lần đầu cần mạng để tải model. Khi chạy từ source, giữ nguyên cấu trúc repository để dùng module xử lý audio chung. Bộ cài electron-builder đã mang theo script và module xử lý audio chung; xem [cách đóng gói thêm helper Whisper](docs/desktop-build.md) nếu không muốn cài Python trên máy học viên. Chưa có installer ký số hoặc auto-update.
+1. Admin tạo tài khoản, môn học và giao môn cho học viên.
+2. Giảng viên tải tài liệu, tạo chủ đề/chuẩn đầu ra, rubric và đề thi; công bố rồi giao bài.
+3. Học viên kiểm tra camera/mic, ghi âm, kiểm tra transcript và nộp bài sau khi audio/video tải lên xong.
+4. Worker chấm bài; giảng viên xem kết quả, transcript và minh chứng. Điểm chưa xác nhận hiển thị chờ chấm hoặc cần xem lại.
 
-Kiểm tra độ ồn dùng module `apps/admin-web/lib/noise-check.ts` dựa trên Web Audio API tích hợp trong Chromium/Electron, dùng chung với web; không cần cài thư viện Python/model bổ sung. Module yêu cầu luồng mic không có noise suppression, echo cancellation hoặc auto gain, đo tại máy rồi giải phóng luồng. Không tạo file hoặc upload âm thanh kiểm tra. Ngưỡng mặc định là −40 dBFS ở ít nhất 20% cửa sổ đo; đây là mức tín hiệu tương đối phụ thuộc microphone, **không phải dB SPL/dBA**. Mic không có tín hiệu không tự được coi là phòng yên lặng. Chưa hiệu chuẩn ngưỡng bằng microphone phần cứng; kiểm tra là bước hỗ trợ trước thi, không phải cơ chế chống gian lận phía server.
+## Cập nhật và xử lý lỗi
 
-## 5. Phát triển không dùng Docker
-
-Chạy mọi lệnh từ **thư mục gốc repository**. SQLite + storage local dùng cho thử nghiệm một máy; PostgreSQL/MinIO trong Compose là cấu hình triển khai chuẩn.
+Sau khi cập nhật source:
 
 ```bash
-python3 scripts/setup_env.py  # bỏ qua nếu .env đã tồn tại
+docker compose up -d --build --wait
+```
+
+Tải lại web hoặc mở lại desktop. Giữ volume dữ liệu; không dùng `docker compose down -v` nếu cần giữ bài thi.
+
+| Hiện tượng                              | Cách kiểm tra                                                                            |
+| --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Gemini đã bật nhưng STT đòi JSON Google | Vào STT & giọng nói, đổi nhà cung cấp đang lưu sang Whisper rồi lưu lại                  |
+| Bài không có điểm                       | Kiểm tra đề có phải demo/luyện tập, trạng thái cần xem lại và log worker                 |
+| Chờ chấm mãi                            | `docker compose ps` và `docker compose logs --tail=100 worker`                           |
+| Whisper nhận dạng lỗi                   | Kiểm tra microphone, FFmpeg, model và khả năng tải model; desktop cần đúng `ORAL_PYTHON` |
+| Thay `.env` nhưng không đổi cấu hình    | Kiểm tra cấu hình đã lưu trên web; `restart` không nạp biến môi trường mới               |
+
+## Phát triển và tài liệu
+
+Stack: Next.js, Electron, FastAPI, PostgreSQL/pgvector và MinIO. Source chính ở `apps/admin-web`, `apps/desktop`, `services/api`.
+
+```bash
 python3.12 -m venv .venv
 .venv/bin/pip install -r services/api/requirements.lock
 .venv/bin/pip install --no-deps -e services/api
 npm ci
-.venv/bin/alembic -c services/api/alembic.ini upgrade head
-.venv/bin/python -m app.bootstrap
-```
-
-Mở ba terminal tại thư mục gốc:
-
-```bash
-# Terminal 1
-.venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-# Terminal 2: cần chạy để xử lý tài liệu/chấm bài
-.venv/bin/python -m app.worker
-# Terminal 3
-npm run dev
-```
-
-Web http://localhost:3000, API trực tiếp http://localhost:8000/docs. Database/media local ở `.data/`, không đưa lên Git. Trên Windows thay `.venv/bin/` bằng `.venv\Scripts\`.
-
-Build web:
-
-```bash
-npm run build
-# Bản standalone là cách chạy dùng trong Docker.
-```
-
-## 6. Cấu hình triển khai trên máy chủ
-
-Mặc định cổng web/MinIO console chỉ bind `127.0.0.1`. Đặt reverse proxy HTTPS phía trước cổng web. Cập nhật `.env`:
-
-```dotenv
-ALLOWED_ORIGINS=https://oral.example.edu
-COOKIE_SECURE=true
-```
-
-Nếu cần đổi cổng local, thay `WEB_PORT` và `ALLOWED_ORIGINS` tương ứng. Giữ database, Redis, API và object storage trong mạng Docker. MinIO console dùng qua SSH tunnel khi cần. Backup cả PostgreSQL lẫn `minio_data`; media chunk tạm và cache model ở `app_data`.
-
-Migration chạy qua service `migrate`. Trước update có dữ liệu thật: backup, kiểm tra migration rồi mới chạy `docker compose up -d --build`. Migration đầu tiên có `downgrade base`, nhưng **rollback này xóa toàn bộ bảng**; khi cần bảo toàn dữ liệu hãy restore backup đã kiểm tra, không chạy downgrade tùy tiện.
-
-MVP chưa thay thế hệ thống thi chính thức: cần kiểm định AI với giảng viên, kiểm thử tải/khôi phục và hoàn thiện quy trình Pilot trong tài liệu kiến trúc.
-
-## 7. Kiểm thử
-
-```bash
-.venv/bin/ruff check services/api apps/desktop/transcribe.py scripts
 .venv/bin/python -m pytest services/api/tests -q
 npm run lint
 npm run typecheck
 npm run build
-npm run check -w apps/desktop
-npm run test:audio
-npm run test:desktop
-npm audit --audit-level=high
-docker compose config --quiet
 ```
 
-E2E cần web/API/worker đang chạy, `.env` có admin bootstrap và **AI_PROVIDER=demo**. Test tạo tài khoản/môn/bài synthetic, nên chỉ chạy trên database thử nghiệm:
-
-```bash
-npx playwright install chromium
-npm run test:e2e
-```
-
-E2E dùng camera/mic giả lập, ghi và phát **WebM thật**; STT trong browser test được thay bằng kết quả cố định. Test không gọi Gemini trả phí. CI kiểm tra migration PostgreSQL, test, lint/typecheck/build, Docker build và E2E trên toàn bộ Compose.
-
-Bản CRUD/kiểm tra độ ồn không đổi schema, dependency hoặc service: Dockerfile và Compose hiện có đã đóng gói đủ frontend/API/FFmpeg. Cập nhật bản đang chạy bằng `docker compose up -d --build --wait` (giữ các file `-f` override nếu đang dùng). Không xóa volume. Repository hiện dùng `.github/workflows/ci.yml`, chưa có Jenkinsfile/Jenkins deployment; workflow đã bổ sung `npm run test:audio` và tự chạy các bài Playwright mới.
-
-## 8. Cấu trúc source
-
-```text
-apps/admin-web/          Next.js, quản trị + giao diện thi React/TypeScript
-apps/desktop/            Electron sandbox, preload whitelist, Whisper local
-services/api/app/       Auth, CRUD, RAG/AI, exam state, upload, STT, worker
-services/api/alembic/   Migration có schema cố định
-services/api/tests/     Kiểm thử nghiệp vụ và tích hợp API
-docs/                   Kiến trúc, kiểm thử, tài liệu mẫu và ảnh giao diện
-scripts/setup_env.py    Tạo cấu hình ngẫu nhiên cho lần chạy đầu
-tests/e2e/              Playwright: login, responsive, thi và playback
-.github/workflows/      CI, Docker Compose E2E
-```
-
-## 9. Xử lý lỗi thường gặp
-
-### Cập nhật từ bản MVP trước
-
-```bash
-git pull --ff-only
-docker compose up -d --build --wait
-```
-
-Nếu đang dùng Google, thêm `-f docker-compose.yml -f docker-compose.google.yml` như hướng dẫn ở trên. Migration `0002` tự chạy trước API/worker, chuyển ánh xạ LO/tài liệu cũ sang quan hệ nhiều–nhiều và giữ các bài thi/evidence cũ. Sao lưu database trước khi nâng cấp; không dùng `docker compose down -v`. Không downgrade `0002` tự động; khôi phục backup nếu cần quay về code cũ. Sau cập nhật, tải lại trang web và mở lại Electron. Chủ đề cũ chưa có chương vẫn xem được; thêm giáo trình và gắn chương khi sửa chủ đề.
-
-Chi tiết mô hình, giới hạn PDF/header và xử lý audio: [Thiết kế giáo trình & STT](docs/architecture/knowledge-speech.md).
-
-| Hiện tượng                                                  | Cách kiểm tra                                                                                                                           |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Không kết nối Docker daemon tại `/var/run/docker.sock`      | Với Docker Desktop trên Linux: `systemctl --user start docker-desktop && docker context use desktop-linux`; sau đó chạy `docker info`   |
-| Cổng 3000 đang được sử dụng                                 | Dừng tiến trình web development cũ, hoặc đổi `WEB_PORT` và `ALLOWED_ORIGINS` trong `.env`; kiểm tra bằng `ss -ltnp '( sport = :3000 )'` |
-| Container `oral-assessment-*` bị trùng tên sau lần chạy lỗi | Chạy `docker compose down --remove-orphans`, rồi `docker compose up -d --wait`; lệnh này giữ nguyên volume dữ liệu                      |
-| Không đăng nhập được admin                                  | Xem `.env`; bootstrap chỉ tạo lần đầu, sửa biến không đổi mật khẩu tài khoản đã có                                                      |
-| Tài liệu chờ mãi                                            | Kiểm tra `docker compose logs worker`; worker phải chạy                                                                                 |
-| PDF không có nội dung                                       | OCR file scan trước khi upload; MVP chỉ trích xuất text sẵn có                                                                          |
-| Tài liệu FAILED                                             | Kiểm tra định dạng, cấu hình Gemini, mạng; dùng nút Thử lại                                                                             |
-| Công bố đề không được                                       | Mọi chủ đề blueprint cần tài liệu READY với embedding hiện tại                                                                          |
-| Camera/mic bị chặn                                          | Dùng localhost/HTTPS, cấp quyền trình duyệt và hệ điều hành                                                                             |
-| STT chậm hoặc lỗi tải model                                 | Tải model trước, kiểm tra mạng tới Hugging Face; thử model nhỏ hơn                                                                      |
-| Không chọn được Google STT                                  | Cấu hình JSON service account và Compose override cho cả API/worker; kiểm tra quyền đọc file và API/billing/quota của Google            |
-| Web yêu cầu desktop khi STT                                 | Admin đang chọn local; mở Electron hoặc đổi policy sang server nội bộ                                                                   |
-| Giáo trình PDF xử lý lỗi                                    | Có thể dùng Thử lại khi lỗi dịch vụ, hoặc Thay PDF bị lỗi sau khi sửa/OCR file                                                          |
-| Google chấm lại FAILED                                      | Đánh giá trước được giữ; kiểm tra credentials/âm thanh/model AI snapshot rồi tạo lần thử mới                                            |
-| Gemini lỗi/hết quota                                        | Transcript vẫn giữ; bài chuyển cần xem lại, không tự dùng điểm giả                                                                      |
-| Upload thất bại                                             | Giữ tab mở, kết nối mạng và bấm Tải lại; chưa có resume sau khi đóng ứng dụng                                                           |
-| Không có điểm cuối                                          | Kiểm tra worker, trạng thái review và `AI_PROVIDER`; demo luôn không có điểm chính thức                                                 |
+- [Chạy và cấu hình desktop](readme-desktop.md) · [Build bộ cài](docs/desktop-build.md)
+- [Thiết kế kiến thức và STT](docs/architecture/knowledge-speech.md)
+- [Tài khoản, đăng nhập Google và giao môn](docs/architecture/accounts-courses-desktop.md)
+- [Kiến trúc](docs/architecture/phase-1.md) · [Kiểm thử](docs/validation.md)

@@ -150,6 +150,19 @@ Có thể chạy workflow `.github/workflows/desktop.yml` trong GitHub Actions �
 
 ## 5. STT và Python trên máy học viên
 
+### Gemini chấm text, Whisper nhận dạng
+
+Trong **Cấu hình hệ thống**, lưu riêng hai lựa chọn:
+
+1. **AI & mô hình → Google Gemini**: nhập Gemini API key để sinh câu hỏi và chấm transcript.
+2. **STT & giọng nói → Whisper local trên máy sinh viên (desktop)**: nhận dạng trên máy học viên. Chọn **Whisper trên server nội bộ** nếu muốn chạy model trên API.
+
+**Không cần JSON Google STT cho cả hai cách dùng Whisper**, kể cả khi bật `AI_PROVIDER=gemini`. Desktop lấy STT policy từ server trước mỗi lần nhận dạng, rồi gửi transcript lên để worker chấm. Việc nộp bài không tự nhận dạng lại bằng Google.
+
+Nếu app đòi JSON, kiểm tra nhà cung cấp đang lưu trong **STT & giọng nói**: đổi từ Google sang Whisper và bấm **Lưu cấu hình STT**. `STT_PROVIDER=local` trong `.env` chỉ là mặc định khi chưa có STT policy lưu trên web; cấu hình đã lưu được ưu tiên. Đổi AI provider không thay đổi STT policy.
+
+### Chuẩn bị Whisper
+
 Nếu admin chọn **Whisper server** hoặc **Google STT**, máy học viên không cần Python hay FFmpeg.
 
 Nếu admin chọn **Whisper local trên máy sinh viên**, dùng một trong hai cách:
@@ -161,12 +174,24 @@ Ví dụ Linux/macOS khi chạy từ source:
 
 ```bash
 python3.12 -m venv .venv
-.venv/bin/pip install -r services/api/requirements.lock
+.venv/bin/pip install "faster-whisper>=1.1,<2" "imageio-ffmpeg>=0.6,<0.7"
 ORAL_PYTHON="$PWD/.venv/bin/python" \
   env -u ELECTRON_RUN_AS_NODE npm run desktop
 ```
 
 Model Whisper được tải ở lần sử dụng đầu tiên. Kiểm tra tiếng ồn trước khi thi chạy bằng Web Audio API trong Electron và không cần Python; học viên có thể dùng nút bỏ qua kiểm tra này.
+
+Windows PowerShell:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\pip install "faster-whisper>=1.1,<2" "imageio-ffmpeg>=0.6,<0.7"
+$env:ORAL_PYTHON = "$PWD\.venv\Scripts\python.exe"
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+npm run desktop
+```
+
+Model desktop mặc định là `base`; có thể đặt biến `STT_MODEL` trên máy học viên trước khi mở app. Lựa chọn **Model Whisper trên server** trong trang quản trị chỉ áp dụng cho Whisper chạy trong API.
 
 ## 6. Xử lý lỗi thường gặp
 

@@ -206,6 +206,7 @@ def test_speech_policy_permissions_and_routing(env, monkeypatch):
     assert clients["student"].post("/stt", files={"file": ("a.webm", b"audio")}).status_code == 409
     for provider in ("local_server", "google"):
         monkeypatch.setattr(speech, "google_ready", lambda: True)
+        monkeypatch.setattr(stt, "google_ready", lambda: True)
         ok(clients["admin"].put(path, json={"provider": provider, "preprocessing": "denoise"}))
 
         def transcribe(path, config):

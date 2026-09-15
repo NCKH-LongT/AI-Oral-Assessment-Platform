@@ -27,8 +27,9 @@ _lock = Lock()
 
 def policy(db):
     row = db.get(SystemSetting, "speech")
+    cfg = settings()
     return SpeechPolicy.model_validate(
-        row.value if row else {"language": settings().stt_language}
+        row.value if row else {"provider": cfg.stt_provider, "language": cfg.stt_language}
     ).model_dump()
 
 
@@ -162,7 +163,8 @@ def google_transcribe(path, language):
 
 
 def transcribe_file(path, speech_policy=None):
-    config = speech_policy or SpeechPolicy(language=settings().stt_language).model_dump()
+    cfg = settings()
+    config = speech_policy or SpeechPolicy(provider=cfg.stt_provider, language=cfg.stt_language).model_dump()
     if config["provider"] not in {"google", "local_server"}:
         raise ValueError("Local STT requires the desktop client")
     with tempfile.TemporaryDirectory(prefix="oral-clean-") as folder:

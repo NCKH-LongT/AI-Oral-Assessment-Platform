@@ -354,6 +354,16 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     await page.request.get("/api/admin/settings/speech")
   ).json();
   await page
+    .locator("details")
+    .filter({
+      has: page.getByText("Google Cloud STT: JSON service account (tùy chọn)", {
+        exact: true,
+      }),
+    })
+    .evaluate((element) => {
+      (element as HTMLDetailsElement).open = true;
+    });
+  await page
     .getByLabel("File JSON service account Google (tối đa 64 KB)")
     .setInputFiles({
       name: "invalid-google.json",

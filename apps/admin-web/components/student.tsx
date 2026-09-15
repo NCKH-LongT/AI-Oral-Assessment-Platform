@@ -514,9 +514,14 @@ export default function Student() {
           ) : (
             <p>
               Điểm chính thức:{" "}
-              {session.final_score === null
-                ? "Đang xử lý hoặc cần giảng viên xem lại"
-                : `${session.final_score}/10`}
+              {session.status === "COMPLETED" &&
+              typeof session.final_score === "number" &&
+              Number.isFinite(session.final_score)
+                ? `${session.final_score}/10`
+                : session.grading_message ||
+                  (session.status === "SUBMITTED"
+                    ? "Đã nộp bài, đang chờ máy chủ chấm điểm."
+                    : "Chưa có điểm chính thức; cần giảng viên xem lại.")}
             </p>
           )}
           <button

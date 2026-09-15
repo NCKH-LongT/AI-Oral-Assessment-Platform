@@ -5,6 +5,7 @@ os.environ["JWT_SECRET"] = "test-only-secret-never-use-in-deployment-12345"
 os.environ["DATA_DIR"] = tempfile.mkdtemp(prefix="oral-tests-")
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "sqlite://")
 os.environ["AI_PROVIDER"] = "demo"
+os.environ["STT_PROVIDER"] = "local_server"
 os.environ["REDIS_URL"] = ""
 os.environ["STORAGE_BACKEND"] = "local"
 os.environ["GOOGLE_STT_CREDENTIALS_FILE"] = ""

@@ -42,6 +42,10 @@ flowchart LR
 
 Admin lưu provider `local`, `local_server`, `google`, preprocessing `denoise`/`off`, language `vi`/`en` trong `system_settings`. Mặc định là server nội bộ + lọc nhiễu. Cả desktop/web lấy policy trước mỗi lần STT; local yêu cầu Electron. Server nội bộ chính là process API chạy Whisper trong hạ tầng của đơn vị, không phải một URL dịch vụ bên thứ ba tùy ý.
 
+`STT_PROVIDER` đặt mặc định ban đầu (`local_server` nếu không khai báo), độc lập với `AI_PROVIDER`. Policy đã lưu trong `system_settings` được ưu tiên hơn biến môi trường. Lưu cấu hình AI không ghi lại policy STT; muốn chuyển từ Google sang Whisper phải lưu lựa chọn trong **STT & giọng nói**. `STT_MODEL` trong API điều khiển Whisper server; helper desktop đọc `STT_MODEL` từ môi trường máy học viên.
+
+Luồng Gemini + Whisper: desktop gọi helper local (hoặc API gọi Whisper server), gửi transcript qua `/question-attempts/{id}/submit`, rồi worker dùng transcript, rubric và RAG để chấm. Không cần JSON service account ở luồng này. Chỉ `/stt` với provider `google` và tác vụ Google nhận dạng lại mới yêu cầu credentials; lỗi Whisper không hướng dẫn cấu hình Google.
+
 Module audio dùng chung cho server và subprocess desktop. FFmpeg lọc highpass 80 Hz, lowpass 7600 Hz, `afftdn` thích nghi, `loudnorm`; đầu ra PCM 16-bit mono 16 kHz. `off` vẫn đổi định dạng cho nhà cung cấp. Mỗi câu tối đa 600 giây, request STT tối đa 30 MB. Không sửa hoặc ghi đè bản evidence. Bộ lọc không tách riêng sinh viên khỏi người khác nói chồng và không thay thế mô hình source separation.
 
 Google adapter dùng OAuth service-account credentials ở backend và REST `v1/speech:recognize`; chia PCM 55 giây/đoạn, không bỏ phần cuối. Không tự fallback nhà cung cấp khi lỗi. Không có credentials Google trong admin response hoặc IPC. STT và Gemini chấm là hai cấu hình độc lập; demo chấm vẫn có thể dùng Google STT khi admin chọn.

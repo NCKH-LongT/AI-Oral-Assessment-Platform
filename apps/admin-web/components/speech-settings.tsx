@@ -18,21 +18,125 @@ export default function SpeechSettings() {
     [error, setError] = useState(""),
     [saved, setSaved] = useState(false),
     [uploaded, setUploaded] = useState(false);
+  const [draft, setDraft] = useState<SpeechPolicy | null>(null);
   useEffect(() => {
     api<Settings>("/admin/settings/speech")
-      .then(setValue)
+      .then((settings) => {
+        setValue(settings);
+        setDraft(settings);
+      })
       .catch((e) => setError(errorText(e)));
   }, []);
-  if (!value) return <Empty>{error || "Đang tải cấu hình STT…"}</Empty>;
+  if (!value || !draft)
+    return <Empty>{error || "Đang tải cấu hình STT…"}</Empty>;
   return (
     <section className="panel">
       <h1>Cấu hình giọng nói</h1>
       <p>
         Áp dụng cho lần nhận dạng tiếp theo trên web và desktop. Audio/video gốc
-        luôn được lưu để đối chiếu.
+        luôn được lưu để đối chiếu. STT chuyển giọng nói thành text; Gemini chấm
+        text theo cấu hình AI riêng. Bật Gemini không đổi nhà cung cấp STT.
       </p>
-      <section className="panel">
-        <h2>Credentials Google Cloud</h2>
+
+      <Form
+        label="Lưu cấu hình STT"
+        onSubmit={async () => {
+          setSaved(false);
+          setValue(
+            await send<Settings>(
+              "/admin/settings/speech",
+              {
+                provider: draft.provider,
+                preprocessing: draft.preprocessing,
+                language: draft.language,
+              },
+              "PUT",
+            ),
+          );
+          setSaved(true);
+        }}
+      >
+        <label>
+          Nhà cung cấp STT
+          <select
+            name="provider"
+            value={draft.provider}
+            onChange={(e) => {
+              setDraft({
+                ...draft,
+                provider: e.target.value as SpeechPolicy["provider"],
+              });
+              setSaved(false);
+            }}
+          >
+            <option value="local_server">Whisper trên server nội bộ</option>
+            <option value="local">
+              Whisper local trên máy sinh viên (desktop)
+            </option>
+            <option value="google">Google Cloud Speech-to-Text</option>
+          </select>
+        </label>
+        <label>
+          Xử lý audio trước STT
+          <select
+            name="preprocessing"
+            value={draft.preprocessing}
+            onChange={(e) => {
+              setDraft({
+                ...draft,
+                preprocessing: e.target.value as SpeechPolicy["preprocessing"],
+              });
+              setSaved(false);
+            }}
+          >
+            <option value="denoise">
+              Lọc nhiễu, ưu tiên dải giọng nói và chuẩn hóa âm lượng
+            </option>
+            <option value="off">
+              Chỉ chuyển WAV mono 16 kHz, không lọc nhiễu
+            </option>
+          </select>
+        </label>
+        <label>
+          Ngôn ngữ nhận dạng
+          <select
+            name="language"
+            value={draft.language}
+            onChange={(e) => {
+              setDraft({
+                ...draft,
+                language: e.target.value as SpeechPolicy["language"],
+              });
+              setSaved(false);
+            }}
+          >
+            <option value="vi">Tiếng Việt</option>
+            <option value="en">Tiếng Anh</option>
+          </select>
+        </label>
+        <p className="muted">
+          Lọc nhiễu không bảo đảm loại bỏ tiếng nói chồng của người khác. Mỗi
+          câu tối đa 10 phút, audio tối đa 30 MB khi nhận dạng.
+        </p>
+        <p className="muted">
+          Server nội bộ: model {value.server_model}.{" "}
+          {draft.provider === "google" &&
+            !value.google_configured &&
+            "Để dùng Google STT, upload JSON ở mục Google Cloud STT bên dưới trước khi lưu."}
+        </p>
+        <p className="muted">
+          {draft.provider === "google"
+            ? "Audio nhận dạng sẽ gửi tới Google Cloud. Chấm điểm vẫn theo cấu hình AI và rubric của đề thi."
+            : "Whisper không cần JSON Google. Transcript sau nhận dạng được gửi lên máy chủ để chấm theo cấu hình AI của đề thi."}
+        </p>
+      </Form>
+      {saved && <p role="status">Đã lưu cấu hình STT.</p>}
+      <details open={draft.provider === "google"}>
+        <summary>Google Cloud STT: JSON service account (tùy chọn)</summary>
+        <p>
+          Chỉ cần khi chọn Google STT hoặc yêu cầu Google nhận dạng lại. Whisper
+          và Gemini chấm text không cần file này.
+        </p>
         <p role="status">
           {
             {
@@ -100,71 +204,7 @@ export default function SpeechSettings() {
           Speech-to-Text API, billing và cấp quyền phù hợp. Upload file không
           đổi nhà cung cấp STT đã chọn.
         </p>
-      </section>
-      <Form
-        label="Lưu cấu hình STT"
-        onSubmit={async (d) => {
-          setSaved(false);
-          setValue(
-            await send<Settings>(
-              "/admin/settings/speech",
-              {
-                provider: d.get("provider"),
-                preprocessing: d.get("preprocessing"),
-                language: d.get("language"),
-              },
-              "PUT",
-            ),
-          );
-          setSaved(true);
-        }}
-      >
-        <label>
-          Nhà cung cấp STT
-          <select name="provider" defaultValue={value.provider}>
-            <option value="local_server">Whisper trên server nội bộ</option>
-            <option value="local">
-              Whisper local trên máy sinh viên (desktop)
-            </option>
-            <option value="google" disabled={!value.google_configured}>
-              Google Cloud Speech-to-Text
-            </option>
-          </select>
-        </label>
-        <label>
-          Xử lý audio trước STT
-          <select name="preprocessing" defaultValue={value.preprocessing}>
-            <option value="denoise">
-              Lọc nhiễu, ưu tiên dải giọng nói và chuẩn hóa âm lượng
-            </option>
-            <option value="off">
-              Chỉ chuyển WAV mono 16 kHz, không lọc nhiễu
-            </option>
-          </select>
-        </label>
-        <label>
-          Ngôn ngữ nhận dạng
-          <select name="language" defaultValue={value.language}>
-            <option value="vi">Tiếng Việt</option>
-            <option value="en">Tiếng Anh</option>
-          </select>
-        </label>
-        <p className="muted">
-          Lọc nhiễu không bảo đảm loại bỏ tiếng nói chồng của người khác. Mỗi
-          câu tối đa 10 phút, audio tối đa 30 MB khi nhận dạng.
-        </p>
-        <p className="muted">
-          Server nội bộ: model {value.server_model}.{" "}
-          {!value.google_configured &&
-            "Upload JSON Google ở phía trên để sử dụng Google STT."}
-        </p>
-        <p className="muted">
-          Khi chọn Google, bản audio dùng nhận dạng được gửi tới Google Cloud và
-          có thể phát sinh phí. Chấm điểm vẫn theo cấu hình AI và rubric đã cố
-          định của đề thi.
-        </p>
-      </Form>
-      {saved && <p role="status">Đã lưu cấu hình STT.</p>}
+      </details>
     </section>
   );
 }

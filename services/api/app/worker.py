@@ -30,8 +30,10 @@ def finalize(db, session):
     ):
         session.status, session.final_score = "REVIEW_REQUIRED", None
         return
-    review = any(a.assessment.get("review_required", True) for a in attempts)
     scores = [a.assessment.get("score") for a in attempts]
+    review = any(a.assessment.get("review_required", True) for a in attempts) or any(
+        score is None for score in scores
+    )
     session.final_score = (
         round(sum(scores) / len(scores), 2) if not review and all(s is not None for s in scores) else None
     )

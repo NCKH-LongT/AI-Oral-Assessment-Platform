@@ -146,6 +146,7 @@ def test_end_to_end_demo_with_evidence_and_review(env):
         session = ok(student.get(f"/exam-sessions/{sid}"))
     final = ok(student.post(f"/exam-sessions/{sid}/finish"))
     assert final["status"] == "REVIEW_REQUIRED" and final["final_score"] is None
+    assert "demo" in final["grading_message"]
     assert ok(student.post(f"/exam-sessions/{sid}/finish")) == final or final["status"] == "REVIEW_REQUIRED"
     review = ok(admin.get(f"/admin/results/{sid}"))
     assert len(review["attempts"]) == 2
@@ -311,6 +312,54 @@ def test_structured_grading_server_calculation_and_validation(monkeypatch):
     value["reference_chunk_ids"] = ["hallucinated"]
     with pytest.raises(ValueError, match="references"):
         ai.grade({}, "answer", criteria, [{"id": "chunk-1"}], 0.99)
+
+
+@pytest.mark.parametrize(
+    "status,score,error,expected",
+    [
+        ("SUBMITTED", 0, None, "đang chờ"),
+        ("REVIEW_REQUIRED", 0, None, "xem lại"),
+        ("REVIEW_REQUIRED", None, "TimeoutError", "thất bại"),
+        ("COMPLETED", 0, None, None),
+        ("COMPLETED", 7.2, None, None),
+    ],
+)
+def test_public_grading_state(env, status, score, error, expected):
+    context = prepare(env, 1)
+    session = start(env, context)
+    with env[1]() as db:
+        exam = db.get(Exam, context["exam"]["id"])
+        exam.snapshot = exam.snapshot | {"ai_provider": "gemini"}
+        row = db.get(ExamSession, session["id"])
+        row.status, row.final_score = status, score
+        attempt = db.get(Attempt, session["current_attempt"]["id"])
+        if error:
+            attempt.assessment = {"error": error, "score": None, "review_required": True}
+        db.commit()
+    result = ok(env[0]["student"].get(f"/exam-sessions/{session['id']}"))
+    assert result["final_score"] == (score if status == "COMPLETED" else None)
+    if expected:
+        assert expected in result["grading_message"]
+    else:
+        assert result["grading_message"] is None
+
+
+@pytest.mark.parametrize(
+    "score,expected_status", [(None, "REVIEW_REQUIRED"), (0, "COMPLETED"), (7.2, "COMPLETED")]
+)
+def test_finalize_requires_actual_score(env, score, expected_status):
+    context = prepare(env, 1)
+    session = start(env, context)
+    with env[1]() as db:
+        row = db.get(ExamSession, session["id"])
+        row.status = "SUBMITTED"
+        attempt = db.get(Attempt, session["current_attempt"]["id"])
+        attempt.status = "GRADED"
+        attempt.assessment = {"score": score, "review_required": False}
+        db.flush()
+        worker.finalize(db, row)
+        assert row.status == expected_status
+        assert row.final_score == score
 
 
 def test_chunking_and_rubric_validation():

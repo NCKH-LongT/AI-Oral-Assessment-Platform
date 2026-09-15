@@ -49,6 +49,20 @@ def public_session(db, session):
         select(Attempt).where(Attempt.session_id == session.id).order_by(Attempt.sequence)
     ).all()
     first = next((a for a in attempts if a.status in {"READY", "STARTED"}), None)
+    if exam.snapshot.get("practice"):
+        grading_message = "Bài luyện tập không tính điểm."
+    elif exam.snapshot.get("ai_provider") == "demo":
+        grading_message = "Đề thi ở chế độ demo: AI không chấm điểm. Liên hệ giảng viên để được giao đề có bật chấm điểm AI."
+    elif session.status == "SUBMITTED":
+        grading_message = "Đã nộp bài, đang chờ máy chủ chấm điểm. Nếu chờ lâu, hãy liên hệ giảng viên kiểm tra dịch vụ chấm điểm."
+    elif session.status == "REVIEW_REQUIRED":
+        grading_message = (
+            "Chấm tự động thất bại; cần giảng viên kiểm tra và chấm lại."
+            if any((a.assessment or {}).get("error") for a in attempts)
+            else "Bài cần giảng viên xem lại trước khi công bố điểm chính thức."
+        )
+    else:
+        grading_message = None
     return {
         "id": session.id,
         "exam_name": exam.name,
@@ -57,7 +71,8 @@ def public_session(db, session):
         "started_at": session.started_at,
         "time_limit": exam.time_limit,
         "server_time": time.time(),
-        "final_score": session.final_score,
+        "final_score": session.final_score if session.status == "COMPLETED" else None,
+        "grading_message": grading_message,
         "question_count": len(attempts),
         "answered_count": sum(a.status in {"SUBMITTED", "GRADED"} for a in attempts),
         "current_attempt": (

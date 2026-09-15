@@ -147,6 +147,7 @@ export type StudentExam = {
 };
 export type ExamSession = {
   practice?: boolean;
+  grading_message?: string | null;
   id: string;
   exam_name: string;
   status: string;

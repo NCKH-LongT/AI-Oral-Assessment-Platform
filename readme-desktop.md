@@ -14,11 +14,13 @@ Script chỉ mở giao diện **dev tại http://localhost:3001** và Electron, 
 
 Cần server đang chạy, Node 22.12+, Python 3, dependency đã cài bằng `npm ci` và bundle PhoWhisper đã build theo hướng dẫn bên dưới. Sửa helper STT/model thì build lại bundle trước khi chạy script. Script không đọc/sửa `.env` hoặc tự tải code từ Git.
 
-Server khác: `./run-desktop.sh --server http://localhost:3100`. Tham số này là URL web gốc, không thêm `/api`. Nếu server chưa chạy, script báo rõ rồi dừng.
+Docker mặc định dùng cổng **3000**: `./run-desktop.sh --server http://localhost:3000` (tương đương lệnh không tham số). Chỉ đổi `--server` nếu server thực sự chạy ở địa chỉ/cổng khác; tham số này không đổi cổng Docker. Dùng URL web gốc, không thêm `/api`. Nếu server chưa chạy, script báo rõ rồi dừng.
 
 Để đăng nhập/nộp bài từ UI dev, thêm `http://localhost:3001` vào `ALLOWED_ORIGINS` của API (giữ các origin đang có). Nếu đổi `--port`, thêm origin tương ứng. Bạn tự áp dụng cấu hình này khi chạy server; script không thay cấu hình hoặc khởi động lại Docker.
 
 Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev server đang chạy để tránh mở nhầm bản cũ. Đóng Electron hoặc Ctrl+C sẽ dừng dev server của phiên đó; server đang dùng không bị thay đổi. Lệnh `npm run desktop` đơn thuần chỉ mở Electron, không build hoặc cập nhật giao diện ở địa chỉ server.
+
+Có thể chạy lại ngay sau khi đóng app; kết nối TCP cũ ở trạng thái `TIME_WAIT` không bị tính là chiếm cổng. Nếu vẫn báo cổng 3001 bận, kiểm tra bằng `ss -ltnp 'sport = :3001'` trên Linux và đóng phiên đang dùng cổng. Khởi động lại Docker không giải phóng cổng của UI dev trên máy.
 
 Sau **Cho phép camera & mic**, phần **Nghe lại bản ghi kiểm tra** luôn hiển thị. Bấm **Kiểm tra độ ồn**, chờ thu xong 10 giây; app cuộn tới phần phát lại. Chọn checkbox **Nghe bản đã lọc nhiễu RNNoise** rồi bấm **Phát bản đã lọc nhiễu**, hoặc bỏ chọn để **Phát bản gốc**. Nếu bộ lọc lỗi, có thông báo và bản gốc vẫn nghe được khi đã thu thành công.
 

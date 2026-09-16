@@ -1,6 +1,7 @@
 """Run desktop/frontend source against an already running server (Linux/macOS)."""
 
 import argparse
+import errno
 import json
 import os
 import signal
@@ -13,6 +14,21 @@ from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def check_dev_port(port):
+    with socket.socket() as probe:
+        # Match Node's TCP server: old TIME_WAIT connections do not own the port.
+        # This still refuses an active listener; do not enable SO_REUSEPORT.
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError as error:
+            if error.errno != errno.EADDRINUSE:
+                raise
+            raise SystemExit(
+                f"Cổng {port} đang được dùng. Đóng phiên dev cũ hoặc chọn --port khác."
+            ) from None
 
 
 def main():
@@ -47,13 +63,7 @@ def main():
     if not 1024 <= args.port <= 65535:
         parser.error("Port must be between 1024 and 65535")
     os.chdir(ROOT)
-    with socket.socket() as probe:
-        try:
-            probe.bind(("127.0.0.1", args.port))
-        except OSError:
-            raise SystemExit(
-                f"Cổng {args.port} đang được dùng. Đóng phiên dev cũ hoặc chọn --port khác."
-            ) from None
+    check_dev_port(args.port)
     if (
         not (ROOT / "node_modules/.bin/electron").exists()
         or not (ROOT / "node_modules/next/dist/bin/next").exists()

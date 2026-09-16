@@ -1,5 +1,12 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Chạy lại desktop sau khi đóng — 17/09/2026
+
+- Tái hiện báo nhầm cổng bận: socket kiểm tra không đặt `SO_REUSEADDR` từ chối bind khi kết nối server vừa đóng còn `TIME_WAIT`, dù không còn tiến trình lắng nghe. Sửa phép kiểm tra theo cách Node mở TCP server; vẫn từ chối listener đang chạy.
+- Ba test Python đạt: cổng trống, listener đang chạy, khởi động lại ngay sau khi đóng kết nối. Đưa test vào CI; Ruff, Bash syntax và `git diff --check` đạt.
+- Chạy launcher/Electron thật hai lần liên tiếp, đóng bằng SIGINT giữa hai lần: giao diện trả 200, API qua UI dev trả `status: ok`, launcher thoát 0, không còn listener cổng 3001 sau khi đóng.
+- Restart Docker API/worker/web theo yêu cầu; API/web healthy, worker running, health ở cổng 3000 trả `status: ok`. Launcher vẫn không chạy Docker.
+
 ## Chọn microphone và camera — 17/09/2026
 
 - Thêm hai danh sách thiết bị ở bước kết nối, cập nhật khi cắm/rút và sau khi cấp quyền. Chọn thiết bị kết nối ngay, dừng luồng cũ và đặt lại kết quả kiểm tra mic.

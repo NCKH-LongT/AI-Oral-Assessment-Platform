@@ -1,4 +1,4 @@
-"""Run current desktop/frontend source with the local Compose backend (Linux/macOS)."""
+"""Run desktop/frontend source against an already running server (Linux/macOS)."""
 
 import argparse
 import json
@@ -6,11 +6,10 @@ import os
 import signal
 import socket
 import subprocess
-import sys
-import tempfile
 import time
 from pathlib import Path
 from urllib.error import URLError
+from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,7 +20,30 @@ def main():
     parser.add_argument(
         "--port", type=int, default=3001, help="Local frontend dev port (default: 3001)"
     )
+    parser.add_argument(
+        "--server",
+        default="http://localhost:3000",
+        help="Existing web server URL (default: http://localhost:3000)",
+    )
     args = parser.parse_args()
+    try:
+        server = urlsplit(args.server)
+        server_port = server.port
+    except ValueError:
+        parser.error("URL server hoặc port không hợp lệ")
+    if (
+        server.scheme not in {"http", "https"}
+        or not server.hostname
+        or server.username
+        or server.password
+        or server.query
+        or server.fragment
+        or server.path not in {"", "/"}
+    ):
+        parser.error(
+            "--server cần URL gốc HTTP/HTTPS, không có /api, thông tin đăng nhập hoặc query"
+        )
+    server_url = args.server.rstrip("/")
     if not 1024 <= args.port <= 65535:
         parser.error("Port must be between 1024 and 65535")
     os.chdir(ROOT)
@@ -32,9 +54,13 @@ def main():
             raise SystemExit(
                 f"Cổng {args.port} đang được dùng. Đóng phiên dev cũ hoặc chọn --port khác."
             ) from None
-    if not (ROOT / ".env").exists():
-        subprocess.run([sys.executable, "scripts/setup_env.py"], check=True)
-    subprocess.run(["npm", "ci"], check=True)
+    if (
+        not (ROOT / "node_modules/.bin/electron").exists()
+        or not (ROOT / "node_modules/next/dist/bin/next").exists()
+    ):
+        raise SystemExit(
+            "Chưa có dependency desktop. Chạy npm ci một lần rồi mở lại script."
+        )
     subprocess.run(
         [
             "node",
@@ -46,48 +72,36 @@ def main():
         ],
         check=True,
     )
-    base = ["docker", "compose", "-f", str(ROOT / "docker-compose.yml")]
-    # Read only the origin/port settings into the override, never copy deployment secrets.
-    rendered = subprocess.run(
-        base + ["config", "--format", "json"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if rendered.returncode:
-        raise SystemExit(
-            "Không đọc được Docker Compose. Kiểm tra Docker và .env; log cấu hình không được in để tránh lộ khóa."
-        )
-    config = json.loads(rendered.stdout)
-    web_port = int(config["services"]["web"]["ports"][0]["published"])
-    if web_port == args.port:
-        raise SystemExit("Cổng dev trùng cổng web Docker. Chọn --port khác.")
     origin = f"http://localhost:{args.port}"
-    allowed = (
-        config["services"]["api"]["environment"].get("ALLOWED_ORIGINS", "").split(",")
-    )
-    allowed = list(dict.fromkeys([*(v.strip() for v in allowed if v.strip()), origin]))
-    override = {
-        "services": {
-            name: {"environment": {"ALLOWED_ORIGINS": ",".join(allowed)}}
-            for name in ("api", "worker")
-        }
-    }
-    with tempfile.TemporaryDirectory(prefix="oral-desktop-run-") as directory:
-        override_path = Path(directory) / "compose.json"
-        override_path.write_text(json.dumps(override))
-        print("Cập nhật server từ source hiện tại; giữ các volume dữ liệu.", flush=True)
-        subprocess.run(
-            base + ["-f", str(override_path), "up", "-d", "--build", "--wait"],
-            check=True,
+    if (
+        server.hostname in {"localhost", "127.0.0.1", "::1"}
+        and server_port == args.port
+    ):
+        raise SystemExit("Cổng dev trùng cổng server. Chọn --port khác.")
+    try:
+        with urlopen(server_url + "/api/health", timeout=5) as response:
+            ready = json.load(response).get("status") == "ok"
+    except (URLError, TimeoutError, ValueError):
+        ready = False
+    if not ready:
+        raise SystemExit(
+            f"Server {server_url} chưa sẵn sàng. Hãy chạy server trước hoặc chọn --server khác."
         )
     subprocess.run(["node", "apps/admin-web/scripts/copy-audio-assets.mjs"], check=True)
     env = dict(os.environ)
     env.pop("ELECTRON_RUN_AS_NODE", None)
-    env["API_INTERNAL_URL"] = f"http://127.0.0.1:{web_port}/api"
+    env["API_INTERNAL_URL"] = server_url + "/api"
     # Explicitly ignore an old ORAL_WEB_URL and use a separate Electron profile.
     env["ORAL_WEB_URL"] = origin
-    profile = ROOT / ".data" / "desktop-dev-profile"
+    profile = (
+        ROOT
+        / ".data"
+        / (
+            "desktop-dev-profile"
+            if args.port == 3001
+            else f"desktop-dev-profile-{args.port}"
+        )
+    )
     profile.mkdir(parents=True, exist_ok=True)
     processes = []
 
@@ -131,7 +145,7 @@ def main():
             time.sleep(0.5)
         # Playwright E2E can verify this URL; the UI is compiled from the working tree.
         print(
-            f"Mở desktop từ SOURCE: {origin}\nSửa giao diện sẽ tự cập nhật. Đóng desktop hoặc Ctrl+C để dừng dev server.",
+            f"Mở desktop từ SOURCE: {origin} (server: {server_url})\nSửa giao diện sẽ tự cập nhật. Đóng desktop hoặc Ctrl+C để dừng dev server.",
             flush=True,
         )
         electron = subprocess.Popen(
@@ -171,6 +185,6 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\nĐã đóng phiên desktop dev; server Docker vẫn chạy.")
+        print("\nĐã đóng phiên desktop dev; server hiện có không bị thay đổi.")
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
         raise SystemExit(f"Không chạy được desktop: {error}") from None

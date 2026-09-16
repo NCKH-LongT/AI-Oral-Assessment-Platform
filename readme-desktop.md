@@ -10,11 +10,15 @@ Trong thư mục repository, chạy:
 ./run-desktop.sh
 ```
 
-Script đồng bộ dependency bằng `npm ci`, rebuild server Docker từ source hiện tại, mở giao diện **dev tại http://localhost:3001** rồi mở Electron trỏ đúng địa chỉ đó. Sửa giao diện sẽ tự cập nhật; sửa API hoặc Electron thì đóng app và chạy lại script. Script dùng profile dev riêng nên cần đăng nhập lại lần đầu; bỏ qua `ORAL_WEB_URL` cũ và gỡ `ELECTRON_RUN_AS_NODE` khỏi tiến trình con.
+Script chỉ mở giao diện **dev tại http://localhost:3001** và Electron, kết nối server có sẵn tại `http://localhost:3000`. Không chạy lệnh Docker, build server, cài dependency hay sửa cấu hình server. Sửa giao diện sẽ tự cập nhật; sửa Electron thì đóng app và chạy lại script. Backend do bạn chạy/cập nhật riêng. Script dùng profile dev riêng nên cần đăng nhập lại lần đầu; bỏ qua `ORAL_WEB_URL` cũ và gỡ `ELECTRON_RUN_AS_NODE` khỏi tiến trình con.
 
-Cần Docker đang chạy, Node 22.12+, Python 3 và bundle PhoWhisper đã build theo hướng dẫn bên dưới. Sửa helper STT/model thì build lại bundle trước khi chạy script. Script không tự tải code từ Git, không xóa volume và không sửa `.env`; chỉ thêm origin localhost của giao diện dev vào cấu hình API/worker qua Compose override.
+Cần server đang chạy, Node 22.12+, Python 3, dependency đã cài bằng `npm ci` và bundle PhoWhisper đã build theo hướng dẫn bên dưới. Sửa helper STT/model thì build lại bundle trước khi chạy script. Script không đọc/sửa `.env` hoặc tự tải code từ Git.
 
-Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev server đang chạy để tránh mở nhầm bản cũ. Đóng Electron hoặc Ctrl+C sẽ dừng dev server của phiên đó; các dịch vụ Docker vẫn chạy. Lệnh `npm run desktop` đơn thuần chỉ mở Electron, không build hoặc cập nhật giao diện ở địa chỉ server.
+Server khác: `./run-desktop.sh --server http://localhost:3100`. Tham số này là URL web gốc, không thêm `/api`. Nếu server chưa chạy, script báo rõ rồi dừng.
+
+Để đăng nhập/nộp bài từ UI dev, thêm `http://localhost:3001` vào `ALLOWED_ORIGINS` của API (giữ các origin đang có). Nếu đổi `--port`, thêm origin tương ứng. Bạn tự áp dụng cấu hình này khi chạy server; script không thay cấu hình hoặc khởi động lại Docker.
+
+Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev server đang chạy để tránh mở nhầm bản cũ. Đóng Electron hoặc Ctrl+C sẽ dừng dev server của phiên đó; server đang dùng không bị thay đổi. Lệnh `npm run desktop` đơn thuần chỉ mở Electron, không build hoặc cập nhật giao diện ở địa chỉ server.
 
 Sau **Cho phép camera & mic**, phần **Nghe lại bản ghi kiểm tra** luôn hiển thị. Bấm **Kiểm tra độ ồn**, chờ thu xong 10 giây; app cuộn tới phần phát lại. Chọn checkbox **Nghe bản đã lọc nhiễu RNNoise** rồi bấm **Phát bản đã lọc nhiễu**, hoặc bỏ chọn để **Phát bản gốc**. Nếu bộ lọc lỗi, có thông báo và bản gốc vẫn nghe được khi đã thu thành công.
 

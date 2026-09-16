@@ -1,5 +1,12 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Launcher chỉ chạy desktop — 17/09/2026
+
+- Loại bỏ Docker Compose, tạo `.env`, cài dependency và thay cấu hình server khỏi launcher. UI dev/Electron kết nối server có sẵn qua `--server` (mặc định localhost:3000).
+- Chạy thử launcher với lệnh Docker/npm bị thay bằng chương trình luôn báo lỗi: UI dev và Electron vẫn mở được. Khi đóng Electron, dev server dừng. Server chưa sẵn sàng được báo rõ và không tự khởi động dịch vụ.
+- Ruff, Bash syntax và CLI help đạt. Backend cần cho phép origin dev qua `ALLOWED_ORIGINS`; người vận hành tự cấu hình, launcher không sửa.
+
+
 ## Launcher desktop từ source và nút nghe thử mic — 17/09/2026
 
 - Kiểm tra web Docker tại localhost:3000 và Electron: code trước thay đổi đã phát được raw/RNNoise sau 10 giây với mic giả lập; chưa tái hiện được lỗi mất bản ghi trên mic của người dùng.

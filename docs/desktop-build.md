@@ -2,7 +2,7 @@
 
 Hướng dẫn từng bước chạy lại source, cài đè và build trên Linux/Windows: [readme-desktop.md](../readme-desktop.md#build-bộ-cài-và-chạy-lại).
 
-Để chạy code đang sửa, dùng `./run-desktop.sh` tại repository: UI dev riêng và Electron dùng đúng source hiện tại. Đây là luồng phát triển, không tạo bộ cài; muốn phân phối vẫn build theo các bước dưới.
+Để chạy code đang sửa, dùng `./run-desktop.sh` tại repository: UI dev riêng và Electron dùng đúng source hiện tại, kết nối server đã chạy sẵn. Script không build/khởi động Docker. Đây là luồng phát triển, không tạo bộ cài; muốn phân phối vẫn build theo các bước dưới.
 
 ## Thành phần bắt buộc
 

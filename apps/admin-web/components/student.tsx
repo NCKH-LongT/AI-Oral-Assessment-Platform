@@ -80,6 +80,15 @@ export default function Student() {
     [jobs, setJobs] = useState<UploadJob[]>([]),
     [remaining, setRemaining] = useState(0),
     [deviceError, setDeviceError] = useState("");
+  const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>(
+    [],
+  );
+  const [deviceListError, setDeviceListError] = useState("");
+  const [microphoneId, setMicrophoneId] = useState("");
+  const [cameraId, setCameraId] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [startingRecording, setStartingRecording] = useState(false);
+  const connectingRef = useRef(false);
   const [denoise, setDenoise] = useState(true);
   const [filterError, setFilterError] = useState("");
   const filterRef = useRef<NoiseFilter | null>(null);
@@ -188,63 +197,139 @@ export default function Student() {
       void context.close();
     };
   }, [stream]);
-  async function devices() {
+  useEffect(() => {
+    const media = navigator.mediaDevices;
+    if (!media?.enumerateDevices) return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const items = await media.enumerateDevices();
+        if (active) {
+          setAvailableDevices(
+            items.filter(
+              (d) => d.kind === "audioinput" || d.kind === "videoinput",
+            ),
+          );
+          setDeviceListError("");
+        }
+      } catch {
+        if (active)
+          setDeviceListError(
+            "Không đọc được danh sách thiết bị. Hãy cấp quyền camera/mic rồi thử lại.",
+          );
+      }
+    };
+    void refresh();
+    media.addEventListener("devicechange", refresh);
+    return () => {
+      active = false;
+      media.removeEventListener("devicechange", refresh);
+    };
+  }, [stream]);
+
+  async function devices(
+    selectedMic = microphoneId,
+    selectedCamera = cameraId,
+  ) {
+    if (
+      connectingRef.current ||
+      startingRecording ||
+      recordingRef.current ||
+      processing ||
+      submitting
+    )
+      return;
+    connectingRef.current = true;
     const generation = ++deviceGeneration.current;
+    setConnecting(true);
     setDeviceError("");
     setFilterError("");
-    await filterRef.current?.close();
-    filterRef.current = null;
     setNoiseReady(false);
-    if (!navigator.mediaDevices || typeof MediaRecorder === "undefined")
-      throw new Error(
-        "Cần trình duyệt hỗ trợ MediaRecorder trên HTTPS hoặc localhost.",
-      );
-    streamRef.current?.getTracks().forEach((t) => t.stop());
     setStream(null);
-    const s = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-      },
-    });
-    if (generation !== deviceGeneration.current) {
-      s.getTracks().forEach((t) => t.stop());
-      return;
-    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    const oldFilter = filterRef.current;
+    filterRef.current = null;
     try {
-      const filter = await createNoiseFilter(s, () => {
-        setFilterError(
-          "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
+      await oldFilter?.close();
+      if (generation !== deviceGeneration.current) return;
+      if (!navigator.mediaDevices || typeof MediaRecorder === "undefined")
+        throw new Error(
+          "Cần trình duyệt hỗ trợ MediaRecorder trên HTTPS hoặc localhost.",
         );
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: {
+          ...(selectedCamera ? { deviceId: { exact: selectedCamera } } : {}),
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+        audio: {
+          ...(selectedMic ? { deviceId: { exact: selectedMic } } : {}),
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
       });
       if (generation !== deviceGeneration.current) {
-        await filter.close();
         s.getTracks().forEach((t) => t.stop());
         return;
       }
-      filter.setEnabled(denoise);
-      filterRef.current = filter;
-    } catch {
-      if (generation !== deviceGeneration.current) {
-        s.getTracks().forEach((t) => t.stop());
-        return;
-      }
-      setFilterError(
-        "Không tải được RNNoise. Tắt lọc nhiễu để thu bản gốc hoặc kết nối lại mic.",
-      );
-    }
-    s.getTracks().forEach((t) => {
-      t.onended = () => {
-        setDeviceError(
-          "Thiết bị đã ngắt kết nối. Kết nối lại trước khi tiếp tục.",
+      try {
+        const filter = await createNoiseFilter(s, () => {
+          if (generation === deviceGeneration.current)
+            setFilterError(
+              "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
+            );
+        });
+        if (generation !== deviceGeneration.current) {
+          await filter.close();
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        filter.setEnabled(denoise);
+        filterRef.current = filter;
+      } catch {
+        if (generation !== deviceGeneration.current) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        setFilterError(
+          "Không tải được RNNoise. Tắt lọc nhiễu để thu bản gốc hoặc kết nối lại mic.",
         );
-        if (recordingRef.current) stopRef.current();
-      };
-    });
-    streamRef.current = s;
-    setStream(s);
+      }
+      s.getTracks().forEach((t) => {
+        t.onended = () => {
+          if (generation !== deviceGeneration.current) return;
+          setDeviceError(
+            "Thiết bị đã ngắt kết nối. Chọn thiết bị khác hoặc kết nối lại trước khi tiếp tục.",
+          );
+          setNoiseReady(false);
+          if (recordingRef.current) stopRef.current();
+        };
+      });
+      setMicrophoneId(
+        s.getAudioTracks()[0]?.getSettings().deviceId || selectedMic,
+      );
+      setCameraId(
+        s.getVideoTracks()[0]?.getSettings().deviceId || selectedCamera,
+      );
+      streamRef.current = s;
+      setStream(s);
+    } catch (error) {
+      if (generation === deviceGeneration.current) {
+        const name = error instanceof DOMException ? error.name : "";
+        setDeviceError(
+          name === "NotAllowedError"
+            ? "Chưa được cấp quyền camera/mic. Cho phép quyền trong ứng dụng hoặc hệ điều hành rồi kết nối lại."
+            : name === "NotFoundError" || name === "OverconstrainedError"
+              ? "Thiết bị đã chọn không còn khả dụng. Chọn thiết bị khác trong danh sách."
+              : errorText(error),
+        );
+      }
+    } finally {
+      if (generation === deviceGeneration.current) setConnecting(false);
+      connectingRef.current = false;
+    }
   }
   async function transcribe(audio: Blob): Promise<STT> {
     setSpeechStage("Đang tải cấu hình nhận dạng…");
@@ -277,7 +362,7 @@ export default function Student() {
     return api<STT>("/stt", { method: "POST", body: form });
   }
   async function start() {
-    if (!session?.current_attempt || !stream || deviceError)
+    if (!session?.current_attempt || !stream || deviceError || connecting)
       throw new Error("Kiểm tra camera và microphone trước.");
     const am = mime("audio"),
       vm = mime("video");
@@ -316,7 +401,12 @@ export default function Student() {
     videoRecorder.ondataavailable = (e) => {
       if (e.data.size) videoChunks.push(e.data);
     };
-    await send(`/question-attempts/${attemptId}/start`);
+    setStartingRecording(true);
+    try {
+      await send(`/question-attempts/${attemptId}/start`);
+    } finally {
+      setStartingRecording(false);
+    }
     let stops = 0;
     const stopped = async () => {
       stops++;
@@ -665,7 +755,9 @@ export default function Student() {
                   />
                 )}
                 <Action
-                  disabled={!stream || !!deviceError || !noiseReady}
+                  disabled={
+                    !stream || !!deviceError || !noiseReady || connecting
+                  }
                   action={async () =>
                     setSession(
                       await send<ExamSession>(
@@ -852,9 +944,85 @@ export default function Student() {
               <small className="muted">
                 Nói thử để kiểm tra tín hiệu microphone
               </small>
-              {deviceError && <p className="error">{deviceError}</p>}
+              <fieldset
+                className="device-selectors"
+                disabled={
+                  connecting ||
+                  startingRecording ||
+                  recording ||
+                  processing ||
+                  submitting
+                }
+              >
+                <legend>Chọn thiết bị</legend>
+                {(
+                  [
+                    ["audioinput", "Microphone", microphoneId],
+                    ["videoinput", "Camera", cameraId],
+                  ] as const
+                ).map(([kind, label, selected]) => {
+                  const options = availableDevices.filter(
+                    (d) => d.kind === kind && d.deviceId,
+                  );
+                  return (
+                    <label key={kind}>
+                      {label}
+                      <select
+                        value={selected}
+                        onChange={(event) => {
+                          const id = event.target.value;
+                          if (kind === "audioinput") {
+                            setMicrophoneId(id);
+                            void devices(id, cameraId);
+                          } else {
+                            setCameraId(id);
+                            void devices(microphoneId, id);
+                          }
+                        }}
+                      >
+                        <option value="">Mặc định hệ thống</option>
+                        {selected &&
+                          !options.some((d) => d.deviceId === selected) && (
+                            <option value={selected} disabled>
+                              Thiết bị đã chọn (không có trong danh sách)
+                            </option>
+                          )}
+                        {options.map((d, index) => (
+                          <option key={d.deviceId} value={d.deviceId}>
+                            {d.label || `${label} ${index + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                })}
+              </fieldset>
+              <p className="muted">
+                Cấp quyền để xem đầy đủ tên thiết bị. Chọn thiết bị sẽ kết nối
+                ngay; đổi thiết bị trước khi thi cần kiểm tra mic lại hoặc bỏ
+                qua.
+              </p>
+              {connecting && (
+                <p role="status">Đang kết nối thiết bị đã chọn…</p>
+              )}
+              {deviceListError && (
+                <p role="alert" className="error">
+                  {deviceListError}
+                </p>
+              )}
+              {deviceError && (
+                <p role="alert" className="error">
+                  {deviceError}
+                </p>
+              )}
               <Action
-                disabled={recording || processing || submitting}
+                disabled={
+                  recording ||
+                  processing ||
+                  submitting ||
+                  connecting ||
+                  startingRecording
+                }
                 className="button secondary"
                 action={devices}
               >

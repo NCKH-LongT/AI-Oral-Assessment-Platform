@@ -113,6 +113,12 @@ test("desktop submits local Whisper text without server or Google STT", async ({
     .click();
   // Wait for a real media chunk from Chromium's fake camera/mic.
   await page.waitForTimeout(1200);
+  await expect(
+    page.getByRole("combobox", { name: "Microphone", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("combobox", { name: "Camera", exact: true }),
+  ).toBeDisabled();
   await page
     .getByRole("button", { name: "Kết thúc trả lời", exact: true })
     .click();

@@ -59,7 +59,7 @@ docker compose up -d --no-deps --force-recreate api worker
 Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small INT8, runtime STT và FFmpeg**; máy học viên không cần Python, không tải model ở lần chạy đầu. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
 
 1. Chọn server tại **OralAI → Cấu hình máy chủ…**.
-2. Mở bài, cấp quyền camera/mic.
+2. Mở bài, cấp quyền và chọn microphone/camera trong danh sách **Chọn thiết bị**.
 3. Bấm **Kiểm tra độ ồn**: giữ im lặng 3 giây đầu, nói thử 7 giây sau.
 4. Phát lại bản thử, bật/tắt **Nghe bản đã lọc nhiễu RNNoise** để so sánh. Bản thử không upload.
 5. Chọn bật/tắt **Lọc nhiễu RNNoise khi nhận dạng câu trả lời**, bắt đầu thi, kiểm tra transcript rồi nộp.

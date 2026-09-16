@@ -14,6 +14,10 @@
 
 Không thay đổi bảng/cột hay chạy migration mới. Foreign key vẫn là lớp bảo vệ cuối khi có thao tác đồng thời.
 
+## Chọn microphone và camera
+
+Bước kết nối có hai danh sách thiết bị từ `enumerateDevices`, cập nhật qua `devicechange`. Cấp quyền để xem tên đầy đủ. Chọn thiết bị gọi `getUserMedia` với `deviceId.exact`, dừng stream/RNNoise cũ và hủy phép đo mic cũ. Luồng ghi minh chứng, RNNoise và phép kiểm tra 10 giây dùng microphone đã chọn. Không tự fallback nếu thiết bị đã chọn bị rút; báo lỗi và cho chọn lại. Khóa lựa chọn khi đang kết nối, bắt đầu ghi, ghi, STT hoặc nộp câu trả lời.
+
 ## Kiểm tra mic — cập nhật 17/09/2026
 
 `lib/noise-check.ts` ghi thử khoảng **10 giây**: giữ im lặng 3 giây đầu để đánh giá nền, nói thử 7 giây sau để nghe giọng. Bỏ 500 ms khởi động trước lúc ghi. MediaRecorder thu đồng thời bản gốc và bản RNNoise, chỉ giữ Blob trong bộ nhớ máy học viên, không upload.

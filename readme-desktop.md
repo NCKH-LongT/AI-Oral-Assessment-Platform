@@ -30,10 +30,12 @@ Mở **OralAI → Cấu hình máy chủ…**, nhập domain HTTPS hoặc `http:
 
 ## Kiểm tra mic trước khi thi
 
-1. Cấp quyền camera và microphone.
+1. Cấp quyền camera và microphone. Trong mục **Chọn thiết bị**, chọn **Microphone** và **Camera** từ danh sách; app kết nối ngay. Tên đầy đủ xuất hiện sau khi cấp quyền.
 2. Bấm **Kiểm tra độ ồn**. Ghi khoảng 10 giây: 3 giây đầu giữ im lặng, 7 giây sau nói thử.
 3. Bấm phát audio. Checkbox **Nghe bản đã lọc nhiễu RNNoise** đổi giữa bản gốc và bản lọc của cùng đoạn thu.
 4. Checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** quyết định bản audio dùng cho STT trong bài thi. Đặt trước khi bắt đầu thi.
+
+Danh sách cập nhật khi cắm/rút thiết bị. Không đổi thiết bị khi đang ghi hoặc xử lý/nộp câu trả lời. Đổi mic/camera trước thi sẽ hủy kết quả kiểm tra cũ; kiểm tra lại hoặc chọn bỏ qua. Thiết bị bị rút sẽ báo lỗi để bạn chọn lại, không âm thầm dùng thiết bị khác.
 
 Bản kiểm tra chỉ giữ tạm trong bộ nhớ; kiểm tra lại hoặc rời trang sẽ giải phóng. Không gửi bản kiểm tra lên server. Nếu RNNoise không tải được, app báo lỗi và cho phép tắt lọc để dùng bản gốc. Không phát mic trực tiếp ra loa để tránh hú/vọng.
 

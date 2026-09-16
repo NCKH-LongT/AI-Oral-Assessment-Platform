@@ -1,5 +1,12 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Chọn microphone và camera — 17/09/2026
+
+- Thêm hai danh sách thiết bị ở bước kết nối, cập nhật khi cắm/rút và sau khi cấp quyền. Chọn thiết bị kết nối ngay, dừng luồng cũ và đặt lại kết quả kiểm tra mic.
+- Playwright: kiểm tra chọn đúng `deviceId`, từ chối quyền rồi kết nối lại, rút camera và chọn thiết bị thay thế; phép đo 10 giây dùng đúng mic đã chọn. Kiểm tra khóa danh sách khi ghi và nộp transcript STT local đạt.
+- Bốn kiểm thử độ ồn/phát bản gốc và RNNoise đạt. Tổng cộng 6 kiểm thử E2E liên quan đạt; API và danh sách thiết bị giả lập, MediaRecorder/RNNoise chạy thật trong Chromium. Chưa thử chọn giữa các microphone/camera phần cứng.
+- Next production build, ESLint, TypeScript và `git diff --check` đạt. Không thay đổi hoặc khởi động Docker.
+
 ## Launcher chỉ chạy desktop — 17/09/2026
 
 - Loại bỏ Docker Compose, tạo `.env`, cài dependency và thay cấu hình server khỏi launcher. UI dev/Electron kết nối server có sẵn qua `--server` (mặc định localhost:3000).

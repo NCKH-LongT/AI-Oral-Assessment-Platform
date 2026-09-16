@@ -114,14 +114,14 @@ def configure(config, api_image, web_image):
             abort(name + \' must equal \' + ORIGIN + \' in oral-ai-env.\')
     if not enabled(env.get(\'COOKIE_SECURE\')):
         abort(\'Set COOKIE_SECURE=true in oral-ai-env.\')
-    if env.get(\'AI_PROVIDER\', \'demo\') not in (\'demo\', \'gemini\'):
-        abort(\'AI_PROVIDER must be demo or gemini.\')
+    if env.get(\'AI_PROVIDER\', \'demo\') not in (\'demo\', \'gemini\', \'local\'):
+        abort(\'AI_PROVIDER must be demo, gemini or local (Ollama).\')
     if env.get(\'AI_PROVIDER\') == \'gemini\' and not env.get(\'GEMINI_API_KEY\'):
         abort(\'GEMINI_API_KEY is required when AI_PROVIDER=gemini.\')
     if enabled(env.get(\'GOOGLE_LOGIN_ENABLED\')) and not (env.get(\'GOOGLE_CLIENT_ID\') and env.get(\'GOOGLE_CLIENT_SECRET\')):
         abort(\'Google login is enabled but its Client ID/Secret is incomplete.\')
     if env.get(\'GOOGLE_STT_CREDENTIALS_FILE\') or env.get(\'GOOGLE_STT_CREDENTIALS_HOST_FILE\'):
-        abort(\'For this pipeline, leave Google STT path variables empty and upload JSON in the admin UI.\')
+        abort(\'Leave legacy Google STT path variables empty. Desktop uses local STT; Gemini re-transcription uses GEMINI_API_KEY.\')
     for svc, port, target in [(\'web\', WEB_PORT, 3000), (\'minio\', CONSOLE_PORT, 9001)]:
         ports = services[svc].get(\'ports\', [])
         if len(ports) != 1 or str(ports[0].get(\'published\')) != port or ports[0].get(\'host_ip\') != \'127.0.0.1\' or int(ports[0][\'target\']) != target:

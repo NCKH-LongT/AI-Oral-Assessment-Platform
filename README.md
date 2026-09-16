@@ -79,6 +79,8 @@ Chức năng này dùng audio gốc và hoạt động cả khi `AI_PROVIDER=loc
 
 Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn desktop](readme-desktop.md) và [đóng gói](docs/desktop-build.md). Không đưa binary/model hoặc `.env` vào Git.
 
+`Jenkinsfile` build/kiểm tra/deploy web và API; bộ cài desktop dùng workflow riêng. Nếu deploy bằng Jenkins, đồng bộ các biến mới trong credential `oral-ai-env`.
+
 Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
 
 ```bash

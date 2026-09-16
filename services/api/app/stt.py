@@ -1,7 +1,8 @@
 import tempfile
 from pathlib import Path
+from typing import Literal
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from .db import get_db
@@ -12,8 +13,16 @@ router = APIRouter()
 
 
 @router.post("/stt")
-def stt(file: UploadFile = File(), db: Session = Depends(get_db), user=Depends(current_user)):
+def stt(
+    file: UploadFile = File(),
+    preprocessing: Literal["off"] | None = Form(default=None),
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
+):
     config = policy(db)
+    # New clients handle RNNoise/bypass locally; older clients keep the saved policy.
+    if preprocessing == "off":
+        config = config | {"preprocessing": "off"}
     if config["provider"] == "local":
         fail(409, "DESKTOP_REQUIRED", "Admin chọn STT local. Vui lòng dùng ứng dụng desktop")
     if config["provider"] == "google" and not google_ready():

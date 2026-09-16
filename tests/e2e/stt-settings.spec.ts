@@ -73,7 +73,6 @@ for (const initialProvider of ["local_server", "google"]) {
       initialProvider,
     );
     await page.getByLabel("Nhà cung cấp STT").selectOption("local");
-    await page.getByLabel("Xử lý audio trước STT").selectOption("off");
     await page.getByLabel("Ngôn ngữ nhận dạng").selectOption("en");
     await expect(
       page.getByLabel("File JSON service account Google (tối đa 64 KB)"),

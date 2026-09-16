@@ -128,6 +128,7 @@ export type Review = Result & {
       result: {
         transcript: string;
         stt_confidence: number;
+        confidence_source?: string;
         assessment: Assessment;
         preprocessing: string;
       } | null;

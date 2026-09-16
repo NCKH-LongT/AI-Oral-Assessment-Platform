@@ -2,6 +2,8 @@ name: oral-assessment
 x-api: &api
   build: ./services/api
   env_file: .env
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
   environment:
     DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-oral}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-oral}
     STORAGE_BACKEND: s3

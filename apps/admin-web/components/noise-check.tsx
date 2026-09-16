@@ -15,14 +15,29 @@ export default function NoiseCheck({
   >("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
+  const [recording, setRecording] = useState<{
+    raw: string;
+    filtered?: string;
+  } | null>(null);
+  const [listenFiltered, setListenFiltered] = useState(false);
+  const urls = useRef<string[]>([]);
+  const playback = useRef<HTMLAudioElement>(null);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => {
     onReady(false);
-    return () => controller.current?.abort();
+    return () => {
+      controller.current?.abort();
+      urls.current.forEach(URL.revokeObjectURL);
+    };
   }, [onReady]);
 
   async function check() {
     controller.current?.abort();
+    playback.current?.pause();
+    urls.current.forEach(URL.revokeObjectURL);
+    urls.current = [];
+    setRecording(null);
+    setListenFiltered(false);
     const current = new AbortController();
     controller.current = current;
     onReady(false);
@@ -38,6 +53,13 @@ export default function NoiseCheck({
         },
       );
       if (current.signal.aborted) return;
+      const raw = URL.createObjectURL(result.rawAudio);
+      const filtered = result.filteredAudio
+        ? URL.createObjectURL(result.filteredAudio)
+        : undefined;
+      urls.current = [raw, ...(filtered ? [filtered] : [])];
+      setRecording({ raw, filtered });
+      if (result.filterError) setError(result.filterError);
       setStatus(result.status);
       onReady(result.status === "quiet");
     } catch (e) {
@@ -51,14 +73,15 @@ export default function NoiseCheck({
     <section className="noise-check" aria-label="Kiểm tra độ ồn">
       <h3>Kiểm tra độ ồn môi trường</h3>
       <p>
-        Giữ im lặng và tắt loa trong 5 giây để đo tiếng ồn xung quanh. Âm thanh
-        kiểm tra chỉ được xử lý trên máy, không lưu hoặc tải lên.
+        Thu thử 10 giây: giữ im lặng trong 3 giây đầu để đo tiếng ồn, sau đó nói
+        thử trong 7 giây. Bạn có thể phát lại và bật/tắt lọc nhiễu để so sánh.
+        Bản thử chỉ giữ tạm trên máy, không gửi lên server.
       </p>
       <p role="status" aria-live="polite">
         {status === "idle" &&
           "Kiểm tra độ ồn trước khi bắt đầu, hoặc chọn bỏ qua."}
         {status === "checking" &&
-          `Đang đo tiếng ồn… ${progress}% — vui lòng giữ im lặng.`}
+          `Đang thu thử… ${progress}% — ${progress <= 30 ? "vui lòng giữ im lặng." : "hãy nói thử vào mic."}`}
         {status === "quiet" &&
           "Môi trường đủ yên lặng. Bạn có thể bắt đầu thi."}
         {status === "noisy" &&
@@ -75,6 +98,36 @@ export default function NoiseCheck({
       )}
       {status === "checking" && (
         <progress aria-label="Tiến độ đo tiếng ồn" max={100} value={progress} />
+      )}
+      {recording && (
+        <div className="panel">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={listenFiltered}
+              disabled={!recording.filtered}
+              onChange={(event) => {
+                playback.current?.pause();
+                setListenFiltered(event.target.checked);
+              }}
+            />
+            Nghe bản đã lọc nhiễu RNNoise
+          </label>
+          <p>
+            {listenFiltered ? "Đang chọn bản lọc nhiễu" : "Đang chọn bản gốc"}
+          </p>
+          <audio
+            ref={playback}
+            controls
+            preload="metadata"
+            aria-label="Phát lại kiểm tra mic"
+            src={
+              listenFiltered && recording.filtered
+                ? recording.filtered
+                : recording.raw
+            }
+          />
+        </div>
       )}
       <div className="inline">
         <button

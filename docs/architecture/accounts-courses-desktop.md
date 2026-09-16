@@ -13,7 +13,7 @@ Tham khảo: [Google web-server OAuth](https://developers.google.com/identity/pr
 
 ## Môn mặc định và giao môn
 
-Bootstrap tạo idempotent môn **Luyện tập vấn đáp** và đề **Thi thử: Làm quen hệ thống** gồm hai câu hỏi có sẵn. Không gọi AI/Google khi tạo, không cần key để xem/thi thử. STT vẫn dùng provider đã cấu hình; Whisper server mặc định cần tải model lần đầu. Bài luyện tập lưu minh chứng và transcript nhưng không tính điểm chính thức. Mọi vai trò đều truy cập được từ **Bài thi của tôi** hoặc **Học & thi thử**; môn được nhận diện bằng ID cố định, không dựa vào tên/mã có thể sửa.
+Bootstrap tạo idempotent môn **Luyện tập vấn đáp** và đề **Thi thử: Làm quen hệ thống** gồm hai câu hỏi có sẵn. Không gọi AI/Google khi tạo, không cần key để xem/thi thử. Desktop dùng PhoWhisper-small đã đóng gói. Trình duyệt dùng policy STT đã cấu hình; nếu chọn Whisper server thì server cần tải model lần đầu. Bài luyện tập lưu minh chứng và transcript nhưng không tính điểm chính thức. Mọi vai trò đều truy cập được từ **Bài thi của tôi** hoặc **Học & thi thử**; môn được nhận diện bằng ID cố định, không dựa vào tên/mã có thể sửa.
 
 ADMIN vào môn → **04 · Học viên**, tìm tài khoản và **Thêm vào môn học**. Bảng `course_enrollments` lưu thành viên môn; danh sách bài thi truy vấn trực tiếp các đề PUBLISHED trong môn, nên cả đề công bố sau khi giao môn cũng xuất hiện. Học viên bấm **Làm mới bài thi** để cập nhật danh sách đang mở. Đề nháp bị ẩn và API cũng chặn truy cập. Giao riêng một đề vẫn được hỗ trợ trong mục thu gọn của đề đó. Gỡ khỏi môn không xóa kết quả/phiên thi đã tạo và không thu hồi các assignment riêng. Quyền vào một môn không cấp quyền chỉnh sửa hay xem bài của người khác.
 
@@ -25,9 +25,9 @@ Kiến thức chia thành năm tab con: Giáo trình / Chuẩn đầu ra / Chủ
 
 ## Cấu hình dịch vụ
 
-`GET/PUT /admin/settings/platform` chỉ ADMIN. Cho phép cấu hình Gemini provider/key, model chấm/embedding, model Whisper server, OAuth client, domain gốc. Trường secret bỏ trống giữ nguyên; checkbox xóa là thao tác riêng. Response chỉ trả cờ đã cấu hình, không trả khóa. Thông tin lưu atomic trong `DATA_DIR/secrets/platform.json` quyền 600, thư mục 700; API/worker dùng volume chung. JSON service account STT vẫn dùng endpoint upload hiện có và file riêng.
+`GET/PUT /admin/settings/platform` chỉ ADMIN. Cho phép cấu hình Gemini provider/key, model chấm/embedding, model Whisper server, OAuth client, domain gốc. Trường secret bỏ trống giữ nguyên; checkbox xóa là thao tác riêng. Response chỉ trả cờ đã cấu hình, không trả khóa. Thông tin lưu atomic trong `DATA_DIR/secrets/platform.json` quyền 600, thư mục 700; API/worker dùng volume chung. Mặc định `AI_CONFIG_SOURCE=env`: tab AI chỉ hiển thị cấu hình từ môi trường, không lưu key/model AI vào file này. `AI_CONFIG_SOURCE=admin` mới cho phép sửa AI trên web. Gemini nhận dạng lại dùng API key, không cần JSON STT; endpoint Google STT cũ được giữ cho client cũ.
 
-Cấu hình Google ban đầu cũng nhận từ `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_LOGIN_ENABLED` và `PUBLIC_ORIGIN`. Sau khi điền credential và bật cờ, recreate API/worker bằng `docker compose up -d --no-deps --force-recreate api worker` để nạp biến mới. Các trường trong `platform.json` được ưu tiên hơn biến môi trường, kể cả giá trị `false` hoặc secret đã xóa; khi đã lưu cấu hình hệ thống trên web, tiếp tục đổi qua admin để tránh giá trị `.env` bị cấu hình web ghi đè. Để trống secret trên web giữ lại giá trị hiện hành, bao gồm secret ban đầu từ môi trường. Mẫu `.env.example` không chứa credential thật.
+Cấu hình Google ban đầu cũng nhận từ `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_LOGIN_ENABLED` và `PUBLIC_ORIGIN`. Sau khi điền credential và bật cờ, recreate API/worker bằng `docker compose up -d --no-deps --force-recreate api worker` để nạp biến mới. Các trường OAuth trong `platform.json` được ưu tiên hơn biến môi trường, kể cả giá trị `false` hoặc secret đã xóa; khi đã lưu cấu hình hệ thống trên web, tiếp tục đổi qua admin để tránh giá trị `.env` bị cấu hình web ghi đè. Để trống secret trên web giữ lại giá trị hiện hành, bao gồm secret ban đầu từ môi trường. Mẫu `.env.example` không chứa credential thật.
 
 API và worker đọc cấu hình mới cho request/job tiếp theo, giữ một bản cấu hình nhất quán trong suốt request/job đang xử lý. Mỗi đề đã công bố giữ snapshot provider/model; đổi provider/model có thể làm đề cũ cần giảng viên xem lại. Khi đổi embedding model/provider, tải lại tài liệu trong phạm vi mới và công bố đề mới; không tự chấm lại lịch sử hoặc biến vector demo thành vector Gemini. Thay key cùng provider/model không cần dựng lại đề.
 
@@ -37,4 +37,4 @@ API và worker đọc cấu hình mới cho request/job tiếp theo, giữ một
 
 Migration `0003` thêm `users.email`, Google `sub` duy nhất, bảng OAuth flow và enrollment; giữ tài khoản, môn, đề và kết quả cũ. Bootstrap bổ sung môn luyện tập ở lần cập nhật tiếp theo. Dockerfile API tắt access log mặc định có query string; middleware vẫn ghi request ID/method/path/status.
 
-Hướng dẫn build, cấu hình domain và STT local: [Desktop đa nền tảng](../desktop-build.md).
+Bộ cài desktop bắt buộc kèm runtime và model PhoWhisper-small INT8; CI không còn tùy chọn bỏ bundle. Desktop gửi media gốc + transcript local để server chấm bằng Ollama/Gemini. Hướng dẫn build, cấu hình domain và STT local: [Desktop đa nền tảng](../desktop-build.md).

@@ -90,11 +90,6 @@ async function expectReleased(page: Page) {
     )
     .toBe(true);
   expect(
-    await page.evaluate(
-      () => (window as unknown as { recordingStarts: number }).recordingStarts,
-    ),
-  ).toBe(0);
-  expect(
     await page
       .locator("video")
       .evaluate((v: HTMLVideoElement) =>
@@ -105,7 +100,7 @@ async function expectReleased(page: Page) {
   ).toBe(true);
 }
 
-test("quiet room passes; preflight releases its microphone without recording", async ({
+test("quiet room passes; ten-second raw and RNNoise recordings can be played locally", async ({
   page,
 }) => {
   await preflight(page, 0.001);
@@ -114,11 +109,30 @@ test("quiet room passes; preflight releases its microphone without recording", a
     .click();
   await expect(
     page.getByText("Môi trường đủ yên lặng. Bạn có thể bắt đầu thi."),
-  ).toBeVisible({ timeout: 15000 });
+  ).toBeVisible({ timeout: 20000 });
   await expect(
     page.getByRole("button", { name: "Bắt đầu thi", exact: true }),
   ).toBeEnabled();
   await expectReleased(page);
+  const player = page.getByLabel("Phát lại kiểm tra mic");
+  await expect(player).toBeVisible();
+  const rawUrl = await player.getAttribute("src");
+  await player.evaluate(async (audio: HTMLAudioElement) => {
+    await audio.play();
+  });
+  await expect
+    .poll(() => player.evaluate((audio: HTMLAudioElement) => audio.currentTime))
+    .toBeGreaterThan(0);
+  await page
+    .getByRole("checkbox", { name: "Nghe bản đã lọc nhiễu RNNoise" })
+    .check();
+  await expect(player).not.toHaveAttribute("src", rawUrl!);
+  await player.evaluate(async (audio: HTMLAudioElement) => {
+    await audio.play();
+  });
+  await expect
+    .poll(() => player.evaluate((audio: HTMLAudioElement) => audio.currentTime))
+    .toBeGreaterThan(0);
 });
 
 test("noisy room blocks start; moving to a quiet room and retrying passes", async ({
@@ -129,7 +143,7 @@ test("noisy room blocks start; moving to a quiet room and retrying passes", asyn
     .getByRole("button", { name: "Kiểm tra độ ồn", exact: true })
     .click();
   await expect(page.getByText(/Môi trường quá ồn/)).toBeVisible({
-    timeout: 15000,
+    timeout: 20000,
   });
   await expect(
     page.getByRole("button", { name: "Bắt đầu thi", exact: true }),
@@ -139,7 +153,7 @@ test("noisy room blocks start; moving to a quiet room and retrying passes", asyn
   });
   await page.getByRole("button", { name: "Kiểm tra lại độ ồn" }).click();
   await expect(page.getByText(/Môi trường đủ yên lặng/)).toBeVisible({
-    timeout: 15000,
+    timeout: 20000,
   });
   await expect(
     page.getByRole("button", { name: "Bắt đầu thi", exact: true }),
@@ -180,7 +194,7 @@ test("muted or zero signal does not pass as a quiet room; user can skip", async 
     .click();
   await expect(
     page.getByText(/Không nhận được tín hiệu microphone/),
-  ).toBeVisible({ timeout: 15000 });
+  ).toBeVisible({ timeout: 20000 });
   await expect(
     page.getByRole("button", { name: "Bắt đầu thi", exact: true }),
   ).toBeDisabled();

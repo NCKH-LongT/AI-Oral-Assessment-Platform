@@ -212,13 +212,22 @@ def test_speech_policy_permissions_and_routing(env, monkeypatch):
         def transcribe(path, config):
             assert path.read_bytes() == b"audio"
             assert config["provider"] == provider
+            assert config["preprocessing"] == expected_preprocessing
             return {"transcript": "recognized", "stt_confidence": 0.9}
 
         monkeypatch.setattr(stt, "transcribe_file", transcribe)
+        expected_preprocessing = "denoise"
         assert (
             ok(clients["student"].post("/stt", files={"file": ("a.webm", b"audio")}))["transcript"]
             == "recognized"
         )
+        expected_preprocessing = "off"
+        ok(
+            clients["student"].post(
+                "/stt", files={"file": ("a.webm", b"audio")}, data={"preprocessing": "off"}
+            )
+        )
+        assert ok(clients["student"].get("/stt/config"))["preprocessing"] == "denoise"
     assert clients["admin"].put(path, json={"provider": "unexpected"}).status_code == 422
 
 

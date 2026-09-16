@@ -215,7 +215,9 @@ app.whenReady().then(async () => {
       await writeFile(audioPath, Buffer.from(buffer), { mode: 0o600 });
       return await new Promise((resolve, reject) => {
         const bundled = path.join(
-          process.resourcesPath,
+          app.isPackaged
+            ? process.resourcesPath
+            : path.join(__dirname, "resources"),
           "stt",
           "oral-stt",
           process.platform === "win32" ? "oral-stt.exe" : "oral-stt",
@@ -223,8 +225,15 @@ app.whenReady().then(async () => {
         const pythonScript = app.isPackaged
           ? path.join(process.resourcesPath, "python", "transcribe.py")
           : path.join(__dirname, "transcribe.py");
-        const useBundle =
-          app.isPackaged && existsSync(bundled) && !process.env.ORAL_PYTHON;
+        const useBundle = existsSync(bundled) && !process.env.ORAL_PYTHON;
+        if (app.isPackaged && !useBundle && !process.env.ORAL_PYTHON) {
+          reject(
+            new Error(
+              "Bộ cài thiếu STT local. Cài lại bản OralAI đầy đủ có PhoWhisper.",
+            ),
+          );
+          return;
+        }
         const child = spawn(
           useBundle
             ? bundled
@@ -236,9 +245,17 @@ app.whenReady().then(async () => {
             windowsHide: true,
             env: {
               ...process.env,
-              STT_MODEL: process.env.STT_MODEL || "base",
+              ORAL_STT_MODEL:
+                process.env.ORAL_STT_MODEL ||
+                path.join(
+                  app.isPackaged
+                    ? process.resourcesPath
+                    : path.join(__dirname, "resources"),
+                  "stt",
+                  "model",
+                ),
+              HF_HUB_OFFLINE: "1",
               STT_LANGUAGE: policy.language,
-              STT_PREPROCESSING: policy.preprocessing,
             },
           },
         );
@@ -246,7 +263,11 @@ app.whenReady().then(async () => {
           error = "";
         const timer = setTimeout(() => {
           child.kill();
-          reject(new Error("STT timeout. Thử model nhỏ hơn."));
+          reject(
+            new Error(
+              "STT local quá thời gian xử lý. Thử câu trả lời ngắn hơn và đóng ứng dụng đang dùng nhiều CPU.",
+            ),
+          );
         }, 420000);
         child.stdout.on("data", (data) => {
           output += data;
@@ -258,14 +279,20 @@ app.whenReady().then(async () => {
         });
         child.on("error", () => {
           clearTimeout(timer);
-          reject(new Error("Không tìm thấy Python. Kiểm tra ORAL_PYTHON."));
+          reject(
+            new Error(
+              useBundle
+                ? "Không khởi động được STT local. Cài lại bộ OralAI đầy đủ."
+                : "Không tìm thấy Python. Kiểm tra ORAL_PYTHON.",
+            ),
+          );
         });
         child.on("close", (code) => {
           clearTimeout(timer);
           if (code !== 0)
             return reject(
               new Error(
-                "STT local thất bại. Kiểm tra FFmpeg, faster-whisper, model và giới hạn 10 phút mỗi câu.",
+                "STT local thất bại. Kiểm tra mic, giới hạn 10 phút mỗi câu hoặc cài lại bộ OralAI đầy đủ.",
               ),
             );
           try {

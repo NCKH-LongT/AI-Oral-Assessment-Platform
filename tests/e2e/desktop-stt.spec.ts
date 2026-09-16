@@ -60,7 +60,7 @@ test("desktop submits local Whisper text without server or Google STT", async ({
       });
     if (path === "/api/stt/config")
       return route.fulfill({
-        json: { provider: "local", language: "vi", preprocessing: "off" },
+        json: { provider: "google", language: "vi", preprocessing: "denoise" },
       });
     if (path === "/api/stt" || path.includes("google")) {
       serverSttCalls.push(path);

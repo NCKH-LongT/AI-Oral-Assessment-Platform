@@ -1,6 +1,7 @@
-/** Local preflight using Web Audio; no recording, upload or calibrated SPL measurement. */
+/** Ten-second local mic recording. Only the quiet opening is used to assess ambient noise. */
 export const NOISE_POLICY = {
-  durationMs: 5000,
+  durationMs: 10000,
+  ambientMs: 3000,
   warmupMs: 500,
   intervalMs: 100,
   thresholdDbfs: -40,
@@ -64,9 +65,35 @@ export async function measureNoise(
   deviceId: string | undefined,
   signal: AbortSignal,
   onProgress: (percent: number, dbfs: number) => void,
-): Promise<NoiseResult> {
+): Promise<
+  NoiseResult & { rawAudio: Blob; filteredAudio?: Blob; filterError?: string }
+> {
   let stream: MediaStream | undefined;
   let source: MediaStreamAudioSourceNode | undefined;
+  let filter: import("./noise-filter").NoiseFilter | undefined;
+  let filterError: string | undefined;
+  const recordings: { recorder: MediaRecorder; done: Promise<Blob> }[] = [];
+  const record = (input: MediaStream) => {
+    const mimeType = ["audio/webm;codecs=opus", "audio/webm"].find((type) =>
+      MediaRecorder.isTypeSupported(type),
+    );
+    if (!mimeType) throw new Error("Thiết bị chưa hỗ trợ ghi âm WebM.");
+    const recorder = new MediaRecorder(input, { mimeType });
+    const chunks: BlobPart[] = [];
+    const done = new Promise<Blob>((resolve, reject) => {
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) chunks.push(event.data);
+      };
+      recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+      recorder.onerror = () =>
+        reject(new Error("Không ghi được âm thanh kiểm tra."));
+    });
+    // Cleanup may happen before the normal stop/await path (skip, disconnect, unmount).
+    void done.catch(() => {});
+    recordings.push({ recorder, done });
+    recorder.start(250);
+    return done;
+  };
   // Construct and resume during the button gesture to satisfy autoplay policy.
   const context = new AudioContext();
   try {
@@ -92,13 +119,26 @@ export async function measureNoise(
       throw new Error(
         "Microphone chưa tắt được xử lý âm thanh để đo tiếng ồn. Hãy thử lại hoặc bỏ qua kiểm tra.",
       );
+    try {
+      const { createNoiseFilter } = await import("./noise-filter");
+      filter = await createNoiseFilter(stream, () => {
+        filterError = "RNNoise lỗi. Chỉ có bản ghi gốc để nghe thử.";
+      });
+    } catch {
+      filterError =
+        "Không tải được RNNoise. Bạn vẫn có thể nghe bản gốc và thử lại.";
+    }
+    signal.throwIfAborted();
     const analyser = context.createAnalyser();
     analyser.fftSize = 2048;
     source = context.createMediaStreamSource(stream);
     source.connect(analyser);
     const samples = new Float32Array(analyser.fftSize);
     const levels: number[] = [];
+    let peakDbfs = -120;
     await wait(NOISE_POLICY.warmupMs, signal);
+    const rawRecording = record(stream);
+    const filteredRecording = filter ? record(filter.stream) : undefined;
     const count = NOISE_POLICY.durationMs / NOISE_POLICY.intervalMs;
     for (let i = 0; i < count; i++) {
       await wait(NOISE_POLICY.intervalMs, signal);
@@ -112,12 +152,36 @@ export async function measureNoise(
         );
       analyser.getFloatTimeDomainData(samples);
       const level = rmsDbfs(samples);
-      levels.push(level);
+      peakDbfs = Math.max(peakDbfs, level);
+      if ((i + 1) * NOISE_POLICY.intervalMs <= NOISE_POLICY.ambientMs)
+        levels.push(level);
       onProgress(Math.round(((i + 1) / count) * 100), level);
     }
-    return assessNoise(levels);
+    for (const { recorder } of recordings)
+      if (recorder.state !== "inactive") recorder.stop();
+    const rawAudio = await rawRecording;
+    const filteredAudio = filteredRecording
+      ? await filteredRecording
+      : undefined;
+    if (!rawAudio.size)
+      throw new Error("Bản ghi kiểm tra rỗng. Vui lòng thử lại.");
+    const result = assessNoise(levels);
+    if (
+      result.status === "no_signal" &&
+      peakDbfs >= NOISE_POLICY.minimumSignalDbfs
+    )
+      result.status = "quiet";
+    return {
+      ...result,
+      rawAudio,
+      filteredAudio: filterError ? undefined : filteredAudio,
+      filterError,
+    };
   } finally {
+    for (const { recorder } of recordings)
+      if (recorder.state !== "inactive") recorder.stop();
     source?.disconnect();
+    await filter?.close();
     stream?.getTracks().forEach((track) => track.stop());
     await context.close();
   }

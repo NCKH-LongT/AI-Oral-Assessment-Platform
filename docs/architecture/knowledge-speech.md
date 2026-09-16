@@ -23,51 +23,44 @@ erDiagram
 - Mỗi bản công bố mới lưu `topic_chunk_ids`, các ánh xạ LO/chương/tài liệu và câu hỏi trong snapshot. Chấm thường/chấm lại dùng đúng tập chunk này. Chỉnh ánh xạ hoặc trang chương chỉ ảnh hưởng đề công bố sau. Đề MVP cũ dùng tập tài liệu snapshot và cột topic cũ để giữ phạm vi ban đầu.
 - Giáo trình READY được giữ bất biến. Nếu upload lỗi, có thể thay PDF tại mục **Thay PDF bị lỗi**; version tăng và worker xử lý lại. Cơ chế nhiều phiên bản giáo trình đang sử dụng chưa triển khai.
 
-## Pipeline giọng nói
+## Pipeline giọng nói — cập nhật 17/09/2026
 
 ```mermaid
 flowchart LR
-  A[Audio gốc] --> E[Evidence bất biến]
-  A --> P[WAV mono 16 kHz, lọc nhiễu tùy chọn]
-  P --> L[Whisper local desktop]
-  P --> S[Whisper server nội bộ]
-  P --> G[Google Cloud STT]
-  L --> T[Transcript để sinh viên kiểm tra]
-  S --> T
-  G --> T
-  E --> J[Admin tạo Google review job]
-  J --> P2[Lọc audio rồi Google STT]
-  P2 --> R[Chấm theo snapshot và lưu lịch sử]
+  Mic[Microphone] --> Raw[Audio và video gốc]
+  Mic --> Filter[RNNoise bật hoặc tắt]
+  Filter --> Local[PhoWhisper-small INT8 trên desktop]
+  Local --> Text[Transcript để học viên kiểm tra]
+  Raw --> Server[Server lưu minh chứng]
+  Text --> Server
+  Server --> Grade[LLM chấm theo rubric và RAG]
+  Grade --> Result[Kết quả trả về desktop]
+  Server --> Review[Admin yêu cầu Gemini nhận dạng lại]
+  Review --> Grade
 ```
 
-Admin lưu provider `local`, `local_server`, `google`, preprocessing `denoise`/`off`, language `vi`/`en` trong `system_settings`. Mặc định là server nội bộ + lọc nhiễu. Cả desktop/web lấy policy trước mỗi lần STT; local yêu cầu Electron. Server nội bộ chính là process API chạy Whisper trong hạ tầng của đơn vị, không phải một URL dịch vụ bên thứ ba tùy ý.
+Desktop luôn dùng helper local, kể cả khi cấu hình STT cũ trên server là Google. Bộ cài chứa runtime, FFmpeg và model PhoWhisper-small; không tải model lúc thi, không cần Python trên máy học viên. RNNoise chạy trong AudioWorklet ở 48 kHz; helper chuyển âm thanh thành mono 16 kHz và nhận dạng với ngôn ngữ đã chọn. `STT_MODEL` chỉ điều khiển Whisper server, không thay model đóng gói trong desktop.
 
-`STT_PROVIDER` đặt mặc định ban đầu (`local_server` nếu không khai báo), độc lập với `AI_PROVIDER`. Policy đã lưu trong `system_settings` được ưu tiên hơn biến môi trường. Lưu cấu hình AI không ghi lại policy STT; muốn chuyển từ Google sang Whisper phải lưu lựa chọn trong **STT & giọng nói**. `STT_MODEL` trong API điều khiển Whisper server; helper desktop đọc `STT_MODEL` từ môi trường máy học viên.
+Media gốc và audio để nhận dạng là hai nhánh riêng. Bật/tắt RNNoise chỉ ảnh hưởng audio nhận dạng. Khi nộp, desktop upload audio/video gốc và transcript; worker chấm bất đồng bộ. Transcript nhập tay hoặc độ tin cậy thấp cần giảng viên kiểm tra. Lỗi AI, bài demo hoặc đang chờ chấm không được hiển thị thành điểm 0/10.
 
-Luồng Gemini + Whisper: desktop gọi helper local (hoặc API gọi Whisper server), gửi transcript qua `/question-attempts/{id}/submit`, rồi worker dùng transcript, rubric và RAG để chấm. Không cần JSON service account ở luồng này. Chỉ `/stt` với provider `google` và tác vụ Google nhận dạng lại mới yêu cầu credentials; lỗi Whisper không hướng dẫn cấu hình Google.
+### LLM và cấu hình
 
-Module audio dùng chung cho server và subprocess desktop. FFmpeg lọc highpass 80 Hz, lowpass 7600 Hz, `afftdn` thích nghi, `loudnorm`; đầu ra PCM 16-bit mono 16 kHz. `off` vẫn đổi định dạng cho nhà cung cấp. Mỗi câu tối đa 600 giây, request STT tối đa 30 MB. Không sửa hoặc ghi đè bản evidence. Bộ lọc không tách riêng sinh viên khỏi người khác nói chồng và không thay thế mô hình source separation.
+`AI_CONFIG_SOURCE=env` là mặc định: `AI_PROVIDER`, `LLM_MODEL`, `EMBEDDING_MODEL`, `GEMINI_API_KEY` lấy từ môi trường API/worker, bỏ qua giá trị AI cũ trong `platform.json`. `AI_PROVIDER=local` dùng Ollama qua `LOCAL_LLM_URL`, JSON schema cho câu hỏi/chấm và embedding 768 chiều. `gemini` dùng Gemini API; `demo` chỉ thử quy trình, không tạo điểm chính thức. `AI_CONFIG_SOURCE=admin` giữ chế độ quản trị AI cũ trên web. Adapter thêm prefix truy vấn/tài liệu khi dùng `nomic-embed-text` theo [model card](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5); cần đánh giá retrieval trên giáo trình tiếng Việt trước khi chọn model embedding triển khai.
 
-Google adapter dùng OAuth service-account credentials ở backend và REST `v1/speech:recognize`; chia PCM 55 giây/đoạn, không bỏ phần cuối. Không tự fallback nhà cung cấp khi lỗi. Không có credentials Google trong admin response hoặc IPC. STT và Gemini chấm là hai cấu hình độc lập; demo chấm vẫn có thể dùng Google STT khi admin chọn.
+Đổi AI provider/model cần xử lý lại tài liệu và công bố đề mới, vì snapshot đề và embedding có phiên bản. Gemini chỉ nhận dạng lại audio khi admin yêu cầu; bật Gemini LLM không bật Google STT.
 
-### Upload credentials từ admin
+### Nhận dạng lại có lịch sử
 
-`POST /admin/settings/speech/google-credentials` nhận multipart `file` tối đa 64 KB, chỉ ADMIN. Kiểm tra JSON service account, project/email/key ID/private key, token URI cố định `https://oauth2.googleapis.com/token`, domain `googleapis.com` và parse khóa bằng Google auth. Không dùng URL do JSON tùy ý cung cấp để gửi private key/token. Lỗi trả thông báo chung không chứa nội dung file; upload không gọi Google hoặc đổi STT policy.
+`POST /admin/attempts/{id}/gemini-review` chỉ ADMIN, yêu cầu lý do, câu đã chấm trong bài đã nộp và audio upload hoàn tất. Dùng `GEMINI_API_KEY` + `GEMINI_STT_MODEL`, không cần service-account JSON. Có thể dùng khi LLM chấm chạy Ollama.
 
-Khóa lưu riêng ở `DATA_DIR/secrets/google-stt.json` (600, thư mục 700), ghi file tạm và atomic replace. Không lưu private key trong database, audit, response hoặc endpoint download. Audit chỉ lưu người upload, project và email service account. Compose dùng volume `app_data` sẵn có cho API/worker cùng UID; mỗi lần STT đọc credentials hiện tại nên không phải restart. Triển khai nhiều host cần filesystem dùng chung và sao lưu volume chứa khóa.
+Job lưu trong database, nhận dạng từ audio gốc đã kiểm tra checksum. WAV được chia đoạn 55 giây để gửi Gemini inline audio; giữ toàn bộ phần cuối. Không tự đổi provider khi lỗi. Worker dùng transcript mới và snapshot đề để chấm, lưu lịch sử trước/sau và audit; không ghi đè transcript đã nộp hoặc media gốc. Job lỗi giữ kết quả trước đó. Yêu cầu trùng khi đang chờ trả cùng ID.
 
-File upload được ưu tiên trước file cấu hình bằng biến môi trường. File upload còn tồn tại nhưng lỗi/không đọc được không tự chuyển sang tài khoản cũ. Admin thấy `ready`, `missing`, `unreadable` hoặc `invalid`, nguồn upload/environment và metadata công khai khi file hợp lệ; `ready` chỉ xác nhận file/khóa đọc được, không xác nhận API/billing/quota. Không có migration mới cho chức năng này.
+Gemini không trả acoustic confidence tương đương Whisper: adapter đánh dấu `confidence_source=unavailable` và độ tin cậy STT bằng 0, vì vậy kết quả cần giảng viên kiểm tra, không tự công nhận điểm dựa trên một confidence giả.
 
-`review_jobs` là hàng đợi database bền vững. Chỉ ADMIN tạo job cho câu đã GRADED thuộc bài đã nộp, có AUDIO COMPLETED; bắt buộc lý do. Yêu cầu lặp khi job còn PENDING trả cùng ID. Worker kiểm tra checksum audio gốc, nhận dạng Google, chấm theo snapshot rồi lưu kết quả trước/sau và audit. Trong khi chờ, chưa công nhận điểm cuối. Lỗi giữ đánh giá trước và cho phép tạo lần thử mới; job đã hoàn thành/lỗi không bị ghi đè. Transcript sinh viên và payload idempotency không thay đổi. Worker crash rollback giao dịch, có thể gọi lại nhà cung cấp khi chạy tiếp.
+### Trình duyệt và tương thích dữ liệu cũ
 
-UI xem bài hiển thị transcript sinh viên, transcript Google dùng cho đánh giá hiện tại, audio/video, điểm và lịch sử. Spinner STT/nộp câu trả lời dùng `role=status`; khóa textarea, ghi lại và thử STT trong lúc nộp.
+Cấu hình STT trên web chọn `local` (yêu cầu desktop) hoặc `local_server` (Whisper trong API), cùng ngôn ngữ `vi`/`en`. Policy đã lưu ưu tiên hơn `STT_PROVIDER`; desktop chỉ dùng ngôn ngữ, luôn nhận dạng local. Audio nhận dạng tối đa 600 giây, request tối đa 30 MB. RNNoise không tách được chắc chắn người khác nói chồng.
 
-## Nâng cấp
+Giữ adapter/endpoint Google Cloud STT và review cũ để xử lý client, policy và lịch sử đã có; giao diện mới không yêu cầu JSON hoặc hiển thị form upload credentials. Chỉ đường Google STT cũ mới cần service account; chuyển policy cũ sang local/local_server trong mục STT để ngừng dùng nó. Không xóa dữ liệu hay migration cũ.
 
-Migration `0002` bổ sung bảng/cột, chuyển LO và tài liệu đơn cũ sang các bảng liên kết. Không xóa dữ liệu cũ hoặc volume Docker. SQLite migration có kiểm tra foreign key sau dựng lại bảng; PostgreSQL dùng ALTER và transaction. Bản cập nhật này không hỗ trợ downgrade tự động vì cần bảo toàn lịch sử review và quan hệ mới; dùng backup nếu cần quay lại bản cũ.
-
-## Tài liệu nhà cung cấp
-
-- [Google STT authentication](https://docs.cloud.google.com/speech-to-text/docs/v1/authentication)
-- [Google STT quotas and limits](https://docs.cloud.google.com/speech-to-text/docs/v1/quotas)
-- [FFmpeg afftdn](https://ffmpeg.org/ffmpeg-filters.html#afftdn)
+Nguồn: [PhoWhisper](https://github.com/VinAIResearch/PhoWhisper), [RNNoise Web Audio](https://github.com/sapphi-red/web-noise-suppressor), [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs), [Gemini audio](https://ai.google.dev/gemini-api/docs/audio).

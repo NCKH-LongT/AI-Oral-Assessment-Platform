@@ -118,13 +118,13 @@ def process_review(db, job):
         job.status = "COMPLETED"
     except Exception as exc:
         job.status = "FAILED"
-        job.error = "Nhận dạng/chấm lại thất bại. Đánh giá trước được giữ nguyên; kiểm tra cấu hình Google và AI rồi thử lại."
+        job.error = "Nhận dạng/chấm lại thất bại. Đánh giá trước được giữ nguyên; kiểm tra nhà cung cấp nhận dạng và cấu hình LLM trên server rồi thử lại."
         log.warning("review_failed id=%s type=%s", job.id, type(exc).__name__)
     job.completed_at = time.time()
     db.add(
         Audit(
             user_id=job.requested_by,
-            event="GOOGLE_REVIEW_" + job.status,
+            event=job.policy["provider"].upper() + "_REVIEW_" + job.status,
             details={"job_id": job.id, "attempt_id": attempt.id},
         )
     )

@@ -13,6 +13,7 @@ WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000 API_INTERNAL_URL=http://api:8000
 COPY --from=build --chown=node:node /repo/apps/admin-web/.next/standalone ./
 COPY --from=build --chown=node:node /repo/apps/admin-web/.next/static ./apps/admin-web/.next/static
+COPY --from=build --chown=node:node /repo/apps/admin-web/public ./apps/admin-web/public
 USER node
 EXPOSE 3000
 CMD ["node", "apps/admin-web/server.js"]

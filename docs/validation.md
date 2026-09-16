@@ -1,5 +1,17 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## STT desktop offline, RNNoise và LLM server — 17/09/2026
+
+- 49 test backend đạt trên SQLite: cấu hình env ưu tiên hơn AI cũ trên web; không ghi key AI từ env vào cấu hình web; Ollama sinh câu hỏi/embedding/chấm transcript; điểm không hợp lệ chuyển sang cần xem lại; Gemini nhận dạng lại không gọi service-account JSON, chia audio 55 giây, kiểm tra quyền/idempotency, giữ transcript/media gốc và giữ kết quả cũ khi lỗi. Request Ollama/Gemini được giả lập.
+- 19 kịch bản Playwright đạt trên Next production với API/worker và database kiểm thử riêng, gồm CRUD, giao môn/OAuth, nộp/phát lại WebM thật, STT desktop luôn local dù policy cũ là Google, trạng thái điểm chưa chấm, 10 giây thu thử và playback gốc/RNNoise. Kịch bản nộp bài được chạy lại sau khi cập nhật expectation cho trạng thái nhận dạng mới. Mic/camera giả lập; RNNoise WASM/AudioWorklet chạy thật.
+- Build bundle native Linux x64 thành công từ revision PhoWhisper-small đã ghim; helper `--check` nạp model offline. Nhận dạng audio mẫu 11 giây bằng helper thành công, xác nhận cả VAD và FFmpeg chạy được.
+- Tạo được `.deb` và `.AppImage` Linux có helper/model; model INT8 khoảng 240 MB, runtime khoảng 453 MB trước nén. Mở Electron đã đóng gói qua Playwright với profile tạm, gọi IPC từ renderer đến helper đóng gói, nhận transcript và metadata `PhoWhisper-small` thành công. Không dùng Python bên ngoài cho đường gọi này.
+- Ruff, ESLint, TypeScript, Next production build, Electron syntax, 2 unit test audio và 1 unit test domain desktop đạt. `npm audit --audit-level=high` báo 0 vulnerabilities tại thời điểm kiểm tra.
+- `.env` đã bổ sung các khóa còn thiếu theo `.env.example`, giữ giá trị sẵn có và không đưa vào Git. Không chạy migration mới hoặc cập nhật deployment đang dùng dữ liệu thật.
+
+Chưa benchmark tiếng Việt với transcript chuẩn, chưa thử microphone phần cứng, chưa chạy Gemini/Ollama thật cho bản thay đổi này. Chưa kiểm tra bundle mới trên Windows/macOS; workflow đã bắt buộc build cả runtime và model trên OS đích. Các biên bản bên dưới là lịch sử, không mô tả luồng STT hiện hành.
+
+
 ## Google login, giao môn, cấu hình web và desktop — 13/09/2026
 
 - 30 test API/audio/migration đạt trên SQLite và PostgreSQL/pgvector. Test PostgreSQL dùng database riêng; E2E dùng Compose project `oral-accounts-check`, không dùng volume dữ liệu đang chạy.

@@ -3,7 +3,7 @@ import { LoaderCircle } from "lucide-react";
 import { Review, send } from "./api";
 import { Field, Form } from "./shared";
 
-export function GoogleReview({
+export function TranscriptionReview({
   attempt,
   enabled,
   refresh,
@@ -18,33 +18,37 @@ export function GoogleReview({
     <div>
       {latest?.result && (
         <div className="notice">
-          <strong>Transcript Google dùng cho đánh giá hiện tại</strong>
+          <strong>Transcript nhận dạng lại dùng cho đánh giá hiện tại</strong>
           <p className="transcript">{latest.result.transcript}</p>
           <small>
-            STT {Math.round(latest.result.stt_confidence * 100)}% · Xử lý audio:{" "}
-            {latest.result.preprocessing}
+            {latest.result.confidence_source === "unavailable"
+              ? "Nhà cung cấp không trả độ tin cậy STT"
+              : `STT ${Math.round(latest.result.stt_confidence * 100)}%`}{" "}
+            · Xử lý audio: {latest.result.preprocessing}
           </small>
         </div>
       )}
       {pending ? (
         <p role="status" className="processing-status">
           <LoaderCircle className="spin" size={20} />
-          Đang chờ nhận dạng Google và chấm lại…
+          Đang chờ nhận dạng và chấm lại…
         </p>
       ) : (
         enabled && (
           <details>
-            <summary>Nhận dạng lại bằng Google & chấm lại</summary>
+            <summary>Nhận dạng lại bằng Gemini & chấm lại</summary>
             <p>
-              Gửi audio gốc qua bước xử lý âm thanh rồi đến Google Cloud
-              Speech-to-Text (có thể phát sinh phí). Kết quả được chấm theo
-              rubric, AI và kiến thức đã cố định của đề. Transcript đã nộp và
-              lịch sử đánh giá vẫn được giữ.
+              Gửi audio gốc đến Gemini trên server để nhận dạng lại (có thể phát
+              sinh phí). Dùng Gemini API key, không cần JSON Google Cloud STT.
+              Kết quả được chấm theo rubric, AI và kiến thức đã cố định của đề.
+              Transcript đã nộp và lịch sử đánh giá vẫn được giữ. Gemini không
+              cung cấp độ tin cậy âm học nên kết quả nhận dạng lại cần giảng
+              viên kiểm tra.
             </p>
             <Form
-              label="Dùng Google nhận dạng và chấm lại"
+              label="Dùng Gemini nhận dạng và chấm lại"
               onSubmit={async (d) => {
-                await send(`/admin/attempts/${attempt.id}/google-review`, {
+                await send(`/admin/attempts/${attempt.id}/gemini-review`, {
                   reason: d.get("reason"),
                 });
                 await refresh();
@@ -81,7 +85,7 @@ export function GoogleReview({
               </details>
               {r.result && (
                 <details>
-                  <summary>Transcript và đánh giá Google mới</summary>
+                  <summary>Transcript và đánh giá mới</summary>
                   <p>{r.result.transcript}</p>
                   <p>Điểm: {r.result.assessment.score ?? "Chưa xác nhận"}</p>
                   <p>{r.result.assessment.reasoning_summary}</p>

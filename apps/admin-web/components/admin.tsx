@@ -30,7 +30,7 @@ import { Action, Badge, Empty, Field, Form, Modal } from "./shared";
 import { TextbookPanel, TopicPanel } from "./knowledge";
 import PlatformSettings from "./platform-settings";
 import CourseStudents from "./course-students";
-import { GoogleReview } from "./google-review";
+import { TranscriptionReview } from "./transcription-review";
 
 export default function Admin({
   user,
@@ -1534,7 +1534,7 @@ function ReviewPage({
               )}
             </div>
           </div>
-          <GoogleReview
+          <TranscriptionReview
             attempt={a}
             enabled={
               admin &&

@@ -626,13 +626,25 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
 
 @router.post("/attempts/{key}/google-review", status_code=202)
 def google_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), user=Depends(admin)):
+    # Compatibility for existing clients and review history; new UI uses Gemini.
+    return request_transcription_review(key, body, db, user, "google")
+
+
+@router.post("/attempts/{key}/gemini-review", status_code=202)
+def gemini_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), user=Depends(admin)):
+    return request_transcription_review(key, body, db, user, "gemini")
+
+
+def request_transcription_review(key, body, db, user, provider):
     attempt = by_id(db, Attempt, key, lock=True)
     session = by_id(db, ExamSession, attempt.session_id, lock=True)
     exam = by_id(db, Exam, session.exam_id)
     course_access(db, exam.course_id, user)
     if session.status not in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"} or attempt.status != "GRADED":
         fail(409, "NOT_FINISHED", "Chờ sinh viên nộp bài và hoàn tất chấm lần đầu")
-    if not google_ready():
+    if provider == "gemini" and not settings().gemini_api_key:
+        fail(422, "GEMINI_NOT_CONFIGURED", "Cấu hình GEMINI_API_KEY trên server để nhận dạng lại bằng Gemini")
+    if provider == "google" and not google_ready():
         fail(
             422,
             "GOOGLE_NOT_CONFIGURED",
@@ -656,7 +668,9 @@ def google_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), use
         attempt_id=key,
         requested_by=user.id,
         reason=body.reason,
-        policy=policy(db) | {"provider": "google"},
+        policy=policy(db)
+        | {"provider": provider}
+        | ({"model": settings().gemini_stt_model, "preprocessing": "off"} if provider == "gemini" else {}),
         original={
             "transcript": previous.result["transcript"] if previous else attempt.transcript,
             "stt_confidence": previous.result["stt_confidence"] if previous else attempt.stt_confidence,
@@ -672,7 +686,7 @@ def google_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), use
     db.add(
         Audit(
             user_id=user.id,
-            event="GOOGLE_REVIEW_REQUESTED",
+            event=provider.upper() + "_REVIEW_REQUESTED",
             details={"job_id": job.id, "attempt_id": key, "reason": body.reason},
         )
     )

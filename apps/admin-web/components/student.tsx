@@ -20,6 +20,7 @@ import {
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
 import NoiseCheck from "./noise-check";
+import { createNoiseFilter, type NoiseFilter } from "../lib/noise-filter";
 
 type STT = { transcript: string; stt_confidence: number };
 declare global {
@@ -33,6 +34,7 @@ declare global {
 type PendingAnswer = {
   attemptId: string;
   audio: Blob;
+  sttAudio: Blob;
   video: Blob;
   transcript: string;
   confidence: number;
@@ -78,6 +80,10 @@ export default function Student() {
     [jobs, setJobs] = useState<UploadJob[]>([]),
     [remaining, setRemaining] = useState(0),
     [deviceError, setDeviceError] = useState("");
+  const [denoise, setDenoise] = useState(true);
+  const [filterError, setFilterError] = useState("");
+  const filterRef = useRef<NoiseFilter | null>(null);
+  const deviceGeneration = useRef(0);
   const preview = useRef<HTMLVideoElement>(null),
     recorders = useRef<MediaRecorder[]>([]),
     streamRef = useRef<MediaStream | null>(null);
@@ -133,8 +139,14 @@ export default function Student() {
   }, [answer, jobs]);
   useEffect(
     () => () => {
-      for (const r of recorders.current) if (r.state !== "inactive") r.stop();
+      for (const r of recorders.current) {
+        r.onstop = null;
+        r.onerror = null;
+        if (r.state !== "inactive") r.stop();
+      }
+      deviceGeneration.current++;
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      void filterRef.current?.close();
     },
     [],
   );
@@ -145,6 +157,8 @@ export default function Student() {
     )
       return;
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    void filterRef.current?.close();
+    filterRef.current = null;
     const timer = setInterval(
       () => refreshSession(session.id).catch(() => {}),
       4000,
@@ -175,7 +189,11 @@ export default function Student() {
     };
   }, [stream]);
   async function devices() {
+    const generation = ++deviceGeneration.current;
     setDeviceError("");
+    setFilterError("");
+    await filterRef.current?.close();
+    filterRef.current = null;
     setNoiseReady(false);
     if (!navigator.mediaDevices || typeof MediaRecorder === "undefined")
       throw new Error(
@@ -185,8 +203,38 @@ export default function Student() {
     setStream(null);
     const s = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: { echoCancellation: true, noiseSuppression: true },
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
     });
+    if (generation !== deviceGeneration.current) {
+      s.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    try {
+      const filter = await createNoiseFilter(s, () => {
+        setFilterError(
+          "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
+        );
+      });
+      if (generation !== deviceGeneration.current) {
+        await filter.close();
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      filter.setEnabled(denoise);
+      filterRef.current = filter;
+    } catch {
+      if (generation !== deviceGeneration.current) {
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      setFilterError(
+        "Không tải được RNNoise. Tắt lọc nhiễu để thu bản gốc hoặc kết nối lại mic.",
+      );
+    }
     s.getTracks().forEach((t) => {
       t.onended = () => {
         setDeviceError(
@@ -200,7 +248,13 @@ export default function Student() {
   }
   async function transcribe(audio: Blob): Promise<STT> {
     setSpeechStage("Đang tải cấu hình nhận dạng…");
-    const policy = await api<SpeechPolicy>("/stt/config");
+    const savedPolicy = await api<SpeechPolicy>("/stt/config");
+    // Desktop always transcribes locally. Filtering is already performed on the client.
+    const policy: SpeechPolicy = {
+      ...savedPolicy,
+      provider: window.oralDesktop ? "local" : savedPolicy.provider,
+      preprocessing: "off",
+    };
     const providerLabel = {
       local: "Whisper trên máy của bạn",
       google: "Google",
@@ -218,6 +272,7 @@ export default function Student() {
     }
     const form = new FormData();
     form.set("file", audio, "answer.webm");
+    form.set("preprocessing", "off");
     return api<STT>("/stt", { method: "POST", body: form });
   }
   async function start() {
@@ -229,6 +284,10 @@ export default function Student() {
       throw new Error(
         "Trình duyệt chưa hỗ trợ định dạng ghi âm/video. Dùng Chrome hoặc Electron.",
       );
+    if (denoise && (!filterRef.current || filterError))
+      throw new Error(
+        "Lọc nhiễu chưa sẵn sàng. Tắt lọc nhiễu hoặc kết nối lại mic.",
+      );
     const attemptId = session.current_attempt.id;
     const audioRecorder = new MediaRecorder(
       new MediaStream(stream.getAudioTracks()),
@@ -238,8 +297,18 @@ export default function Student() {
       mimeType: vm,
       videoBitsPerSecond: 650000,
     });
+    const cleanRecorder = new MediaRecorder(
+      denoise && filterRef.current
+        ? filterRef.current.stream
+        : new MediaStream(stream.getAudioTracks()),
+      { mimeType: am },
+    );
     const audioChunks: BlobPart[] = [],
+      cleanChunks: BlobPart[] = [],
       videoChunks: BlobPart[] = [];
+    cleanRecorder.ondataavailable = (e) => {
+      if (e.data.size) cleanChunks.push(e.data);
+    };
     audioRecorder.ondataavailable = (e) => {
       if (e.data.size) audioChunks.push(e.data);
     };
@@ -250,13 +319,14 @@ export default function Student() {
     let stops = 0;
     const stopped = async () => {
       stops++;
-      if (stops < 2) return;
+      if (stops < 3) return;
       recordingRef.current = false;
       setRecording(false);
       setProcessing(true);
       const a: PendingAnswer = {
         attemptId,
         audio: new Blob(audioChunks, { type: am.split(";")[0] }),
+        sttAudio: new Blob(cleanChunks, { type: am.split(";")[0] }),
         video: new Blob(videoChunks, { type: vm.split(";")[0] }),
         transcript: "",
         originalText: "",
@@ -265,7 +335,7 @@ export default function Student() {
       };
       setAnswer(a);
       try {
-        const stt = await transcribe(a.audio);
+        const stt = await transcribe(a.sttAudio);
         a.transcript = stt.transcript;
         a.originalText = stt.transcript;
         a.confidence = stt.stt_confidence;
@@ -280,6 +350,7 @@ export default function Student() {
     };
     audioRecorder.onstop = stopped;
     videoRecorder.onstop = stopped;
+    cleanRecorder.onstop = stopped;
     const recordingError = () => {
       setDeviceError(
         "Có lỗi ghi media. Kiểm tra thiết bị và ghi lại câu trả lời.",
@@ -288,7 +359,8 @@ export default function Student() {
     };
     audioRecorder.onerror = recordingError;
     videoRecorder.onerror = recordingError;
-    recorders.current = [audioRecorder, videoRecorder];
+    cleanRecorder.onerror = recordingError;
+    recorders.current = [audioRecorder, videoRecorder, cleanRecorder];
     stopRef.current = () => {
       if (!recordingRef.current) return;
       recordingRef.current = false;
@@ -297,6 +369,7 @@ export default function Student() {
     };
     audioRecorder.start(1000);
     videoRecorder.start(1000);
+    cleanRecorder.start(1000);
     recordingRef.current = true;
     setRecording(true);
     setError("");
@@ -563,6 +636,26 @@ export default function Student() {
                   phục bản ghi khi đóng ứng dụng; giữ cửa sổ mở đến khi nộp bài
                   thành công.
                 </p>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={denoise}
+                    onChange={(event) => {
+                      setDenoise(event.target.checked);
+                      filterRef.current?.setEnabled(event.target.checked);
+                    }}
+                  />
+                  Lọc nhiễu RNNoise khi nhận dạng câu trả lời
+                </label>
+                {filterError && (
+                  <p role="alert" className="error">
+                    {filterError}
+                  </p>
+                )}
+                <p className="muted">
+                  Audio/video gốc được giữ để đối chiếu. Lựa chọn lọc chỉ áp
+                  dụng cho audio dùng STT.
+                </p>
                 {stream && !deviceError && (
                   <NoiseCheck
                     key={stream.id}
@@ -675,7 +768,7 @@ export default function Student() {
                         action={async () => {
                           setProcessing(true);
                           try {
-                            const s = await transcribe(answer.audio);
+                            const s = await transcribe(answer.sttAudio);
                             setAnswer({
                               ...answer,
                               transcript: s.transcript,

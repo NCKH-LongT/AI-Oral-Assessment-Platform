@@ -1,5 +1,11 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Google login qua desktop dev — 17/09/2026
+
+- Xác nhận backend cấu hình domain gốc `http://localhost:3000`, trong khi launcher mở UI ở 3001; kiểm tra origin cũ trong IPC từ chối URL đăng nhập hợp lệ. Launcher nay truyền origin backend riêng cho Google login khi chạy source.
+- Hai test Node đạt, gồm chấp nhận URL đăng nhập trên server được cấu hình và từ chối domain/cổng khác, credentials, endpoint sai, thiếu flow và fragment. Electron syntax, ba test launcher Python, Ruff và `git diff --check` đạt.
+- Chạy Electron thật với profile tạm cho cả chế độ cùng origin và UI/backend khác origin; gọi IPC qua preload thành công với URL hợp lệ, chặn URL sai. `shell.openExternal` được giả lập để kiểm tra đích mở mà không mở tài khoản Google thật. Chưa hoàn tất đăng nhập với tài khoản Google của người dùng.
+
 ## Chạy lại desktop sau khi đóng — 17/09/2026
 
 - Tái hiện báo nhầm cổng bận: socket kiểm tra không đặt `SO_REUSEADDR` từ chối bind khi kết nối server vừa đóng còn `TIME_WAIT`, dù không còn tiến trình lắng nghe. Sửa phép kiểm tra theo cách Node mở TCP server; vẫn từ chối listener đang chạy.

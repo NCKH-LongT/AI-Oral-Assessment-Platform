@@ -18,6 +18,8 @@ Docker mặc định dùng cổng **3000**: `./run-desktop.sh --server http://lo
 
 Để đăng nhập/nộp bài từ UI dev, thêm `http://localhost:3001` vào `ALLOWED_ORIGINS` của API (giữ các origin đang có). Nếu đổi `--port`, thêm origin tương ứng. Bạn tự áp dụng cấu hình này khi chạy server; script không thay cấu hình hoặc khởi động lại Docker.
 
+Đăng nhập Google dùng domain của **server**, không dùng cổng UI dev. Launcher tự truyền `ORAL_AUTH_ORIGIN` bằng giá trị `--server` cho Electron chạy từ source. Với cấu hình mặc định, giữ domain gốc của backend là `http://localhost:3000` và callback Google là `http://localhost:3000/api/auth/google/callback`; không đổi sang 3001. Địa chỉ `--server` cần khớp domain gốc đã cấu hình trong admin. Bộ cài desktop dùng domain máy chủ đã chọn trong app và không nhận override đăng nhập dành cho dev này.
+
 Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev server đang chạy để tránh mở nhầm bản cũ. Đóng Electron hoặc Ctrl+C sẽ dừng dev server của phiên đó; server đang dùng không bị thay đổi. Lệnh `npm run desktop` đơn thuần chỉ mở Electron, không build hoặc cập nhật giao diện ở địa chỉ server.
 
 Có thể chạy lại ngay sau khi đóng app; kết nối TCP cũ ở trạng thái `TIME_WAIT` không bị tính là chiếm cổng. Nếu vẫn báo cổng 3001 bận, kiểm tra bằng `ss -ltnp 'sport = :3001'` trên Linux và đóng phiên đang dùng cổng. Khởi động lại Docker không giải phóng cổng của UI dev trên máy.

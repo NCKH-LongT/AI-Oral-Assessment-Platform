@@ -19,7 +19,11 @@ const { existsSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
-const { DEFAULT_URL, normalizeServerURL } = require("./server-config.cjs");
+const {
+  DEFAULT_URL,
+  normalizeServerURL,
+  googleLoginURL,
+} = require("./server-config.cjs");
 let webURL = new URL(DEFAULT_URL),
   sttBusy = false,
   win,
@@ -85,6 +89,16 @@ app.whenReady().then(async () => {
       configured = false;
     }
   }
+  // The source launcher proxies a separate backend through the local dev UI.
+  // Only an explicit development launch can set a different login origin.
+  let authOrigin = webURL.origin;
+  if (
+    !app.isPackaged &&
+    configured &&
+    process.env.ORAL_WEB_URL &&
+    process.env.ORAL_AUTH_ORIGIN
+  )
+    authOrigin = normalizeServerURL(process.env.ORAL_AUTH_ORIGIN);
   session.defaultSession.setPermissionRequestHandler(
     (contents, permission, callback) => {
       callback(
@@ -167,6 +181,7 @@ app.whenReady().then(async () => {
     await rename(temporary, configPath);
     await session.defaultSession.clearStorageData({ origin: webURL.origin });
     webURL = new URL(origin);
+    authOrigin = origin;
     await win.loadURL(webURL.href);
     win.show();
     configWindow?.close();
@@ -180,18 +195,7 @@ app.whenReady().then(async () => {
         new URL(event.senderFrame.url).origin !== webURL.origin)
     )
       throw new Error("Forbidden");
-    const url = new URL(value);
-    if (
-      url.origin !== webURL.origin ||
-      url.pathname !== "/api/auth/google/start" ||
-      !url.searchParams.get("flow_id") ||
-      url.username ||
-      url.password
-    )
-      throw new Error(
-        "Domain đăng nhập chưa khớp máy chủ. Nhờ admin kiểm tra domain gốc.",
-      );
-    await shell.openExternal(url.href);
+    await shell.openExternal(googleLoginURL(value, authOrigin));
   });
   ipcMain.handle("oral:transcribe", async (event, buffer, policy) => {
     if (

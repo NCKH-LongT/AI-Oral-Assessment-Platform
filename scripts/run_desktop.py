@@ -103,6 +103,7 @@ def main():
     env["API_INTERNAL_URL"] = server_url + "/api"
     # Explicitly ignore an old ORAL_WEB_URL and use a separate Electron profile.
     env["ORAL_WEB_URL"] = origin
+    env["ORAL_AUTH_ORIGIN"] = server_url
     profile = (
         ROOT
         / ".data"

@@ -575,6 +575,32 @@ export default function Student() {
       setSubmitting(false);
     }
   }
+  async function openExam(
+    examId: string,
+    newAttempt = false,
+    sessionId?: string,
+  ) {
+    const next = sessionId
+      ? await api<ExamSession>(`/exam-sessions/${sessionId}`)
+      : await send<ExamSession>("/exam-sessions", {
+          exam_id: examId,
+          new_attempt: newAttempt,
+        });
+    deviceGeneration.current++;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    await filterRef.current?.close();
+    filterRef.current = null;
+    setStream(null);
+    setDeviceError("");
+    setFilterError("");
+    setNoiseReady(false);
+    setAnswer(null);
+    setJobs([]);
+    setError("");
+    localDeadline.current = null;
+    setSession(next);
+  }
   if (!session)
     return (
       <>
@@ -631,18 +657,59 @@ export default function Student() {
                   {e.question_count} câu hỏi · {Math.round(e.time_limit / 60)}{" "}
                   phút
                 </p>
-                <Action
-                  action={async () => {
-                    setNoiseReady(false);
-                    setSession(
-                      await send<ExamSession>("/exam-sessions", {
-                        exam_id: e.id,
-                      }),
-                    );
-                  }}
-                >
-                  Mở bài thi →
+                <Action action={() => openExam(e.id)}>
+                  {!e.session_id
+                    ? "Mở bài thi →"
+                    : ["DEVICE_CHECK", "IN_PROGRESS"].includes(e.status)
+                      ? "Tiếp tục làm bài →"
+                      : "Xem lần thi gần nhất →"}
                 </Action>
+                {!!e.attempt_count && (
+                  <>
+                    <p className="muted">
+                      Đã làm {e.attempt_count} lần ·{" "}
+                      {e.remaining_attempts === null
+                        ? "Làm lại không giới hạn"
+                        : `Còn ${e.remaining_attempts} lượt`}
+                    </p>
+                    {e.can_start_new && (
+                      <Action
+                        className="button secondary"
+                        action={() => openExam(e.id, true)}
+                      >
+                        Làm lại bài thi
+                      </Action>
+                    )}
+                    <details>
+                      <summary>
+                        Lịch sử làm bài ({e.history?.length || 0})
+                      </summary>
+                      {e.history?.map((s) => (
+                        <div className="list-item" key={s.id}>
+                          <div>
+                            <strong>Lần {s.attempt_number}</strong>
+                            <p className="muted">
+                              {new Date(s.created_at * 1000).toLocaleString(
+                                "vi-VN",
+                              )}{" "}
+                              ·{" "}
+                              {s.final_score === null
+                                ? "Chưa xác nhận điểm"
+                                : `${s.final_score}/10`}
+                            </p>
+                            <Badge status={s.status} />
+                          </div>
+                          <Action
+                            className="text-button"
+                            action={() => openExam(e.id, false, s.id)}
+                          >
+                            Xem lần {s.attempt_number}
+                          </Action>
+                        </div>
+                      ))}
+                    </details>
+                  </>
+                )}
               </section>
             ))}
         </div>
@@ -661,7 +728,10 @@ export default function Student() {
       <div className="page-heading">
         <div>
           <span className="eyebrow">PHÒNG THI VẤN ĐÁP</span>
-          <h1>{session.exam_name}</h1>
+          <h1>
+            {session.exam_name}
+            {session.attempt_number ? ` · Lần ${session.attempt_number}` : ""}
+          </h1>
           <p className="muted">
             Đã trả lời {session.answered_count}/{session.question_count} câu
           </p>

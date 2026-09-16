@@ -102,6 +102,7 @@ class ExamIn(Input):
     name: str = Field(min_length=1, max_length=200)
     time_limit: int = Field(ge=60, le=10800)
     blueprint: list[Blueprint] = Field(min_length=1, max_length=20)
+    max_attempts: int | None = Field(default=1, ge=1, le=1001)
 
     @model_validator(mode="after")
     def limit_questions(self):
@@ -116,6 +117,15 @@ class AssignIn(Input):
 
 class SessionIn(Input):
     exam_id: str
+    new_attempt: bool = False
+
+
+class AttemptPolicyIn(Input):
+    max_attempts: int | None = Field(ge=1, le=1001)
+
+
+class RetakeIn(Input):
+    additional_attempts: int = Field(default=1, ge=1, le=1000)
 
 
 class TranscriptIn(Input):

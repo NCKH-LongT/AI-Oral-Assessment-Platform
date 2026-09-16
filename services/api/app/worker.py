@@ -2,6 +2,7 @@
 
 import hashlib
 import logging
+import shutil
 import tempfile
 import time
 from pathlib import Path
@@ -11,7 +12,7 @@ from sqlalchemy import select
 from . import ai, runtime_settings, speech, storage
 from .db import SessionLocal
 from .documents import process_document
-from .models import Attempt, Audit, Chunk, Document, Exam, ExamSession, ReviewJob, Upload
+from .models import Attempt, Audit, Chunk, Document, Exam, ExamSession, MediaCleanup, ReviewJob, Upload
 
 log = logging.getLogger("oral.worker")
 
@@ -136,6 +137,25 @@ def process_review(db, job):
 @runtime_settings.snapshot()
 def tick():
     with SessionLocal() as db:
+        cleanup = db.scalar(select(MediaCleanup).where(MediaCleanup.next_attempt_at <= time.time())
+                            .order_by(MediaCleanup.created_at).with_for_update(skip_locked=True).limit(1))
+        if cleanup:
+            try:
+                if cleanup.storage_key:
+                    storage.delete(cleanup.storage_key)
+                root = (Path(runtime_settings.settings().data_dir) / "uploads").resolve()
+                folder = (root / cleanup.upload_id).resolve()
+                if folder.parent != root:
+                    raise ValueError("Invalid cleanup path")
+                if folder.exists():
+                    shutil.rmtree(folder)
+                db.delete(cleanup)
+            except Exception as exc:
+                cleanup.retries += 1
+                cleanup.next_attempt_at = time.time() + min(3600, 2 ** min(cleanup.retries, 12))
+                log.warning("media_cleanup_failed id=%s type=%s", cleanup.id, type(exc).__name__)
+            db.commit()
+            return True
         job = db.scalar(
             select(ReviewJob)
             .where(ReviewJob.status == "PENDING")

@@ -134,6 +134,7 @@ class Exam(Entity, Base):
     blueprint: Mapped[list] = mapped_column(JSON(none_as_null=True))
     status: Mapped[str] = mapped_column(String(20), default="DRAFT")
     snapshot: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
+    max_attempts: Mapped[int | None] = mapped_column(Integer().evaluates_none(), default=1, server_default="1")
 
 
 class Assignment(Entity, Base):
@@ -141,17 +142,33 @@ class Assignment(Entity, Base):
     __table_args__ = (UniqueConstraint("exam_id", "student_id"),)
     exam_id: Mapped[str] = mapped_column(ForeignKey("exams.id"))
     student_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    extra_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class ExamSession(Entity, Base):
     __tablename__ = "exam_sessions"
-    __table_args__ = (UniqueConstraint("exam_id", "student_id"),)
+    __table_args__ = (
+        UniqueConstraint("exam_id", "student_id", "attempt_number", name="uq_exam_session_attempt"),
+        Index("one_active_exam_session", "exam_id", "student_id", unique=True,
+              postgresql_where=text("deleted_at IS NULL AND status IN ('DEVICE_CHECK', 'IN_PROGRESS')"),
+              sqlite_where=text("deleted_at IS NULL AND status IN ('DEVICE_CHECK', 'IN_PROGRESS')")),
+    )
     exam_id: Mapped[str] = mapped_column(ForeignKey("exams.id"))
     student_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(String(30), default="DEVICE_CHECK")
     started_at: Mapped[float | None] = mapped_column(Float)
     completed_at: Mapped[float | None] = mapped_column(Float)
     final_score: Mapped[float | None] = mapped_column(Float)
+    attempt_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    deleted_at: Mapped[float | None] = mapped_column(Float)
+
+
+class MediaCleanup(Entity, Base):
+    __tablename__ = "media_cleanup"
+    upload_id: Mapped[str] = mapped_column(String(36), unique=True)
+    storage_key: Mapped[str | None] = mapped_column(Text)
+    retries: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[float] = mapped_column(Float, default=0)
 
 
 class Attempt(Entity, Base):

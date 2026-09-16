@@ -41,6 +41,7 @@ export type Rubric = {
 };
 export type Blueprint = { topic_id: string; difficulty: string; count: number };
 export type Exam = {
+  max_attempts: number | null;
   id: string;
   name: string;
   status: string;
@@ -79,7 +80,24 @@ export type Workspace = {
   rubrics: Rubric[];
   exams: Exam[];
 };
+export type Sitting = {
+  id: string;
+  attempt_number: number;
+  status: string;
+  created_at: number;
+  started_at: number | null;
+  completed_at: number | null;
+  final_score: number | null;
+};
 export type Result = {
+  attempt_number: number;
+  created_at: number;
+  started_at: number | null;
+  completed_at: number | null;
+  exam_id: string;
+  student_id: string;
+  max_attempts: number | null;
+  remaining_attempts: number | null;
   id: string;
   status: string;
   exam_name: string;
@@ -103,6 +121,7 @@ export type Assessment = {
   retrieved_chunks?: Chunk[];
 };
 export type Review = Result & {
+  history: Sitting[];
   snapshot: {
     rubric_version: number;
     knowledge_version: string;
@@ -137,6 +156,10 @@ export type Review = Result & {
   }[];
 };
 export type StudentExam = {
+  attempt_count: number;
+  remaining_attempts: number | null;
+  can_start_new: boolean;
+  history: Sitting[];
   course_id?: string;
   course_name?: string;
   practice?: boolean;
@@ -148,6 +171,7 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  attempt_number: number;
   practice?: boolean;
   grading_message?: string | null;
   id: string;

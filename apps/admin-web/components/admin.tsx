@@ -1,4 +1,9 @@
 "use client";
+import {
+  AttemptLimitFields,
+  AttemptPolicy,
+  ResultActions,
+} from "./exam-retakes";
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -116,7 +121,13 @@ export default function Admin({
         refresh={async () =>
           setReview(await api<Review>(`/admin/results/${review.id}`))
         }
-        back={() => setReview(null)}
+        back={() => {
+          setReview(null);
+          void load();
+        }}
+        open={async (id) =>
+          setReview(await api<Review>(`/admin/results/${id}`))
+        }
       />
     );
   return (
@@ -452,6 +463,8 @@ export default function Admin({
           <section className="panel">
             <ResultTable
               rows={results}
+              admin={user.role === "ADMIN"}
+              refresh={load}
               open={async (id) =>
                 setReview(await api<Review>(`/admin/results/${id}`))
               }
@@ -465,9 +478,13 @@ export default function Admin({
 function ResultTable({
   rows,
   open,
+  admin = false,
+  refresh = async () => {},
 }: {
   rows: Result[];
   open: (id: string) => Promise<unknown>;
+  admin?: boolean;
+  refresh?: () => Promise<unknown>;
 }) {
   return !rows.length ? (
     <Empty>
@@ -480,6 +497,8 @@ function ResultTable({
           <tr>
             <th>Sinh viên</th>
             <th>Bài thi</th>
+            <th>Lần thi</th>
+            <th>Thời gian</th>
             <th>Trạng thái</th>
             <th>Điểm chính thức</th>
             <th />
@@ -492,6 +511,12 @@ function ResultTable({
                 <strong>{r.student_name}</strong>
               </td>
               <td>{r.exam_name}</td>
+              <td>Lần {r.attempt_number ?? 1}</td>
+              <td>
+                {r.created_at
+                  ? new Date(r.created_at * 1000).toLocaleString("vi-VN")
+                  : "—"}
+              </td>
               <td>
                 <Badge status={r.status} />
               </td>
@@ -504,6 +529,13 @@ function ResultTable({
                 <Action className="text-button" action={() => open(r.id)}>
                   Xem bài →
                 </Action>
+                {admin && (
+                  <ResultActions
+                    result={r}
+                    refresh={refresh}
+                    deleted={refresh}
+                  />
+                )}
               </td>
             </tr>
           ))}
@@ -949,6 +981,21 @@ function CourseWorkspace({
                   ))}
                 </ul>
               </details>
+              <p className="muted">
+                {e.max_attempts === null
+                  ? "Làm lại không giới hạn"
+                  : (e.max_attempts ?? 1) === 1
+                    ? "Không cho làm lại"
+                    : `Cho làm lại ${e.max_attempts - 1} lần`}
+              </p>
+              {admin && (
+                <AttemptPolicy
+                  key={`${e.id}-${e.max_attempts}`}
+                  examId={e.id}
+                  initial={e.max_attempts === undefined ? 1 : e.max_attempts}
+                  saved={load}
+                />
+              )}
               {editable && e.status === "DRAFT" && (
                 <div className="inline">
                   <Action action={() => mutate(`/admin/exams/${e.id}/publish`)}>
@@ -1040,6 +1087,7 @@ function CourseWorkspace({
               <ExamForm
                 key={editExam?.id || `new-${formVersion}`}
                 initial={editExam}
+                admin={admin}
                 cancel={() => {
                   setEditExam(null);
                   setExamOpen(false);
@@ -1276,6 +1324,7 @@ function RubricForm({
   );
 }
 function ExamForm({
+  admin,
   initial,
   data,
   course,
@@ -1283,11 +1332,15 @@ function ExamForm({
   cancel,
 }: {
   initial: Exam | null;
+  admin: boolean;
   data: Workspace;
   course: Course;
   save: (body: unknown) => Promise<void>;
   cancel: () => void;
 }) {
+  const [maxAttempts, setMaxAttempts] = useState<number | null>(
+    initial?.max_attempts === undefined ? 1 : initial.max_attempts,
+  );
   const [blueprint, setBlueprint] = useState<Blueprint[]>(
     initial?.blueprint || [
       { topic_id: data.topics[0]?.id || "", difficulty: "MEDIUM", count: 1 },
@@ -1310,6 +1363,7 @@ function ExamForm({
             rubric_id: d.get("rubric_id"),
             time_limit: Number(d.get("minutes")) * 60,
             blueprint,
+            max_attempts: maxAttempts,
           })
         }
       >
@@ -1335,6 +1389,9 @@ function ExamForm({
             ))}
           </select>
         </label>
+        {admin && (
+          <AttemptLimitFields value={maxAttempts} onChange={setMaxAttempts} />
+        )}
         <h3>Phân bổ câu hỏi (Exam blueprint)</h3>
         {blueprint.map((b, i) => (
           <div className="blueprint-form" key={i}>
@@ -1432,11 +1489,13 @@ function ReviewPage({
   back,
   admin,
   refresh,
+  open,
 }: {
   review: Review;
   back: () => void;
   admin: boolean;
   refresh: () => Promise<void>;
+  open: (id: string) => Promise<unknown>;
 }) {
   return (
     <>
@@ -1447,7 +1506,9 @@ function ReviewPage({
       <div className="page-heading">
         <div>
           <span className="eyebrow">BÀI THI CỦA {review.student_name}</span>
-          <h1>{review.exam_name}</h1>
+          <h1>
+            {review.exam_name} · Lần {review.attempt_number ?? 1}
+          </h1>
           <p className="muted">
             Rubric v{review.snapshot.rubric_version} ·{" "}
             {review.snapshot.ai_provider === "demo"
@@ -1458,6 +1519,36 @@ function ReviewPage({
         </div>
         <Badge status={review.status} />
       </div>
+      <section className="panel">
+        <label>
+          Lịch sử làm bài
+          <select
+            value={review.id}
+            onChange={(event) => void open(event.target.value)}
+          >
+            {(review.history || [review]).map((row) => (
+              <option key={row.id} value={row.id}>
+                Lần {row.attempt_number ?? 1} ·{" "}
+                {row.created_at
+                  ? new Date(row.created_at * 1000).toLocaleString("vi-VN")
+                  : ""}{" "}
+                ·{" "}
+                {row.final_score === null
+                  ? "Chưa xác nhận điểm"
+                  : `${row.final_score}/10`}
+              </option>
+            ))}
+          </select>
+        </label>
+        {admin && (
+          <ResultActions
+            key={review.id}
+            result={review}
+            refresh={refresh}
+            deleted={async () => back()}
+          />
+        )}
+      </section>
       <div className="notice">
         <strong>
           Điểm chính thức:{" "}

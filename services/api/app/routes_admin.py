@@ -6,7 +6,8 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import Response
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from . import ai, storage
@@ -24,6 +25,7 @@ from .models import (
     Exam,
     ExamSession,
     LearningOutcome,
+    MediaCleanup,
     ReviewJob,
     Rubric,
     Topic,
@@ -32,6 +34,7 @@ from .models import (
     User,
     uid,
 )
+from .retakes import allowance, history_row, sessions_for
 from .runtime_settings import settings
 from .security import admin, by_id, course_access, editor, fail, hasher, public_user, staff
 from .speech import google_ready, policy
@@ -58,7 +61,7 @@ def dashboard(db: Session = Depends(get_db), user=Depends(staff)):
         "exams": db.scalar(select(func.count()).select_from(Exam).where(Exam.course_id.in_(ids))),
         "documents": db.scalar(select(func.count()).select_from(Document).where(Document.course_id.in_(ids))),
         "sessions": db.scalar(
-            select(func.count()).select_from(ExamSession).join(Exam).where(Exam.course_id.in_(ids))
+            select(func.count()).select_from(ExamSession).join(Exam).where(Exam.course_id.in_(ids), ExamSession.deleted_at.is_(None))
         ),
         "ai_provider": settings().ai_provider,
     }
@@ -163,7 +166,7 @@ def workspace(course_id: str, db: Session = Depends(get_db), user=Depends(staff)
         ),
         "chapters": rows(BookSection, "document_id", "title", "level", "start_page", "end_page", "source"),
         "rubrics": rows(Rubric, "name", "version", "criteria"),
-        "exams": rows(Exam, "name", "status", "blueprint", "time_limit", "rubric_id"),
+        "exams": rows(Exam, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts"),
     }
 
 
@@ -417,6 +420,8 @@ def validate_exam(db, body, user):
 @router.post("/exams", status_code=201)
 def create_exam(body: s.ExamIn, db: Session = Depends(get_db), user=Depends(editor)):
     validate_exam(db, body, user)
+    if user.role != "ADMIN" and body.max_attempts != 1:
+        fail(403, "FORBIDDEN", "Chỉ admin được cấu hình số lượt làm bài")
     row = Exam(**body.model_dump())
     db.add(row)
     db.commit()
@@ -432,10 +437,12 @@ def update_exam(key: str, body: s.ExamIn, db: Session = Depends(get_db), user=De
     if body.course_id != row.course_id:
         fail(422, "CROSS_COURSE", "Không chuyển đề thi sang môn học khác")
     validate_exam(db, body, user)
+    if user.role != "ADMIN" and body.max_attempts != row.max_attempts:
+        fail(403, "FORBIDDEN", "Chỉ admin được cấu hình số lượt làm bài")
     for field, value in body.model_dump().items():
         setattr(row, field, value)
     db.commit()
-    return data(row, "name", "status")
+    return data(row, "name", "status", "max_attempts")
 
 
 @router.delete("/exams/{key}")
@@ -458,12 +465,13 @@ def copy_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
         name=f"{source.name[:189]} (bản sao)",
         time_limit=source.time_limit,
         blueprint=deepcopy(source.blueprint),
+        max_attempts=source.max_attempts,
     )
     validate_exam(db, body, user)
     row = Exam(**body.model_dump())
     db.add(row)
     db.commit()
-    return data(row, "name", "status", "blueprint", "time_limit", "rubric_id")
+    return data(row, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts")
 
 
 @router.post("/exams/{key}/publish")
@@ -570,12 +578,14 @@ def results(db: Session = Depends(get_db), user=Depends(staff)):
         select(ExamSession, Exam, User)
         .join(Exam, Exam.id == ExamSession.exam_id)
         .join(User, User.id == ExamSession.student_id)
+        .where(ExamSession.deleted_at.is_(None))
     )
     if user.role == "TEACHER":
         query = query.join(Course).where(Course.owner_id == user.id)
     return [
-        data(session, "status", "started_at", "completed_at", "final_score")
-        | {"exam_name": exam.name, "student_name": student.name}
+        history_row(session)
+        | {"exam_name": exam.name, "student_name": student.name,
+           "student_id": student.id, "exam_id": exam.id, **allowance(db, exam, student.id)}
         for session, exam, student in db.execute(query.order_by(ExamSession.created_at.desc()))
     ]
 
@@ -583,10 +593,15 @@ def results(db: Session = Depends(get_db), user=Depends(staff)):
 @router.get("/results/{key}")
 def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
     session = by_id(db, ExamSession, key)
+    if session.deleted_at is not None:
+        fail(404, "NOT_FOUND", "Lần thi đã bị xóa")
     exam = by_id(db, Exam, session.exam_id)
     course_access(db, exam.course_id, user)
     attempts = db.scalars(select(Attempt).where(Attempt.session_id == key).order_by(Attempt.sequence)).all()
-    return data(session, "status", "final_score") | {
+    return history_row(session) | {
+        "exam_id": exam.id, "student_id": session.student_id,
+        **allowance(db, exam, session.student_id),
+        "history": [history_row(row) for row in sessions_for(db, exam.id, session.student_id)],
         "exam_name": exam.name,
         "snapshot": exam.snapshot,
         "student_name": by_id(db, User, session.student_id).name,
@@ -766,5 +781,80 @@ def unenroll_student(course_id: str, student_id: str, db: Session = Depends(get_
             details={"course_id": course_id, "user_id": student_id},
         )
     )
+    db.commit()
+    return {"ok": True}
+
+
+@router.put("/exams/{key}/attempt-policy")
+def update_attempt_policy(key: str, body: s.AttemptPolicyIn, db: Session = Depends(get_db), user=Depends(admin)):
+    exam = by_id(db, Exam, key, lock=True)
+    previous = exam.max_attempts
+    exam.max_attempts = body.max_attempts
+    db.add(Audit(user_id=user.id, event="EXAM_ATTEMPT_POLICY", details={
+        "exam_id": key, "previous": previous, "max_attempts": body.max_attempts,
+    }))
+    db.commit()
+    return data(exam, "max_attempts")
+
+
+@router.post("/results/{key}/retake")
+def grant_retake(key: str, body: s.RetakeIn, db: Session = Depends(get_db), user=Depends(admin)):
+    session = by_id(db, ExamSession, key)
+    exam = by_id(db, Exam, session.exam_id, lock=True)
+    db.refresh(session)
+    if session.deleted_at is not None:
+        fail(404, "NOT_FOUND", "Lần thi đã bị xóa")
+    if exam.max_attempts is None:
+        fail(409, "UNLIMITED", "Bài thi đã cho làm lại không giới hạn")
+    state = allowance(db, exam, session.student_id)
+    assignment = db.scalar(select(Assignment).where(
+        Assignment.exam_id == exam.id, Assignment.student_id == session.student_id,
+    ))
+    if not assignment:
+        assignment = Assignment(exam_id=exam.id, student_id=session.student_id, extra_attempts=0)
+        db.add(assignment)
+    assignment.extra_attempts = max(
+        assignment.extra_attempts + body.additional_attempts,
+        state["attempt_count"] + body.additional_attempts - exam.max_attempts,
+    )
+    db.add(Audit(user_id=user.id, event="RETAKE_GRANTED", details={
+        "exam_id": exam.id, "student_id": session.student_id,
+        "additional_attempts": body.additional_attempts, "extra_attempts": assignment.extra_attempts,
+    }))
+    db.commit()
+    return allowance(db, exam, session.student_id)
+
+
+@router.delete("/results/{key}")
+def delete_result(key: str, db: Session = Depends(get_db), user=Depends(admin)):
+    session = by_id(db, ExamSession, key)
+    # Share the exam lock with session creation and allowance changes.
+    by_id(db, Exam, session.exam_id, lock=True)
+    ids = list(db.scalars(select(Attempt.id).where(Attempt.session_id == key)))
+    try:
+        # Worker lock order is review job -> attempt -> session. NOWAIT also avoids
+        # conflicting with upload/finish transactions and returns a retryable UI error.
+        db.scalars(select(ReviewJob).where(ReviewJob.attempt_id.in_(ids)).with_for_update(nowait=True)).all()
+        db.scalars(select(Attempt).where(Attempt.id.in_(ids)).with_for_update(nowait=True)).all()
+        session = db.scalar(select(ExamSession).where(ExamSession.id == key)
+                            .execution_options(populate_existing=True).with_for_update(nowait=True))
+        uploads = db.scalars(select(Upload).where(Upload.attempt_id.in_(ids)).with_for_update(nowait=True)).all()
+    except OperationalError as exc:
+        if getattr(exc.orig, "sqlstate", None) != "55P03":
+            raise
+        db.rollback()
+        fail(409, "SESSION_BUSY", "Lần thi đang được xử lý. Đợi hoàn tất rồi xóa lại.")
+    if session.deleted_at is not None:
+        return {"ok": True}
+    for upload in uploads:
+        db.add(MediaCleanup(upload_id=upload.id, storage_key=upload.storage_key))
+    db.execute(delete(ReviewJob).where(ReviewJob.attempt_id.in_(ids)))
+    db.execute(delete(Upload).where(Upload.attempt_id.in_(ids)))
+    db.execute(delete(Attempt).where(Attempt.id.in_(ids)))
+    session.deleted_at, session.status, session.final_score = time.time(), "DELETED", None
+    db.add(Audit(user_id=user.id, event="EXAM_SESSION_DELETED", details={
+        "session_id": key, "exam_id": session.exam_id, "student_id": session.student_id,
+        "attempt_number": session.attempt_number, "media_count": len(uploads),
+    }))
     db.commit()
     return {"ok": True}

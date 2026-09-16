@@ -1,5 +1,13 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Nhiều lần làm bài và quản lý kết quả — 17/09/2026
+
+- Suite backend: 53 test đạt trên SQLite, 1 test khóa PostgreSQL bỏ qua; 54 test đạt trên PostgreSQL/pgvector với database tạm riêng. Bao gồm giới hạn, không giới hạn, cấp thêm lượt riêng, giảm giới hạn, phân quyền, lịch sử và snapshot không đổi.
+- Năm test retake chạy lại trên PostgreSQL đạt, gồm bốn request tạo lần thi đồng thời trả về cùng một phiên, từ chối xóa khi worker đang giữ khóa, xóa đúng câu trả lời/media, thu hồi quyền truy cập và giữ số lần tăng sau xóa. Giả lập storage lỗi rồi worker thử lại thành công.
+- Migration trên dữ liệu cũ đạt ở SQLite và PostgreSQL: giữ điểm 8 và transcript mẫu, gán lần 1, cho tạo lần 2; chạy upgrade lặp lại an toàn. Không migration database ứng dụng đang chạy.
+- Năm kịch bản Playwright đạt: hai kịch bản quản lý lượt/lịch sử cho admin và sinh viên, ba kịch bản STT desktop cũ. Kiểm tra chọn cả ba chính sách, chuyển lịch sử, cấp lượt, hủy/xác nhận xóa đúng lần, mở kết quả cũ và yêu cầu lần mới. API được giả lập trong E2E; quy tắc dữ liệu và khóa được kiểm tra bằng suite backend PostgreSQL.
+- Ruff, ESLint, TypeScript và Next production build đạt. Thay đổi này không gọi Gemini/Ollama thật và không thay model STT.
+
 ## Chọn bản STT, tên thiết bị và sửa chính tả local — 17/09/2026
 
 - Tái hiện trên Electron thật: `setPermissionCheckHandler` nhận origin `http://localhost:3001/`, code so với `http://localhost:3001` nên không cấp quyền liệt kê tên. Sau khi chuẩn hóa origin, đọc được UGREEN HiTune Max5c, UGREEN Camera 4K Analog Stereo, Built-in Audio Analog Stereo và camera UGREEN từ chính PC Linux; không dùng thiết bị giả ở kiểm tra tên này.

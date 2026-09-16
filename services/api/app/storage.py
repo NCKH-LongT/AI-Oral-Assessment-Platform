@@ -53,6 +53,13 @@ def get(key):
     return local_path(key).read_bytes()
 
 
+def delete(key):
+    if settings().storage_backend == "s3":
+        s3().delete_object(Bucket=settings().s3_bucket, Key=key)
+    else:
+        local_path(key).unlink(missing_ok=True)
+
+
 def open_stream(key):
     if settings().storage_backend == "s3":
         return s3().get_object(Bucket=settings().s3_bucket, Key=key)["Body"]

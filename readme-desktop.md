@@ -52,6 +52,14 @@ Bản kiểm tra chỉ giữ tạm trong bộ nhớ; kiểm tra lại hoặc r�
 - Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Ngôn ngữ vẫn lấy từ cấu hình server.
 - PhoWhisper-small được tinh chỉnh cho tiếng Việt. Có thể chọn tiếng Anh trong policy nhưng chưa benchmark chất lượng; đề tiếng Việt là mục tiêu chính.
 
+## Làm lại bài thi
+
+Danh sách bài thi hiển thị số lượt còn lại và **Lịch sử làm bài**. Bấm **Xem lần N** để mở kết quả cũ; bấm **Làm lại bài thi** để tạo lần mới khi còn lượt. Phiên đang làm luôn được tiếp tục, không tạo thêm phiên khi bấm lặp hoặc mở lại app. Mỗi lần mới cần kết nối thiết bị và kiểm tra mic lại.
+
+Admin cấu hình không cho làm lại, cho làm lại N lần hoặc không giới hạn ở đề thi; có thể cấp thêm lượt riêng cho sinh viên trong **Kết quả & xem lại → Quản lý lượt thi**. Hết lượt thì liên hệ admin; không cần xóa bài cũ để cấp thêm lượt. Sau khi admin thay đổi, bấm làm mới danh sách bài thi.
+
+Bản này cần backend đã chạy migration `0004`: cập nhật server bằng `docker compose up -d --build --wait`, rồi mở lại desktop. `./run-desktop.sh` vẫn chỉ chạy UI dev và Electron. Xem [hướng dẫn quản lý lượt thi](docs/architecture/exam-retakes.md).
+
 ## Sửa chính tả local (tùy chọn)
 
 1. Trước khi thi, ở **Sửa chính tả local**, bấm **Tải model sửa chính tả (1,28 GB)**. Có tiến độ và nút hủy. Chỉ cần mạng để tải lần đầu; tải lỗi/hủy có thể thử lại từ đầu. STT PhoWhisper vẫn có sẵn và không cần model này.

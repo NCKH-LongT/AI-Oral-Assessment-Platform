@@ -68,6 +68,12 @@ Sau khi ghi, chọn **Bản gốc** hoặc **Bản giảm nhiễu RNNoise** rồ
 
 Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khiển đường nhận dạng của trình duyệt web. Media gốc được lưu riêng, không thay bằng bản đã lọc. Worker xử lý bất đồng bộ; app tự cập nhật điểm hoặc trạng thái cần xem lại.
 
+## Số lần làm bài và kết quả
+
+Admin mở **Môn học & đề thi → chọn môn → Bài thi & giao bài → Cấu hình số lần làm lại**: không cho làm lại, cho làm lại N lần hoặc không giới hạn. Ví dụ cho làm lại 1 lần là tổng cộng 2 lượt.
+
+**Kết quả & xem lại** hiển thị từng lần thi. Mở **Quản lý lượt thi** để cấp thêm lượt riêng cho sinh viên hoặc xóa lần thi được chọn. Sinh viên xem lịch sử và bấm **Làm lại bài thi** khi còn lượt. [Chi tiết và nâng cấp database](docs/architecture/exam-retakes.md).
+
 ## Admin chọn STT trên server
 
 Trong **Cấu hình hệ thống → STT & giọng nói**, admin có thể chọn Gemini hoặc Google Cloud STT cho trình duyệt web. Desktop vẫn nhận dạng local.
@@ -91,7 +97,7 @@ Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn deskto
 
 `Jenkinsfile` build/kiểm tra/deploy web và API; bộ cài desktop dùng workflow riêng. Nếu deploy bằng Jenkins, đồng bộ các biến mới trong credential `oral-ai-env`.
 
-Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration `0004` để lưu nhiều lần thi; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
 
 ```bash
 .venv/bin/python -m pytest services/api/tests -q

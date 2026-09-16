@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   normalizeServerURL,
   googleLoginURL,
+  hasSameOrigin,
 } = require("../apps/desktop/server-config.cjs");
 test("desktop root domain permits HTTPS and loopback, rejects credentials and paths", () => {
   assert.equal(
@@ -24,6 +25,24 @@ test("desktop root domain permits HTTPS and loopback, rejects credentials and pa
   ]) {
     assert.throws(() => normalizeServerURL(url));
   }
+});
+
+test("media permission accepts serialized origins with trailing slash", () => {
+  for (const url of [
+    "http://localhost:3001",
+    "http://localhost:3001/",
+    "http://localhost:3001/exam",
+  ])
+    assert.equal(hasSameOrigin(url, "http://localhost:3001"), true);
+  for (const url of [
+    undefined,
+    "null",
+    "file:///tmp/test",
+    "http://localhost:3000/",
+    "https://evil.example/",
+    "http://localhost:3001.evil.example/",
+  ])
+    assert.equal(hasSameOrigin(url, "http://localhost:3001"), false);
 });
 
 test("Google opens only the configured backend origin and start endpoint", () => {

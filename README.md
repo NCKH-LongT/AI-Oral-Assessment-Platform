@@ -64,6 +64,8 @@ Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhi
 4. Phát lại bản thử, bật/tắt **Nghe bản đã lọc nhiễu RNNoise** để so sánh. Bản thử không upload.
 5. Chọn bật/tắt **Lọc nhiễu RNNoise khi nhận dạng câu trả lời**, bắt đầu thi, kiểm tra transcript rồi nộp.
 
+Sau khi ghi, chọn **Bản gốc** hoặc **Bản giảm nhiễu RNNoise** rồi bấm **Thử STT lại**. Desktop có **Gợi ý sửa chính tả** chạy local: tải model một lần (1,28 GB), xem bản đề xuất và tự quyết định áp dụng. Xem [hướng dẫn desktop](readme-desktop.md#sửa-chính-tả-local-tùy-chọn).
+
 Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khiển đường nhận dạng của trình duyệt web. Media gốc được lưu riêng, không thay bằng bản đã lọc. Worker xử lý bất đồng bộ; app tự cập nhật điểm hoặc trạng thái cần xem lại.
 
 ## Admin chọn STT trên server

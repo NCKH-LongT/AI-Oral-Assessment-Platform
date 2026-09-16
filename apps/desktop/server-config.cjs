@@ -1,4 +1,11 @@
 const DEFAULT_URL = "http://localhost:3000";
+function hasSameOrigin(value, origin) {
+  try {
+    return new URL(value).origin === origin;
+  } catch {
+    return false;
+  }
+}
 function normalizeServerURL(value) {
   const url = new URL(String(value).trim());
   if (
@@ -34,4 +41,9 @@ function googleLoginURL(value, authOrigin) {
     );
   return url.href;
 }
-module.exports = { DEFAULT_URL, normalizeServerURL, googleLoginURL };
+module.exports = {
+  DEFAULT_URL,
+  normalizeServerURL,
+  googleLoginURL,
+  hasSameOrigin,
+};

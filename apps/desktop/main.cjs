@@ -19,15 +19,18 @@ const { existsSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
+const { createCorrectionService } = require("./correction.cjs");
 const {
   DEFAULT_URL,
   normalizeServerURL,
   googleLoginURL,
+  hasSameOrigin,
 } = require("./server-config.cjs");
 let webURL = new URL(DEFAULT_URL),
   sttBusy = false,
   win,
   configWindow;
+let correction;
 const configPage = pathToFileURL(path.join(__dirname, "server.html")).href;
 function trustedConfig(event) {
   if (
@@ -100,16 +103,22 @@ app.whenReady().then(async () => {
   )
     authOrigin = normalizeServerURL(process.env.ORAL_AUTH_ORIGIN);
   session.defaultSession.setPermissionRequestHandler(
-    (contents, permission, callback) => {
+    (contents, permission, callback, details) => {
       callback(
         permission === "media" &&
-          new URL(contents.getURL()).origin === webURL.origin,
+          contents === win?.webContents &&
+          hasSameOrigin(
+            details.requestingUrl || contents?.getURL(),
+            webURL.origin,
+          ),
       );
     },
   );
   session.defaultSession.setPermissionCheckHandler(
     (contents, permission, origin) =>
-      permission === "media" && origin === webURL.origin,
+      permission === "media" &&
+      contents === win?.webContents &&
+      hasSameOrigin(origin, webURL.origin),
   );
   win = new BrowserWindow({
     show: configured || !app.isPackaged,
@@ -123,6 +132,34 @@ app.whenReady().then(async () => {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+  correction = createCorrectionService(
+    path.join(app.getPath("userData"), "models", "correction"),
+  );
+  function trustedStudent(event) {
+    if (
+      event.sender !== win.webContents ||
+      !hasSameOrigin(event.senderFrame?.url, webURL.origin)
+    )
+      throw new Error("Forbidden");
+  }
+  ipcMain.handle("oral:correction-status", (event) => {
+    trustedStudent(event);
+    return correction.status();
+  });
+  ipcMain.handle("oral:correction-install", (event) => {
+    trustedStudent(event);
+    if (sttBusy) throw new Error("Đang STT. Vui lòng chờ hoàn tất.");
+    return correction.install();
+  });
+  ipcMain.handle("oral:correction-cancel", (event) => {
+    trustedStudent(event);
+    correction.cancel();
+  });
+  ipcMain.handle("oral:correct", (event, text) => {
+    trustedStudent(event);
+    if (sttBusy) throw new Error("Đang STT. Vui lòng chờ hoàn tất.");
+    return correction.correct(text);
   });
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -158,9 +195,9 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("server:save", async (event, value) => {
     trustedConfig(event);
-    if (sttBusy)
+    if (sttBusy || correction.busy())
       throw new Error(
-        "Đang nhận dạng. Vui lòng chờ hoàn tất trước khi đổi máy chủ.",
+        "Đang xử lý local. Vui lòng chờ hoàn tất trước khi đổi máy chủ.",
       );
     const origin = await checkServer(value);
     const choice = await dialog.showMessageBox(configWindow, {
@@ -211,6 +248,8 @@ app.whenReady().then(async () => {
     )
       throw new Error("Invalid STT request");
     if (sttBusy) throw new Error("STT đang bận");
+    if (correction.busy())
+      throw new Error("Đang xử lý sửa chính tả. Vui lòng chờ hoàn tất.");
     sttBusy = true;
     let folder;
     try {
@@ -319,3 +358,4 @@ app.whenReady().then(async () => {
   }
 });
 app.on("window-all-closed", () => app.quit());
+app.on("before-quit", () => correction?.cancel());

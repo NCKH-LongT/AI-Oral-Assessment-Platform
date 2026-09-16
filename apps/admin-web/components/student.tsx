@@ -20,6 +20,9 @@ import {
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
 import NoiseCheck from "./noise-check";
+import TranscriptCorrection, {
+  type CorrectionBridge,
+} from "./transcript-correction";
 import { createNoiseFilter, type NoiseFilter } from "../lib/noise-filter";
 
 type STT = { transcript: string; stt_confidence: number };
@@ -27,6 +30,7 @@ declare global {
   interface Window {
     oralDesktop?: {
       openGoogle?: (url: string) => Promise<void>;
+      correction?: CorrectionBridge;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
     };
   }
@@ -34,7 +38,8 @@ declare global {
 type PendingAnswer = {
   attemptId: string;
   audio: Blob;
-  sttAudio: Blob;
+  filteredAudio: Blob | null;
+  sttSource: "original" | "filtered";
   video: Blob;
   transcript: string;
   confidence: number;
@@ -92,6 +97,7 @@ export default function Student() {
   const [denoise, setDenoise] = useState(true);
   const [filterError, setFilterError] = useState("");
   const filterRef = useRef<NoiseFilter | null>(null);
+  const filterFailures = useRef(0);
   const deviceGeneration = useRef(0);
   const preview = useRef<HTMLVideoElement>(null),
     recorders = useRef<MediaRecorder[]>([]),
@@ -276,17 +282,20 @@ export default function Student() {
       }
       try {
         const filter = await createNoiseFilter(s, () => {
-          if (generation === deviceGeneration.current)
+          if (generation === deviceGeneration.current) {
+            filterFailures.current++;
             setFilterError(
               "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
             );
+          }
         });
         if (generation !== deviceGeneration.current) {
           await filter.close();
           s.getTracks().forEach((t) => t.stop());
           return;
         }
-        filter.setEnabled(denoise);
+        // Always retain a filtered alternative; denoise selects the first STT input.
+        filter.setEnabled(true);
         filterRef.current = filter;
       } catch {
         if (generation !== deviceGeneration.current) {
@@ -383,18 +392,18 @@ export default function Student() {
       mimeType: vm,
       videoBitsPerSecond: 650000,
     });
-    const cleanRecorder = new MediaRecorder(
-      denoise && filterRef.current
-        ? filterRef.current.stream
-        : new MediaStream(stream.getAudioTracks()),
-      { mimeType: am },
-    );
+    const filterVersion = filterFailures.current;
+    const cleanRecorder =
+      filterRef.current && !filterError
+        ? new MediaRecorder(filterRef.current.stream, { mimeType: am })
+        : null;
     const audioChunks: BlobPart[] = [],
       cleanChunks: BlobPart[] = [],
       videoChunks: BlobPart[] = [];
-    cleanRecorder.ondataavailable = (e) => {
-      if (e.data.size) cleanChunks.push(e.data);
-    };
+    if (cleanRecorder)
+      cleanRecorder.ondataavailable = (e) => {
+        if (e.data.size) cleanChunks.push(e.data);
+      };
     audioRecorder.ondataavailable = (e) => {
       if (e.data.size) audioChunks.push(e.data);
     };
@@ -407,26 +416,40 @@ export default function Student() {
     } finally {
       setStartingRecording(false);
     }
+    const activeRecorders = [
+      audioRecorder,
+      videoRecorder,
+      ...(cleanRecorder ? [cleanRecorder] : []),
+    ];
     let stops = 0;
     const stopped = async () => {
       stops++;
-      if (stops < 3) return;
+      if (stops < activeRecorders.length) return;
       recordingRef.current = false;
       setRecording(false);
       setProcessing(true);
       const a: PendingAnswer = {
         attemptId,
         audio: new Blob(audioChunks, { type: am.split(";")[0] }),
-        sttAudio: new Blob(cleanChunks, { type: am.split(";")[0] }),
+        filteredAudio:
+          cleanRecorder &&
+          filterVersion === filterFailures.current &&
+          cleanChunks.length
+            ? new Blob(cleanChunks, { type: am.split(";")[0] })
+            : null,
+        sttSource: "original",
         video: new Blob(videoChunks, { type: vm.split(";")[0] }),
         transcript: "",
         originalText: "",
         confidence: 0,
         key: crypto.randomUUID(),
       };
+      a.sttSource = denoise && a.filteredAudio ? "filtered" : "original";
       setAnswer(a);
       try {
-        const stt = await transcribe(a.sttAudio);
+        const stt = await transcribe(
+          a.sttSource === "filtered" ? a.filteredAudio! : a.audio,
+        );
         a.transcript = stt.transcript;
         a.originalText = stt.transcript;
         a.confidence = stt.stt_confidence;
@@ -439,28 +462,26 @@ export default function Student() {
         setProcessing(false);
       }
     };
-    audioRecorder.onstop = stopped;
-    videoRecorder.onstop = stopped;
-    cleanRecorder.onstop = stopped;
+    activeRecorders.forEach((r) => {
+      r.onstop = stopped;
+    });
     const recordingError = () => {
       setDeviceError(
         "Có lỗi ghi media. Kiểm tra thiết bị và ghi lại câu trả lời.",
       );
       stopRef.current();
     };
-    audioRecorder.onerror = recordingError;
-    videoRecorder.onerror = recordingError;
-    cleanRecorder.onerror = recordingError;
-    recorders.current = [audioRecorder, videoRecorder, cleanRecorder];
+    activeRecorders.forEach((r) => {
+      r.onerror = recordingError;
+    });
+    recorders.current = activeRecorders;
     stopRef.current = () => {
       if (!recordingRef.current) return;
       recordingRef.current = false;
       for (const r of recorders.current) if (r.state !== "inactive") r.stop();
       setRecording(false);
     };
-    audioRecorder.start(1000);
-    videoRecorder.start(1000);
-    cleanRecorder.start(1000);
+    activeRecorders.forEach((r) => r.start(1000));
     recordingRef.current = true;
     setRecording(true);
     setError("");
@@ -733,7 +754,6 @@ export default function Student() {
                     checked={denoise}
                     onChange={(event) => {
                       setDenoise(event.target.checked);
-                      filterRef.current?.setEnabled(event.target.checked);
                     }}
                   />
                   Lọc nhiễu RNNoise khi nhận dạng câu trả lời
@@ -756,7 +776,11 @@ export default function Student() {
                 )}
                 <Action
                   disabled={
-                    !stream || !!deviceError || !noiseReady || connecting
+                    !stream ||
+                    !!deviceError ||
+                    !noiseReady ||
+                    connecting ||
+                    processing
                   }
                   action={async () =>
                     setSession(
@@ -768,6 +792,10 @@ export default function Student() {
                 >
                   Bắt đầu thi
                 </Action>
+                <TranscriptCorrection
+                  disabled={connecting || processing}
+                  onBusy={setProcessing}
+                />
               </>
             ) : session.current_attempt ? (
               <>
@@ -846,6 +874,47 @@ export default function Student() {
                       Chỉnh sửa hoặc nhập tay sẽ đánh dấu câu trả lời cần giảng
                       viên đối chiếu với bản ghi.
                     </p>
+                    <label>
+                      Bản ghi dùng cho STT
+                      <select
+                        value={answer.sttSource}
+                        disabled={processing || submitting}
+                        onChange={(e) =>
+                          setAnswer({
+                            ...answer,
+                            sttSource: e.target.value as
+                              "original" | "filtered",
+                          })
+                        }
+                      >
+                        <option value="original">Bản gốc</option>
+                        <option
+                          value="filtered"
+                          disabled={!answer.filteredAudio}
+                        >
+                          Bản giảm nhiễu RNNoise
+                        </option>
+                      </select>
+                    </label>
+                    {!answer.filteredAudio && (
+                      <p className="muted">
+                        Không có bản giảm nhiễu hợp lệ cho lần ghi này. Bạn vẫn
+                        có thể nhận dạng lại từ bản gốc.
+                      </p>
+                    )}
+                    <TranscriptCorrection
+                      key={answer.attemptId}
+                      text={answer.transcript}
+                      disabled={processing || submitting}
+                      onBusy={(busy) => {
+                        if (busy)
+                          setSpeechStage("Đang xử lý sửa chính tả trên máy…");
+                        setProcessing(busy);
+                      }}
+                      onApply={(text) =>
+                        setAnswer({ ...answer, transcript: text })
+                      }
+                    />
                     <div className="inline">
                       <Action
                         disabled={
@@ -861,7 +930,13 @@ export default function Student() {
                         action={async () => {
                           setProcessing(true);
                           try {
-                            const s = await transcribe(answer.sttAudio);
+                            const audio =
+                              answer.sttSource === "filtered"
+                                ? answer.filteredAudio
+                                : answer.audio;
+                            if (!audio)
+                              throw new Error("Không có bản ghi đã lọc nhiễu.");
+                            const s = await transcribe(audio);
                             setAnswer({
                               ...answer,
                               transcript: s.transcript,

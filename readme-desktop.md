@@ -37,7 +37,7 @@ Mở **OralAI → Cấu hình máy chủ…**, nhập domain HTTPS hoặc `http:
 1. Cấp quyền camera và microphone. Trong mục **Chọn thiết bị**, chọn **Microphone** và **Camera** từ danh sách; app kết nối ngay. Tên đầy đủ xuất hiện sau khi cấp quyền.
 2. Bấm **Kiểm tra độ ồn**. Ghi khoảng 10 giây: 3 giây đầu giữ im lặng, 7 giây sau nói thử.
 3. Bấm phát audio. Checkbox **Nghe bản đã lọc nhiễu RNNoise** đổi giữa bản gốc và bản lọc của cùng đoạn thu.
-4. Checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** quyết định bản audio dùng cho STT trong bài thi. Đặt trước khi bắt đầu thi.
+4. Checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** quyết định bản audio dùng cho lần STT đầu tiên. App vẫn giữ cả hai bản khi bộ lọc hoạt động.
 
 Danh sách cập nhật khi cắm/rút thiết bị. Không đổi thiết bị khi đang ghi hoặc xử lý/nộp câu trả lời. Đổi mic/camera trước thi sẽ hủy kết quả kiểm tra cũ; kiểm tra lại hoặc chọn bỏ qua. Thiết bị bị rút sẽ báo lỗi để bạn chọn lại, không âm thầm dùng thiết bị khác.
 
@@ -47,9 +47,22 @@ Bản kiểm tra chỉ giữ tạm trong bộ nhớ; kiểm tra lại hoặc r�
 
 - App giữ riêng audio/video gốc và audio dùng STT. RNNoise xử lý theo thời gian thực ở 48 kHz; trước PhoWhisper chỉ chuyển về WAV mono 16 kHz, không lọc FFmpeg lần nữa.
 - Khi dừng ghi, PhoWhisper nhận dạng local. Bạn xem lại transcript, sau đó gửi transcript và media gốc lên server.
+- Muốn nhận dạng lại: chọn **Bản ghi dùng cho STT → Bản gốc / Bản giảm nhiễu RNNoise**, rồi bấm **Thử STT lại**. Lựa chọn chỉ thay đầu vào STT, không đổi media minh chứng. Nếu bộ lọc lỗi lúc ghi, lựa chọn bản giảm nhiễu bị khóa; bản gốc vẫn dùng được. Lỗi STT giữ transcript hiện tại.
 - Worker chấm text bằng Gemini hoặc Ollama theo cấu hình đề; app cập nhật kết quả định kỳ. Đừng đóng app trước khi upload và nộp bài hoàn tất.
 - Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Ngôn ngữ vẫn lấy từ cấu hình server.
 - PhoWhisper-small được tinh chỉnh cho tiếng Việt. Có thể chọn tiếng Anh trong policy nhưng chưa benchmark chất lượng; đề tiếng Việt là mục tiêu chính.
+
+## Sửa chính tả local (tùy chọn)
+
+1. Trước khi thi, ở **Sửa chính tả local**, bấm **Tải model sửa chính tả (1,28 GB)**. Có tiến độ và nút hủy. Chỉ cần mạng để tải lần đầu; tải lỗi/hủy có thể thử lại từ đầu. STT PhoWhisper vẫn có sẵn và không cần model này.
+2. Sau STT, bấm **Gợi ý sửa chính tả**. App chạy [Qwen3 1.7B Q4_K_M](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF) trên CPU bằng [node-llama-cpp](https://node-llama-cpp.withcat.ai/guide/electron), không gửi đoạn văn lên server để sửa.
+3. Đối chiếu **Bản trước khi sửa** và **Bản đề xuất**, chọn **Áp dụng bản đề xuất** hoặc **Giữ bản hiện tại**. Không tự áp dụng. Bản đã sửa được đánh dấu cần giảng viên đối chiếu khi nộp, giống sửa tay.
+
+Model chỉ được yêu cầu sửa chính tả/dấu câu, giữ ý, thuật ngữ và số liệu; kết quả vẫn có thể sai, nhất là tên riêng và từ chuyên ngành. Đây không phải công cụ bổ sung đáp án. App chặn đầu ra trống, thay đổi số liệu hoặc độ dài quá nhiều; tối đa 12.000 ký tự mỗi lần, chia đoạn để tránh cắt mất nội dung. Chưa benchmark độ chính xác sửa lỗi STT tiếng Việt.
+
+Model tải về `models/correction` trong thư mục dữ liệu Electron, được ghim revision và kiểm tra SHA-256. Launcher mặc định dùng `.data/desktop-dev-profile/models/correction`; profile khác cần model riêng. Model được nạp khi bấm gợi ý và giải phóng sau xử lý; có nút hủy. Để gỡ model, đóng app rồi xóa thư mục `models/correction` của profile đó. Việc thi/nộp/chấm vẫn cần server như bình thường.
+
+Nếu danh sách mic/camera chỉ hiện tên chung chung trên bản cũ, đóng Electron rồi mở lại bản mới. Bản sửa chuẩn hóa origin quyền media, hỗ trợ tên thiết bị do hệ điều hành cung cấp; không cần cài driver hay đổi cấu hình Docker cho lỗi này.
 
 ## Chạy từ source
 

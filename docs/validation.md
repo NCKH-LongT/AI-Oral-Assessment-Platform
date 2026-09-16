@@ -1,5 +1,15 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Chọn bản STT, tên thiết bị và sửa chính tả local — 17/09/2026
+
+- Tái hiện trên Electron thật: `setPermissionCheckHandler` nhận origin `http://localhost:3001/`, code so với `http://localhost:3001` nên không cấp quyền liệt kê tên. Sau khi chuẩn hóa origin, đọc được UGREEN HiTune Max5c, UGREEN Camera 4K Analog Stereo, Built-in Audio Analog Stereo và camera UGREEN từ chính PC Linux; không dùng thiết bị giả ở kiểm tra tên này.
+- Ba kịch bản E2E ghi câu trả lời đạt: bật/tắt lọc ban đầu, đổi nguồn và thử STT lại, RNNoise không tải được, STT retry lỗi giữ transcript. So SHA-256 đầu vào STT chứng minh chọn đúng Blob, lần upload AUDIO luôn dùng hash bản gốc. STT được giả lập, MediaRecorder/RNNoise chạy thật với mic/camera Chromium giả lập.
+- E2E còn kiểm tra tải model lỗi rồi thử lại, so sánh/giữ/áp dụng đề xuất, model lỗi giữ transcript, nộp bản chỉnh sửa với confidence 0 để đối chiếu. Một kịch bản chọn thiết bị và bốn kịch bản thu thử/phát lại 10 giây đều đạt (tổng 8 kịch bản E2E liên quan).
+- Sáu unit test desktop đạt: domain, quyền media, checksum/cache offline/atomic download, hủy tải, chia đoạn không mất chữ, giới hạn đầu vào và chặn thay số liệu. Hai unit test audio, Next production build, ESLint, TypeScript, Electron syntax và `git diff --check` đạt; npm audit không báo lỗ hổng.
+- Tải Qwen3 1.7B Q4_K_M 1.282.439.264 byte theo revision ghim, xác nhận SHA-256. Runtime CPU chạy thật, sửa mẫu “lập chình và cơ sỡ dữ liệu” thành “lập trình và cơ sở dữ liệu”. Linux `npm run pack -w apps/desktop` đạt; gọi correction qua preload/IPC ở cả source và bản đóng gói, chặn `fetch` trong main process, vẫn sửa được mẫu (khoảng 5 giây gồm nạp model). Model test lưu trong profile dev, không đưa vào Git.
+
+Chưa benchmark WER/CER hoặc chất lượng sửa chính tả trên bộ dữ liệu tiếng Việt; chưa kiểm thử runtime sửa chính tả trên Windows/macOS. Không gọi LLM server/Gemini trong kiểm tra này và không thay Docker đang chạy.
+
 ## Google login qua desktop dev — 17/09/2026
 
 - Xác nhận backend cấu hình domain gốc `http://localhost:3000`, trong khi launcher mở UI ở 3001; kiểm tra origin cũ trong IPC từ chối URL đăng nhập hợp lệ. Launcher nay truyền origin backend riêng cho Google login khi chạy source.

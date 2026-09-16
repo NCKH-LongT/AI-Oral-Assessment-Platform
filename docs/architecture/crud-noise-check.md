@@ -18,6 +18,8 @@ Không thay đổi bảng/cột hay chạy migration mới. Foreign key vẫn l�
 
 Bước kết nối có hai danh sách thiết bị từ `enumerateDevices`, cập nhật qua `devicechange`. Cấp quyền để xem tên đầy đủ. Chọn thiết bị gọi `getUserMedia` với `deviceId.exact`, dừng stream/RNNoise cũ và hủy phép đo mic cũ. Luồng ghi minh chứng, RNNoise và phép kiểm tra 10 giây dùng microphone đã chọn. Không tự fallback nếu thiết bị đã chọn bị rút; báo lỗi và cho chọn lại. Khóa lựa chọn khi đang kết nối, bắt đầu ghi, ghi, STT hoặc nộp câu trả lời.
 
+Electron kiểm tra quyền media theo `new URL(value).origin`, không so chuỗi URL có/không có dấu `/` cuối. Chỉ renderer của cửa sổ chính ở origin đang chọn được cấp quyền. Đã đối chiếu tên mic/camera trên PC Linux với danh sách thiết bị hệ điều hành.
+
 ## Kiểm tra mic — cập nhật 17/09/2026
 
 `lib/noise-check.ts` ghi thử khoảng **10 giây**: giữ im lặng 3 giây đầu để đánh giá nền, nói thử 7 giây sau để nghe giọng. Bỏ 500 ms khởi động trước lúc ghi. MediaRecorder thu đồng thời bản gốc và bản RNNoise, chỉ giữ Blob trong bộ nhớ máy học viên, không upload.
@@ -30,7 +32,7 @@ Sau cấp quyền thiết bị, nút bắt đầu thi chờ kết quả đạt h
 
 ## Lọc nhiễu câu trả lời
 
-`lib/noise-filter.ts` dùng `@sapphi-red/web-noise-suppressor` (RNNoise WASM/AudioWorklet) ở 48 kHz. Checkbox trước thi bật/tắt lọc nhiễu cho nhánh audio đưa vào STT. Không nối microphone ra loa để tránh hú; nghe thử bằng bản thu phát lại. Audio/video minh chứng luôn lấy từ nhánh gốc.
+`lib/noise-filter.ts` dùng `@sapphi-red/web-noise-suppressor` (RNNoise WASM/AudioWorklet) ở 48 kHz. Khi bộ lọc hoạt động, câu trả lời luôn ghi đồng thời audio gốc, audio RNNoise và video gốc. Checkbox trước thi chọn bản dùng cho lần STT đầu; dropdown sau ghi cho phép nhận dạng lại từ một trong hai Blob. Lỗi RNNoise giữa lúc ghi làm bản lọc không hợp lệ và khóa lựa chọn đó. Không nối microphone ra loa để tránh hú; nghe thử bằng bản thu phát lại. Audio/video minh chứng luôn lấy từ nhánh gốc.
 
 Asset được copy từ dependency npm khi `predev`/`prebuild`, phục vụ tại `/audio` cùng origin, có trong Docker standalone. Không tải WASM từ CDN. Nếu bộ lọc lỗi, người dùng cần tắt lọc hoặc kết nối lại trước lần ghi tiếp theo. PhoWhisper chỉ đổi định dạng sang mono 16 kHz, không lọc FFmpeg lần hai. Client web mới gửi `preprocessing=off` đến `/stt` để tránh lọc lại; client cũ không gửi trường này vẫn theo policy lưu trên server.
 

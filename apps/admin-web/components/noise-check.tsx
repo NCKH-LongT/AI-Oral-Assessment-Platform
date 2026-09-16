@@ -22,6 +22,7 @@ export default function NoiseCheck({
   const [listenFiltered, setListenFiltered] = useState(false);
   const urls = useRef<string[]>([]);
   const playback = useRef<HTMLAudioElement>(null);
+  const playbackPanel = useRef<HTMLDivElement>(null);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => {
     onReady(false);
@@ -30,6 +31,10 @@ export default function NoiseCheck({
       urls.current.forEach(URL.revokeObjectURL);
     };
   }, [onReady]);
+
+  useEffect(() => {
+    if (recording) playbackPanel.current?.scrollIntoView({ block: "nearest" });
+  }, [recording]);
 
   async function check() {
     controller.current?.abort();
@@ -99,36 +104,63 @@ export default function NoiseCheck({
       {status === "checking" && (
         <progress aria-label="Tiến độ đo tiếng ồn" max={100} value={progress} />
       )}
-      {recording && (
-        <div className="panel">
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={listenFiltered}
-              disabled={!recording.filtered}
-              onChange={(event) => {
-                playback.current?.pause();
-                setListenFiltered(event.target.checked);
-              }}
-            />
-            Nghe bản đã lọc nhiễu RNNoise
-          </label>
-          <p>
-            {listenFiltered ? "Đang chọn bản lọc nhiễu" : "Đang chọn bản gốc"}
-          </p>
-          <audio
-            ref={playback}
-            controls
-            preload="metadata"
-            aria-label="Phát lại kiểm tra mic"
-            src={
-              listenFiltered && recording.filtered
-                ? recording.filtered
-                : recording.raw
-            }
+      <div className="panel" ref={playbackPanel}>
+        <h4>Nghe lại bản ghi kiểm tra</h4>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={listenFiltered}
+            disabled={!recording?.filtered}
+            onChange={(event) => {
+              playback.current?.pause();
+              setListenFiltered(event.target.checked);
+            }}
           />
-        </div>
-      )}
+          Nghe bản đã lọc nhiễu RNNoise
+        </label>
+        {!recording ? (
+          <p>
+            {status === "checking"
+              ? "Đang thu thử. Bản gốc và bản lọc sẽ sẵn sàng khi thu xong 10 giây."
+              : "Bấm Kiểm tra độ ồn và thu đủ 10 giây để nghe lại bản gốc hoặc bản đã lọc nhiễu."}
+          </p>
+        ) : (
+          <>
+            <p>
+              Đã thu xong.{" "}
+              {listenFiltered
+                ? "Đang chọn bản lọc nhiễu."
+                : "Đang chọn bản gốc."}
+            </p>
+            <audio
+              ref={playback}
+              controls
+              preload="metadata"
+              aria-label="Phát lại kiểm tra mic"
+              src={
+                listenFiltered && recording.filtered
+                  ? recording.filtered
+                  : recording.raw
+              }
+            />
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => {
+                void playback.current
+                  ?.play()
+                  .catch(() =>
+                    setError(
+                      "Không phát được bản ghi. Hãy kiểm tra thiết bị phát âm thanh hoặc thu lại.",
+                    ),
+                  );
+              }}
+            >
+              {listenFiltered ? "Phát bản đã lọc nhiễu" : "Phát bản gốc"}
+            </button>
+          </>
+        )}
+      </div>
       <div className="inline">
         <button
           type="button"

@@ -12,3 +12,6 @@ secrets
 
 **/dist
 **/resources/stt/oral-stt
+
+.venv-stt
+**/resources/stt/model

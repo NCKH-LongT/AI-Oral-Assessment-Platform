@@ -104,6 +104,12 @@ test("quiet room passes; ten-second raw and RNNoise recordings can be played loc
   page,
 }) => {
   await preflight(page, 0.001);
+  await expect(
+    page.getByRole("checkbox", { name: "Nghe bản đã lọc nhiễu RNNoise" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: "Nghe bản đã lọc nhiễu RNNoise" }),
+  ).toBeDisabled();
   await page
     .getByRole("button", { name: "Kiểm tra độ ồn", exact: true })
     .click();
@@ -117,9 +123,7 @@ test("quiet room passes; ten-second raw and RNNoise recordings can be played loc
   const player = page.getByLabel("Phát lại kiểm tra mic");
   await expect(player).toBeVisible();
   const rawUrl = await player.getAttribute("src");
-  await player.evaluate(async (audio: HTMLAudioElement) => {
-    await audio.play();
-  });
+  await page.getByRole("button", { name: "Phát bản gốc", exact: true }).click();
   await expect
     .poll(() => player.evaluate((audio: HTMLAudioElement) => audio.currentTime))
     .toBeGreaterThan(0);
@@ -127,9 +131,12 @@ test("quiet room passes; ten-second raw and RNNoise recordings can be played loc
     .getByRole("checkbox", { name: "Nghe bản đã lọc nhiễu RNNoise" })
     .check();
   await expect(player).not.toHaveAttribute("src", rawUrl!);
-  await player.evaluate(async (audio: HTMLAudioElement) => {
-    await audio.play();
-  });
+  await expect(
+    page.getByRole("button", { name: "Phát bản đã lọc nhiễu", exact: true }),
+  ).toBeInViewport();
+  await page
+    .getByRole("button", { name: "Phát bản đã lọc nhiễu", exact: true })
+    .click();
   await expect
     .poll(() => player.evaluate((audio: HTMLAudioElement) => audio.currentTime))
     .toBeGreaterThan(0);

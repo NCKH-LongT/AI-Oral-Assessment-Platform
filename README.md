@@ -54,6 +54,8 @@ docker compose up -d --no-deps --force-recreate api worker
 
 ## Desktop và kiểm tra mic
 
+Đang sửa source trên Linux/macOS: chạy **`./run-desktop.sh`**. Script rebuild server, mở UI dev cổng 3001 và Electron; sửa giao diện tự cập nhật. Cần bundle STT đã build; xem [hướng dẫn](readme-desktop.md).
+
 Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small INT8, runtime STT và FFmpeg**; máy học viên không cần Python, không tải model ở lần chạy đầu. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
 
 1. Chọn server tại **OralAI → Cấu hình máy chủ…**.

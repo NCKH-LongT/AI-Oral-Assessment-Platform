@@ -1,5 +1,13 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Launcher desktop từ source và nút nghe thử mic — 17/09/2026
+
+- Kiểm tra web Docker tại localhost:3000 và Electron: code trước thay đổi đã phát được raw/RNNoise sau 10 giây với mic giả lập; chưa tái hiện được lỗi mất bản ghi trên mic của người dùng.
+- Thêm `run-desktop.sh`: rebuild Compose, thêm origin dev qua override, mở Next dev cổng riêng và Electron profile riêng. Đã chạy script thật, kiểm tra health và request đăng nhập từ origin dev (401 với tài khoản giả, không bị 403 do origin); cổng bận được từ chối.
+- Đã sửa tạm một nhãn trong source rồi khôi phục, xác nhận cả hai thay đổi hiện ngay trong Electron qua HMR mà không restart. Đã dừng phiên thử và kiểm tra giải phóng dev server.
+- Phần nghe thử luôn hiển thị sau cấp quyền mic, có nút Phát bản gốc/Phát bản đã lọc nhiễu và cuộn đến bản ghi khi hoàn tất. Bốn test Playwright mic đạt trên dev server; kiểm tra RNNoise và playback thật trong Electron với mic giả lập đạt. Next production build, ESLint, TypeScript, Ruff và Bash syntax đạt.
+
+
 ## Admin chọn Gemini / Google Cloud STT — 17/09/2026
 
 - 49 test backend đạt: Gemini là provider STT web hợp lệ; thiếu API key chỉ chặn Gemini, thiếu JSON chỉ chặn Google; cả hai endpoint review giữ quyền ADMIN và lịch sử. Chặn đổi provider khi job khác đang chờ.

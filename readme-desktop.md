@@ -2,6 +2,22 @@
 
 Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-small INT8**. Nhận dạng chạy trên CPU của máy học viên, không cần cài Python riêng hoặc tải model sau khi cài. LLM chấm bài chạy trên server.
 
+## Một lệnh mở app từ code mới — Linux/macOS
+
+Trong thư mục repository, chạy:
+
+```bash
+./run-desktop.sh
+```
+
+Script đồng bộ dependency bằng `npm ci`, rebuild server Docker từ source hiện tại, mở giao diện **dev tại http://localhost:3001** rồi mở Electron trỏ đúng địa chỉ đó. Sửa giao diện sẽ tự cập nhật; sửa API hoặc Electron thì đóng app và chạy lại script. Script dùng profile dev riêng nên cần đăng nhập lại lần đầu; bỏ qua `ORAL_WEB_URL` cũ và gỡ `ELECTRON_RUN_AS_NODE` khỏi tiến trình con.
+
+Cần Docker đang chạy, Node 22.12+, Python 3 và bundle PhoWhisper đã build theo hướng dẫn bên dưới. Sửa helper STT/model thì build lại bundle trước khi chạy script. Script không tự tải code từ Git, không xóa volume và không sửa `.env`; chỉ thêm origin localhost của giao diện dev vào cấu hình API/worker qua Compose override.
+
+Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev server đang chạy để tránh mở nhầm bản cũ. Đóng Electron hoặc Ctrl+C sẽ dừng dev server của phiên đó; các dịch vụ Docker vẫn chạy. Lệnh `npm run desktop` đơn thuần chỉ mở Electron, không build hoặc cập nhật giao diện ở địa chỉ server.
+
+Sau **Cho phép camera & mic**, phần **Nghe lại bản ghi kiểm tra** luôn hiển thị. Bấm **Kiểm tra độ ồn**, chờ thu xong 10 giây; app cuộn tới phần phát lại. Chọn checkbox **Nghe bản đã lọc nhiễu RNNoise** rồi bấm **Phát bản đã lọc nhiễu**, hoặc bỏ chọn để **Phát bản gốc**. Nếu bộ lọc lỗi, có thông báo và bản gốc vẫn nghe được khi đã thu thành công.
+
 ## Cài và kết nối
 
 Tải artifact từ GitHub Actions → **Desktop installers**. Windows dùng `.exe`, Ubuntu dùng `.deb` hoặc AppImage, macOS dùng `.dmg`. Bộ cài chưa ký số/notarize. Chọn đúng OS/kiến trúc máy.

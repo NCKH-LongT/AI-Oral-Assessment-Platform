@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import select
 from test_mvp import ok, prepare, start, upload
 
-from app import ai, google_credentials, runtime_settings, speech, worker
+from app import ai, google_credentials, routes_admin, runtime_settings, speech, worker
 from app.config import settings
 from app.models import Attempt, ReviewJob
 
@@ -169,6 +169,9 @@ def test_gemini_audio_review_uses_key_not_json_and_keeps_original(env, monkeypat
     monkeypatch.setattr(google_credentials, "load", lambda: pytest.fail("Must not load Google STT JSON"))
     job = ok(admin.post(path, json={"reason": "Check transcription"}), 202)
     assert ok(admin.post(path, json={"reason": "Check transcription"}), 202)["id"] == job["id"]
+    monkeypatch.setattr(routes_admin, "google_ready", lambda: True)
+    competing = admin.post(f"/admin/attempts/{aid}/google-review", json={"reason": "Different provider"})
+    assert competing.status_code == 409 and competing.json()["error"]["code"] == "REVIEW_PENDING"
     assert worker.tick()
     assert frames == [55 * 16000, 16000]
     with env[1]() as db:

@@ -626,7 +626,6 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
 
 @router.post("/attempts/{key}/google-review", status_code=202)
 def google_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), user=Depends(admin)):
-    # Compatibility for existing clients and review history; new UI uses Gemini.
     return request_transcription_review(key, body, db, user, "google")
 
 
@@ -652,6 +651,8 @@ def request_transcription_review(key, body, db, user, provider):
         )
     existing = db.scalar(select(ReviewJob).where(ReviewJob.attempt_id == key, ReviewJob.status == "PENDING"))
     if existing:
+        if existing.policy["provider"] != provider:
+            fail(409, "REVIEW_PENDING", "Đang có yêu cầu nhận dạng lại bằng nhà cung cấp khác. Chờ hoàn tất trước khi đổi.")
         return data(existing, "status")
     audio = db.scalar(
         select(Upload).where(Upload.attempt_id == key, Upload.kind == "AUDIO", Upload.status == "COMPLETED")

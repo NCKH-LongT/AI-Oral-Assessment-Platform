@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-for (const initialProvider of ["local_server", "google"]) {
+for (const initialProvider of ["local_server", "google", "gemini"]) {
   test(`Gemini with ${initialProvider}: save Whisper without Google JSON`, async ({
     page,
   }) => {

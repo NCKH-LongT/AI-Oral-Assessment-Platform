@@ -43,6 +43,8 @@ def settings_view(db):
     credentials = google_credentials.status()
     return policy(db) | {
         "google_configured": credentials["status"] == "ready",
+        "gemini_configured": bool(settings().gemini_api_key),
+        "gemini_model": settings().gemini_stt_model,
         "google_credentials": credentials,
         "server_model": settings().stt_model,
     }
@@ -60,6 +62,8 @@ def speech_settings(db: Session = Depends(get_db), user=Depends(admin)):
 
 @router.put("/admin/settings/speech")
 def save_speech_settings(body: SpeechPolicy, db: Session = Depends(get_db), user=Depends(admin)):
+    if body.provider == "gemini" and not settings().gemini_api_key:
+        fail(422, "GEMINI_NOT_CONFIGURED", "Cấu hình GEMINI_API_KEY trên server trước khi chọn Gemini STT")
     if body.provider == "google" and not google_ready():
         fail(
             422,
@@ -165,7 +169,7 @@ def google_transcribe(path, language):
 
 
 def gemini_transcribe(path, language, model_name=None):
-    """Explicit server review only. Uses the Gemini API key, not a service account."""
+    """Server transcription using the Gemini API key, not a service account."""
     cfg = settings()
     if not cfg.gemini_api_key:
         raise ValueError("Gemini API key missing")

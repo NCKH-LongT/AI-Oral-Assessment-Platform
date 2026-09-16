@@ -52,6 +52,69 @@ Bước build cần mạng để tải model VinAI và thư viện; bước ch�
 
 Để dùng giao diện đang phát triển: chạy `API_INTERNAL_URL=http://127.0.0.1:8000 npm run dev`, rồi mở desktop với `ORAL_WEB_URL=http://localhost:3000`.
 
+## Build bộ cài và chạy lại
+
+Các lệnh chạy tại thư mục gốc repository. Đóng app trước khi thay bộ cài.
+
+**Linux / macOS — lần đầu chuẩn bị bundle:**
+
+```bash
+git pull --ff-only
+npm ci
+python3.12 -m venv .venv-stt
+.venv-stt/bin/python -m pip install -r scripts/requirements-desktop-stt.txt
+.venv-stt/bin/python scripts/build_desktop_stt.py
+npm run dist -w apps/desktop
+```
+
+Linux có thể cài Torch CPU trước requirements để giảm dung lượng tải:
+`.venv-stt/bin/python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu`.
+
+**Windows PowerShell:**
+
+```powershell
+git pull --ff-only
+npm ci
+py -3.12 -m venv .venv-stt
+.\.venv-stt\Scripts\python -m pip install -r scripts/requirements-desktop-stt.txt
+.\.venv-stt\Scripts\python scripts/build_desktop_stt.py
+npm run dist:win -w apps/desktop
+```
+
+Kết quả nằm ở `apps/desktop/dist/`: mở `.exe` trên Windows, `.dmg` trên macOS; Linux cài `.deb` hoặc chạy AppImage. Build trên đúng hệ điều hành đích. Ví dụ Ubuntu với bản hiện tại:
+
+```bash
+sudo apt install ./apps/desktop/dist/OralAI-0.1.0-linux-amd64.deb
+oralai
+```
+
+Hoặc chạy không cài đặt:
+
+```bash
+chmod +x apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
+./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
+```
+
+**Chạy lại từ source khi đã có bundle:** chỉ cần `npm ci` khi dependency thay đổi, rồi:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop
+```
+
+PowerShell: đặt `$env:ORAL_WEB_URL="http://localhost:3000"`, xóa `ELECTRON_RUN_AS_NODE` như hướng dẫn trên rồi `npm run desktop`. Thay URL bằng server của bạn; nếu không đặt biến, app dùng địa chỉ đã lưu trong menu.
+
+**Khi cập nhật code:**
+
+- Đổi giao diện/cấu hình admin/backend: rebuild server bằng `docker compose up -d --build --wait`, đóng rồi mở lại desktop để tải UI mới. Không cần build lại model.
+- Đổi Electron/helper/model hoặc đang dùng bộ cài cũ chưa có PhoWhisper: build bundle bằng script, chạy `npm run dist -w apps/desktop`, rồi cài bộ mới. Script dùng lại model đúng revision đã có.
+- Chỉ đổi `.env` server: `docker compose up -d --no-deps --force-recreate api worker`. Nếu deploy qua Jenkins, sửa credential `oral-ai-env` và chạy pipeline.
+
+Không cần build thủ công nếu dùng GitHub: Actions → **Desktop installers** → **Run workflow** → chọn nhánh `main`; đợi build rồi tải artifact đúng OS. Workflow này chạy thủ công, push code không tự tạo bộ cài.
+
+## STT trên server do admin chọn
+
+Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google Cloud STT dùng JSON service account upload ở mục riêng. Lựa chọn STT web không đổi PhoWhisper của desktop. Khi xem bài đã nộp, mở **Nhận dạng lại & chấm lại**, chọn Gemini hoặc Google, nhập lý do rồi gửi yêu cầu.
+
 ## Xử lý lỗi
 
 | Lỗi | Kiểm tra |

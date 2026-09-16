@@ -67,7 +67,7 @@ export type Chapter = {
   source: string;
 };
 export type SpeechPolicy = {
-  provider: "local" | "google" | "local_server";
+  provider: "local" | "google" | "gemini" | "local_server";
   preprocessing: "off" | "denoise";
   language: "vi" | "en";
 };
@@ -120,6 +120,7 @@ export type Review = Result & {
     evidence: { id: string; kind: string }[];
     reviews: {
       id: string;
+      policy?: { provider: string };
       status: string;
       reason: string;
       created_at: number;

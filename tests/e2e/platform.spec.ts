@@ -352,7 +352,7 @@ test("login, responsive layout and admin course form", async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByLabel("File JSON service account Google (tối đa 64 KB)"),
-  ).toHaveCount(0);
+  ).toBeHidden();
   await page.screenshot({
     path: "docs/screenshots/speech-settings.png",
     fullPage: true,

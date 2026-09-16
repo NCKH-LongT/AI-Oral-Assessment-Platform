@@ -63,7 +63,7 @@ class SectionIn(Input):
 
 
 class SpeechPolicy(Input):
-    provider: Literal["local", "google", "local_server"] = "local_server"
+    provider: Literal["local", "google", "gemini", "local_server"] = "local_server"
     preprocessing: Literal["off", "denoise"] = "denoise"
     language: Literal["vi", "en"] = "vi"
 

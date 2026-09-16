@@ -257,7 +257,8 @@ export default function Student() {
     };
     const providerLabel = {
       local: "Whisper trên máy của bạn",
-      google: "Google",
+      google: "Google Cloud STT",
+      gemini: "Gemini",
       local_server: "Whisper trên server",
     }[policy.provider];
     setSpeechStage(

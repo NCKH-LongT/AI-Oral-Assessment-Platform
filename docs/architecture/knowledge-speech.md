@@ -49,18 +49,18 @@ Media gốc và audio để nhận dạng là hai nhánh riêng. Bật/tắt RNN
 
 Đổi AI provider/model cần xử lý lại tài liệu và công bố đề mới, vì snapshot đề và embedding có phiên bản. Gemini chỉ nhận dạng lại audio khi admin yêu cầu; bật Gemini LLM không bật Google STT.
 
-### Nhận dạng lại có lịch sử
+### Nhận dạng lại có lịch sử — Gemini hoặc Google Cloud STT
 
-`POST /admin/attempts/{id}/gemini-review` chỉ ADMIN, yêu cầu lý do, câu đã chấm trong bài đã nộp và audio upload hoàn tất. Dùng `GEMINI_API_KEY` + `GEMINI_STT_MODEL`, không cần service-account JSON. Có thể dùng khi LLM chấm chạy Ollama.
+Admin chọn nhà cung cấp cho mỗi lần review: `/gemini-review` dùng Gemini API key; `/google-review` dùng JSON service account. Cả hai endpoint chỉ ADMIN, yêu cầu lý do, câu đã chấm trong bài đã nộp và audio upload hoàn tất. Dùng `GEMINI_API_KEY` + `GEMINI_STT_MODEL`, không cần service-account JSON. Có thể dùng khi LLM chấm chạy Ollama.
 
 Job lưu trong database, nhận dạng từ audio gốc đã kiểm tra checksum. WAV được chia đoạn 55 giây để gửi Gemini inline audio; giữ toàn bộ phần cuối. Không tự đổi provider khi lỗi. Worker dùng transcript mới và snapshot đề để chấm, lưu lịch sử trước/sau và audit; không ghi đè transcript đã nộp hoặc media gốc. Job lỗi giữ kết quả trước đó. Yêu cầu trùng khi đang chờ trả cùng ID.
 
 Gemini không trả acoustic confidence tương đương Whisper: adapter đánh dấu `confidence_source=unavailable` và độ tin cậy STT bằng 0, vì vậy kết quả cần giảng viên kiểm tra, không tự công nhận điểm dựa trên một confidence giả.
 
-### Trình duyệt và tương thích dữ liệu cũ
+### Trình duyệt và credentials
 
-Cấu hình STT trên web chọn `local` (yêu cầu desktop) hoặc `local_server` (Whisper trong API), cùng ngôn ngữ `vi`/`en`. Policy đã lưu ưu tiên hơn `STT_PROVIDER`; desktop chỉ dùng ngôn ngữ, luôn nhận dạng local. Audio nhận dạng tối đa 600 giây, request tối đa 30 MB. RNNoise không tách được chắc chắn người khác nói chồng.
+Cấu hình STT trên web chọn `local` (yêu cầu desktop), `local_server` (Whisper trong API), `gemini` hoặc `google`, cùng ngôn ngữ `vi`/`en`. Policy đã lưu ưu tiên hơn `STT_PROVIDER`; desktop chỉ dùng ngôn ngữ, luôn nhận dạng local. Audio nhận dạng tối đa 600 giây, request tối đa 30 MB. RNNoise không tách được chắc chắn người khác nói chồng.
 
-Giữ adapter/endpoint Google Cloud STT và review cũ để xử lý client, policy và lịch sử đã có; giao diện mới không yêu cầu JSON hoặc hiển thị form upload credentials. Chỉ đường Google STT cũ mới cần service account; chuyển policy cũ sang local/local_server trong mục STT để ngừng dùng nó. Không xóa dữ liệu hay migration cũ.
+Google Cloud STT là lựa chọn được hỗ trợ trên giao diện: admin upload JSON qua `/admin/settings/speech/google-credentials`. File riêng quyền 600, không trả private key hoặc chuyển xuống desktop; upload không đổi policy hoặc LLM. Thiếu key Gemini/JSON Google chỉ chặn provider tương ứng. Job đang chờ bằng provider khác trả 409 khi admin yêu cầu đổi provider; không tạo hai job song song hoặc âm thầm dùng nhầm provider.
 
 Nguồn: [PhoWhisper](https://github.com/VinAIResearch/PhoWhisper), [RNNoise Web Audio](https://github.com/sapphi-red/web-noise-suppressor), [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs), [Gemini audio](https://ai.google.dev/gemini-api/docs/audio).

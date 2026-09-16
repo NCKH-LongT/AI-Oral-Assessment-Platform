@@ -1,5 +1,12 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Admin chọn Gemini / Google Cloud STT — 17/09/2026
+
+- 49 test backend đạt: Gemini là provider STT web hợp lệ; thiếu API key chỉ chặn Gemini, thiếu JSON chỉ chặn Google; cả hai endpoint review giữ quyền ADMIN và lịch sử. Chặn đổi provider khi job khác đang chờ.
+- 7 kiểm thử Playwright liên quan đạt: chọn Gemini/Google cho từng review, upload JSON không tự đổi policy hoặc làm mất lựa chọn chưa lưu, lưu cả hai provider cloud, chuyển về local không cần JSON, desktop luôn local dù policy server là Google. Các request cloud/JSON trong E2E được giả lập; kiểm tra JSON/quyền backend dùng suite API.
+- Ruff, TypeScript, ESLint và Next production build đạt. Không thay helper/model desktop trong lần cập nhật này; không gọi dịch vụ cloud có tính phí. Hướng dẫn build, chạy lại source, cài đè và workflow desktop đã cập nhật.
+
+
 ## STT desktop offline, RNNoise và LLM server — 17/09/2026
 
 - 49 test backend đạt trên SQLite: cấu hình env ưu tiên hơn AI cũ trên web; không ghi key AI từ env vào cấu hình web; Ollama sinh câu hỏi/embedding/chấm transcript; điểm không hợp lệ chuyển sang cần xem lại; Gemini nhận dạng lại không gọi service-account JSON, chia audio 55 giây, kiểm tra quyền/idempotency, giữ transcript/media gốc và giữ kết quả cũ khi lỗi. Request Ollama/Gemini được giả lập.

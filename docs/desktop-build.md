@@ -1,5 +1,7 @@
 # Build bộ cài desktop có STT offline
 
+Hướng dẫn từng bước chạy lại source, cài đè và build trên Linux/Windows: [readme-desktop.md](../readme-desktop.md#build-bộ-cài-và-chạy-lại).
+
 ## Thành phần bắt buộc
 
 - Electron tải UI từ server được chọn.

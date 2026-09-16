@@ -64,16 +64,22 @@ Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhi
 
 Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khiển đường nhận dạng của trình duyệt web. Media gốc được lưu riêng, không thay bằng bản đã lọc. Worker xử lý bất đồng bộ; app tự cập nhật điểm hoặc trạng thái cần xem lại.
 
-## Nhận dạng lại bằng Gemini
+## Admin chọn STT trên server
 
-Admin mở kết quả → **Nhận dạng lại bằng Gemini & chấm lại**, nhập lý do. Cần:
+Trong **Cấu hình hệ thống → STT & giọng nói**, admin có thể chọn Gemini hoặc Google Cloud STT cho trình duyệt web. Desktop vẫn nhận dạng local.
+
+Khi xem kết quả, mở **Nhận dạng lại & chấm lại**, chọn nhà cung cấp và nhập lý do:
+
+- **Gemini STT:** dùng API key và model trong `.env`:
 
 ```dotenv
 GEMINI_API_KEY=your-key
 GEMINI_STT_MODEL=gemini-2.5-flash
 ```
 
-Chức năng này dùng audio gốc và hoạt động cả khi `AI_PROVIDER=local`. Gemini nhận dạng, còn LLM chấm vẫn theo snapshot đề. **Không cần JSON Google Cloud STT.** Giữ transcript đã nộp và lịch sử trước/sau. Gemini không trả độ tin cậy âm học nên kết quả này cần giảng viên kiểm tra trước khi công nhận điểm.
+- **Google Cloud STT:** mở mục cấu hình JSON trong tab STT, upload service-account JSON hợp lệ (tối đa 64 KB). Cần bật Speech-to-Text API, billing và cấp quyền cho tài khoản. Upload không tự đổi nhà cung cấp.
+
+Nhận dạng lại dùng audio gốc và hoạt động cả khi `AI_PROVIDER=local`. Nhà cung cấp đã chọn nhận dạng, còn LLM chấm vẫn theo snapshot đề. **Chỉ Google Cloud STT cần JSON; Gemini không cần.** Giữ transcript đã nộp và lịch sử trước/sau. Gemini không trả độ tin cậy âm học nên kết quả này cần giảng viên kiểm tra trước khi công nhận điểm.
 
 ## Build, cập nhật và tài liệu
 

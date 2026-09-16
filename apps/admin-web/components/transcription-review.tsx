@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Review, send } from "./api";
 import { Field, Form } from "./shared";
@@ -12,6 +13,7 @@ export function TranscriptionReview({
   enabled: boolean;
   refresh: () => Promise<void>;
 }) {
+  const [provider, setProvider] = useState<"gemini" | "google">("gemini");
   const pending = attempt.reviews.some((r) => r.status === "PENDING");
   const latest = attempt.reviews.find((r) => r.status === "COMPLETED");
   return (
@@ -36,24 +38,38 @@ export function TranscriptionReview({
       ) : (
         enabled && (
           <details>
-            <summary>Nhận dạng lại bằng Gemini & chấm lại</summary>
+            <summary>Nhận dạng lại & chấm lại</summary>
             <p>
-              Gửi audio gốc đến Gemini trên server để nhận dạng lại (có thể phát
-              sinh phí). Dùng Gemini API key, không cần JSON Google Cloud STT.
-              Kết quả được chấm theo rubric, AI và kiến thức đã cố định của đề.
-              Transcript đã nộp và lịch sử đánh giá vẫn được giữ. Gemini không
-              cung cấp độ tin cậy âm học nên kết quả nhận dạng lại cần giảng
-              viên kiểm tra.
+              Gửi audio gốc đến nhà cung cấp đã chọn để nhận dạng lại (có thể
+              phát sinh phí). Transcript đã nộp và lịch sử được giữ; LLM chấm
+              vẫn theo cấu hình đề.
+              {provider === "gemini"
+                ? " Gemini dùng API key, không cần JSON; không trả độ tin cậy âm học nên kết quả cần giảng viên kiểm tra."
+                : " Google Cloud STT dùng JSON service account đã upload trong Cấu hình hệ thống → STT & giọng nói."}
             </p>
             <Form
-              label="Dùng Gemini nhận dạng và chấm lại"
+              label="Nhận dạng và chấm lại"
               onSubmit={async (d) => {
-                await send(`/admin/attempts/${attempt.id}/gemini-review`, {
+                await send(`/admin/attempts/${attempt.id}/${provider}-review`, {
                   reason: d.get("reason"),
                 });
                 await refresh();
               }}
             >
+              <label>
+                Nhà cung cấp nhận dạng lại
+                <select
+                  value={provider}
+                  onChange={(e) =>
+                    setProvider(e.target.value as "gemini" | "google")
+                  }
+                >
+                  <option value="gemini">Gemini STT (API key)</option>
+                  <option value="google">
+                    Google Cloud STT (JSON service account)
+                  </option>
+                </select>
+              </label>
               <Field label="Lý do nhận dạng / chấm lại" name="reason" />
             </Form>
           </details>
@@ -70,6 +86,16 @@ export function TranscriptionReview({
                 {new Date(r.created_at * 1000).toLocaleString("vi-VN")} ·{" "}
                 {r.status}
               </strong>
+              {r.policy && (
+                <p>
+                  Nhận dạng:{" "}
+                  {r.policy.provider === "gemini"
+                    ? "Gemini STT"
+                    : r.policy.provider === "google"
+                      ? "Google Cloud STT"
+                      : r.policy.provider}
+                </p>
+              )}
               <p>{r.reason}</p>
               {r.error && (
                 <p role="alert" className="error">

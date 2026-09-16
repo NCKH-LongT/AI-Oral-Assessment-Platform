@@ -204,7 +204,10 @@ def test_speech_policy_permissions_and_routing(env, monkeypatch):
         "language": "en",
     }
     assert clients["student"].post("/stt", files={"file": ("a.webm", b"audio")}).status_code == 409
-    for provider in ("local_server", "google"):
+    monkeypatch.setattr(ai.settings(), "gemini_api_key", "")
+    assert clients["admin"].put(path, json={"provider": "gemini"}).status_code == 422
+    monkeypatch.setattr(ai.settings(), "gemini_api_key", "test-key")
+    for provider in ("local_server", "google", "gemini"):
         monkeypatch.setattr(speech, "google_ready", lambda: True)
         monkeypatch.setattr(stt, "google_ready", lambda: True)
         ok(clients["admin"].put(path, json={"provider": provider, "preprocessing": "denoise"}))

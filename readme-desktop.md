@@ -2,6 +2,80 @@
 
 Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-small INT8**. Nhận dạng chạy trên CPU của máy học viên, không cần cài Python riêng hoặc tải model sau khi cài. LLM chấm bài chạy trên server.
 
+## Đổi URL máy chủ khi chạy hoặc build
+
+Desktop cần **URL web gốc**, nơi có cả giao diện và `/api`, ví dụ `https://oral.example.edu` hoặc `http://localhost:3000`. Không nhập `/api` phía sau, không trỏ trực tiếp tới FastAPI cổng 8000. Thay domain ví dụ bên dưới bằng server thật của bạn. Máy chủ ở máy khác cần HTTPS với chứng chỉ được máy học viên tin cậy; HTTP chỉ hỗ trợ localhost. Trên PC học viên, `localhost` là chính PC đó.
+
+### Chạy UI mới từ source — Linux/macOS
+
+```bash
+# Backend Docker trên cùng máy
+./run-desktop.sh --server http://localhost:3000
+
+# Backend ở máy chủ khác
+./run-desktop.sh --server https://oral.example.edu
+
+# Đổi cả cổng UI dev nếu 3001 đang bận
+./run-desktop.sh --server https://oral.example.edu --port 3002
+```
+
+`--server` là backend mà UI dev gọi tới; UI mới vẫn chạy trên localhost. Script tự đặt `API_INTERNAL_URL=<server>/api` và origin đăng nhập Google. Backend cần cho phép origin UI dev trong `ALLOWED_ORIGINS`, ví dụ `http://localhost:3001` hoặc `http://localhost:3002`. Script không chạy Docker và không cập nhật backend.
+
+### Mở trực tiếp giao diện từ server
+
+Linux/macOS, chạy tại thư mục repository:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu npm run desktop
+```
+
+Windows PowerShell:
+
+```powershell
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+$env:ORAL_WEB_URL = "https://oral.example.edu"
+npm run desktop
+```
+
+Cách này tải giao diện đã triển khai trên server; sửa source UI trên máy chưa làm giao diện server thay đổi. `ORAL_WEB_URL` được đọc từ môi trường tiến trình lúc chạy, không tự đọc từ file `.env` của backend. Biến này ưu tiên URL đã lưu trong app. Để lần khởi động sau dùng URL đã lưu, bỏ biến bằng `unset ORAL_WEB_URL` (Bash) hoặc `Remove-Item Env:ORAL_WEB_URL -ErrorAction SilentlyContinue` (PowerShell).
+
+### Build bộ cài để dùng với server khác
+
+**Hiện bộ cài không nhúng URL riêng lúc build.** Build một bộ cài, sau đó chọn server khi mở app lần đầu hoặc tại **OralAI → Cấu hình máy chủ…**. Địa chỉ được lưu riêng trên từng máy và dùng lại ở lần mở sau. Đặt `ORAL_WEB_URL` trước `npm run dist` không ghi biến này vào bộ cài.
+
+Sau khi chuẩn bị bundle STT theo mục [Build bộ cài và chạy lại](#build-bộ-cài-và-chạy-lại):
+
+```bash
+# Linux/macOS: build trên đúng hệ điều hành đích
+npm run dist -w apps/desktop
+```
+
+```powershell
+# Windows PowerShell
+npm run dist:win -w apps/desktop
+```
+
+Cài artifact trong `apps/desktop/dist/`, mở app và nhập `https://oral.example.edu` vào màn hình cấu hình. Không cần build lại để đổi server. Nếu dùng Google login, domain gốc trong admin và callback OAuth phải cùng server đã chọn, ví dụ `https://oral.example.edu/api/auth/google/callback`.
+
+Cũng có thể truyền URL khi **chạy app đã cài**, sau khi đóng phiên app cũ:
+
+```bash
+# Linux: bản .deb
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu oralai
+
+# macOS: bộ cài đặt trong /Applications
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu /Applications/OralAI.app/Contents/MacOS/OralAI
+```
+
+```powershell
+# Windows: thay đường dẫn bằng vị trí OralAI.exe đã cài thực tế
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+$env:ORAL_WEB_URL = "https://oral.example.edu"
+& "C:\duong-dan-cai-dat\OralAI.exe"
+```
+
+`API_INTERNAL_URL` là cấu hình proxy của **web Next.js**, không phải biến đổi server cho bộ cài Electron. Chỉ cần tự đặt biến này khi chạy/build web riêng; launcher đã đặt giúp bạn khi dùng `--server`.
+
 ## Một lệnh mở app từ code mới — Linux/macOS
 
 Trong thư mục repository, chạy:

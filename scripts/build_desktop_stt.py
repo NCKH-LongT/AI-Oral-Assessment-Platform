@@ -28,7 +28,10 @@ def prepare_model():
         and json.loads((target / "oral-model.json").read_text()) == metadata
     ):
         return
-    source = snapshot_download(MODEL_ID, revision=MODEL_REVISION)
+    # Avoid concurrent symlink capability checks on Windows without symlink rights.
+    source = snapshot_download(
+        MODEL_ID, revision=MODEL_REVISION, max_workers=1 if sys.platform == "win32" else 8
+    )
     TransformersConverter(
         source, copy_files=["tokenizer.json", "preprocessor_config.json"]
     ).convert(

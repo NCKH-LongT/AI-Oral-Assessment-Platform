@@ -72,6 +72,10 @@ class ReviewIn(Input):
     reason: str = Field(min_length=5, max_length=2000)
 
 
+class GradeReviewIn(ReviewIn):
+    target_exam_id: str
+
+
 class Criterion(Input):
     name: str = Field(min_length=1, max_length=100)
     description: str = Field(min_length=1, max_length=3000)

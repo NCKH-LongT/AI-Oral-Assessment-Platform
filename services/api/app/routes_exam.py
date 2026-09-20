@@ -14,6 +14,7 @@ from . import schemas as s
 from . import storage
 from .config import settings
 from .db import get_db
+from .grading import GradingError, check_config
 from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, Upload
 from .practice import COURSE_ID
 from .retakes import ACTIVE, allowance, history_row, sessions_for
@@ -54,7 +55,9 @@ def public_session(db, session):
     first = next((a for a in attempts if a.status in {"READY", "STARTED"}), None)
     if exam.snapshot.get("practice"):
         grading_message = "Bài luyện tập không tính điểm."
-    elif exam.snapshot.get("ai_provider") == "demo":
+    elif exam.snapshot.get("ai_provider") == "demo" and not any(
+        (a.assessment or {}).get("grading_exam_id") for a in attempts
+    ):
         grading_message = "Đề thi ở chế độ demo: AI không chấm điểm. Liên hệ giảng viên để được giao đề có bật chấm điểm AI."
     elif session.status == "SUBMITTED":
         grading_message = "Đã nộp bài, đang chờ máy chủ chấm điểm. Nếu chờ lâu, hãy liên hệ giảng viên kiểm tra dịch vụ chấm điểm."
@@ -152,6 +155,10 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
         return public_session(db, existing)
     if sessions and not body.new_attempt:
         return public_session(db, sessions[0])
+    try:
+        check_config(exam)
+    except GradingError as exc:
+        fail(409, exc.code, str(exc))
     if not allowance(db, exam, user.id, sessions)["can_start_new"]:
         fail(409, "ATTEMPT_LIMIT", "Đã hết lượt làm bài. Liên hệ admin để được cấp thêm lượt.")
     last_number = db.scalar(select(func.max(ExamSession.attempt_number)).where(
@@ -175,6 +182,10 @@ def get_session(key: str, db: Session = Depends(get_db), user=Depends(current_us
 def start_session(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     session = owned_session(db, key, user, lock=True)
     if session.status == "DEVICE_CHECK":
+        try:
+            check_config(by_id(db, Exam, session.exam_id))
+        except GradingError as exc:
+            fail(409, exc.code, str(exc))
         session.status, session.started_at = "IN_PROGRESS", time.time()
         db.add(Audit(user_id=user.id, event="START_EXAM", details={"session_id": key}))
         db.commit()
@@ -251,7 +262,8 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
                 a.assessment = {
                     "score": None,
                     "review_required": True,
-                    "confidence": 0,
+                    "confidence": None,
+                    "status": "NOT_GRADED",
                     "reasoning_summary": "Hết giờ, chưa có câu trả lời.",
                 }
     # Evidence is required for each submitted voice answer.

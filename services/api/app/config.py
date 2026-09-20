@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     ai_provider: str = "demo"
     ai_config_source: Literal["env", "admin"] = "env"
     gemini_api_key: str = ""
+    gemini_timeout: int = Field(default=180, ge=10, le=900)
     gemini_stt_model: str = "gemini-2.5-flash"
     local_llm_url: str = "http://127.0.0.1:11434"
     local_llm_timeout: int = Field(default=180, ge=10, le=900)

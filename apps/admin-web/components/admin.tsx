@@ -1617,8 +1617,21 @@ function ReviewPage({
                     </div>
                   ))}
                   <small>
-                    Độ tin cậy AI: {Math.round(a.assessment.confidence * 100)}%
+                    {a.assessment.confidence == null ||
+                    a.assessment.error ||
+                    a.assessment.score == null
+                      ? "Chưa có độ tin cậy AI — chưa chấm thành công hoặc bài không tính điểm."
+                      : `Độ tin cậy do AI tự báo: ${Math.round(a.assessment.confidence * 100)}% (chưa được hiệu chuẩn)`}
                   </small>
+                  {a.assessment.error_code && (
+                    <p className="error">Mã lỗi: {a.assessment.error_code}</p>
+                  )}
+                  {a.assessment.grading_exam_id && (
+                    <p className="notice">
+                      Đã chấm lại theo phiên bản đề mới; cần giảng viên xem lại.
+                      Chi tiết được lưu trong lịch sử bên dưới.
+                    </p>
+                  )}
                 </>
               ) : (
                 <p>Đang chờ xử lý.</p>

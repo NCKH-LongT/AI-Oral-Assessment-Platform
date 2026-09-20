@@ -4,17 +4,19 @@ import hashlib
 import json
 import math
 import re
+from enum import Enum
 
 import httpx
 from pgvector.sqlalchemy import Vector
+from pydantic import Field, create_model
 from sqlalchemy import cast, select
 
 from .knowledge import scope_query
 from .models import Chunk, Document
 from .runtime_settings import settings
-from .schemas import GradeOutput, QuestionOutput
+from .schemas import GradeCriterion, GradeOutput, QuestionOutput
 
-PROMPT_VERSION = "mvp-1"
+PROMPT_VERSION = "rubric-bounded-v2"
 
 
 def embedding_name():
@@ -43,7 +45,7 @@ def gemini(operation, model, payload):
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:{operation}",
         headers={"x-goog-api-key": settings().gemini_api_key},
         json=payload,
-        timeout=90,
+        timeout=settings().gemini_timeout,
     )
     response.raise_for_status()
     return response.json()
@@ -183,6 +185,21 @@ def generate_question(topic, difficulty, chunks, previous, outcomes=None):
     return result
 
 
+def grading_schema(criteria, chunks):
+    # Expose the rubric scale to the provider, not the generic 0..100 storage schema.
+    names = Enum("CriterionName", {f"c{i}": c["name"] for i, c in enumerate(criteria)}, type=str)
+    references = Enum("EvidenceId", {f"e{i}": c["id"] for i, c in enumerate(chunks)}, type=str)
+    criterion = create_model(
+        "BoundGradeCriterion", __base__=GradeCriterion,
+        name=(names, ...), score=(float, Field(ge=0, le=max(c["max_score"] for c in criteria))),
+    )
+    return create_model(
+        "BoundGradeOutput", __base__=GradeOutput,
+        criteria=(list[criterion], Field(min_length=len(criteria), max_length=len(criteria))),
+        reference_chunk_ids=(list[references], Field(min_length=1, max_length=len(chunks))),
+    )
+
+
 def grade(question, transcript, criteria, chunks, stt_confidence):
     cfg = settings()
     base = {
@@ -195,7 +212,8 @@ def grade(question, transcript, criteria, chunks, stt_confidence):
     }
     if cfg.ai_provider == "demo":
         return base | {
-            "confidence": 0,
+            "confidence": None,
+            "status": "NOT_GRADED",
             "criteria": [],
             "missing_concepts": [],
             "reasoning_summary": "Chế độ demo: đã lưu transcript và RAG. Chưa chấm AI; cần giảng viên xem lại.",
@@ -205,10 +223,12 @@ def grade(question, transcript, criteria, chunks, stt_confidence):
     result = structured(
         "Grade the answer against every rubric criterion, using only supplied knowledge. "
         "Return one score per criterion with the exact criterion name, bounded by its max_score. "
+        "Scores are raw rubric points, NEVER percentages: for max_score=2, three of four equal items earns 1.5, not 75. "
+        "Return every criterion once in the supplied order; use its own max_score even when other criteria have a larger maximum. "
         "Use short comments and a brief reasoning summary. Cite supporting chunk IDs.",
         {"question": question, "transcript": transcript, "rubric": criteria, "evidence": chunks},
-        GradeOutput,
-    ).model_dump()
+        grading_schema(criteria, chunks),
+    ).model_dump(mode="json")
     actual = {c["name"]: c for c in result["criteria"]}
     if len(actual) != len(result["criteria"]) or set(actual) != {c["name"] for c in criteria}:
         raise ValueError("Grading criteria mismatch")
@@ -228,4 +248,4 @@ def grade(question, transcript, criteria, chunks, stt_confidence):
         or stt_confidence < cfg.confidence_threshold
         or abs(score - 5) <= 0.25
     )
-    return base | result | {"score": score, "review_required": review}
+    return base | result | {"score": score, "review_required": review, "status": "COMPLETED"}

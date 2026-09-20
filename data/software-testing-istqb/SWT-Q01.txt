@@ -1,0 +1,32 @@
+SOFTWARE TESTING — SWT-Q01 — Phân vùng tương đương và giá trị biên
+Tài liệu tự biên soạn dùng làm căn cứ chấm vấn đáp. Nguồn khái niệm: ISTQB CTFL v4.0.1, mục 4.2.1–4.2.2, trang 39–40.
+https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf
+© ISTQB và các tác giả syllabus đối với nguồn tham chiếu. Bài tập và rubric dưới đây do dự án tự soạn, không phải đề ISTQB chính thức.
+
+TÓM TẮT KHÁI NIỆM
+EP chia miền đầu vào thành các lớp có hành vi dự kiến tương tự. Bao phủ EP xét cả lớp hợp lệ và không hợp lệ. BVA áp dụng cho miền có thứ tự; với hai giá trị, thử cặp giá trị ở hai phía ranh giới.
+
+TÌNH HUỐNG SWT-Q01
+Một API đăng ký chỉ nhận tuổi nguyên; chấp nhận tuổi từ 18 đến 65, bao gồm hai đầu mút, ngoài khoảng thì từ chối. Bỏ qua chuỗi, số thập phân và giá trị rỗng. (1) Xác định các phân vùng tương đương và nêu một bộ test tối thiểu bao phủ chúng. (2) Dùng BVA 2 giá trị, liệt kê đầy đủ giá trị cần thử và kết quả mong đợi. (3) Bộ test hiện có chỉ gồm 18 và 65: tính riêng độ bao phủ EP và BVA 2 giá trị. (4) Giải thích lỗi dùng > thay >= tại cận dưới, < thay <= tại cận trên, test nào phát hiện từng lỗi. (5) Vì sao không thử mọi tuổi, và đạt 100% các độ bao phủ này có chứng minh hệ thống hết lỗi không?
+
+ĐÁP ÁN THAM CHIẾU SWT-Q01
+Ba lớp: tuổi <=17 không hợp lệ, 18..65 hợp lệ, >=66 không hợp lệ. Ba lớp không giao nhau và phủ hết miền tuổi nguyên đang xét. EP cần tối thiểu ba ca; 17 bị từ chối, 30 được chấp nhận, 66 bị từ chối là một bộ hợp lệ. BVA 2 giá trị cần 17 (từ chối), 18 (chấp nhận), 65 (chấp nhận), 66 (từ chối). Hai ca 18/65 chỉ phủ lớp hợp lệ nên EP=1/3≈33,33%; chúng phủ 2 trong 4 giá trị biên nên BVA=50%. Nếu cận dưới viết tuổi>18, ca18 thất bại; nếu cận trên viết tuổi<65, ca65 thất bại. EP giúp lấy đại diện thay cho duyệt mọi tuổi; BVA nhắm các sai sót ở ranh giới. 100% ở đây chỉ là bao phủ các lớp/biên đã xác định, không bảo đảm đúng về các yêu cầu khác.
+
+THANG ĐIỂM SWT-Q01
+Mỗi ý đúng trong một tiêu chí được 0,5 điểm, tối đa 2 điểm/tiêu chí; không có điểm âm. Diễn đạt tương đương được chấp nhận. Không chấm giọng nói. Tổng 5 tiêu chí tối đa 10 điểm.
+Hiểu yêu cầu và khái niệm: 1) Nêu lớp không hợp lệ tuổi <=17. 2) Nêu lớp hợp lệ 18..65, bao gồm hai đầu mút. 3) Nêu lớp không hợp lệ tuổi >=66. 4) Ba lớp rời nhau và phủ miền tuổi nguyên trong phạm vi đề; không tự thêm lớp chuỗi/rỗng.
+
+Áp dụng kỹ thuật kiểm thử: 1) Chọn 17 cho BVA 2 giá trị. 2) Chọn 18 cho BVA 2 giá trị. 3) Chọn 65 cho BVA 2 giá trị. 4) Chọn 66 cho BVA 2 giá trị.
+
+Dữ liệu và kết quả mong đợi: 1) Gắn 17 với từ chối. 2) Gắn 18 với chấp nhận. 3) Gắn 65 với chấp nhận. 4) Gắn 66 với từ chối.
+
+Độ bao phủ và tính đầy đủ: 1) EP tối thiểu 3 test và cho một bộ có một đại diện mỗi lớp. 2) Giải thích 18 và 65 nằm cùng một lớp hợp lệ. 3) Tính EP hiện có 1/3 hoặc khoảng 33,33%. 4) Tính BVA hiện có 2/4=50%; bộ đầy đủ có 4 giá trị phân biệt.
+
+Lập luận và giới hạn kết luận: 1) Giải thích lấy đại diện EP giảm số ca so với thử mọi tuổi. 2) Ca18 phát hiện việc dùng >18 thay >=18. 3) Ca65 phát hiện việc dùng <65 thay <=65. 4) Không kết luận hệ thống hết lỗi chỉ vì đạt 100% độ bao phủ đang xét.
+
+LỖI THƯỜNG GẶP SWT-Q01
+Gộp cả hai miền không hợp lệ thành một lớp dù nằm ở hai phía của khoảng được chấp nhận.
+Chỉ thử 18 và 65 rồi kết luận BVA đạt100%.
+Đưa 18/19/64/65 làm bộ BVA 2 giá trị đầy đủ và bỏ hai giá trị ngay ngoài khoảng.
+Dùng 6 giá trị như BVA 3 giá trị nhưng không xác định đúng 4 giá trị của kỹ thuật được hỏi; test thêm không bị phạt nếu vẫn giải thích đúng.
+Nói mọi test pass đồng nghĩa phần mềm không có lỗi.

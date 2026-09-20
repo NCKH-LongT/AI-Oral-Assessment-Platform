@@ -6,12 +6,14 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 from sqlalchemy import select
 
 from . import ai, runtime_settings, speech, storage
 from .db import SessionLocal
 from .documents import process_document
+from .grading import check_config, failure, review_question
 from .models import Attempt, Audit, Chunk, Document, Exam, ExamSession, MediaCleanup, ReviewJob, Upload
 
 log = logging.getLogger("oral.worker")
@@ -63,7 +65,8 @@ def grade_answer(db, exam, session, attempt, transcript, confidence):
         return {
             "score": None,
             "review_required": True,
-            "confidence": 0,
+            "confidence": None,
+            "status": "NOT_GRADED",
             "criteria": [],
             "retrieved_chunks": [],
             "model": "practice",
@@ -71,13 +74,7 @@ def grade_answer(db, exam, session, attempt, transcript, confidence):
             "knowledge_version": snapshot["knowledge_version"],
             "reasoning_summary": "Đã hoàn thành câu luyện tập. Bài này không tính điểm chính thức.",
         }
-    if (
-        snapshot["embedding_model"] != ai.embedding_name()
-        or snapshot["ai_provider"] != ai.settings().ai_provider
-        or snapshot["llm_model"] != ai.settings().llm_model
-        or snapshot["prompt_version"] != ai.PROMPT_VERSION
-    ):
-        raise ValueError("AI configuration changed since publish")
+    check_config(exam)
     chunks = ai.retrieve(
         db,
         exam.course_id,
@@ -100,38 +97,54 @@ def process_review(db, job):
     session = db.get(ExamSession, attempt.session_id)
     exam = db.get(Exam, session.exam_id)
     try:
-        audio = db.get(Upload, job.original["audio_id"])
-        if not audio or audio.sha256 != job.original["audio_sha256"] or audio.status != "COMPLETED":
-            raise ValueError("Original evidence changed")
-        with tempfile.TemporaryDirectory(prefix="oral-review-") as folder:
-            path = Path(folder) / "original.webm"
-            original = storage.get(audio.storage_key)
-            if hashlib.sha256(original).hexdigest() != audio.sha256:
-                raise ValueError("Original audio checksum mismatch")
-            path.write_bytes(original)
-            transcript = speech.transcribe_file(path, job.policy)
-        assessment = grade_answer(
-            db, exam, session, attempt, transcript["transcript"], transcript["stt_confidence"]
-        )
-        job.result = transcript | {"assessment": assessment}
-        # The submitted transcript and idempotency payload remain immutable.
-        attempt.assessment = assessment
-        job.status = "COMPLETED"
+        if job.policy["provider"] == "grading":
+            target = db.get(Exam, job.policy["target_exam_id"])
+            question = review_question(exam, target, attempt)
+            reviewed = SimpleNamespace(question=question, finished_at=attempt.finished_at)
+            assessment = grade_answer(db, target, session, reviewed,
+                                      job.original["transcript"], job.original["stt_confidence"] or 0)
+            assessment = assessment | {"grading_exam_id": target.id, "source_exam_id": exam.id,
+                                       "review_required": True}
+            # A change of grading version always requires human review.
+            job.result = {"transcript": job.original["transcript"],
+                          "stt_confidence": job.original["stt_confidence"],
+                          "preprocessing": "unchanged", "assessment": assessment}
+            attempt.assessment = assessment
+            job.status = "COMPLETED"
+        else:
+            process_transcription_review(db, job, exam, session, attempt)
     except Exception as exc:
         job.status = "FAILED"
-        job.error = "Nhận dạng/chấm lại thất bại. Đánh giá trước được giữ nguyên; kiểm tra nhà cung cấp nhận dạng và cấu hình LLM trên server rồi thử lại."
-        log.warning("review_failed id=%s type=%s", job.id, type(exc).__name__)
+        code, message = failure(exc)
+        job.error = f"{code}: {message} Đánh giá trước được giữ nguyên."
+        log.warning("review_failed id=%s code=%s type=%s", job.id, code, type(exc).__name__)
     job.completed_at = time.time()
-    db.add(
-        Audit(
-            user_id=job.requested_by,
-            event=job.policy["provider"].upper() + "_REVIEW_" + job.status,
-            details={"job_id": job.id, "attempt_id": attempt.id},
-        )
-    )
+    db.add(Audit(user_id=job.requested_by, event=job.policy["provider"].upper() + "_REVIEW_" + job.status,
+                 details={"job_id": job.id, "attempt_id": attempt.id}))
     db.flush()
     session = db.scalar(select(ExamSession).where(ExamSession.id == session.id).with_for_update())
     finalize(db, session)
+
+
+def process_transcription_review(db, job, exam, session, attempt):
+    check_config(exam)
+    audio = db.get(Upload, job.original["audio_id"])
+    if not audio or audio.sha256 != job.original["audio_sha256"] or audio.status != "COMPLETED":
+        raise ValueError("Original evidence changed")
+    with tempfile.TemporaryDirectory(prefix="oral-review-") as folder:
+        path = Path(folder) / "original.webm"
+        original = storage.get(audio.storage_key)
+        if hashlib.sha256(original).hexdigest() != audio.sha256:
+            raise ValueError("Original audio checksum mismatch")
+        path.write_bytes(original)
+        transcript = speech.transcribe_file(path, job.policy)
+    assessment = grade_answer(
+        db, exam, session, attempt, transcript["transcript"], transcript["stt_confidence"]
+    )
+    job.result = transcript | {"assessment": assessment}
+    # The submitted transcript and idempotency payload remain immutable.
+    attempt.assessment = assessment
+    job.status = "COMPLETED"
 
 
 @runtime_settings.snapshot()
@@ -201,20 +214,23 @@ def tick():
                 db, exam, session, attempt, attempt.transcript, attempt.stt_confidence or 0
             )
         except Exception as exc:
+            code, message = failure(exc)
             attempt.assessment = {
                 "score": None,
                 "review_required": True,
-                "confidence": 0,
+                "confidence": None,
+                "status": "FAILED",
+                "error_code": code,
                 "criteria": [],
                 "retrieved_chunks": [],
                 "model": snapshot["llm_model"],
                 "rubric_version": snapshot["rubric_version"],
                 "knowledge_version": snapshot["knowledge_version"],
                 "prompt_version": snapshot["prompt_version"],
-                "reasoning_summary": "Chấm tự động thất bại; cần giảng viên xem lại.",
+                "reasoning_summary": message,
                 "error": type(exc).__name__,
             }
-            log.warning("grading_failed attempt=%s type=%s", attempt.id, type(exc).__name__)
+            log.warning("grading_failed attempt=%s code=%s type=%s", attempt.id, code, type(exc).__name__)
         attempt.status = "GRADED"
         db.add(Audit(event="QUESTION_GRADED", details={"attempt_id": attempt.id}))
         # Serialize completion across workers grading different attempts in one session.

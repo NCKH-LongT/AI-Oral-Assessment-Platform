@@ -1,5 +1,7 @@
 # Mở rộng giáo trình, chủ đề và STT — 11/09/2026
 
+**Cập nhật 20/09/2026:** [Độ tin cậy và chấm lại theo phiên bản đề](grading-confidence.md) mô tả kiểm tra snapshot, confidence chưa có dữ liệu và luồng chấm transcript không gọi STT. Nhận dạng lại audio không tự khắc phục đề lệch provider/embedding.
+
 ## Mô hình kiến thức
 
 Giữ một file PDF giáo trình ở cấp môn; không tạo bản sao vật lý cho từng chương. `Document.kind=TEXTBOOK` có unique index theo môn. Tài liệu bổ sung có `kind=SUPPLEMENT`. Giáo trình tối đa 100 MB, tài liệu bổ sung 20 MB; cấu hình bằng `MAX_TEXTBOOK_MB` và `MAX_DOCUMENT_MB`.

@@ -113,7 +113,11 @@ export type Chunk = {
 };
 export type Assessment = {
   score: number | null;
-  confidence: number;
+  confidence: number | null;
+  status?: "COMPLETED" | "FAILED" | "NOT_GRADED";
+  error?: string;
+  error_code?: string;
+  grading_exam_id?: string;
   review_required: boolean;
   reasoning_summary: string;
   model: string;
@@ -136,6 +140,7 @@ export type Review = Result & {
     transcript: string | null;
     stt_confidence: number | null;
     assessment: Assessment | null;
+    grading_targets?: { id: string; name: string; model: string }[];
     evidence: { id: string; kind: string }[];
     reviews: {
       id: string;

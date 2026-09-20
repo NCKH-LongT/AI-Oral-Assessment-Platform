@@ -70,6 +70,8 @@ Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khi�
 
 ## Số lần làm bài và kết quả
 
+**Độ tin cậy AI:** lỗi chấm, demo và bài không tính điểm hiện “Chưa có độ tin cậy AI”, không hiển thị 0% giả. Số phần trăm khi chấm thành công do LLM tự báo, chưa được hiệu chuẩn. Nếu gặp `AI_CONFIG_MISMATCH`, cần tài liệu và phiên bản đề khớp cấu hình AI hiện tại. Admin có thể chọn **Chấm lại transcript đã nộp** với phiên bản giữ nguyên câu hỏi/rubric; lưu lịch sử và luôn yêu cầu xem lại. Xem [độ tin cậy và chấm lại](docs/architecture/grading-confidence.md).
+
 Admin mở **Môn học & đề thi → chọn môn → Bài thi & giao bài → Cấu hình số lần làm lại**: không cho làm lại, cho làm lại N lần hoặc không giới hạn. Ví dụ cho làm lại 1 lần là tổng cộng 2 lượt.
 
 **Kết quả & xem lại** hiển thị từng lần thi. Mở **Quản lý lượt thi** để cấp thêm lượt riêng cho sinh viên hoặc xóa lần thi được chọn. Sinh viên xem lịch sử và bấm **Làm lại bài thi** khi còn lượt. [Chi tiết và nâng cấp database](docs/architecture/exam-retakes.md).

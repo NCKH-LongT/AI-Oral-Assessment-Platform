@@ -1,5 +1,14 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Độ tin cậy và phục hồi chấm rubric — 20/09/2026
+
+- 59 test API đạt trên SQLite trong container kiểm thử riêng; 1 test khóa PostgreSQL bỏ qua. Sáu test mới bao phủ lỗi lệch cấu hình, dữ liệu confidence 0 cũ, confidence 0 hợp lệ, quyền ADMIN, job idempotent, không gọi STT khi chấm transcript, giữ câu trả lời/lịch sử khi thành công hoặc lỗi, từ chối câu hỏi/rubric khác, chặn bắt đầu đề lệch cấu hình và schema ràng buộc thang điểm/tên tiêu chí/citation.
+- 7 kịch bản Playwright đạt trên Chromium: 4 kịch bản confidence/chấm transcript mới và 3 kịch bản nhận dạng lại/cấu hình STT hiện có. API được giả lập cho kiểm thử UI; không sửa dữ liệu thật qua các bài test này. Lượt đầu thiếu bản Chromium phù hợp; đã cài đúng bản và chạy lại thành công.
+- Ruff, TypeScript, ESLint, production build và Docker Compose healthcheck đạt. Một lượt pytest đang chạy trong container API bị ngắt bởi việc recreate container; đã chạy lại toàn bộ suite trong container kiểm thử riêng, kết quả 59/1 ở trên.
+- Kiểm tra Gemini thật phát hiện hai lỗi ngoài cấu hình snapshot: ReadTimeout và model trả 75 điểm cho tiêu chí tối đa 2. Đã bổ sung GEMINI_TIMEOUT=180, schema theo rubric và prompt rubric-bounded-v2; không tự quy đổi điểm vượt thang. Những lần review lỗi giữ nguyên kết quả cũ và có lịch sử.
+- Đã tạo phiên bản Software Testing với Gemini embedding và prompt mới, giữ đề demo và các phiên bản trước. Chấm lại 2 câu đã nộp qua ReviewJob thành công với đủ 5 tiêu chí và citation thật; confidence tự báo lần lượt 0,90 và 1,00. Giữ nguyên transcript/câu hỏi/rubric gốc, điểm chính thức chưa công bố vì bắt buộc REVIEW_REQUIRED.
+- Đây là xác minh hoạt động tích hợp, không phải benchmark chất lượng chấm hoặc hiệu chuẩn confidence. Bộ 8 bài chuẩn chưa được chạy như một đánh giá chất lượng đầy đủ.
+
 ## Nhiều lần làm bài và quản lý kết quả — 17/09/2026
 
 - Suite backend: 53 test đạt trên SQLite, 1 test khóa PostgreSQL bỏ qua; 54 test đạt trên PostgreSQL/pgvector với database tạm riêng. Bao gồm giới hạn, không giới hạn, cấp thêm lượt riêng, giảm giới hạn, phân quyền, lịch sử và snapshot không đổi.

@@ -20,7 +20,11 @@ export function TranscriptionReview({
     <div>
       {latest?.result && (
         <div className="notice">
-          <strong>Transcript nhận dạng lại dùng cho đánh giá hiện tại</strong>
+          <strong>
+            {latest.policy?.provider === "grading"
+              ? "Transcript đã nộp được dùng để chấm lại"
+              : "Transcript nhận dạng lại dùng cho đánh giá hiện tại"}
+          </strong>
           <p className="transcript">{latest.result.transcript}</p>
           <small>
             {latest.result.confidence_source === "unavailable"
@@ -33,7 +37,7 @@ export function TranscriptionReview({
       {pending ? (
         <p role="status" className="processing-status">
           <LoaderCircle className="spin" size={20} />
-          Đang chờ nhận dạng và chấm lại…
+          Đang chờ xử lý yêu cầu đánh giá lại…
         </p>
       ) : (
         enabled && (
@@ -75,6 +79,38 @@ export function TranscriptionReview({
           </details>
         )
       )}
+      {enabled && !pending && !!attempt.grading_targets?.length && (
+        <details>
+          <summary>Chấm lại transcript đã nộp</summary>
+          <p>
+            Dùng nguyên câu trả lời đã nộp, giữ câu hỏi và rubric gốc. Chọn
+            phiên bản đề có cấu hình AI phù hợp. Có thể phát sinh phí LLM; kết
+            quả cần giảng viên xem lại, lịch sử cũ được giữ.
+          </p>
+          <Form
+            label="Chấm lại transcript"
+            onSubmit={async (d) => {
+              await send(`/admin/attempts/${attempt.id}/grade-review`, {
+                target_exam_id: d.get("target_exam_id"),
+                reason: d.get("reason"),
+              });
+              await refresh();
+            }}
+          >
+            <label>
+              Phiên bản dùng để chấm
+              <select name="target_exam_id" required>
+                {attempt.grading_targets.map((target) => (
+                  <option key={target.id} value={target.id}>
+                    {target.name} · {target.model} · {target.id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Field label="Lý do chấm lại" name="reason" />
+          </Form>
+        </details>
+      )}
       {!!attempt.reviews.length && (
         <details>
           <summary>
@@ -88,12 +124,14 @@ export function TranscriptionReview({
               </strong>
               {r.policy && (
                 <p>
-                  Nhận dạng:{" "}
-                  {r.policy.provider === "gemini"
-                    ? "Gemini STT"
-                    : r.policy.provider === "google"
-                      ? "Google Cloud STT"
-                      : r.policy.provider}
+                  Xử lý:{" "}
+                  {r.policy.provider === "grading"
+                    ? "Chấm transcript đã nộp"
+                    : r.policy.provider === "gemini"
+                      ? "Gemini STT"
+                      : r.policy.provider === "google"
+                        ? "Google Cloud STT"
+                        : r.policy.provider}
                 </p>
               )}
               <p>{r.reason}</p>

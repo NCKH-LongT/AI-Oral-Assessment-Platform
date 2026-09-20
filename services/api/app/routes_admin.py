@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from . import ai, storage
 from . import schemas as s
 from .db import get_db
+from .grading import GradingError, assessment_view, check_config, review_question
 from .knowledge import chunk_scope, set_mappings, topic_data
 from .models import (
     Assignment,
@@ -608,6 +609,8 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
         "attempts": [
             data(a, "sequence", "question", "transcript", "stt_confidence", "assessment", "status")
             | {
+                "assessment": assessment_view(a.assessment, exam),
+                "grading_targets": grading_targets(db, exam, a),
                 "evidence": [
                     data(e, "kind", "status", "sha256", "size")
                     for e in db.scalars(
@@ -639,6 +642,53 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
     }
 
 
+def grading_targets(db, exam, attempt):
+    targets = []
+    for candidate in db.scalars(select(Exam).where(Exam.course_id == exam.course_id, Exam.status == "PUBLISHED")):
+        try:
+            review_question(exam, candidate, attempt)
+        except GradingError:
+            continue
+        targets.append({"id": candidate.id, "name": candidate.name,
+                        "model": candidate.snapshot["llm_model"]})
+    return targets
+
+
+@router.post("/attempts/{key}/grade-review", status_code=202)
+def grade_review(key: str, body: s.GradeReviewIn, db: Session = Depends(get_db), user=Depends(admin)):
+    attempt = by_id(db, Attempt, key, lock=True)
+    session = by_id(db, ExamSession, attempt.session_id, lock=True)
+    if session.deleted_at is not None:
+        fail(404, "NOT_FOUND", "Lần thi đã bị xóa")
+    exam = by_id(db, Exam, session.exam_id)
+    course_access(db, exam.course_id, user)
+    if session.status not in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"} or attempt.status != "GRADED":
+        fail(409, "NOT_FINISHED", "Chờ nộp bài và hoàn tất xử lý lần đầu")
+    if not attempt.transcript or not attempt.finished_at:
+        fail(409, "NO_TRANSCRIPT", "Chưa có transcript đã nộp để chấm lại")
+    target = by_id(db, Exam, body.target_exam_id)
+    try:
+        review_question(exam, target, attempt)
+    except GradingError as exc:
+        fail(409, exc.code, str(exc))
+    pending = db.scalar(select(ReviewJob).where(ReviewJob.attempt_id == key, ReviewJob.status == "PENDING"))
+    if pending:
+        if pending.policy == {"provider": "grading", "target_exam_id": target.id}:
+            return data(pending, "status")
+        fail(409, "REVIEW_PENDING", "Đang có yêu cầu xử lý khác; hãy chờ hoàn tất")
+    job = ReviewJob(attempt_id=key, requested_by=user.id, reason=body.reason,
+                    policy={"provider": "grading", "target_exam_id": target.id},
+                    original={"transcript": attempt.transcript, "stt_confidence": attempt.stt_confidence,
+                              "assessment": attempt.assessment, "source_exam_id": exam.id})
+    db.add(job)
+    session.status, session.final_score = "REVIEW_REQUIRED", None
+    db.flush()
+    db.add(Audit(user_id=user.id, event="GRADING_REVIEW_REQUESTED",
+                 details={"job_id": job.id, "attempt_id": key, "target_exam_id": target.id, "reason": body.reason}))
+    db.commit()
+    return data(job, "status")
+
+
 @router.post("/attempts/{key}/google-review", status_code=202)
 def google_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), user=Depends(admin)):
     return request_transcription_review(key, body, db, user, "google")
@@ -654,6 +704,10 @@ def request_transcription_review(key, body, db, user, provider):
     session = by_id(db, ExamSession, attempt.session_id, lock=True)
     exam = by_id(db, Exam, session.exam_id)
     course_access(db, exam.course_id, user)
+    try:
+        check_config(exam)
+    except GradingError as exc:
+        fail(409, exc.code, str(exc))
     if session.status not in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"} or attempt.status != "GRADED":
         fail(409, "NOT_FINISHED", "Chờ sinh viên nộp bài và hoàn tất chấm lần đầu")
     if provider == "gemini" and not settings().gemini_api_key:

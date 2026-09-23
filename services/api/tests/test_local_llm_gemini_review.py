@@ -89,12 +89,20 @@ def test_local_ollama_grades_submitted_text_without_cloud(env, monkeypatch, inva
                 if invalid:
                     output["criteria"][0]["score"] = 999
             else:
-                output = {"text": "Explain DI.", "expected_concepts": ["DI"], "reference_chunk_ids": refs}
+                assert "english_terms" in json["format"]["required"]
+                output = {
+                    "text": "Explain DI.", "expected_concepts": ["DI"], "reference_chunk_ids": refs,
+                    "english_terms": [{"term": "dependency injection", "meaning": "tiêm phụ thuộc"}],
+                }
             result = {"message": {"content": __import__("json").dumps(output)}}
         return httpx.Response(200, json=result, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(ai.httpx, "post", request)
     context = prepare(env, 1)
+    workspace = ok(env[0]["admin"].get(f"/admin/courses/{context['course']['id']}/workspace"))
+    assert workspace["exams"][0]["questions"][0]["english_terms"] == [
+        {"term": "dependency injection", "meaning": "tiêm phụ thuộc"},
+    ]
     session = start(env, context)
     student = env[0]["student"]
     aid = session["current_attempt"]["id"]

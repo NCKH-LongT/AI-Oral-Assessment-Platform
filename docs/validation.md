@@ -2,10 +2,16 @@
 
 [README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu)
 
+## Sửa kiểm thử Jenkins sau khi thêm thuật ngữ — 23/09/2026
+
+- Tái hiện 4 ca lỗi ở commit `1932aab`: Gemini và Ollama giả lập trả câu hỏi thiếu `english_terms`, dẫn tới ValidationError và HTTP 500 khi công bố đề. Nguyên nhân là fixture chưa cập nhật theo schema mới; không phải credential hoặc cấu hình Jenkins.
+- Bổ sung thuật ngữ vào hai adapter giả lập, xác nhận schema gửi cho provider yêu cầu trường này và thuật ngữ được lưu/trả về workspace admin. Giữ nguyên schema production.
+- 4 ca từng lỗi đã đạt. Chạy toàn bộ API bằng lệnh Jenkins trong container `--network none`, Python 3.12 và dependency lock giống image API hiện có, chép source/tests hiện tại: **62 passed, 5 skipped** (các ca cần PostgreSQL). Ruff và `git diff --check` đạt. Chưa chạy lại job trên máy Jenkins từ phiên làm việc này.
+
 ## Thuật ngữ, xóa toàn bộ môn học và bỏ LLM sửa chính tả — 23/09/2026
 
 - Đã gỡ UI, IPC, runtime `node-llama-cpp` và luồng tải model sửa chính tả. STT PhoWhisper và sửa transcript bằng tay vẫn giữ nguyên; các mục kiểm thử sửa chính tả cũ bên dưới là lịch sử của tính năng đã gỡ.
-- API trên SQLite: 62 ca đạt, 1 ca chỉ chạy PostgreSQL được bỏ qua. PostgreSQL riêng: 10 ca thuật ngữ/CRUD/xóa môn đạt, gồm kiểm tra khóa Document/Exam/Attempt/Upload, quyền admin, mã xác nhận, toàn bộ khóa ngoại, giữ tài khoản/môn khác và retry dọn object khi storage lỗi.
+- Lượt SQLite trước khi đổi `english_terms` thành bắt buộc: 62 ca đạt, 1 ca bỏ qua; chưa phản ánh commit cuối `1932aab` (Jenkins sau đó phát hiện 4 fixture AI thiếu trường mới). PostgreSQL riêng: 10 ca thuật ngữ/CRUD/xóa môn đạt, gồm kiểm tra khóa Document/Exam/Attempt/Upload, quyền admin, mã xác nhận, toàn bộ khóa ngoại, giữ tài khoản/môn khác và retry dọn object khi storage lỗi.
 - 5 ca Playwright liên quan đạt: xem thuật ngữ ngay sau sinh câu hỏi, xác nhận xóa và retry, 3 luồng STT gốc/bản lọc có sửa tay, chọn thiết bị. API và bridge STT được giả lập trong các ca giao diện; API/DB có kiểm thử riêng. Chưa đánh giá độ đúng thuật ngữ bằng LLM thật.
 - Production build, TypeScript, ESLint, Ruff, 4 test Node desktop, 3 test audio và 4 test Python launcher/STT đạt. Đã giữ các sửa gain microphone, xuất UTF-8 và thoát desktop từ nhánh remote mới nhất khi tích hợp.
 

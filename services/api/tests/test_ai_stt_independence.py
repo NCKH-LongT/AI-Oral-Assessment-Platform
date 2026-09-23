@@ -56,10 +56,13 @@ def test_enable_gemini_preserves_whisper_policy_and_grades_text(env, monkeypatch
                 "reference_chunk_ids": references,
             }
         else:
+            schema = payload["generationConfig"]["responseJsonSchema"]
+            assert "english_terms" in schema["required"]
             output = {
                 "text": "Explain dependency injection.",
                 "expected_concepts": ["DI"],
                 "reference_chunk_ids": references,
+                "english_terms": [{"term": "dependency injection", "meaning": "tiêm phụ thuộc"}],
             }
         return {"candidates": [{"content": {"parts": [{"text": json.dumps(output)}]}}]}
 
@@ -70,6 +73,10 @@ def test_enable_gemini_preserves_whisper_policy_and_grades_text(env, monkeypatch
     monkeypatch.setattr(speech, "google_transcribe", forbidden_google)
     monkeypatch.setattr(google_credentials, "load", forbidden_google)
     context = prepare(env, 1)
+    workspace = ok(admin.get(f"/admin/courses/{context['course']['id']}/workspace"))
+    assert workspace["exams"][0]["questions"][0]["english_terms"] == [
+        {"term": "dependency injection", "meaning": "tiêm phụ thuộc"},
+    ]
     session = start(env, context)
     aid = session["current_attempt"]["id"]
     ok(student.post(f"/question-attempts/{aid}/start"))

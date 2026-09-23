@@ -20,35 +20,7 @@ for (const [denoise, filterAvailable] of [
         throw new Error("STT retry failed");
     });
     await page.addInitScript((transcript) => {
-      let installed = false,
-        suggestions = 0,
-        downloads = 0;
-      const status = () =>
-        Promise.resolve({
-          installed,
-          busy: false,
-          phase: "idle",
-          progress: 100,
-          model: "test",
-          bytes: 1282439264,
-        });
       window.oralDesktop = {
-        correction: {
-          status,
-          install: async () => {
-            if (++downloads === 1) throw new Error("Mạng tải model bị lỗi");
-            installed = true;
-            return status();
-          },
-          cancel: async () => {},
-          suggest: async (text) => {
-            if (++suggestions === 3) throw new Error("Model local bị lỗi");
-            return {
-              text: text.replace("supplies", "corrects"),
-              model: "test",
-            };
-          },
-        },
         transcribe: async (audio, policy) => {
           if (!audio.byteLength || policy.provider !== "local")
             throw new Error("Expected recorded audio and a local STT policy");
@@ -168,20 +140,9 @@ for (const [denoise, filterAvailable] of [
         name: "Lọc nhiễu RNNoise khi nhận dạng câu trả lời",
       })
       .setChecked(denoise);
-    if (denoise) {
-      const download = page.getByRole("button", {
-        name: "Tải model sửa chính tả (1,28 GB)",
-        exact: true,
-      });
-      await download.click();
-      await expect(
-        page.getByText("Mạng tải model bị lỗi", { exact: true }),
-      ).toBeVisible();
-      await download.click();
-      await expect(
-        page.getByText("Model đã sẵn sàng.", { exact: false }),
-      ).toBeVisible();
-    }
+    await expect(
+      page.getByRole("button", { name: /Gợi ý sửa chính tả/ }),
+    ).toHaveCount(0);
     await page
       .getByRole("button", { name: "Bắt đầu thi", exact: true })
       .click();
@@ -231,39 +192,16 @@ for (const [denoise, filterAvailable] of [
     if (filterAvailable) expect(localHashes[2]).not.toBe(localHashes[1]);
     else expect(localHashes[2]).toBe(localHashes[1]);
     expect(localHashes[0]).toBe(localHashes[denoise ? 2 : 1]);
-    let finalTranscript = transcript;
-    if (denoise) {
-      const suggest = page.getByRole("button", {
-        name: "Gợi ý sửa chính tả và dấu câu",
-        exact: true,
-      });
-      const transcriptBox = page.getByRole("textbox", {
-        name: "Transcript",
-        exact: true,
-      });
-      await suggest.click();
-      await expect(
-        page.getByRole("textbox", { name: "Bản đề xuất" }),
-      ).toHaveValue(transcript.replace("supplies", "corrects"));
-      await expect(transcriptBox).toHaveValue(transcript);
-      await page
-        .getByRole("button", { name: "Giữ bản hiện tại", exact: true })
-        .click();
-      await expect(
-        page.getByRole("textbox", { name: "Bản đề xuất" }),
-      ).toHaveCount(0);
-      await suggest.click();
-      await page
-        .getByRole("button", { name: "Áp dụng bản đề xuất", exact: true })
-        .click();
-      finalTranscript = transcript.replace("supplies", "corrects");
-      await expect(transcriptBox).toHaveValue(finalTranscript);
-      await suggest.click();
-      await expect(
-        page.getByText("Model local bị lỗi", { exact: true }),
-      ).toBeVisible();
-      await expect(transcriptBox).toHaveValue(finalTranscript);
-    }
+    // Manual edits remain available after removing the LLM correction feature.
+    const finalTranscript = denoise
+      ? transcript + " Edited manually."
+      : transcript;
+    await page
+      .getByRole("textbox", { name: "Transcript", exact: true })
+      .fill(finalTranscript);
+    await expect(
+      page.getByRole("button", { name: /Gợi ý sửa chính tả/ }),
+    ).toHaveCount(0);
     await page
       .getByRole("button", { name: "Nộp câu trả lời & tiếp tục" })
       .click();

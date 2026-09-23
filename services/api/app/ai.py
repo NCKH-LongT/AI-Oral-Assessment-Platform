@@ -167,10 +167,15 @@ def generate_question(topic, difficulty, chunks, previous, outcomes=None):
             "text": f"Câu {len(previous) + 1}: Trình bày {topic.name} và phân tích một ví dụ ({difficulty}).",
             "expected_concepts": [topic.name],
             "reference_chunk_ids": [c["id"] for c in chunks],
+            "english_terms": [],
         }
     result = structured(
         "Generate exactly one oral assessment question constrained by topic, supplied learning outcomes and difficulty. "
-        "Avoid previous questions. Cite only supplied chunk IDs.",
+        "Avoid previous questions. Cite only supplied chunk IDs. "
+        "Also suggest up to 20 relevant English technical terms for this question in english_terms. "
+        "Each item has term (the original English spelling or acronym, never translated into Vietnamese) "
+        "and meaning (a short Vietnamese gloss). Base suggestions on the question and supplied evidence; "
+        "do not add unrelated terms or full model answers. Return an empty list if no terms apply.",
         {
             "topic": topic.name,
             "learning_outcomes": outcomes or [],

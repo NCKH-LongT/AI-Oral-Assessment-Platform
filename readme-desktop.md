@@ -2,9 +2,9 @@
 
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
 
-Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-small INT8**. Nhận dạng chạy trên CPU của máy học viên, không cần cài Python riêng hoặc tải thêm model STT. **Model sửa chính tả Qwen3 là tùy chọn: không tải vẫn thi bình thường.** LLM chấm bài chạy trên server.
+Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-small INT8**. Nhận dạng chạy trên CPU của máy học viên, không cần cài Python riêng hoặc tải thêm model STT. LLM chấm bài chạy trên server.
 
-Đi nhanh: [chọn server](#đổi-url-máy-chủ-khi-chạy-hoặc-build) · [kiểm tra mic](#kiểm-tra-mic-trước-khi-thi) · [làm bài](#khi-làm-bài) · [tải/bỏ qua model sửa chính tả](docs/transcript-correction.md) · [build và cập nhật](#build-bộ-cài-và-chạy-lại) · [xử lý lỗi](#xử-lý-lỗi).
+Đi nhanh: [chọn server](#đổi-url-máy-chủ-khi-chạy-hoặc-build) · [kiểm tra mic](#kiểm-tra-mic-trước-khi-thi) · [làm bài](#khi-làm-bài) · [kiểm tra transcript](docs/transcript-correction.md) · [build và cập nhật](#build-bộ-cài-và-chạy-lại) · [xử lý lỗi](#xử-lý-lỗi).
 
 ## Đổi URL máy chủ khi chạy hoặc build
 
@@ -140,25 +140,11 @@ Admin cấu hình không cho làm lại, cho làm lại N lần hoặc không gi
 
 Bản này cần backend đã chạy migration `0004`: cập nhật server bằng `docker compose up -d --build --wait`, rồi mở lại desktop. `./run-desktop.sh` vẫn chỉ chạy UI dev và Electron. Xem [hướng dẫn quản lý lượt thi](docs/architecture/exam-retakes.md).
 
-## Sửa chính tả local (tùy chọn)
+## Kiểm tra transcript
 
-PhoWhisper có thể nhận đúng từ nhưng thiếu dấu chấm/phẩy. Dùng **Gợi ý sửa chính tả và dấu câu** khi đã tải model tùy chọn, hoặc tự thêm dấu câu trong ô Transcript. Xem [giải thích dấu câu](docs/microphone-desktop.md#vì-sao-transcript-thiếu-dấu-câu).
+Sau STT, nghe lại bản ghi và sửa transcript bằng tay nếu cần. Bản chỉnh sửa được đánh dấu để giảng viên đối chiếu. Chức năng gợi ý sửa chính tả bằng LLM và tải model Qwen3 đã được gỡ khỏi desktop.
 
-**Không muốn tải:** bỏ qua mục này và bấm **Bắt đầu thi** sau khi kiểm tra thiết bị. PhoWhisper vẫn nhận dạng; bạn xem transcript rồi nộp bình thường. App không tự tải Qwen3 và không yêu cầu tải để chấm bài. Nếu đang tải, bấm **Hủy xử lý local** rồi chờ kết thúc để thi tiếp; tải lỗi cũng có thể bỏ qua.
-
-**Muốn dùng gợi ý:**
-
-1. Trước khi thi hoặc khi xem transcript, ở **Sửa chính tả local (tùy chọn)**, bấm **Tải model sửa chính tả (1,28 GB)**. Có tiến độ và nút hủy. Chỉ cần mạng để tải lần đầu; tải lỗi/hủy có thể thử lại từ đầu. STT PhoWhisper vẫn có sẵn và không cần model này.
-2. Sau STT, bấm **Gợi ý sửa chính tả và dấu câu**. App chạy [Qwen3 1.7B Q4_K_M](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF) trên CPU bằng [node-llama-cpp](https://node-llama-cpp.withcat.ai/guide/electron), không gửi đoạn văn lên server để sửa.
-3. Đối chiếu **Bản trước khi sửa** và **Bản đề xuất**, chọn **Áp dụng bản đề xuất** hoặc **Giữ bản hiện tại**. Không tự áp dụng. Bản đã sửa được đánh dấu cần giảng viên đối chiếu khi nộp, giống sửa tay.
-
-Model chỉ được yêu cầu sửa chính tả/dấu câu, giữ ý, thuật ngữ và số liệu; kết quả vẫn có thể sai, nhất là tên riêng và từ chuyên ngành. Đây không phải công cụ bổ sung đáp án. App chặn đầu ra trống, thay đổi số liệu hoặc độ dài quá nhiều; tối đa 12.000 ký tự mỗi lần, chia đoạn để tránh cắt mất nội dung. Chưa benchmark độ chính xác sửa lỗi STT tiếng Việt.
-
-Model tải về `models/correction` trong thư mục dữ liệu Electron, được ghim revision và kiểm tra SHA-256. Launcher mặc định dùng `.data/desktop-dev-profile/models/correction`; profile khác cần model riêng. Model được nạp khi bấm gợi ý và giải phóng sau xử lý; có nút hủy. Để gỡ model, đóng app rồi xóa thư mục `models/correction` của profile đó. Việc thi/nộp/chấm vẫn cần server như bình thường.
-
-Xem [hướng dẫn đầy đủ: tải hoặc bỏ qua model](docs/transcript-correction.md) để phân biệt STT, sửa chính tả và LLM chấm bài. Đã tải model cũng không có nghĩa là tự động áp dụng sửa chính tả.
-
-Nếu danh sách mic/camera chỉ hiện tên chung chung trên bản cũ, đóng Electron rồi mở lại bản mới. Bản sửa chuẩn hóa origin quyền media, hỗ trợ tên thiết bị do hệ điều hành cung cấp; không cần cài driver hay đổi cấu hình Docker cho lỗi này.
+Nếu đã tải model sửa chính tả ở phiên bản cũ, file đó không còn được sử dụng. Có thể đóng app và xóa thư mục `models/correction` trong profile Electron để giải phóng dung lượng; profile dev mặc định nằm tại `.data/desktop-dev-profile`.
 
 ## Chạy từ source
 
@@ -258,7 +244,6 @@ Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEM
 | --- | --- |
 | Bộ cài thiếu STT/model | Cài bản đầy đủ mới; bước đóng gói đã chặn thiếu helper/model |
 | Source chưa có model | Chạy `scripts/build_desktop_stt.py` trước `npm run desktop` |
-| Không muốn tải Qwen3 / tải model sửa chính tả lỗi | Bỏ qua mục sửa chính tả để thi tiếp; nếu đang tải, bấm **Hủy xử lý local** rồi chờ kết thúc. Không ảnh hưởng PhoWhisper. Xem [hướng dẫn](docs/transcript-correction.md). |
 | Windows báo STT thất bại sau khi dừng ghi âm, log có `UnicodeEncodeError` / `cp1252` | Cập nhật bộ cài đã sửa xuất JSON tiếng Việt. Nếu chạy source, build lại bundle STT; chỉ sửa `transcribe.py` không cập nhật `oral-stt.exe` đã đóng gói. |
 | STT quá thời gian | Thử câu ngắn hơn, đóng tác vụ nặng; mặc định giới hạn xử lý 7 phút |
 | RNNoise không tải được | Kiểm tra server đã build/copy tài nguyên `/audio/`; tắt lọc để tiếp tục |

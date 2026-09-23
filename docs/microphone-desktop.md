@@ -1,6 +1,6 @@
 # Thu thử, chỉnh gain, dấu câu và thoát desktop
 
-[README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu) · [Hướng dẫn desktop](../readme-desktop.md) · [Model sửa chính tả tùy chọn](transcript-correction.md)
+[README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu) · [Hướng dẫn desktop](../readme-desktop.md) · [Kiểm tra transcript](transcript-correction.md)
 
 ## Ghi thử và nghe lại trước khi thi
 
@@ -31,9 +31,8 @@ Desktop giữ kết quả PhoWhisper; model có thể trả đoạn văn thiếu
 Có hai cách trước khi nộp:
 
 - Tự thêm dấu câu trong ô **Transcript**.
-- Nếu đã tải model Qwen3 tùy chọn, bấm **Gợi ý sửa chính tả và dấu câu**, so sánh và bấm **Áp dụng bản đề xuất** khi đồng ý. Có thể chọn **Giữ bản hiện tại**.
 
-Không tải model vẫn nhận dạng và thi bình thường. App không tự thêm nội dung hoặc tự áp dụng đề xuất. Transcript có chỉnh sửa sẽ cần giảng viên đối chiếu khi nộp. Xem [hướng dẫn model tùy chọn](transcript-correction.md).
+Transcript có chỉnh sửa sẽ cần giảng viên đối chiếu khi nộp. Xem [kiểm tra transcript](transcript-correction.md).
 
 ## Đóng ứng dụng desktop
 
@@ -50,4 +49,3 @@ Khi thực sự đóng, app hủy tác vụ local đang chạy. Hủy hộp tho�
 
 - Gain, thu thử, nhãn dấu câu và nút thoát trên giao diện: triển khai lại web đang phục vụ desktop, rồi mở lại app.
 - Xử lý đóng cửa sổ, IPC thoát và prompt sửa dấu câu: chạy Electron source mới hoặc cài bộ desktop mới. Chỉ cập nhật server sẽ không sửa được việc nút X bị chặn trong desktop cũ.
-- Model Qwen3 đã tải vẫn dùng lại trong cùng profile; không cần tải lại. Xem [build và cập nhật](../readme-desktop.md#build-bộ-cài-và-chạy-lại).

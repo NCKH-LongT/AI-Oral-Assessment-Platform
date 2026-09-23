@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from . import ai, storage
 from . import schemas as s
+from .course_deletion import delete_course_tree
 from .db import get_db
 from .grading import GradingError, assessment_view, check_config, review_question
 from .knowledge import chunk_scope, set_mappings, topic_data
@@ -108,7 +109,14 @@ def update_course(course_id: str, body: s.CourseIn, db: Session = Depends(get_db
 
 
 @router.delete("/courses/{course_id}")
-def delete_course(course_id: str, db: Session = Depends(get_db), user=Depends(editor)):
+def delete_course(
+    course_id: str, body: s.CourseDeleteIn | None = None,
+    db: Session = Depends(get_db), user=Depends(editor),
+):
+    if body is not None:
+        if user.role != "ADMIN":
+            fail(403, "FORBIDDEN", "Chỉ admin được xóa toàn bộ môn học và dữ liệu liên quan")
+        return delete_course_tree(db, course_id, body.confirm_code, user)
     row = course_access(db, course_id, user)
     for model in (LearningOutcome, Topic, Document, Rubric, Exam, CourseEnrollment):
         if db.scalar(select(model.id).where(model.course_id == course_id).limit(1)):
@@ -167,7 +175,14 @@ def workspace(course_id: str, db: Session = Depends(get_db), user=Depends(staff)
         ),
         "chapters": rows(BookSection, "document_id", "title", "level", "start_page", "end_page", "source"),
         "rubrics": rows(Rubric, "name", "version", "criteria"),
-        "exams": rows(Exam, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts"),
+        "exams": [
+            data(exam, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts")
+            | {"questions": [
+                {"text": q["text"], "english_terms": q.get("english_terms", [])}
+                for q in (exam.snapshot or {}).get("questions", [])
+            ]}
+            for exam in db.scalars(select(Exam).where(Exam.course_id == course_id).order_by(Exam.created_at))
+        ],
     }
 
 
@@ -532,7 +547,7 @@ def publish(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     doc_ids = sorted(d.id for d in docs)
     exam.snapshot = {
         "exam_version": 2,
-        "generation_prompt_version": "topic-los-v2",
+        "generation_prompt_version": "topic-los-english-terms-v3",
         "topic_chunk_ids": topic_scopes,
         "topic_mappings": mappings,
         "rubric_id": rubric.id,

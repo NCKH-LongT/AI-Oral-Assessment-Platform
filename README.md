@@ -8,7 +8,7 @@ Desktop ghi audio/video, lọc nhiễu RNNoise và nhận dạng **PhoWhisper-sm
 | --- | --- |
 | Cài desktop, chọn server, kiểm tra mic và làm bài | [Hướng dẫn OralAI Desktop](readme-desktop.md) |
 | Thu thử/nghe lại, chỉnh gain, thêm dấu câu hoặc thoát app | [Mic, dấu câu và thoát desktop](docs/microphone-desktop.md) |
-| Thi không tải model sửa chính tả, hoặc tải để dùng gợi ý | [Sửa chính tả tùy chọn](docs/transcript-correction.md) |
+| Nghe lại và sửa transcript trước khi nộp | [Kiểm tra transcript](docs/transcript-correction.md) |
 | Build, đóng gói và kiểm tra bộ cài Windows/Linux/macOS | [Build desktop](docs/desktop-build.md) |
 | Chuẩn bị tài nguyên STT bắt buộc trong bộ cài | [STT resources](apps/desktop/resources/stt/README.md) |
 | Hiểu luồng nhận dạng, tài liệu kiến thức và LLM chấm bài | [Kiến trúc STT/LLM](docs/architecture/knowledge-speech.md) |
@@ -76,7 +76,7 @@ docker compose up -d --no-deps --force-recreate api worker
 
 Đang sửa source trên Linux/macOS: chạy **`./run-desktop.sh`**. Script chỉ mở UI dev cổng 3001 và Electron, dùng server bạn đã chạy tại localhost:3000; không gọi Docker. Sửa giao diện tự cập nhật. Cần bundle STT đã build; xem [hướng dẫn](readme-desktop.md).
 
-Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small INT8, runtime STT và FFmpeg**; máy học viên không cần Python hoặc tải thêm model để nhận dạng. Model sửa chính tả là tùy chọn, chỉ tải khi người dùng yêu cầu. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
+Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small INT8, runtime STT và FFmpeg**; máy học viên không cần Python hoặc tải thêm model để nhận dạng. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
 
 1. Chọn server tại **OralAI → Cấu hình máy chủ…**.
 2. Mở bài, cấp quyền và chọn microphone/camera trong danh sách **Chọn thiết bị**.
@@ -88,9 +88,15 @@ Giọng nhỏ có thể tăng gain từng ít một; âm rè/gần −1 dBFS th�
 
 Sau khi ghi, chọn **Bản gốc** hoặc **Bản giảm nhiễu RNNoise** rồi bấm **Thử STT lại** nếu cần nhận dạng lại.
 
-**Sửa chính tả hoàn toàn tùy chọn:** bỏ qua nút tải model vẫn ghi âm, nhận dạng, nộp bài và chấm bài bình thường. Nếu muốn dùng **Gợi ý sửa chính tả và dấu câu**, bấm tải model một lần (1,28 GB), xem bản đề xuất rồi tự quyết định áp dụng. Tải lỗi hoặc hủy tải không bắt buộc phải tải lại mới được thi. Xem [hướng dẫn tải hoặc bỏ qua model](docs/transcript-correction.md).
+Người dùng nghe lại và sửa transcript bằng tay trước khi nộp. Chức năng sửa chính tả bằng LLM đã được gỡ. Xem [kiểm tra transcript](docs/transcript-correction.md).
 
 Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khiển đường nhận dạng của trình duyệt web. Media gốc được lưu riêng, không thay bằng bản đã lọc. Worker xử lý bất đồng bộ; app tự cập nhật điểm hoặc trạng thái cần xem lại.
+
+## Thuật ngữ tiếng Anh và xóa môn học
+
+Khi bấm **Sinh câu hỏi & công bố**, AI gợi ý thuật ngữ tiếng Anh kèm nghĩa tiếng Việt cho từng câu hỏi. Admin xem ngay trong **Môn học & đề thi → Bài thi & giao bài → Câu hỏi & thuật ngữ tiếng Anh gợi ý**. Gợi ý được lưu cùng phiên bản đề; đề cũ không tự sinh lại, chế độ demo không tạo thuật ngữ. Đây là gợi ý để giảng viên kiểm tra, chưa tự truyền làm hotwords cho STT.
+
+Admin vào **Môn học → Cài đặt → Xóa môn học**, nhập đúng mã môn để xóa vĩnh viễn toàn bộ tài liệu, chủ đề, rubric, đề thi, lượt thi, kết quả và bản ghi, kể cả bài đang làm. Tài khoản người dùng và môn khác được giữ lại. Worker dọn tệp sau khi giao dịch xóa thành công, tự thử lại nếu storage lỗi. Nếu môn đang được worker xử lý, chờ rồi thử xóa lại. Giảng viên chỉ xóa được môn trống do mình quản lý.
 
 ## Số lần làm bài và kết quả
 

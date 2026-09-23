@@ -47,11 +47,11 @@ Desktop luôn dùng helper local, kể cả khi cấu hình STT cũ trên server
 
 Media gốc và audio để nhận dạng là hai nhánh riêng. Bật/tắt RNNoise chỉ ảnh hưởng audio nhận dạng. Khi nộp, desktop upload audio/video gốc và transcript; worker chấm bất đồng bộ. Transcript nhập tay hoặc độ tin cậy thấp cần giảng viên kiểm tra. Lỗi AI, bài demo hoặc đang chờ chấm không được hiển thị thành điểm 0/10.
 
-### Sửa chính tả tùy chọn trên desktop
+### Transcript và thuật ngữ
 
-Qwen3 1.7B Q4_K_M là bước gợi ý sau STT, độc lập với PhoWhisper và LLM chấm bài. Trọng số không có trong bộ cài và chỉ tải khi người dùng yêu cầu; không tải vẫn bắt đầu thi, nhận dạng và nộp bài được. Trạng thái chưa cài model không khóa luồng thi. Khi người dùng chủ động tải/chạy gợi ý, app tạm khóa thao tác liên quan đến khi tác vụ hoàn tất hoặc được hủy.
+Chức năng sửa chính tả bằng LLM đã được gỡ. Người dùng có thể sửa transcript bằng tay; mọi bản sửa được đánh dấu để giảng viên đối chiếu với audio.
 
-Gợi ý chỉ chạy khi bấm nút; tải xong không tự sửa transcript. Chỉ **Áp dụng bản đề xuất** mới cập nhật bản nộp và đưa độ tin cậy STT về 0 để giảng viên đối chiếu. Bỏ qua model hoặc giữ bản hiện tại không làm mất transcript STT. Xem [hướng dẫn sử dụng](../transcript-correction.md).
+AI gợi ý thuật ngữ tiếng Anh và nghĩa tiếng Việt cùng lúc sinh câu hỏi, lưu trong snapshot đề và hiển thị ở workspace giảng viên. Không tự sửa transcript hoặc tự truyền gợi ý vào STT.
 
 ### LLM và cấu hình
 

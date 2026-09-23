@@ -1,6 +1,10 @@
 # OralAI Desktop
 
-Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-small INT8**. Nhận dạng chạy trên CPU của máy học viên, không cần cài Python riêng hoặc tải model sau khi cài. LLM chấm bài chạy trên server.
+[README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
+
+Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-small INT8**. Nhận dạng chạy trên CPU của máy học viên, không cần cài Python riêng hoặc tải thêm model STT. **Model sửa chính tả Qwen3 là tùy chọn: không tải vẫn thi bình thường.** LLM chấm bài chạy trên server.
+
+Đi nhanh: [chọn server](#đổi-url-máy-chủ-khi-chạy-hoặc-build) · [kiểm tra mic](#kiểm-tra-mic-trước-khi-thi) · [làm bài](#khi-làm-bài) · [tải/bỏ qua model sửa chính tả](docs/transcript-correction.md) · [build và cập nhật](#build-bộ-cài-và-chạy-lại) · [xử lý lỗi](#xử-lý-lỗi).
 
 ## Đổi URL máy chủ khi chạy hoặc build
 
@@ -108,6 +112,8 @@ Mở **OralAI → Cấu hình máy chủ…**, nhập domain HTTPS hoặc `http:
 
 ## Kiểm tra mic trước khi thi
 
+Có thể thu thử/nghe lại trước khi bắt đầu tính giờ. **Gain microphone** từ −12 đến +18 dB, mặc định 0 dB. Tăng từ từ nếu giọng nhỏ, giảm nếu báo âm quá lớn hoặc nghe rè. Gain áp dụng cho bản thu mới (cả audio/video và STT), không sửa bản đã ghi. Đổi gain sẽ xóa bản thử cũ để thu lại. Xem [hướng dẫn chi tiết](docs/microphone-desktop.md).
+
 1. Cấp quyền camera và microphone. Trong mục **Chọn thiết bị**, chọn **Microphone** và **Camera** từ danh sách; app kết nối ngay. Tên đầy đủ xuất hiện sau khi cấp quyền.
 2. Bấm **Kiểm tra độ ồn**. Ghi khoảng 10 giây: 3 giây đầu giữ im lặng, 7 giây sau nói thử.
 3. Bấm phát audio. Checkbox **Nghe bản đã lọc nhiễu RNNoise** đổi giữa bản gốc và bản lọc của cùng đoạn thu.
@@ -136,13 +142,21 @@ Bản này cần backend đã chạy migration `0004`: cập nhật server bằn
 
 ## Sửa chính tả local (tùy chọn)
 
-1. Trước khi thi, ở **Sửa chính tả local**, bấm **Tải model sửa chính tả (1,28 GB)**. Có tiến độ và nút hủy. Chỉ cần mạng để tải lần đầu; tải lỗi/hủy có thể thử lại từ đầu. STT PhoWhisper vẫn có sẵn và không cần model này.
-2. Sau STT, bấm **Gợi ý sửa chính tả**. App chạy [Qwen3 1.7B Q4_K_M](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF) trên CPU bằng [node-llama-cpp](https://node-llama-cpp.withcat.ai/guide/electron), không gửi đoạn văn lên server để sửa.
+PhoWhisper có thể nhận đúng từ nhưng thiếu dấu chấm/phẩy. Dùng **Gợi ý sửa chính tả và dấu câu** khi đã tải model tùy chọn, hoặc tự thêm dấu câu trong ô Transcript. Xem [giải thích dấu câu](docs/microphone-desktop.md#vì-sao-transcript-thiếu-dấu-câu).
+
+**Không muốn tải:** bỏ qua mục này và bấm **Bắt đầu thi** sau khi kiểm tra thiết bị. PhoWhisper vẫn nhận dạng; bạn xem transcript rồi nộp bình thường. App không tự tải Qwen3 và không yêu cầu tải để chấm bài. Nếu đang tải, bấm **Hủy xử lý local** rồi chờ kết thúc để thi tiếp; tải lỗi cũng có thể bỏ qua.
+
+**Muốn dùng gợi ý:**
+
+1. Trước khi thi hoặc khi xem transcript, ở **Sửa chính tả local (tùy chọn)**, bấm **Tải model sửa chính tả (1,28 GB)**. Có tiến độ và nút hủy. Chỉ cần mạng để tải lần đầu; tải lỗi/hủy có thể thử lại từ đầu. STT PhoWhisper vẫn có sẵn và không cần model này.
+2. Sau STT, bấm **Gợi ý sửa chính tả và dấu câu**. App chạy [Qwen3 1.7B Q4_K_M](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF) trên CPU bằng [node-llama-cpp](https://node-llama-cpp.withcat.ai/guide/electron), không gửi đoạn văn lên server để sửa.
 3. Đối chiếu **Bản trước khi sửa** và **Bản đề xuất**, chọn **Áp dụng bản đề xuất** hoặc **Giữ bản hiện tại**. Không tự áp dụng. Bản đã sửa được đánh dấu cần giảng viên đối chiếu khi nộp, giống sửa tay.
 
 Model chỉ được yêu cầu sửa chính tả/dấu câu, giữ ý, thuật ngữ và số liệu; kết quả vẫn có thể sai, nhất là tên riêng và từ chuyên ngành. Đây không phải công cụ bổ sung đáp án. App chặn đầu ra trống, thay đổi số liệu hoặc độ dài quá nhiều; tối đa 12.000 ký tự mỗi lần, chia đoạn để tránh cắt mất nội dung. Chưa benchmark độ chính xác sửa lỗi STT tiếng Việt.
 
 Model tải về `models/correction` trong thư mục dữ liệu Electron, được ghim revision và kiểm tra SHA-256. Launcher mặc định dùng `.data/desktop-dev-profile/models/correction`; profile khác cần model riêng. Model được nạp khi bấm gợi ý và giải phóng sau xử lý; có nút hủy. Để gỡ model, đóng app rồi xóa thư mục `models/correction` của profile đó. Việc thi/nộp/chấm vẫn cần server như bình thường.
+
+Xem [hướng dẫn đầy đủ: tải hoặc bỏ qua model](docs/transcript-correction.md) để phân biệt STT, sửa chính tả và LLM chấm bài. Đã tải model cũng không có nghĩa là tự động áp dụng sửa chính tả.
 
 Nếu danh sách mic/camera chỉ hiện tên chung chung trên bản cũ, đóng Electron rồi mở lại bản mới. Bản sửa chuẩn hóa origin quyền media, hỗ trợ tên thiết bị do hệ điều hành cung cấp; không cần cài driver hay đổi cấu hình Docker cho lỗi này.
 
@@ -238,10 +252,14 @@ Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEM
 
 ## Xử lý lỗi
 
+**Đóng desktop:** bấm **Thoát ứng dụng**, menu **OralAI → Thoát ứng dụng**, X hoặc Alt+F4. Nếu còn dữ liệu chưa nộp, chọn **Ở lại** để hoàn tất hoặc **Rời trang / thoát** để xác nhận mất phần chưa nộp. Bản desktop cũ có thể bị `beforeunload` chặn X; cần cập nhật bộ cài/Electron source, không chỉ cập nhật web. Xem [hướng dẫn thoát](docs/microphone-desktop.md#đóng-ứng-dụng-desktop).
+
 | Lỗi | Kiểm tra |
 | --- | --- |
 | Bộ cài thiếu STT/model | Cài bản đầy đủ mới; bước đóng gói đã chặn thiếu helper/model |
 | Source chưa có model | Chạy `scripts/build_desktop_stt.py` trước `npm run desktop` |
+| Không muốn tải Qwen3 / tải model sửa chính tả lỗi | Bỏ qua mục sửa chính tả để thi tiếp; nếu đang tải, bấm **Hủy xử lý local** rồi chờ kết thúc. Không ảnh hưởng PhoWhisper. Xem [hướng dẫn](docs/transcript-correction.md). |
+| Windows báo STT thất bại sau khi dừng ghi âm, log có `UnicodeEncodeError` / `cp1252` | Cập nhật bộ cài đã sửa xuất JSON tiếng Việt. Nếu chạy source, build lại bundle STT; chỉ sửa `transcribe.py` không cập nhật `oral-stt.exe` đã đóng gói. |
 | STT quá thời gian | Thử câu ngắn hơn, đóng tác vụ nặng; mặc định giới hạn xử lý 7 phút |
 | RNNoise không tải được | Kiểm tra server đã build/copy tài nguyên `/audio/`; tắt lọc để tiếp tục |
 | Không có tiếng | Kiểm tra mic, quyền hệ điều hành, nghe lại bản thử |

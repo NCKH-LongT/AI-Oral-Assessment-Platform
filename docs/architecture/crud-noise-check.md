@@ -1,5 +1,7 @@
 # CRUD và kiểm tra tiếng ồn trước thi — 13/09/2026
 
+[README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
+
 ## Quản lý môn học, rubric, đề thi
 
 | Đối tượng | Tạo/đọc/sửa | Xóa và dữ liệu đang dùng |
@@ -31,6 +33,8 @@ Sau khi ghi, dùng audio player và checkbox **Nghe bản đã lọc nhiễu RNN
 Sau cấp quyền thiết bị, nút bắt đầu thi chờ kết quả đạt hoặc người dùng bỏ qua. Có thể kiểm tra lại, bỏ qua khi đang thu và kết nối lại thiết bị. Bản thử không tính vào thời gian thi. Hệ thống không ghi quyết định bỏ qua lên server.
 
 ## Lọc nhiễu câu trả lời
+
+**Cập nhật 23/09/2026 — gain đầu vào:** `lib/microphone-gain.ts` dùng Web Audio GainNode, −12 đến +18 dB, mặc định 0. Luồng mic → gain → audio/video gốc; nhánh gain → RNNoise tạo audio STT đã lọc. Bản gốc trong tài liệu này là bản chưa RNNoise, đã áp dụng gain chọn lúc ghi. Không chỉnh lại minh chứng đã nộp. Bản thu thử dùng cùng gain; đánh giá nền vẫn dùng tín hiệu trước gain để không thay kết luận tiếng ồn theo thanh gain. Theo dõi mức đỉnh và nhắc giảm gain khi gần/vượt −1 dBFS. Đổi gain hủy phép thử và giải phóng bản nghe thử cũ; khóa khi ghi/xử lý/nộp. Xem [hướng dẫn sử dụng](../microphone-desktop.md).
 
 `lib/noise-filter.ts` dùng `@sapphi-red/web-noise-suppressor` (RNNoise WASM/AudioWorklet) ở 48 kHz. Khi bộ lọc hoạt động, câu trả lời luôn ghi đồng thời audio gốc, audio RNNoise và video gốc. Checkbox trước thi chọn bản dùng cho lần STT đầu; dropdown sau ghi cho phép nhận dạng lại từ một trong hai Blob. Lỗi RNNoise giữa lúc ghi làm bản lọc không hợp lệ và khóa lựa chọn đó. Không nối microphone ra loa để tránh hú; nghe thử bằng bản thu phát lại. Audio/video minh chứng luôn lấy từ nhánh gốc.
 

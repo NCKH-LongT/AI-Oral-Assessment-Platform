@@ -24,12 +24,18 @@ import TranscriptCorrection, {
   type CorrectionBridge,
 } from "./transcript-correction";
 import { createNoiseFilter, type NoiseFilter } from "../lib/noise-filter";
+import {
+  createMicrophoneGain,
+  peakDbfs,
+  type MicrophoneGain,
+} from "../lib/microphone-gain";
 
 type STT = { transcript: string; stt_confidence: number };
 declare global {
   interface Window {
     oralDesktop?: {
       openGoogle?: (url: string) => Promise<void>;
+      quit?: () => Promise<void>;
       correction?: CorrectionBridge;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
     };
@@ -95,6 +101,9 @@ export default function Student() {
   const [startingRecording, setStartingRecording] = useState(false);
   const connectingRef = useRef(false);
   const [denoise, setDenoise] = useState(true);
+  const [gainDb, setGainDb] = useState(0);
+  const [micPeak, setMicPeak] = useState(-120);
+  const gainRef = useRef<MicrophoneGain | null>(null);
   const [filterError, setFilterError] = useState("");
   const filterRef = useRef<NoiseFilter | null>(null);
   const filterFailures = useRef(0);
@@ -162,6 +171,7 @@ export default function Student() {
       deviceGeneration.current++;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       void filterRef.current?.close();
+      void gainRef.current?.close();
     },
     [],
   );
@@ -174,6 +184,8 @@ export default function Student() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     void filterRef.current?.close();
     filterRef.current = null;
+    void gainRef.current?.close();
+    gainRef.current = null;
     const timer = setInterval(
       () => refreshSession(session.id).catch(() => {}),
       4000,
@@ -185,10 +197,15 @@ export default function Student() {
     const context = new AudioContext(),
       analyser = context.createAnalyser();
     analyser.fftSize = 256;
-    context.createMediaStreamSource(stream).connect(analyser);
+    context
+      .createMediaStreamSource(gainRef.current?.stream || stream)
+      .connect(analyser);
     const samples = new Uint8Array(analyser.frequencyBinCount);
+    const floats = new Float32Array(analyser.fftSize);
     const timer = setInterval(() => {
       analyser.getByteTimeDomainData(samples);
+      analyser.getFloatTimeDomainData(floats);
+      setMicPeak(peakDbfs(floats));
       setMicLevel(
         Math.min(
           100,
@@ -256,8 +273,11 @@ export default function Student() {
     streamRef.current = null;
     const oldFilter = filterRef.current;
     filterRef.current = null;
+    const oldGain = gainRef.current;
+    gainRef.current = null;
     try {
       await oldFilter?.close();
+      await oldGain?.close();
       if (generation !== deviceGeneration.current) return;
       if (!navigator.mediaDevices || typeof MediaRecorder === "undefined")
         throw new Error(
@@ -280,8 +300,21 @@ export default function Student() {
         s.getTracks().forEach((t) => t.stop());
         return;
       }
+      let gain: MicrophoneGain;
       try {
-        const filter = await createNoiseFilter(s, () => {
+        gain = await createMicrophoneGain(s, gainDb);
+      } catch (error) {
+        s.getTracks().forEach((t) => t.stop());
+        throw error;
+      }
+      if (generation !== deviceGeneration.current) {
+        await gain.close();
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      gainRef.current = gain;
+      try {
+        const filter = await createNoiseFilter(gain.stream, () => {
           if (generation === deviceGeneration.current) {
             filterFailures.current++;
             setFilterError(
@@ -291,6 +324,7 @@ export default function Student() {
         });
         if (generation !== deviceGeneration.current) {
           await filter.close();
+          await gain.close();
           s.getTracks().forEach((t) => t.stop());
           return;
         }
@@ -299,6 +333,7 @@ export default function Student() {
         filterRef.current = filter;
       } catch {
         if (generation !== deviceGeneration.current) {
+          await gain.close();
           s.getTracks().forEach((t) => t.stop());
           return;
         }
@@ -384,11 +419,15 @@ export default function Student() {
         "Lọc nhiễu chưa sẵn sàng. Tắt lọc nhiễu hoặc kết nối lại mic.",
       );
     const attemptId = session.current_attempt.id;
+    const capture = new MediaStream([
+      ...(gainRef.current?.stream || stream).getAudioTracks(),
+      ...stream.getVideoTracks(),
+    ]);
     const audioRecorder = new MediaRecorder(
-      new MediaStream(stream.getAudioTracks()),
+      new MediaStream(capture.getAudioTracks()),
       { mimeType: am },
     );
-    const videoRecorder = new MediaRecorder(stream, {
+    const videoRecorder = new MediaRecorder(capture, {
       mimeType: vm,
       videoBitsPerSecond: 650000,
     });
@@ -591,6 +630,8 @@ export default function Student() {
     streamRef.current = null;
     await filterRef.current?.close();
     filterRef.current = null;
+    await gainRef.current?.close();
+    gainRef.current = null;
     setStream(null);
     setDeviceError("");
     setFilterError("");
@@ -839,8 +880,9 @@ export default function Student() {
                 </p>
                 {stream && !deviceError && (
                   <NoiseCheck
-                    key={stream.id}
+                    key={`${stream.id}:${gainDb}`}
                     stream={stream}
+                    gainDb={gainDb}
                     onReady={setNoiseReady}
                   />
                 )}
@@ -1087,8 +1129,14 @@ export default function Student() {
                 </div>
               </div>
               <small className="muted">
-                Nói thử để kiểm tra tín hiệu microphone
+                Nói thử để kiểm tra tín hiệu microphone. Mức đỉnh:{" "}
+                {micPeak.toFixed(1)} dBFS.
               </small>
+              {stream && micPeak >= -1 && (
+                <p role="status" className="error">
+                  Âm quá lớn, có nguy cơ vỡ tiếng. Giảm gain hoặc đưa mic ra xa.
+                </p>
+              )}
               <fieldset
                 className="device-selectors"
                 disabled={
@@ -1100,6 +1148,29 @@ export default function Student() {
                 }
               >
                 <legend>Chọn thiết bị</legend>
+                <label>
+                  Gain microphone ({gainDb > 0 ? "+" : ""}
+                  {gainDb} dB)
+                  <input
+                    aria-label="Gain microphone"
+                    type="range"
+                    min={-12}
+                    max={18}
+                    step={1}
+                    value={gainDb}
+                    onChange={(event) => {
+                      const value = Number(event.target.value);
+                      gainRef.current?.setGain(value);
+                      setGainDb(value);
+                      setNoiseReady(false);
+                    }}
+                  />
+                </label>
+                <p className="muted">
+                  0 dB giữ nguyên mức mic. Tăng từng ít một nếu giọng nhỏ; giảm
+                  nếu rè. Áp dụng cho bản thu mới, video và STT. Thu thử lại sau
+                  khi chỉnh.
+                </p>
                 {(
                   [
                     ["audioinput", "Microphone", microphoneId],

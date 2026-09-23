@@ -1,5 +1,7 @@
 # Độ tin cậy và chấm lại theo phiên bản đề — 20/09/2026
 
+[README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
+
 ## Ý nghĩa kết quả
 
 `assessment.status` tách kết quả chấm khỏi trạng thái xử lý hàng đợi:

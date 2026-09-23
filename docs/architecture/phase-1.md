@@ -1,5 +1,7 @@
 # Hướng triển khai giai đoạn 1 — MVP
 
+[README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
+
 Phạm vi theo mục 21 trong [tài liệu gốc](../../AI_Oral_Assessment_PROJECT_GUIDE.md): chứng minh luồng tài liệu → rubric → đề thi → trả lời bằng giọng nói → STT → RAG + chấm → lưu minh chứng → giảng viên xem lại. Đây là toàn bộ MVP, không chỉ Sprint 0/1.
 
 **Cập nhật 11/09/2026:** giáo trình PDF cấp môn, chủ đề nhiều LO/chương/tài liệu, cấu hình STT và Google nhận dạng/chấm lại đã được bổ sung. Thiết kế chi tiết, migration và giới hạn tại [Mở rộng kiến thức và STT](knowledge-speech.md).

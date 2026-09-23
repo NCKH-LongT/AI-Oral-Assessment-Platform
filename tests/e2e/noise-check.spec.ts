@@ -1,34 +1,59 @@
 import { test, expect, type Page } from "@playwright/test";
 
-async function preflight(page: Page, amplitude: number) {
-  await page.addInitScript((amplitude) => {
-    const state = window as unknown as {
-      noiseAmplitude: number;
-      noiseTracks: MediaStreamTrack[];
-      recordingStarts: number;
-    };
-    state.noiseAmplitude = amplitude;
-    state.noiseTracks = [];
-    state.recordingStarts = 0;
-    AnalyserNode.prototype.getFloatTimeDomainData = function (samples) {
-      for (let i = 0; i < samples.length; i++)
-        samples[i] = i % 2 ? state.noiseAmplitude : -state.noiseAmplitude;
-    };
-    const getUserMedia = navigator.mediaDevices.getUserMedia.bind(
-      navigator.mediaDevices,
-    );
-    navigator.mediaDevices.getUserMedia = async (constraints) => {
-      const stream = await getUserMedia(constraints);
-      if (constraints?.video === false)
-        state.noiseTracks.push(...stream.getTracks());
-      return stream;
-    };
-    const start = MediaRecorder.prototype.start;
-    MediaRecorder.prototype.start = function (timeslice) {
-      state.recordingStarts++;
-      start.call(this, timeslice);
-    };
-  }, amplitude);
+async function preflight(page: Page, amplitude: number, recordingTone = false) {
+  await page.addInitScript(
+    ({ amplitude, recordingTone }) => {
+      const state = window as unknown as {
+        noiseAmplitude: number;
+        noiseTracks: MediaStreamTrack[];
+        recordingStarts: number;
+      };
+      state.noiseAmplitude = amplitude;
+      state.noiseTracks = [];
+      state.recordingStarts = 0;
+      AnalyserNode.prototype.getFloatTimeDomainData = function (samples) {
+        for (let i = 0; i < samples.length; i++)
+          samples[i] = i % 2 ? state.noiseAmplitude : -state.noiseAmplitude;
+      };
+      const getUserMedia = navigator.mediaDevices.getUserMedia.bind(
+        navigator.mediaDevices,
+      );
+      navigator.mediaDevices.getUserMedia = async (constraints) => {
+        let stream = await getUserMedia(constraints);
+        if (constraints?.video === false && recordingTone) {
+          // A quiet, stable tone verifies actual recorded gain without clipping
+          // Chromium's much louder fake microphone signal.
+          stream.getTracks().forEach((track) => track.stop());
+          const context = new AudioContext();
+          const tone = context.createOscillator();
+          const level = context.createGain();
+          const output = context.createMediaStreamDestination();
+          level.gain.value = 0.02;
+          tone.connect(level).connect(output);
+          tone.start();
+          await context.resume();
+          stream = output.stream;
+          const track = stream.getAudioTracks()[0];
+          const stop = track.stop.bind(track);
+          track.stop = () => {
+            if (track.readyState === "ended") return;
+            stop();
+            tone.stop();
+            void context.close();
+          };
+        }
+        if (constraints?.video === false)
+          state.noiseTracks.push(...stream.getTracks());
+        return stream;
+      };
+      const start = MediaRecorder.prototype.start;
+      MediaRecorder.prototype.start = function (timeslice) {
+        state.recordingStarts++;
+        start.call(this, timeslice);
+      };
+    },
+    { amplitude, recordingTone },
+  );
   await page.route("**/api/auth/me", (r) =>
     r.fulfill({
       json: {
@@ -100,10 +125,29 @@ async function expectReleased(page: Page) {
   ).toBe(true);
 }
 
+async function recordedLevel(page: Page) {
+  return page
+    .getByLabel("Phát lại kiểm tra mic")
+    .evaluate(async (element: HTMLAudioElement) => {
+      const context = new AudioContext();
+      try {
+        const buffer = await context.decodeAudioData(
+          await (await fetch(element.src)).arrayBuffer(),
+        );
+        const samples = buffer.getChannelData(0);
+        let energy = 0;
+        for (const sample of samples) energy += sample * sample;
+        return 10 * Math.log10(energy / samples.length);
+      } finally {
+        await context.close();
+      }
+    });
+}
+
 test("quiet room passes; ten-second raw and RNNoise recordings can be played locally", async ({
   page,
 }) => {
-  await preflight(page, 0.001);
+  await preflight(page, 0.001, true);
   await expect(
     page.getByRole("checkbox", { name: "Nghe bản đã lọc nhiễu RNNoise" }),
   ).toBeVisible();
@@ -123,6 +167,7 @@ test("quiet room passes; ten-second raw and RNNoise recordings can be played loc
   const player = page.getByLabel("Phát lại kiểm tra mic");
   await expect(player).toBeVisible();
   const rawUrl = await player.getAttribute("src");
+  const originalLevel = await recordedLevel(page);
   await page.getByRole("button", { name: "Phát bản gốc", exact: true }).click();
   await expect
     .poll(() => player.evaluate((audio: HTMLAudioElement) => audio.currentTime))
@@ -140,6 +185,27 @@ test("quiet room passes; ten-second raw and RNNoise recordings can be played loc
   await expect
     .poll(() => player.evaluate((audio: HTMLAudioElement) => audio.currentTime))
     .toBeGreaterThan(0);
+  // Changing capture gain invalidates the old preview and preflight result.
+  await page
+    .getByRole("slider", { name: "Gain microphone", exact: true })
+    .fill("6");
+  await expect(player).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Bắt đầu thi", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Kiểm tra độ ồn", exact: true })
+    .click();
+  await expect(page.getByText(/Mức đỉnh bản thu: -54.0 dBFS/)).toBeVisible({
+    timeout: 20000,
+  });
+  await expect(
+    page.getByRole("button", { name: "Bắt đầu thi", exact: true }),
+  ).toBeEnabled();
+  await expectReleased(page);
+  const gainedLevel = await recordedLevel(page);
+  expect(gainedLevel - originalLevel).toBeGreaterThan(4);
+  expect(gainedLevel - originalLevel).toBeLessThan(8);
 });
 
 test("noisy room blocks start; moving to a quiet room and retrying passes", async ({

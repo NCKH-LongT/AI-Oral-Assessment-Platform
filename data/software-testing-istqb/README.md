@@ -1,5 +1,7 @@
 # Software Testing — bộ dữ liệu vấn đáp
 
+[README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
+
 Mã môn: **SWT-ISTQB-01**. Ngôn ngữ: tiếng Việt. Đề gồm **2 câu, 20 phút**, mỗi câu thang 10; điểm bài là trung bình hai câu. Mỗi sinh viên có 1 lượt theo cấu hình ban đầu.
 
 Tham chiếu [ISTQB CTFL syllabus v4.0.1](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf), mục 4.2.1–4.2.3, trang 39–41, mục tiêu K3. © ISTQB và các tác giả được ghi trong syllabus. Các tình huống, rubric và bài trả lời mẫu là nội dung tự biên soạn; đây không phải đề chứng chỉ hoặc tài liệu được ISTQB công nhận. Bộ này chỉ bao phủ ba mục tiêu học tập nêu trên, không phải toàn bộ CTFL.

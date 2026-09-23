@@ -65,13 +65,20 @@ export async function measureNoise(
   deviceId: string | undefined,
   signal: AbortSignal,
   onProgress: (percent: number, dbfs: number) => void,
+  gainDb = 0,
 ): Promise<
-  NoiseResult & { rawAudio: Blob; filteredAudio?: Blob; filterError?: string }
+  NoiseResult & {
+    rawAudio: Blob;
+    filteredAudio?: Blob;
+    filterError?: string;
+    peakDbfs: number;
+  }
 > {
   let stream: MediaStream | undefined;
   let source: MediaStreamAudioSourceNode | undefined;
   let filter: import("./noise-filter").NoiseFilter | undefined;
   let filterError: string | undefined;
+  let gain: import("./microphone-gain").MicrophoneGain | undefined;
   const recordings: { recorder: MediaRecorder; done: Promise<Blob> }[] = [];
   const record = (input: MediaStream) => {
     const mimeType = ["audio/webm;codecs=opus", "audio/webm"].find((type) =>
@@ -119,9 +126,12 @@ export async function measureNoise(
       throw new Error(
         "Microphone chưa tắt được xử lý âm thanh để đo tiếng ồn. Hãy thử lại hoặc bỏ qua kiểm tra.",
       );
+    const { createMicrophoneGain, peakDbfs: samplePeak } =
+      await import("./microphone-gain");
+    gain = await createMicrophoneGain(stream, gainDb);
     try {
       const { createNoiseFilter } = await import("./noise-filter");
-      filter = await createNoiseFilter(stream, () => {
+      filter = await createNoiseFilter(gain.stream, () => {
         filterError = "RNNoise lỗi. Chỉ có bản ghi gốc để nghe thử.";
       });
     } catch {
@@ -136,8 +146,9 @@ export async function measureNoise(
     const samples = new Float32Array(analyser.fftSize);
     const levels: number[] = [];
     let peakDbfs = -120;
+    let recordingPeak = -120;
     await wait(NOISE_POLICY.warmupMs, signal);
-    const rawRecording = record(stream);
+    const rawRecording = record(gain.stream);
     const filteredRecording = filter ? record(filter.stream) : undefined;
     const count = NOISE_POLICY.durationMs / NOISE_POLICY.intervalMs;
     for (let i = 0; i < count; i++) {
@@ -152,10 +163,14 @@ export async function measureNoise(
         );
       analyser.getFloatTimeDomainData(samples);
       const level = rmsDbfs(samples);
+      recordingPeak = Math.max(recordingPeak, samplePeak(samples, gainDb));
       peakDbfs = Math.max(peakDbfs, level);
       if ((i + 1) * NOISE_POLICY.intervalMs <= NOISE_POLICY.ambientMs)
         levels.push(level);
-      onProgress(Math.round(((i + 1) / count) * 100), level);
+      onProgress(
+        Math.round(((i + 1) / count) * 100),
+        samplePeak(samples, gainDb),
+      );
     }
     for (const { recorder } of recordings)
       if (recorder.state !== "inactive") recorder.stop();
@@ -176,12 +191,14 @@ export async function measureNoise(
       rawAudio,
       filteredAudio: filterError ? undefined : filteredAudio,
       filterError,
+      peakDbfs: recordingPeak,
     };
   } finally {
     for (const { recorder } of recordings)
       if (recorder.state !== "inactive") recorder.stop();
     source?.disconnect();
     await filter?.close();
+    await gain?.close();
     stream?.getTracks().forEach((track) => track.stop());
     await context.close();
   }

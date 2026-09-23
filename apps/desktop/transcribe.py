@@ -64,7 +64,10 @@ def main():
                 "model": "PhoWhisper-small",
                 **metadata,
             },
-            ensure_ascii=False,
+            # Electron reads a pipe, which defaults to an ANSI code page on
+            # Windows. JSON escapes preserve Vietnamese without depending on
+            # that encoding; JSON.parse restores the original Unicode text.
+            ensure_ascii=True,
         )
     )
 

@@ -3,6 +3,7 @@ contextBridge.exposeInMainWorld(
   "oralDesktop",
   Object.freeze({
     openGoogle: (url) => ipcRenderer.invoke("oral:google", url),
+    quit: () => ipcRenderer.invoke("oral:quit"),
     correction: Object.freeze({
       status: () => ipcRenderer.invoke("oral:correction-status"),
       install: () => ipcRenderer.invoke("oral:correction-install"),

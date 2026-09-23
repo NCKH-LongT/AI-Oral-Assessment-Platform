@@ -68,6 +68,11 @@ docker build -t "$ORAL_WEB_IMAGE" -f apps/admin-web/Dockerfile .
         stage('Deploy Oral web') {
             steps {
                 withCredentials([file(credentialsId: 'oral-ai-env', variable: 'ORAL_ENV_FILE')]) {
+                    sh '''
+    cp "$ORAL_ENV_FILE" /var/jenkins_home/oral-ai-env.backup
+    chmod 600 /var/jenkins_home/oral-ai-env.backup
+'''
+                    
                     sh '''set +x
 set -eu
 python3 - <<\'ORAL_DEPLOY_PY\'

@@ -158,6 +158,9 @@ for (const [denoise, filterAvailable] of [
     await page.getByRole("button", { name: "Mở bài thi" }).click();
     await page.getByRole("button", { name: "Cho phép camera & mic" }).click();
     await page
+      .getByRole("slider", { name: "Gain microphone", exact: true })
+      .fill("6");
+    await page
       .getByRole("button", { name: "Bỏ qua kiểm tra độ ồn", exact: true })
       .click();
     await page
@@ -189,6 +192,9 @@ for (const [denoise, filterAvailable] of [
     await page.waitForTimeout(1200);
     await expect(
       page.getByRole("combobox", { name: "Microphone", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("slider", { name: "Gain microphone", exact: true }),
     ).toBeDisabled();
     await expect(
       page.getByRole("combobox", { name: "Camera", exact: true }),
@@ -228,7 +234,7 @@ for (const [denoise, filterAvailable] of [
     let finalTranscript = transcript;
     if (denoise) {
       const suggest = page.getByRole("button", {
-        name: "Gợi ý sửa chính tả",
+        name: "Gợi ý sửa chính tả và dấu câu",
         exact: true,
       });
       const transcriptBox = page.getByRole("textbox", {

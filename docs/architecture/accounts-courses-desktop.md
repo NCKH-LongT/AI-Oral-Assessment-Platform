@@ -1,5 +1,7 @@
 # Tài khoản Google, giao môn học và desktop — 13/09/2026
 
+[README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
+
 ## Đăng nhập và quyền
 
 - Đăng nhập mật khẩu hiện có vẫn hoạt động. Google OIDC dùng authorization code + PKCE, scope `openid email profile`; không đọc/gửi Gmail.
@@ -39,3 +41,5 @@ API và worker đọc cấu hình mới cho request/job tiếp theo, giữ một
 Migration `0003` thêm `users.email`, Google `sub` duy nhất, bảng OAuth flow và enrollment; giữ tài khoản, môn, đề và kết quả cũ. Bootstrap bổ sung môn luyện tập ở lần cập nhật tiếp theo. Dockerfile API tắt access log mặc định có query string; middleware vẫn ghi request ID/method/path/status.
 
 Bộ cài desktop bắt buộc kèm runtime và model PhoWhisper-small INT8; CI không còn tùy chọn bỏ bundle. Desktop gửi media gốc + transcript local để server chấm bằng Ollama/Gemini. Hướng dẫn build, cấu hình domain và STT local: [Desktop đa nền tảng](../desktop-build.md).
+
+Model Qwen3 sửa chính tả là tùy chọn riêng: người học có thể tải hoặc bỏ qua mà vẫn thi/nộp/chấm bình thường. Không cần quyền admin hoặc đổi cấu hình server để bỏ qua. Xem [hướng dẫn sửa chính tả](../transcript-correction.md).

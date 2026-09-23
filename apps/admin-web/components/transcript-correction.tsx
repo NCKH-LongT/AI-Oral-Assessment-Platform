@@ -98,11 +98,17 @@ export default function TranscriptCorrection({
     }[status?.phase || ""] || "Đang chuẩn bị…";
   return (
     <section className="transcript-correction" aria-label="Sửa chính tả local">
-      <h3>Sửa chính tả local</h3>
+      <h3>Sửa chính tả local (tùy chọn)</h3>
       <p className="muted">
-        Model Qwen3 1.7B tải một lần (1,28 GB), sau đó dùng offline. Đoạn văn
-        không gửi lên server để sửa. Luôn đọc lại vì model có thể sửa sai thuật
-        ngữ.
+        Không cần tải model này để ghi âm, nhận dạng và nộp bài. Chỉ bấm tải nếu
+        bạn muốn dùng gợi ý sửa chính tả. Model Qwen3 1.7B tải một lần (1,28
+        GB), sau đó dùng offline. Đoạn văn không gửi lên server để sửa. Luôn đọc
+        lại vì model có thể sửa sai thuật ngữ.
+      </p>
+      <p className="muted">
+        PhoWhisper có thể trả đoạn văn thiếu dấu câu. Gợi ý này có thể bổ sung
+        dấu chấm, dấu phẩy và ngắt câu; bạn xem lại trước khi áp dụng. Không tải
+        model thì vẫn có thể tự thêm dấu câu trong ô Transcript.
       </p>
       {!status?.installed ? (
         <button
@@ -128,7 +134,7 @@ export default function TranscriptCorrection({
           }
           onClick={() => void run(false)}
         >
-          Gợi ý sửa chính tả
+          Gợi ý sửa chính tả và dấu câu
         </button>
       )}
       {text && text.length > 12000 && (

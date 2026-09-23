@@ -1,5 +1,29 @@
 # Biên bản kiểm thử giai đoạn 1
 
+[README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu)
+
+## Gain mic, nghe thử, dấu câu và đóng desktop — 23/09/2026
+
+- Thêm gain −12 đến +18 dB (mặc định 0), áp dụng trước RNNoise và ghi audio/video. Đổi gain hủy kết quả thu thử cũ; gain bị khóa trong lúc ghi/STT/nộp. Đánh giá tiếng ồn vẫn đo trước gain. Hiển thị mức đỉnh và cảnh báo gần/vượt −1 dBFS.
+- 8 kịch bản giao diện đạt qua các lượt kiểm tra: 3 STT desktop, 1 chọn/đổi/ngắt thiết bị và 4 thu thử/nghe lại. Phép kiểm tra gain giải mã WebM thu thật từ âm tổng hợp mức nhỏ, xác nhận mức +6 dB tăng năng lượng bản ghi trong khoảng 4–8 dB. Lượt đầu dùng mic giả Chromium quá lớn để so gain nên phép đo bị clipping; đổi fixture sang tone mức cố định để đo gain không bão hòa. Không dùng microphone phần cứng trong kiểm thử.
+- 3 kiểm thử âm thanh và 7 kiểm thử Node desktop đạt. Kiểm thử Electron thật trên Windows xác nhận X/IPC thoát với lựa chọn **Ở lại**, rồi **Rời trang / thoát** đóng tiến trình; dùng server/profile tạm và giả lập lựa chọn hộp thoại. Không đóng phiên thi thật của người dùng.
+- Gợi ý sửa chính tả được ghi rõ bao gồm dấu câu; prompt giữ nội dung và chỉ thêm dấu khi ngữ nghĩa rõ. Model vẫn tùy chọn. Chưa benchmark dấu câu hoặc chạy Qwen3 thật cho lần thay đổi prompt này.
+- TypeScript, ESLint và production build web đạt; 90 liên kết Markdown nội bộ hợp lệ. Kiểm thử thoát Electron đạt cả source và bản Windows `win-unpacked`. Hướng dẫn sử dụng: [thu thử, gain, dấu câu và thoát desktop](microphone-desktop.md).
+
+## Model sửa chính tả tùy chọn và hướng dẫn — 23/09/2026
+
+- Xác nhận trạng thái chưa tải Qwen3 không khóa bắt đầu thi, STT hoặc nộp bài; chỉ nút tải mới gọi cài model. Giao diện ghi rõ sửa chính tả là tùy chọn, không cần tải để thi.
+- Ba kịch bản Playwright trong `tests/e2e/desktop-stt.spec.ts` đạt trên Windows: một luồng tải lỗi rồi tải lại, xem/giữ/áp dụng gợi ý; hai luồng bỏ qua tải model vẫn nhận dạng và nộp bài, gồm cả khi RNNoise không khả dụng. API và bridge STT/sửa chính tả được giả lập, audio dùng thiết bị giả lập Chromium. Không tải hoặc chạy Qwen3 thật trong lần kiểm tra này.
+- `npm run typecheck`, `npm run lint` đạt. Kiểm tra liên kết Markdown nội bộ gồm đường dẫn và heading; README có danh mục hướng dẫn, các tài liệu có liên kết quay lại.
+- Ghi rõ cách bỏ qua, hủy tải và tải lại trong [hướng dẫn sửa chính tả](transcript-correction.md). Thay đổi nhãn nằm ở web source; cần triển khai web để desktop tải từ server thấy nhãn mới. Không thay cấu hình server hoặc dữ liệu bài thi.
+
+## Sửa xuất transcript tiếng Việt trên Windows — 23/09/2026
+
+- Tái hiện helper cũ lỗi `UnicodeEncodeError` khi xuất chữ tiếng Việt qua pipe `cp1252`. Sửa JSON thành ASCII escapes để Electron giải mã về đúng Unicode.
+- Kiểm thử `tests/test_desktop_stt.py` đạt với `cp1252`, ASCII và UTF-8; cùng kiểm thử xác nhận code cũ lỗi ở hai bảng mã đầu. Sáu kiểm thử Node desktop và kiểm tra cú pháp desktop đạt.
+- Build lại STT và bộ cài Windows thành công. File WebM mẫu chạy qua helper mới trong `win-unpacked` trả transcript có dấu, exit code 0. Chưa thử bản ghi bài thi của người dùng hoặc microphone phần cứng; đây không phải đánh giá độ chính xác nhận dạng.
+- Kiểm thử launcher `test_active_listener_is_rejected` có sẵn lỗi trên Windows trong lần chạy chung; kiểm thử Linux TIME_WAIT được bỏ qua. Hai mục này không thuộc bản sửa STT.
+
 ## Độ tin cậy và phục hồi chấm rubric — 20/09/2026
 
 - 59 test API đạt trên SQLite trong container kiểm thử riêng; 1 test khóa PostgreSQL bỏ qua. Sáu test mới bao phủ lỗi lệch cấu hình, dữ liệu confidence 0 cũ, confidence 0 hợp lệ, quyền ADMIN, job idempotent, không gọi STT khi chấm transcript, giữ câu trả lời/lịch sử khi thành công hoặc lỗi, từ chối câu hỏi/rubric khác, chặn bắt đầu đề lệch cấu hình và schema ràng buộc thang điểm/tên tiêu chí/citation.

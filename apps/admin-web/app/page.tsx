@@ -16,6 +16,7 @@ import { Form, Field } from "../components/shared";
 import Admin from "../components/admin";
 import Student from "../components/student";
 import GoogleLogin from "../components/google-login";
+import DesktopExit from "../components/desktop-exit";
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null),
@@ -37,6 +38,7 @@ export default function Home() {
       <div className="loading">
         <AudioLines size={40} />
         <p>Đang mở không gian học tập…</p>
+        <DesktopExit />
       </div>
     );
   if (!user)
@@ -77,6 +79,7 @@ export default function Home() {
           </div>
         </section>
         <section className="login-form">
+          <DesktopExit />
           <span className="eyebrow">CHÀO MỪNG TRỞ LẠI</span>
           <h2>Đăng nhập</h2>
           <p className="muted">
@@ -180,6 +183,7 @@ export default function Home() {
               / {isStudent ? "Sinh viên" : "Quản trị"}
             </span>
           </span>
+          <DesktopExit />
           <span className="pill">MVP · Giai đoạn 1</span>
         </header>
         <div className="content">

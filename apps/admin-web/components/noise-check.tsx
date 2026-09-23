@@ -6,14 +6,17 @@ import { errorText } from "./api";
 export default function NoiseCheck({
   stream,
   onReady,
+  gainDb = 0,
 }: {
   stream: MediaStream;
   onReady: (ready: boolean) => void;
+  gainDb?: number;
 }) {
   const [status, setStatus] = useState<
     NoiseResult["status"] | "idle" | "checking" | "skipped" | "error"
   >("idle");
   const [progress, setProgress] = useState(0);
+  const [peak, setPeak] = useState(-120);
   const [error, setError] = useState("");
   const [recording, setRecording] = useState<{
     raw: string;
@@ -53,9 +56,13 @@ export default function NoiseCheck({
       const result = await measureNoise(
         stream.getAudioTracks()[0]?.getSettings().deviceId,
         current.signal,
-        (percent) => {
-          if (!current.signal.aborted) setProgress(percent);
+        (percent, level) => {
+          if (!current.signal.aborted) {
+            setProgress(percent);
+            setPeak(level);
+          }
         },
+        gainDb,
       );
       if (current.signal.aborted) return;
       const raw = URL.createObjectURL(result.rawAudio);
@@ -64,6 +71,7 @@ export default function NoiseCheck({
         : undefined;
       urls.current = [raw, ...(filtered ? [filtered] : [])];
       setRecording({ raw, filtered });
+      setPeak(result.peakDbfs);
       if (result.filterError) setError(result.filterError);
       setStatus(result.status);
       onReady(result.status === "quiet");
@@ -76,12 +84,28 @@ export default function NoiseCheck({
 
   return (
     <section className="noise-check" aria-label="Kiểm tra độ ồn">
-      <h3>Kiểm tra độ ồn môi trường</h3>
+      <h3>Thu thử, nghe lại và kiểm tra độ ồn</h3>
       <p>
         Thu thử 10 giây: giữ im lặng trong 3 giây đầu để đo tiếng ồn, sau đó nói
         thử trong 7 giây. Bạn có thể phát lại và bật/tắt lọc nhiễu để so sánh.
         Bản thử chỉ giữ tạm trên máy, không gửi lên server.
       </p>
+      <p className="muted">
+        Gain bản thu thử: {gainDb > 0 ? "+" : ""}
+        {gainDb} dB. Chỉnh Gain microphone ở phần thiết bị rồi thu lại để so
+        sánh. Gain không thay đổi bản đã thu.
+      </p>
+      {(status === "checking" || recording) && (
+        <p role="status">
+          Mức đỉnh {status === "checking" ? "hiện tại" : "bản thu"}:{" "}
+          {peak.toFixed(1)} dBFS.
+          {peak >= -1
+            ? " Âm quá lớn, có nguy cơ vỡ tiếng. Giảm gain hoặc đưa mic ra xa rồi thu lại."
+            : peak < -30
+              ? " Tín hiệu nhỏ. Nói gần mic hơn hoặc tăng gain từ từ rồi nghe lại."
+              : " Hãy nghe lại để kiểm tra giọng rõ và không bị rè."}
+        </p>
+      )}
       <p role="status" aria-live="polite">
         {status === "idle" &&
           "Kiểm tra độ ồn trước khi bắt đầu, hoặc chọn bỏ qua."}

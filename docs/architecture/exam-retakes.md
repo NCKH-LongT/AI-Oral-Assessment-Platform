@@ -1,5 +1,7 @@
 # Số lần làm bài và lịch sử kết quả
 
+[README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
+
 ## Admin cấu hình đề
 
 Mở **Môn học & đề thi → chọn môn → Bài thi & giao bài → Cấu hình số lần làm lại**, chọn một trong ba chế độ rồi lưu:

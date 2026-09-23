@@ -20,6 +20,7 @@ const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
 const { createCorrectionService } = require("./correction.cjs");
+const { installUnloadGuard } = require("./unload-guard.cjs");
 const {
   DEFAULT_URL,
   normalizeServerURL,
@@ -31,6 +32,7 @@ let webURL = new URL(DEFAULT_URL),
   win,
   configWindow;
 let correction;
+let sttChild;
 const configPage = pathToFileURL(path.join(__dirname, "server.html")).href;
 function trustedConfig(event) {
   if (
@@ -136,6 +138,12 @@ app.whenReady().then(async () => {
   correction = createCorrectionService(
     path.join(app.getPath("userData"), "models", "correction"),
   );
+  installUnloadGuard(win, dialog);
+  win.on("closed", () => {
+    correction?.cancel();
+    sttChild?.kill();
+    configWindow?.destroy();
+  });
   function trustedStudent(event) {
     if (
       event.sender !== win.webContents ||
@@ -146,6 +154,11 @@ app.whenReady().then(async () => {
   ipcMain.handle("oral:correction-status", (event) => {
     trustedStudent(event);
     return correction.status();
+  });
+  ipcMain.handle("oral:quit", (event) => {
+    trustedStudent(event);
+    // Let the IPC response finish; app.quit still respects the unload guard.
+    setImmediate(() => app.quit());
   });
   ipcMain.handle("oral:correction-install", (event) => {
     trustedStudent(event);
@@ -167,7 +180,7 @@ app.whenReady().then(async () => {
         label: "OralAI",
         submenu: [
           { label: "Cấu hình máy chủ…", click: showSettings },
-          { role: "quit" },
+          { label: "Thoát ứng dụng", role: "quit" },
         ],
       },
       { role: "editMenu" },
@@ -302,6 +315,7 @@ app.whenReady().then(async () => {
             },
           },
         );
+        sttChild = child;
         let output = "",
           error = "";
         const timer = setTimeout(() => {
@@ -331,6 +345,7 @@ app.whenReady().then(async () => {
           );
         });
         child.on("close", (code) => {
+          if (sttChild === child) sttChild = null;
           clearTimeout(timer);
           if (code !== 0)
             return reject(
@@ -358,4 +373,7 @@ app.whenReady().then(async () => {
   }
 });
 app.on("window-all-closed", () => app.quit());
-app.on("before-quit", () => correction?.cancel());
+app.on("will-quit", () => {
+  correction?.cancel();
+  sttChild?.kill();
+});

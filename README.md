@@ -2,6 +2,26 @@
 
 Desktop ghi audio/video, lọc nhiễu RNNoise và nhận dạng **PhoWhisper-small cục bộ**. Server nhận media gốc + transcript, chấm theo rubric/RAG bằng **Ollama local hoặc Gemini**, rồi trả kết quả cho app.
 
+## Hướng dẫn theo nhu cầu
+
+| Bạn muốn làm gì? | Tài liệu |
+| --- | --- |
+| Cài desktop, chọn server, kiểm tra mic và làm bài | [Hướng dẫn OralAI Desktop](readme-desktop.md) |
+| Thu thử/nghe lại, chỉnh gain, thêm dấu câu hoặc thoát app | [Mic, dấu câu và thoát desktop](docs/microphone-desktop.md) |
+| Thi không tải model sửa chính tả, hoặc tải để dùng gợi ý | [Sửa chính tả tùy chọn](docs/transcript-correction.md) |
+| Build, đóng gói và kiểm tra bộ cài Windows/Linux/macOS | [Build desktop](docs/desktop-build.md) |
+| Chuẩn bị tài nguyên STT bắt buộc trong bộ cài | [STT resources](apps/desktop/resources/stt/README.md) |
+| Hiểu luồng nhận dạng, tài liệu kiến thức và LLM chấm bài | [Kiến trúc STT/LLM](docs/architecture/knowledge-speech.md) |
+| Quản lý tài khoản, môn học và đăng nhập Google | [Tài khoản, OAuth và desktop](docs/architecture/accounts-courses-desktop.md) |
+| Quản lý dữ liệu, kiểm tra mic và lọc nhiễu | [CRUD và kiểm tra tiếng ồn](docs/architecture/crud-noise-check.md) |
+| Cấu hình số lần thi, cấp thêm lượt và xem lịch sử | [Làm lại bài thi](docs/architecture/exam-retakes.md) |
+| Hiểu độ tin cậy AI và thao tác chấm lại | [Độ tin cậy và chấm lại](docs/architecture/grading-confidence.md) |
+| Nạp bộ câu hỏi mẫu môn Kiểm thử phần mềm | [Bộ dữ liệu Software Testing](data/software-testing-istqb/README.md) |
+| Xem kiến trúc ban đầu và kế hoạch phát triển | [Giai đoạn 1](docs/architecture/phase-1.md), [Project Guide](AI_Oral_Assessment_PROJECT_GUIDE.md) |
+| Xem những gì đã kiểm thử và giới hạn còn lại | [Biên bản kiểm thử](docs/validation.md) |
+
+Để bắt đầu: chạy server theo mục bên dưới, sau đó làm theo hướng dẫn desktop. Project Guide và biên bản kiểm thử có các phần lịch sử; đọc ghi chú cập nhật trước khi áp dụng.
+
 ## Chạy server
 
 Cần Docker Compose và Python 3. Tại thư mục gốc:
@@ -56,15 +76,19 @@ docker compose up -d --no-deps --force-recreate api worker
 
 Đang sửa source trên Linux/macOS: chạy **`./run-desktop.sh`**. Script chỉ mở UI dev cổng 3001 và Electron, dùng server bạn đã chạy tại localhost:3000; không gọi Docker. Sửa giao diện tự cập nhật. Cần bundle STT đã build; xem [hướng dẫn](readme-desktop.md).
 
-Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small INT8, runtime STT và FFmpeg**; máy học viên không cần Python, không tải model ở lần chạy đầu. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
+Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small INT8, runtime STT và FFmpeg**; máy học viên không cần Python hoặc tải thêm model để nhận dạng. Model sửa chính tả là tùy chọn, chỉ tải khi người dùng yêu cầu. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
 
 1. Chọn server tại **OralAI → Cấu hình máy chủ…**.
 2. Mở bài, cấp quyền và chọn microphone/camera trong danh sách **Chọn thiết bị**.
-3. Bấm **Kiểm tra độ ồn**: giữ im lặng 3 giây đầu, nói thử 7 giây sau.
+3. Để **Gain microphone** ở 0 dB rồi bấm **Kiểm tra độ ồn**: giữ im lặng 3 giây đầu, nói thử 7 giây sau.
 4. Phát lại bản thử, bật/tắt **Nghe bản đã lọc nhiễu RNNoise** để so sánh. Bản thử không upload.
 5. Chọn bật/tắt **Lọc nhiễu RNNoise khi nhận dạng câu trả lời**, bắt đầu thi, kiểm tra transcript rồi nộp.
 
-Sau khi ghi, chọn **Bản gốc** hoặc **Bản giảm nhiễu RNNoise** rồi bấm **Thử STT lại**. Desktop có **Gợi ý sửa chính tả** chạy local: tải model một lần (1,28 GB), xem bản đề xuất và tự quyết định áp dụng. Xem [hướng dẫn desktop](readme-desktop.md#sửa-chính-tả-local-tùy-chọn).
+Giọng nhỏ có thể tăng gain từng ít một; âm rè/gần −1 dBFS thì giảm gain và thu lại. Gain áp dụng cho bản thu thử, audio/video và STT của lần ghi mới. Bấm **Thoát ứng dụng** hoặc X để đóng; nếu còn bản chưa nộp, chọn **Ở lại** hoặc xác nhận **Rời trang / thoát**. Xem [hướng dẫn mic và thoát app](docs/microphone-desktop.md).
+
+Sau khi ghi, chọn **Bản gốc** hoặc **Bản giảm nhiễu RNNoise** rồi bấm **Thử STT lại** nếu cần nhận dạng lại.
+
+**Sửa chính tả hoàn toàn tùy chọn:** bỏ qua nút tải model vẫn ghi âm, nhận dạng, nộp bài và chấm bài bình thường. Nếu muốn dùng **Gợi ý sửa chính tả và dấu câu**, bấm tải model một lần (1,28 GB), xem bản đề xuất rồi tự quyết định áp dụng. Tải lỗi hoặc hủy tải không bắt buộc phải tải lại mới được thi. Xem [hướng dẫn tải hoặc bỏ qua model](docs/transcript-correction.md).
 
 Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khiển đường nhận dạng của trình duyệt web. Media gốc được lưu riêng, không thay bằng bản đã lọc. Worker xử lý bất đồng bộ; app tự cập nhật điểm hoặc trạng thái cần xem lại.
 
@@ -110,7 +134,4 @@ npm run test:audio
 npm run test:desktop
 ```
 
-- [Kiến trúc STT/LLM](docs/architecture/knowledge-speech.md)
-- [Kiểm tra mic và lọc nhiễu](docs/architecture/crud-noise-check.md)
-- [Tài khoản và OAuth](docs/architecture/accounts-courses-desktop.md)
-- [Biên bản kiểm thử](docs/validation.md)
+Tra cứu thêm trong [Hướng dẫn theo nhu cầu](#hướng-dẫn-theo-nhu-cầu) ở đầu trang.

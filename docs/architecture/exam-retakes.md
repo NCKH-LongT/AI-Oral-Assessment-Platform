@@ -59,4 +59,4 @@ docker compose exec api alembic current
 
 Compose chạy dịch vụ `migrate` trước API/worker; phiên bản cần đạt là `0004 (head)`. Migration giữ các bài cũ ở lần 1 và giữ điểm/transcript. Không xóa volume và không thêm biến môi trường. Nếu chạy API native, chạy `alembic -c services/api/alembic.ini upgrade head` bằng môi trường Python của backend trước khi mở API/worker mới.
 
-Đóng/mở lại desktop để tải UI mới từ server; chạy source bằng `./run-desktop.sh` sau khi backend được cập nhật. Không cần build lại PhoWhisper hoặc tải lại model sửa chính tả. Launcher không chạy Docker. Không hạ migration khi đã có nhiều lần thi, lần đã xóa hoặc công việc xóa media đang chờ.
+Đóng/mở lại desktop để tải UI mới từ server; chạy source bằng `./run-desktop.sh` sau khi backend được cập nhật. Không cần build lại PhoWhisper. Launcher không chạy Docker. Không hạ migration khi đã có nhiều lần thi, lần đã xóa hoặc công việc xóa media đang chờ.

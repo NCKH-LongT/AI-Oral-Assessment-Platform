@@ -6,9 +6,9 @@
 
 | Đối tượng | Tạo/đọc/sửa | Xóa và dữ liệu đang dùng |
 | --- | --- | --- |
-| Môn học | Danh sách, workspace, form Cài đặt; ADMIN hoặc giảng viên phụ trách được sửa | `DELETE /admin/courses/{id}` xóa thật khi không có LO, chủ đề, tài liệu, rubric hoặc đề thi; còn dữ liệu trả 409 `COURSE_IN_USE` |
+| Môn học | Danh sách, workspace, form Cài đặt; ADMIN hoặc giảng viên phụ trách được sửa | `DELETE /admin/courses/{id}` không có body chỉ xóa môn trống; còn dữ liệu trả 409 `COURSE_IN_USE`. ADMIN gửi `{ "confirm_code": "MÃ_MÔN" }` để xóa toàn bộ cây dữ liệu; giảng viên không có quyền xóa cả cây |
 | Rubric | Danh sách tiêu chí, tên, mô tả, điểm/trọng số; sửa tăng version | `DELETE /admin/rubrics/{id}` trả 409 `RUBRIC_IN_USE` khi còn đề thi tham chiếu; sửa rubric không đổi snapshot đề đã công bố |
-| Đề thi | Danh sách hiển thị rubric/blueprint, tạo và sửa bản nháp; không chuyển môn khi sửa | Chỉ xóa bản nháp; đề đã công bố không sửa/xóa để bảo toàn lịch sử |
+| Đề thi | Danh sách hiển thị rubric/blueprint, tạo và sửa bản nháp; không chuyển môn khi sửa | Xóa riêng đề chỉ áp dụng cho bản nháp; đề đã công bố giữ nguyên, trừ khi ADMIN xác nhận xóa toàn bộ môn học |
 
 `POST /admin/courses/{id}/archive` và `/restore` chuyển trạng thái môn; lưu trữ chặn tạo đề và sao chép đề. **Thay đổi hành vi API:** trước đây DELETE môn học chỉ lưu trữ; client tích hợp muốn giữ hành vi đó phải chuyển sang POST `/archive`.
 
@@ -41,3 +41,9 @@ Sau cấp quyền thiết bị, nút bắt đầu thi chờ kết quả đạt h
 Asset được copy từ dependency npm khi `predev`/`prebuild`, phục vụ tại `/audio` cùng origin, có trong Docker standalone. Không tải WASM từ CDN. Nếu bộ lọc lỗi, người dùng cần tắt lọc hoặc kết nối lại trước lần ghi tiếp theo. PhoWhisper chỉ đổi định dạng sang mono 16 kHz, không lọc FFmpeg lần hai. Client web mới gửi `preprocessing=off` đến `/stt` để tránh lọc lại; client cũ không gửi trường này vẫn theo policy lưu trên server.
 
 RNNoise phù hợp thử với tiếng quạt/âm nền, không bảo đảm loại được người nói chồng. Chưa có benchmark WER/CER tiếng Việt hoặc đo thiết bị lớp học thực tế; không khẳng định chất lượng STT cải thiện trên mọi mẫu. Không tích hợp Spleeter vì đó là mô hình tách nhạc, không cần cho luồng hiện tại.
+
+## Xóa toàn bộ môn học và gợi ý thuật ngữ — 23/09/2026
+
+Admin xác nhận bằng mã môn trong Cài đặt. Giao dịch xóa giữ khóa các bản ghi cha/con, xóa liên kết và dữ liệu theo thứ tự khóa ngoại, đồng thời ghi audit `COURSE_DELETED`. Nếu bản ghi đang được xử lý, API trả 409 `COURSE_BUSY` để thử lại. Tài liệu và upload được đưa vào `media_cleanup` trong cùng giao dịch; worker xóa object/thư mục upload sau commit và tự thử lại khi storage lỗi. Không xóa tài khoản người dùng hoặc dữ liệu môn khác.
+
+`QuestionOutput.english_terms` chứa tối đa 20 cặp `term`/`meaning`, chuẩn hóa khoảng trắng và bỏ trùng không phân biệt hoa thường. AI sinh gợi ý trong cùng yêu cầu tạo câu hỏi, snapshot giữ nguyên theo phiên bản đề (`topic-los-english-terms-v3`). Workspace giảng viên trả câu hỏi và thuật ngữ; API sinh viên không trả thuật ngữ. Đề cũ và demo có danh sách rỗng. Chưa truyền danh sách này vào STT.

@@ -2,6 +2,13 @@
 
 [README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu)
 
+## Thuật ngữ, xóa toàn bộ môn học và bỏ LLM sửa chính tả — 23/09/2026
+
+- Đã gỡ UI, IPC, runtime `node-llama-cpp` và luồng tải model sửa chính tả. STT PhoWhisper và sửa transcript bằng tay vẫn giữ nguyên; các mục kiểm thử sửa chính tả cũ bên dưới là lịch sử của tính năng đã gỡ.
+- API trên SQLite: 62 ca đạt, 1 ca chỉ chạy PostgreSQL được bỏ qua. PostgreSQL riêng: 10 ca thuật ngữ/CRUD/xóa môn đạt, gồm kiểm tra khóa Document/Exam/Attempt/Upload, quyền admin, mã xác nhận, toàn bộ khóa ngoại, giữ tài khoản/môn khác và retry dọn object khi storage lỗi.
+- 5 ca Playwright liên quan đạt: xem thuật ngữ ngay sau sinh câu hỏi, xác nhận xóa và retry, 3 luồng STT gốc/bản lọc có sửa tay, chọn thiết bị. API và bridge STT được giả lập trong các ca giao diện; API/DB có kiểm thử riêng. Chưa đánh giá độ đúng thuật ngữ bằng LLM thật.
+- Production build, TypeScript, ESLint, Ruff, 4 test Node desktop, 3 test audio và 4 test Python launcher/STT đạt. Đã giữ các sửa gain microphone, xuất UTF-8 và thoát desktop từ nhánh remote mới nhất khi tích hợp.
+
 ## Gain mic, nghe thử, dấu câu và đóng desktop — 23/09/2026
 
 - Thêm gain −12 đến +18 dB (mặc định 0), áp dụng trước RNNoise và ghi audio/video. Đổi gain hủy kết quả thu thử cũ; gain bị khóa trong lúc ghi/STT/nộp. Đánh giá tiếng ồn vẫn đo trước gain. Hiển thị mức đỉnh và cảnh báo gần/vượt −1 dBFS.

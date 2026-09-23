@@ -20,9 +20,6 @@ import {
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
 import NoiseCheck from "./noise-check";
-import TranscriptCorrection, {
-  type CorrectionBridge,
-} from "./transcript-correction";
 import { createNoiseFilter, type NoiseFilter } from "../lib/noise-filter";
 import {
   createMicrophoneGain,
@@ -36,7 +33,6 @@ declare global {
     oralDesktop?: {
       openGoogle?: (url: string) => Promise<void>;
       quit?: () => Promise<void>;
-      correction?: CorrectionBridge;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
     };
   }
@@ -904,10 +900,6 @@ export default function Student() {
                 >
                   Bắt đầu thi
                 </Action>
-                <TranscriptCorrection
-                  disabled={connecting || processing}
-                  onBusy={setProcessing}
-                />
               </>
             ) : session.current_attempt ? (
               <>
@@ -1014,19 +1006,6 @@ export default function Student() {
                         có thể nhận dạng lại từ bản gốc.
                       </p>
                     )}
-                    <TranscriptCorrection
-                      key={answer.attemptId}
-                      text={answer.transcript}
-                      disabled={processing || submitting}
-                      onBusy={(busy) => {
-                        if (busy)
-                          setSpeechStage("Đang xử lý sửa chính tả trên máy…");
-                        setProcessing(busy);
-                      }}
-                      onApply={(text) =>
-                        setAnswer({ ...answer, transcript: text })
-                      }
-                    />
                     <div className="inline">
                       <Action
                         disabled={
@@ -1128,9 +1107,20 @@ export default function Student() {
                   <i style={{ width: `${micLevel}%` }} />
                 </div>
               </div>
-              <small className="muted">
-                Nói thử để kiểm tra tín hiệu microphone. Mức đỉnh:{" "}
-                {micPeak.toFixed(1)} dBFS.
+              <small className="muted mic-status">
+                <span
+                  className="mic-status-hint"
+                  title="Nói thử để kiểm tra tín hiệu microphone."
+                >
+                  Nói thử để kiểm tra microphone.
+                </span>
+                <span className="mic-status-peak">
+                  Mức đỉnh:
+                  <span className="mic-status-value">
+                    {stream?.active ? micPeak.toFixed(1) : "—"}
+                  </span>
+                  dBFS
+                </span>
               </small>
               {stream && micPeak >= -1 && (
                 <p role="status" className="error">

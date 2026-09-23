@@ -24,6 +24,10 @@ class CourseIn(Input):
     description: str = Field(default="", max_length=10000)
 
 
+class CourseDeleteIn(Input):
+    confirm_code: str = Field(min_length=1, max_length=50)
+
+
 class LOIn(Input):
     code: str = Field(min_length=1, max_length=50)
     description: str = Field(min_length=1, max_length=3000)
@@ -145,10 +149,28 @@ class UploadIn(Input):
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class EnglishTerm(Input):
+    term: str = Field(min_length=1, max_length=100, pattern=r"[A-Za-z]")
+    meaning: str = Field(min_length=1, max_length=300)
+
+
 class QuestionOutput(Input):
     text: str = Field(min_length=10, max_length=4000)
     expected_concepts: list[str] = Field(min_length=1, max_length=30)
     reference_chunk_ids: list[str] = Field(min_length=1, max_length=20)
+    english_terms: list[EnglishTerm] = Field(max_length=20)
+
+    @model_validator(mode="after")
+    def unique_terms(self):
+        seen = set()
+        terms = []
+        for term in self.english_terms:
+            key = term.term.casefold()
+            if key not in seen:
+                terms.append(term)
+                seen.add(key)
+        self.english_terms = terms
+        return self
 
 
 class GradeCriterion(Input):

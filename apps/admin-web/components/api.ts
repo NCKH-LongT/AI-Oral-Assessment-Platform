@@ -48,6 +48,10 @@ export type Exam = {
   time_limit: number;
   blueprint: Blueprint[];
   rubric_id: string;
+  questions?: {
+    text: string;
+    english_terms: { term: string; meaning: string }[];
+  }[];
 };
 export type Doc = {
   id: string;

@@ -19,7 +19,6 @@ const { existsSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
-const { createCorrectionService } = require("./correction.cjs");
 const { installUnloadGuard } = require("./unload-guard.cjs");
 const {
   DEFAULT_URL,
@@ -31,7 +30,6 @@ let webURL = new URL(DEFAULT_URL),
   sttBusy = false,
   win,
   configWindow;
-let correction;
 let sttChild;
 const configPage = pathToFileURL(path.join(__dirname, "server.html")).href;
 function trustedConfig(event) {
@@ -135,12 +133,8 @@ app.whenReady().then(async () => {
       sandbox: true,
     },
   });
-  correction = createCorrectionService(
-    path.join(app.getPath("userData"), "models", "correction"),
-  );
   installUnloadGuard(win, dialog);
   win.on("closed", () => {
-    correction?.cancel();
     sttChild?.kill();
     configWindow?.destroy();
   });
@@ -151,28 +145,10 @@ app.whenReady().then(async () => {
     )
       throw new Error("Forbidden");
   }
-  ipcMain.handle("oral:correction-status", (event) => {
-    trustedStudent(event);
-    return correction.status();
-  });
   ipcMain.handle("oral:quit", (event) => {
     trustedStudent(event);
     // Let the IPC response finish; app.quit still respects the unload guard.
     setImmediate(() => app.quit());
-  });
-  ipcMain.handle("oral:correction-install", (event) => {
-    trustedStudent(event);
-    if (sttBusy) throw new Error("Đang STT. Vui lòng chờ hoàn tất.");
-    return correction.install();
-  });
-  ipcMain.handle("oral:correction-cancel", (event) => {
-    trustedStudent(event);
-    correction.cancel();
-  });
-  ipcMain.handle("oral:correct", (event, text) => {
-    trustedStudent(event);
-    if (sttBusy) throw new Error("Đang STT. Vui lòng chờ hoàn tất.");
-    return correction.correct(text);
   });
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -208,7 +184,7 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("server:save", async (event, value) => {
     trustedConfig(event);
-    if (sttBusy || correction.busy())
+    if (sttBusy)
       throw new Error(
         "Đang xử lý local. Vui lòng chờ hoàn tất trước khi đổi máy chủ.",
       );
@@ -261,8 +237,6 @@ app.whenReady().then(async () => {
     )
       throw new Error("Invalid STT request");
     if (sttBusy) throw new Error("STT đang bận");
-    if (correction.busy())
-      throw new Error("Đang xử lý sửa chính tả. Vui lòng chờ hoàn tất.");
     sttBusy = true;
     let folder;
     try {
@@ -374,6 +348,5 @@ app.whenReady().then(async () => {
 });
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => {
-  correction?.cancel();
   sttChild?.kill();
 });

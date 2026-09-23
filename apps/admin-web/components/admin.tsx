@@ -563,6 +563,7 @@ function CourseWorkspace({
     [knowledgeTab, setKnowledgeTab] = useState("textbook"),
     [rubricOpen, setRubricOpen] = useState(false),
     [examOpen, setExamOpen] = useState(false),
+    [deleteCourseOpen, setDeleteCourseOpen] = useState(false),
     [error, setError] = useState(""),
     [rag, setRag] = useState<Chunk[] | null>(null);
   const [editRubric, setEditRubric] = useState<Rubric | null>(null),
@@ -1037,10 +1038,39 @@ function CourseWorkspace({
                 </Action>
               )}
               {e.status === "PUBLISHED" && (
-                <p className="muted">
-                  Đề đã công bố được giữ nguyên để bảo toàn kết quả. Sao chép
-                  thành bản nháp để chỉnh sửa.
-                </p>
+                <>
+                  <p className="muted">
+                    Đề đã công bố được giữ nguyên để bảo toàn kết quả. Sao chép
+                    thành bản nháp để chỉnh sửa.
+                  </p>
+                  <div className="generated-questions">
+                    <h3>Câu hỏi & thuật ngữ tiếng Anh gợi ý</h3>
+                    {(e.questions || []).map((question, index) => (
+                      <article key={index} className="generated-question">
+                        <h4>
+                          Câu {index + 1}: {question.text}
+                        </h4>
+                        {question.english_terms?.length ? (
+                          <ul>
+                            {question.english_terms.map(({ term, meaning }) => (
+                              <li key={term}>
+                                <strong lang="en">{term}</strong>: {meaning}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="muted">
+                            Chưa có gợi ý thuật ngữ cho câu hỏi này.
+                          </p>
+                        )}
+                      </article>
+                    ))}
+                    <p className="muted">
+                      Gợi ý do AI sinh để giảng viên kiểm tra. Đề cũ và chế độ
+                      demo có thể chưa có thuật ngữ.
+                    </p>
+                  </div>
+                </>
               )}
               {editable && e.status === "PUBLISHED" && (
                 <details>
@@ -1164,11 +1194,17 @@ function CourseWorkspace({
                   : "Lưu trữ môn học"}
               </Action>
               <p className="muted">
-                Chỉ xóa vĩnh viễn môn học khi không còn dữ liệu liên quan.
+                {admin
+                  ? "Xóa vĩnh viễn môn học cùng tài liệu, câu hỏi, đề thi, lượt thi, kết quả và bản ghi. Tài khoản học viên được giữ lại."
+                  : "Chỉ xóa vĩnh viễn môn học khi không còn dữ liệu liên quan."}
               </p>
               <Action
                 className="text-button danger"
                 action={async () => {
+                  if (admin) {
+                    setDeleteCourseOpen(true);
+                    return;
+                  }
                   if (
                     !window.confirm(`Xóa vĩnh viễn môn học “${course.name}”?`)
                   )
@@ -1183,6 +1219,40 @@ function CourseWorkspace({
               >
                 Xóa môn học
               </Action>
+              {admin && deleteCourseOpen && (
+                <Modal
+                  title="Xóa toàn bộ môn học"
+                  close={() => setDeleteCourseOpen(false)}
+                >
+                  <p>
+                    Xóa vĩnh viễn môn <strong>{course.name}</strong> và toàn bộ
+                    dữ liệu liên quan, kể cả bài đang làm và lịch sử thi. Không
+                    thể hoàn tác.
+                  </p>
+                  <Form
+                    label="Xóa vĩnh viễn môn học và dữ liệu"
+                    onSubmit={async (form) => {
+                      const code = String(
+                        form.get("confirm_code") || "",
+                      ).trim();
+                      if (code !== course.code)
+                        throw new Error("Mã môn học không khớp.");
+                      await send(
+                        `/admin/courses/${course.id}`,
+                        { confirm_code: code },
+                        "DELETE",
+                      );
+                      setDeleteCourseOpen(false);
+                      back();
+                    }}
+                  >
+                    <Field
+                      name="confirm_code"
+                      label={`Nhập mã môn học ${course.code} để xác nhận`}
+                    />
+                  </Form>
+                </Modal>
+              )}
             </>
           ) : (
             <p>Bạn có quyền xem môn học.</p>

@@ -1,10 +1,12 @@
 import tempfile
 from pathlib import Path
+from typing import Literal
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from .db import get_db
+from .runtime_settings import settings
 from .security import current_user, fail
 from .speech import google_ready, policy, transcribe_file
 
@@ -12,10 +14,20 @@ router = APIRouter()
 
 
 @router.post("/stt")
-def stt(file: UploadFile = File(), db: Session = Depends(get_db), user=Depends(current_user)):
+def stt(
+    file: UploadFile = File(),
+    preprocessing: Literal["off"] | None = Form(default=None),
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
+):
     config = policy(db)
+    # New clients handle RNNoise/bypass locally; older clients keep the saved policy.
+    if preprocessing == "off":
+        config = config | {"preprocessing": "off"}
     if config["provider"] == "local":
         fail(409, "DESKTOP_REQUIRED", "Admin chọn STT local. Vui lòng dùng ứng dụng desktop")
+    if config["provider"] == "gemini" and not settings().gemini_api_key:
+        fail(503, "GEMINI_NOT_CONFIGURED", "Cấu hình GEMINI_API_KEY trên server để dùng Gemini STT")
     if config["provider"] == "google" and not google_ready():
         fail(
             503,
@@ -34,7 +46,9 @@ def stt(file: UploadFile = File(), db: Session = Depends(get_db), user=Depends(c
         fail(
             503,
             "STT_UNAVAILABLE",
-            "Thiếu thư viện Google STT trên máy chủ."
+            "Thiếu thư viện xử lý audio trên máy chủ."
+            if config["provider"] == "gemini"
+            else "Thiếu thư viện Google STT trên máy chủ."
             if config["provider"] == "google"
             else "Whisper trên máy chủ chưa được cài. Cài API với extra [stt] hoặc chọn Whisper local trong Electron.",
         )
@@ -42,7 +56,9 @@ def stt(file: UploadFile = File(), db: Session = Depends(get_db), user=Depends(c
         fail(
             503,
             "STT_FAILED",
-            "Google STT không nhận dạng được audio. Kiểm tra audio, FFmpeg, credentials và quyền truy cập Google Cloud rồi thử lại."
+            "Gemini không nhận dạng được audio. Kiểm tra audio, API key, model và quota trên server rồi thử lại."
+            if config["provider"] == "gemini"
+            else "Google STT không nhận dạng được audio. Kiểm tra audio, FFmpeg, credentials và quyền truy cập Google Cloud rồi thử lại."
             if config["provider"] == "google"
             else "Whisper trên máy chủ không nhận dạng được audio. Kiểm tra audio (tối đa 10 phút), FFmpeg và model Whisper rồi thử lại.",
         )

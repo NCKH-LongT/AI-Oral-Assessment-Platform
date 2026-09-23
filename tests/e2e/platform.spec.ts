@@ -348,42 +348,11 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     page.getByRole("heading", { name: "Cấu hình giọng nói", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByLabel("Nhà cung cấp STT").locator("option"),
-  ).toHaveCount(3);
-  const beforeCredentials = await (
-    await page.request.get("/api/admin/settings/speech")
-  ).json();
-  await page
-    .locator("details")
-    .filter({
-      has: page.getByText("Google Cloud STT: JSON service account (tùy chọn)", {
-        exact: true,
-      }),
-    })
-    .evaluate((element) => {
-      (element as HTMLDetailsElement).open = true;
-    });
-  await page
-    .getByLabel("File JSON service account Google (tối đa 64 KB)")
-    .setInputFiles({
-      name: "invalid-google.json",
-      mimeType: "application/json",
-      buffer: Buffer.from('{"type":"authorized_user"}'),
-    });
-  await page
-    .getByRole("button", {
-      name: /^(Upload JSON Google|Thay file JSON Google)$/,
-    })
-    .click();
-  await expect(page.locator("p[role=alert]")).toContainText(
-    "JSON service account không hợp lệ",
-  );
-  const afterCredentials = await (
-    await page.request.get("/api/admin/settings/speech")
-  ).json();
-  expect(afterCredentials.google_credentials).toEqual(
-    beforeCredentials.google_credentials,
-  );
+    page.getByText(/Desktop luôn dùng PhoWhisper-small/),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("File JSON service account Google (tối đa 64 KB)"),
+  ).toBeHidden();
   await page.screenshot({
     path: "docs/screenshots/speech-settings.png",
     fullPage: true,
@@ -486,7 +455,7 @@ test("student records only during answer, submits media, admin plays real WebM",
       .getByRole("button", { name: "Kết thúc trả lời", exact: true })
       .click();
     await expect(
-      page.getByRole("status").filter({ hasText: "Đang lọc nhiễu" }),
+      page.getByRole("status").filter({ hasText: "Đang nhận dạng" }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Ghi lại", exact: true }),
@@ -511,7 +480,7 @@ test("student records only during answer, submits media, admin plays real WebM",
     await page.evaluate(
       () => (window as unknown as { recordingStarts: number }).recordingStarts,
     ),
-  ).toBe(4);
+  ).toBe(6);
   await expect(
     page.getByRole("button", { name: "Nộp bài thi", exact: true }),
   ).toBeEnabled();
@@ -634,26 +603,38 @@ test("admin enrolls a course, promotes a user, and configures services without e
   await page
     .getByRole("button", { name: "Cấu hình hệ thống", exact: true })
     .click();
-  await page
-    .getByLabel("Gemini API key", { exact: true })
-    .fill("synthetic-config-test-key");
-  await page
-    .getByRole("button", { name: "Lưu cấu hình hệ thống", exact: true })
-    .click();
-  await expect(page.getByLabel("Gemini API key", { exact: true })).toHaveValue(
-    "",
-  );
-  const settingsResponse = await (
+  const platform = await (
     await request.get("/api/admin/settings/platform")
-  ).text();
-  expect(settingsResponse).not.toContain("synthetic-config-test-key");
-  await page.getByLabel("Xóa Gemini API key đã lưu", { exact: true }).check();
-  await page
-    .getByRole("button", { name: "Lưu cấu hình hệ thống", exact: true })
-    .click();
-  await expect(
-    page.getByLabel("Xóa Gemini API key đã lưu", { exact: true }),
-  ).not.toBeChecked();
+  ).json();
+  if (platform.ai_config_source === "env") {
+    await expect(
+      page.getByRole("heading", { name: "LLM chấm điểm trên server" }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Gemini API key", { exact: true }),
+    ).toHaveCount(0);
+  } else {
+    await page
+      .getByLabel("Gemini API key", { exact: true })
+      .fill("synthetic-config-test-key");
+    await page
+      .getByRole("button", { name: "Lưu cấu hình hệ thống", exact: true })
+      .click();
+    await expect(
+      page.getByLabel("Gemini API key", { exact: true }),
+    ).toHaveValue("");
+    const settingsResponse = await (
+      await request.get("/api/admin/settings/platform")
+    ).text();
+    expect(settingsResponse).not.toContain("synthetic-config-test-key");
+    await page.getByLabel("Xóa Gemini API key đã lưu", { exact: true }).check();
+    await page
+      .getByRole("button", { name: "Lưu cấu hình hệ thống", exact: true })
+      .click();
+    await expect(
+      page.getByLabel("Xóa Gemini API key đã lưu", { exact: true }),
+    ).not.toBeChecked();
+  }
   await page
     .getByRole("button", { name: "Đăng nhập Google", exact: true })
     .click();

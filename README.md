@@ -1,121 +1,116 @@
-# OralAI — Thi vấn đáp và chấm điểm AI
+# OralAI — Thi vấn đáp
 
-Ứng dụng web và desktop cho phép ghi câu trả lời, chuyển giọng nói thành text bằng Whisper, rồi dùng Gemini chấm theo rubric và tài liệu môn học. Audio/video được lưu làm minh chứng.
+Desktop ghi audio/video, lọc nhiễu RNNoise và nhận dạng **PhoWhisper-small cục bộ**. Server nhận media gốc + transcript, chấm theo rubric/RAG bằng **Ollama local hoặc Gemini**, rồi trả kết quả cho app.
 
-## Chạy nhanh
+## Chạy server
 
-Cần Docker Compose và Python 3. Chạy tại thư mục gốc repository:
+Cần Docker Compose và Python 3. Tại thư mục gốc:
 
 ```bash
 python3 scripts/setup_env.py
+# Sửa cấu hình LLM trong .env trước khi dùng chấm thật.
 docker compose up -d --build --wait
 ```
 
-Mở **http://localhost:3000**, đăng nhập bằng `BOOTSTRAP_ADMIN` và `BOOTSTRAP_PASSWORD` trong `.env`. Script không ghi đè `.env` đã có. Mặc định hệ thống chạy demo, chưa chấm AI.
+Mở **http://localhost:3000**, đăng nhập bằng `BOOTSTRAP_ADMIN` / `BOOTSTRAP_PASSWORD` trong `.env`. Mặc định `AI_PROVIDER=demo` chỉ thử quy trình, không chấm điểm.
 
-## Dùng Gemini chấm điểm + Whisper nhận dạng
+## Chọn LLM qua .env
 
-Hai cấu hình này **độc lập**:
-
-| Chức năng                                     | Cấu hình                                               | Cần gì?                              |
-| --------------------------------------------- | ------------------------------------------------------ | ------------------------------------ |
-| Sinh câu hỏi, embedding tài liệu và chấm text | **AI & mô hình → Google Gemini**                       | Gemini API key                       |
-| Nhận dạng trên máy học viên                   | **STT & giọng nói → Whisper local trên máy sinh viên** | Desktop + Whisper local              |
-| Nhận dạng trên máy chủ                        | **STT & giọng nói → Whisper trên server nội bộ**       | Whisper trong API; Docker đã cài sẵn |
-| Nhận dạng bằng Google Cloud (tùy chọn)        | **STT & giọng nói → Google Cloud Speech-to-Text**      | JSON service account riêng           |
-
-**Gemini + Whisper không cần JSON Google STT.** Luồng xử lý: ghi âm → Whisper → transcript → Gemini chấm điểm. Khi nộp bài, worker chấm transcript đã gửi, không gọi Google STT để nhận dạng lại.
-
-Admin mở **Cấu hình hệ thống**:
-
-1. Tab **AI & mô hình**: chọn **Google Gemini**, nhập API key và lưu.
-2. Tab **STT & giọng nói**: chọn một trong hai lựa chọn **Whisper**, chọn ngôn ngữ/lọc nhiễu và bấm **Lưu cấu hình STT**.
-3. Xử lý tài liệu, tạo rubric và công bố đề mới với cấu hình Gemini.
-
-Nếu STT trước đó đã chọn Google, cần đổi và lưu lại ở bước 2. Bật Gemini không tự đổi lựa chọn STT đã lưu. Mục JSON Google chỉ dùng khi chủ động chọn Google STT hoặc dùng chức năng **Nhận dạng lại bằng Google & chấm lại**.
-
-Có thể đặt cấu hình ban đầu trong `.env`:
+**Gemini:**
 
 ```dotenv
+AI_CONFIG_SOURCE=env
 AI_PROVIDER=gemini
-GEMINI_API_KEY=your-api-key
-STT_PROVIDER=local
-STT_MODEL=base
-STT_LANGUAGE=vi
+GEMINI_API_KEY=your-key
+LLM_MODEL=gemini-2.5-flash
+EMBEDDING_MODEL=gemini-embedding-001
 ```
 
-`STT_PROVIDER=local` dùng Whisper trên desktop; `local_server` dùng Whisper trên API (mặc định); `google` dùng Google STT. `STT_MODEL` trên server điều khiển Whisper server; Whisper desktop đọc biến này trên máy học viên.
+**Ollama chạy local trên server:** tải sẵn một model chat hỗ trợ JSON schema và model embedding **768 chiều**, ví dụ `qwen3:8b` và `nomic-embed-text`:
 
-**Cấu hình đã lưu trên web được ưu tiên hơn `.env`**: AI lưu trong `DATA_DIR/secrets/platform.json`, STT lưu trong database. Với hệ thống đã cấu hình, sửa trên web để có hiệu lực ở lần xử lý tiếp theo. Nếu dùng `.env`, nạp lại bằng:
+```bash
+ollama pull qwen3:8b
+ollama pull nomic-embed-text
+```
+
+```dotenv
+AI_CONFIG_SOURCE=env
+AI_PROVIDER=local
+LOCAL_LLM_URL=http://host.docker.internal:11434
+LOCAL_LLM_TIMEOUT=180
+LLM_MODEL=qwen3:8b
+EMBEDDING_MODEL=nomic-embed-text
+```
+
+Ollama phải lắng nghe tại địa chỉ API/worker truy cập được. Docker dùng `host.docker.internal` để tới host; chạy API native thì dùng `http://127.0.0.1:11434`. Đặt Ollama trong mạng nội bộ. Không dùng `localhost` trong container để trỏ tới host.
+
+Sau khi đổi `.env`:
 
 ```bash
 docker compose up -d --no-deps --force-recreate api worker
 ```
 
-Đề đã công bố giữ cấu hình AI và rubric cũ. Đề demo không tự chuyển thành đề Gemini; tài liệu cần xử lý lại khi đổi model embedding. Bài luyện tập mặc định không tính điểm.
+`AI_CONFIG_SOURCE=env` ưu tiên cấu hình AI trong `.env`, bỏ qua AI cũ lưu trên web. `admin` chỉ dành cho triển khai cũ muốn tiếp tục chỉnh AI trên web. OAuth và cấu hình ngôn ngữ STT vẫn chỉnh trên web. Đề đã công bố giữ snapshot AI/rubric; đổi provider/model thì xử lý lại tài liệu và công bố đề mới.
 
-## Mở app desktop
+## Desktop và kiểm tra mic
 
-Cần Node.js **22.12+** và giao diện đồ họa. Tại thư mục gốc:
+Đang sửa source trên Linux/macOS: chạy **`./run-desktop.sh`**. Script chỉ mở UI dev cổng 3001 và Electron, dùng server bạn đã chạy tại localhost:3000; không gọi Docker. Sửa giao diện tự cập nhật. Cần bundle STT đã build; xem [hướng dẫn](readme-desktop.md).
 
-```bash
-npm ci
-env -u ELECTRON_RUN_AS_NODE npm run desktop
+Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small INT8, runtime STT và FFmpeg**; máy học viên không cần Python, không tải model ở lần chạy đầu. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
+
+1. Chọn server tại **OralAI → Cấu hình máy chủ…**.
+2. Mở bài, cấp quyền và chọn microphone/camera trong danh sách **Chọn thiết bị**.
+3. Bấm **Kiểm tra độ ồn**: giữ im lặng 3 giây đầu, nói thử 7 giây sau.
+4. Phát lại bản thử, bật/tắt **Nghe bản đã lọc nhiễu RNNoise** để so sánh. Bản thử không upload.
+5. Chọn bật/tắt **Lọc nhiễu RNNoise khi nhận dạng câu trả lời**, bắt đầu thi, kiểm tra transcript rồi nộp.
+
+Sau khi ghi, chọn **Bản gốc** hoặc **Bản giảm nhiễu RNNoise** rồi bấm **Thử STT lại**. Desktop có **Gợi ý sửa chính tả** chạy local: tải model một lần (1,28 GB), xem bản đề xuất và tự quyết định áp dụng. Xem [hướng dẫn desktop](readme-desktop.md#sửa-chính-tả-local-tùy-chọn).
+
+Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khiển đường nhận dạng của trình duyệt web. Media gốc được lưu riêng, không thay bằng bản đã lọc. Worker xử lý bất đồng bộ; app tự cập nhật điểm hoặc trạng thái cần xem lại.
+
+## Số lần làm bài và kết quả
+
+**Độ tin cậy AI:** lỗi chấm, demo và bài không tính điểm hiện “Chưa có độ tin cậy AI”, không hiển thị 0% giả. Số phần trăm khi chấm thành công do LLM tự báo, chưa được hiệu chuẩn. Nếu gặp `AI_CONFIG_MISMATCH`, cần tài liệu và phiên bản đề khớp cấu hình AI hiện tại. Admin có thể chọn **Chấm lại transcript đã nộp** với phiên bản giữ nguyên câu hỏi/rubric; lưu lịch sử và luôn yêu cầu xem lại. Xem [độ tin cậy và chấm lại](docs/architecture/grading-confidence.md).
+
+Admin mở **Môn học & đề thi → chọn môn → Bài thi & giao bài → Cấu hình số lần làm lại**: không cho làm lại, cho làm lại N lần hoặc không giới hạn. Ví dụ cho làm lại 1 lần là tổng cộng 2 lượt.
+
+**Kết quả & xem lại** hiển thị từng lần thi. Mở **Quản lý lượt thi** để cấp thêm lượt riêng cho sinh viên hoặc xóa lần thi được chọn. Sinh viên xem lịch sử và bấm **Làm lại bài thi** khi còn lượt. [Chi tiết và nâng cấp database](docs/architecture/exam-retakes.md).
+
+## Admin chọn STT trên server
+
+Trong **Cấu hình hệ thống → STT & giọng nói**, admin có thể chọn Gemini hoặc Google Cloud STT cho trình duyệt web. Desktop vẫn nhận dạng local.
+
+Khi xem kết quả, mở **Nhận dạng lại & chấm lại**, chọn nhà cung cấp và nhập lý do:
+
+- **Gemini STT:** dùng API key và model trong `.env`:
+
+```dotenv
+GEMINI_API_KEY=your-key
+GEMINI_STT_MODEL=gemini-2.5-flash
 ```
 
-Với Whisper local, chuẩn bị Python trước khi mở app (Linux/macOS):
+- **Google Cloud STT:** mở mục cấu hình JSON trong tab STT, upload service-account JSON hợp lệ (tối đa 64 KB). Cần bật Speech-to-Text API, billing và cấp quyền cho tài khoản. Upload không tự đổi nhà cung cấp.
+
+Nhận dạng lại dùng audio gốc và hoạt động cả khi `AI_PROVIDER=local`. Nhà cung cấp đã chọn nhận dạng, còn LLM chấm vẫn theo snapshot đề. **Chỉ Google Cloud STT cần JSON; Gemini không cần.** Giữ transcript đã nộp và lịch sử trước/sau. Gemini không trả độ tin cậy âm học nên kết quả này cần giảng viên kiểm tra trước khi công nhận điểm.
+
+## Build, cập nhật và tài liệu
+
+Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn desktop](readme-desktop.md) và [đóng gói](docs/desktop-build.md). Không đưa binary/model hoặc `.env` vào Git.
+
+`Jenkinsfile` build/kiểm tra/deploy web và API; bộ cài desktop dùng workflow riêng. Nếu deploy bằng Jenkins, đồng bộ các biến mới trong credential `oral-ai-env`.
+
+Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration `0004` để lưu nhiều lần thi; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
 
 ```bash
-python3.12 -m venv .venv
-.venv/bin/pip install "faster-whisper>=1.1,<2" "imageio-ffmpeg>=0.6,<0.7"
-ORAL_PYTHON="$PWD/.venv/bin/python" env -u ELECTRON_RUN_AS_NODE npm run desktop
-```
-
-Whisper tải model ở lần chạy đầu. Máy học viên dùng Whisper server không cần Python. Đổi server tại **OralAI → Cấu hình máy chủ…**; dùng `http://localhost:3000` hoặc domain HTTPS, không thêm `/api`.
-
-Hướng dẫn Windows, bộ cài và kết nối server: [Desktop](readme-desktop.md).
-
-## Quy trình sử dụng
-
-1. Admin tạo tài khoản, môn học và giao môn cho học viên.
-2. Giảng viên tải tài liệu, tạo chủ đề/chuẩn đầu ra, rubric và đề thi; công bố rồi giao bài.
-3. Học viên kiểm tra camera/mic, ghi âm, kiểm tra transcript và nộp bài sau khi audio/video tải lên xong.
-4. Worker chấm bài; giảng viên xem kết quả, transcript và minh chứng. Điểm chưa xác nhận hiển thị chờ chấm hoặc cần xem lại.
-
-## Cập nhật và xử lý lỗi
-
-Sau khi cập nhật source:
-
-```bash
-docker compose up -d --build --wait
-```
-
-Tải lại web hoặc mở lại desktop. Giữ volume dữ liệu; không dùng `docker compose down -v` nếu cần giữ bài thi.
-
-| Hiện tượng                              | Cách kiểm tra                                                                            |
-| --------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Gemini đã bật nhưng STT đòi JSON Google | Vào STT & giọng nói, đổi nhà cung cấp đang lưu sang Whisper rồi lưu lại                  |
-| Bài không có điểm                       | Kiểm tra đề có phải demo/luyện tập, trạng thái cần xem lại và log worker                 |
-| Chờ chấm mãi                            | `docker compose ps` và `docker compose logs --tail=100 worker`                           |
-| Whisper nhận dạng lỗi                   | Kiểm tra microphone, FFmpeg, model và khả năng tải model; desktop cần đúng `ORAL_PYTHON` |
-| Thay `.env` nhưng không đổi cấu hình    | Kiểm tra cấu hình đã lưu trên web; `restart` không nạp biến môi trường mới               |
-
-## Phát triển và tài liệu
-
-Stack: Next.js, Electron, FastAPI, PostgreSQL/pgvector và MinIO. Source chính ở `apps/admin-web`, `apps/desktop`, `services/api`.
-
-```bash
-python3.12 -m venv .venv
-.venv/bin/pip install -r services/api/requirements.lock
-.venv/bin/pip install --no-deps -e services/api
-npm ci
 .venv/bin/python -m pytest services/api/tests -q
 npm run lint
 npm run typecheck
 npm run build
+npm run test:audio
+npm run test:desktop
 ```
 
-- [Chạy và cấu hình desktop](readme-desktop.md) · [Build bộ cài](docs/desktop-build.md)
-- [Thiết kế kiến thức và STT](docs/architecture/knowledge-speech.md)
-- [Tài khoản, đăng nhập Google và giao môn](docs/architecture/accounts-courses-desktop.md)
-- [Kiến trúc](docs/architecture/phase-1.md) · [Kiểm thử](docs/validation.md)
+- [Kiến trúc STT/LLM](docs/architecture/knowledge-speech.md)
+- [Kiểm tra mic và lọc nhiễu](docs/architecture/crud-noise-check.md)
+- [Tài khoản và OAuth](docs/architecture/accounts-courses-desktop.md)
+- [Biên bản kiểm thử](docs/validation.md)

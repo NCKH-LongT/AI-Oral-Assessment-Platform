@@ -1,5 +1,86 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Độ tin cậy và phục hồi chấm rubric — 20/09/2026
+
+- 59 test API đạt trên SQLite trong container kiểm thử riêng; 1 test khóa PostgreSQL bỏ qua. Sáu test mới bao phủ lỗi lệch cấu hình, dữ liệu confidence 0 cũ, confidence 0 hợp lệ, quyền ADMIN, job idempotent, không gọi STT khi chấm transcript, giữ câu trả lời/lịch sử khi thành công hoặc lỗi, từ chối câu hỏi/rubric khác, chặn bắt đầu đề lệch cấu hình và schema ràng buộc thang điểm/tên tiêu chí/citation.
+- 7 kịch bản Playwright đạt trên Chromium: 4 kịch bản confidence/chấm transcript mới và 3 kịch bản nhận dạng lại/cấu hình STT hiện có. API được giả lập cho kiểm thử UI; không sửa dữ liệu thật qua các bài test này. Lượt đầu thiếu bản Chromium phù hợp; đã cài đúng bản và chạy lại thành công.
+- Ruff, TypeScript, ESLint, production build và Docker Compose healthcheck đạt. Một lượt pytest đang chạy trong container API bị ngắt bởi việc recreate container; đã chạy lại toàn bộ suite trong container kiểm thử riêng, kết quả 59/1 ở trên.
+- Kiểm tra Gemini thật phát hiện hai lỗi ngoài cấu hình snapshot: ReadTimeout và model trả 75 điểm cho tiêu chí tối đa 2. Đã bổ sung GEMINI_TIMEOUT=180, schema theo rubric và prompt rubric-bounded-v2; không tự quy đổi điểm vượt thang. Những lần review lỗi giữ nguyên kết quả cũ và có lịch sử.
+- Đã tạo phiên bản Software Testing với Gemini embedding và prompt mới, giữ đề demo và các phiên bản trước. Chấm lại 2 câu đã nộp qua ReviewJob thành công với đủ 5 tiêu chí và citation thật; confidence tự báo lần lượt 0,90 và 1,00. Giữ nguyên transcript/câu hỏi/rubric gốc, điểm chính thức chưa công bố vì bắt buộc REVIEW_REQUIRED.
+- Đây là xác minh hoạt động tích hợp, không phải benchmark chất lượng chấm hoặc hiệu chuẩn confidence. Bộ 8 bài chuẩn chưa được chạy như một đánh giá chất lượng đầy đủ.
+
+## Nhiều lần làm bài và quản lý kết quả — 17/09/2026
+
+- Suite backend: 53 test đạt trên SQLite, 1 test khóa PostgreSQL bỏ qua; 54 test đạt trên PostgreSQL/pgvector với database tạm riêng. Bao gồm giới hạn, không giới hạn, cấp thêm lượt riêng, giảm giới hạn, phân quyền, lịch sử và snapshot không đổi.
+- Năm test retake chạy lại trên PostgreSQL đạt, gồm bốn request tạo lần thi đồng thời trả về cùng một phiên, từ chối xóa khi worker đang giữ khóa, xóa đúng câu trả lời/media, thu hồi quyền truy cập và giữ số lần tăng sau xóa. Giả lập storage lỗi rồi worker thử lại thành công.
+- Migration trên dữ liệu cũ đạt ở SQLite và PostgreSQL: giữ điểm 8 và transcript mẫu, gán lần 1, cho tạo lần 2; chạy upgrade lặp lại an toàn. Không migration database ứng dụng đang chạy.
+- Năm kịch bản Playwright đạt: hai kịch bản quản lý lượt/lịch sử cho admin và sinh viên, ba kịch bản STT desktop cũ. Kiểm tra chọn cả ba chính sách, chuyển lịch sử, cấp lượt, hủy/xác nhận xóa đúng lần, mở kết quả cũ và yêu cầu lần mới. API được giả lập trong E2E; quy tắc dữ liệu và khóa được kiểm tra bằng suite backend PostgreSQL.
+- Ruff, ESLint, TypeScript và Next production build đạt. Thay đổi này không gọi Gemini/Ollama thật và không thay model STT.
+
+## Chọn bản STT, tên thiết bị và sửa chính tả local — 17/09/2026
+
+- Tái hiện trên Electron thật: `setPermissionCheckHandler` nhận origin `http://localhost:3001/`, code so với `http://localhost:3001` nên không cấp quyền liệt kê tên. Sau khi chuẩn hóa origin, đọc được UGREEN HiTune Max5c, UGREEN Camera 4K Analog Stereo, Built-in Audio Analog Stereo và camera UGREEN từ chính PC Linux; không dùng thiết bị giả ở kiểm tra tên này.
+- Ba kịch bản E2E ghi câu trả lời đạt: bật/tắt lọc ban đầu, đổi nguồn và thử STT lại, RNNoise không tải được, STT retry lỗi giữ transcript. So SHA-256 đầu vào STT chứng minh chọn đúng Blob, lần upload AUDIO luôn dùng hash bản gốc. STT được giả lập, MediaRecorder/RNNoise chạy thật với mic/camera Chromium giả lập.
+- E2E còn kiểm tra tải model lỗi rồi thử lại, so sánh/giữ/áp dụng đề xuất, model lỗi giữ transcript, nộp bản chỉnh sửa với confidence 0 để đối chiếu. Một kịch bản chọn thiết bị và bốn kịch bản thu thử/phát lại 10 giây đều đạt (tổng 8 kịch bản E2E liên quan).
+- Sáu unit test desktop đạt: domain, quyền media, checksum/cache offline/atomic download, hủy tải, chia đoạn không mất chữ, giới hạn đầu vào và chặn thay số liệu. Hai unit test audio, Next production build, ESLint, TypeScript, Electron syntax và `git diff --check` đạt; npm audit không báo lỗ hổng.
+- Tải Qwen3 1.7B Q4_K_M 1.282.439.264 byte theo revision ghim, xác nhận SHA-256. Runtime CPU chạy thật, sửa mẫu “lập chình và cơ sỡ dữ liệu” thành “lập trình và cơ sở dữ liệu”. Linux `npm run pack -w apps/desktop` đạt; gọi correction qua preload/IPC ở cả source và bản đóng gói, chặn `fetch` trong main process, vẫn sửa được mẫu (khoảng 5 giây gồm nạp model). Model test lưu trong profile dev, không đưa vào Git.
+
+Chưa benchmark WER/CER hoặc chất lượng sửa chính tả trên bộ dữ liệu tiếng Việt; chưa kiểm thử runtime sửa chính tả trên Windows/macOS. Không gọi LLM server/Gemini trong kiểm tra này và không thay Docker đang chạy.
+
+## Google login qua desktop dev — 17/09/2026
+
+- Xác nhận backend cấu hình domain gốc `http://localhost:3000`, trong khi launcher mở UI ở 3001; kiểm tra origin cũ trong IPC từ chối URL đăng nhập hợp lệ. Launcher nay truyền origin backend riêng cho Google login khi chạy source.
+- Hai test Node đạt, gồm chấp nhận URL đăng nhập trên server được cấu hình và từ chối domain/cổng khác, credentials, endpoint sai, thiếu flow và fragment. Electron syntax, ba test launcher Python, Ruff và `git diff --check` đạt.
+- Chạy Electron thật với profile tạm cho cả chế độ cùng origin và UI/backend khác origin; gọi IPC qua preload thành công với URL hợp lệ, chặn URL sai. `shell.openExternal` được giả lập để kiểm tra đích mở mà không mở tài khoản Google thật. Chưa hoàn tất đăng nhập với tài khoản Google của người dùng.
+
+## Chạy lại desktop sau khi đóng — 17/09/2026
+
+- Tái hiện báo nhầm cổng bận: socket kiểm tra không đặt `SO_REUSEADDR` từ chối bind khi kết nối server vừa đóng còn `TIME_WAIT`, dù không còn tiến trình lắng nghe. Sửa phép kiểm tra theo cách Node mở TCP server; vẫn từ chối listener đang chạy.
+- Ba test Python đạt: cổng trống, listener đang chạy, khởi động lại ngay sau khi đóng kết nối. Đưa test vào CI; Ruff, Bash syntax và `git diff --check` đạt.
+- Chạy launcher/Electron thật hai lần liên tiếp, đóng bằng SIGINT giữa hai lần: giao diện trả 200, API qua UI dev trả `status: ok`, launcher thoát 0, không còn listener cổng 3001 sau khi đóng.
+- Restart Docker API/worker/web theo yêu cầu; API/web healthy, worker running, health ở cổng 3000 trả `status: ok`. Launcher vẫn không chạy Docker.
+
+## Chọn microphone và camera — 17/09/2026
+
+- Thêm hai danh sách thiết bị ở bước kết nối, cập nhật khi cắm/rút và sau khi cấp quyền. Chọn thiết bị kết nối ngay, dừng luồng cũ và đặt lại kết quả kiểm tra mic.
+- Playwright: kiểm tra chọn đúng `deviceId`, từ chối quyền rồi kết nối lại, rút camera và chọn thiết bị thay thế; phép đo 10 giây dùng đúng mic đã chọn. Kiểm tra khóa danh sách khi ghi và nộp transcript STT local đạt.
+- Bốn kiểm thử độ ồn/phát bản gốc và RNNoise đạt. Tổng cộng 6 kiểm thử E2E liên quan đạt; API và danh sách thiết bị giả lập, MediaRecorder/RNNoise chạy thật trong Chromium. Chưa thử chọn giữa các microphone/camera phần cứng.
+- Next production build, ESLint, TypeScript và `git diff --check` đạt. Không thay đổi hoặc khởi động Docker.
+
+## Launcher chỉ chạy desktop — 17/09/2026
+
+- Loại bỏ Docker Compose, tạo `.env`, cài dependency và thay cấu hình server khỏi launcher. UI dev/Electron kết nối server có sẵn qua `--server` (mặc định localhost:3000).
+- Chạy thử launcher với lệnh Docker/npm bị thay bằng chương trình luôn báo lỗi: UI dev và Electron vẫn mở được. Khi đóng Electron, dev server dừng. Server chưa sẵn sàng được báo rõ và không tự khởi động dịch vụ.
+- Ruff, Bash syntax và CLI help đạt. Backend cần cho phép origin dev qua `ALLOWED_ORIGINS`; người vận hành tự cấu hình, launcher không sửa.
+
+
+## Launcher desktop từ source và nút nghe thử mic — 17/09/2026
+
+- Kiểm tra web Docker tại localhost:3000 và Electron: code trước thay đổi đã phát được raw/RNNoise sau 10 giây với mic giả lập; chưa tái hiện được lỗi mất bản ghi trên mic của người dùng.
+- Thêm `run-desktop.sh`: rebuild Compose, thêm origin dev qua override, mở Next dev cổng riêng và Electron profile riêng. Đã chạy script thật, kiểm tra health và request đăng nhập từ origin dev (401 với tài khoản giả, không bị 403 do origin); cổng bận được từ chối.
+- Đã sửa tạm một nhãn trong source rồi khôi phục, xác nhận cả hai thay đổi hiện ngay trong Electron qua HMR mà không restart. Đã dừng phiên thử và kiểm tra giải phóng dev server.
+- Phần nghe thử luôn hiển thị sau cấp quyền mic, có nút Phát bản gốc/Phát bản đã lọc nhiễu và cuộn đến bản ghi khi hoàn tất. Bốn test Playwright mic đạt trên dev server; kiểm tra RNNoise và playback thật trong Electron với mic giả lập đạt. Next production build, ESLint, TypeScript, Ruff và Bash syntax đạt.
+
+
+## Admin chọn Gemini / Google Cloud STT — 17/09/2026
+
+- 49 test backend đạt: Gemini là provider STT web hợp lệ; thiếu API key chỉ chặn Gemini, thiếu JSON chỉ chặn Google; cả hai endpoint review giữ quyền ADMIN và lịch sử. Chặn đổi provider khi job khác đang chờ.
+- 7 kiểm thử Playwright liên quan đạt: chọn Gemini/Google cho từng review, upload JSON không tự đổi policy hoặc làm mất lựa chọn chưa lưu, lưu cả hai provider cloud, chuyển về local không cần JSON, desktop luôn local dù policy server là Google. Các request cloud/JSON trong E2E được giả lập; kiểm tra JSON/quyền backend dùng suite API.
+- Ruff, TypeScript, ESLint và Next production build đạt. Không thay helper/model desktop trong lần cập nhật này; không gọi dịch vụ cloud có tính phí. Hướng dẫn build, chạy lại source, cài đè và workflow desktop đã cập nhật.
+
+
+## STT desktop offline, RNNoise và LLM server — 17/09/2026
+
+- 49 test backend đạt trên SQLite: cấu hình env ưu tiên hơn AI cũ trên web; không ghi key AI từ env vào cấu hình web; Ollama sinh câu hỏi/embedding/chấm transcript; điểm không hợp lệ chuyển sang cần xem lại; Gemini nhận dạng lại không gọi service-account JSON, chia audio 55 giây, kiểm tra quyền/idempotency, giữ transcript/media gốc và giữ kết quả cũ khi lỗi. Request Ollama/Gemini được giả lập.
+- 19 kịch bản Playwright đạt trên Next production với API/worker và database kiểm thử riêng, gồm CRUD, giao môn/OAuth, nộp/phát lại WebM thật, STT desktop luôn local dù policy cũ là Google, trạng thái điểm chưa chấm, 10 giây thu thử và playback gốc/RNNoise. Kịch bản nộp bài được chạy lại sau khi cập nhật expectation cho trạng thái nhận dạng mới. Mic/camera giả lập; RNNoise WASM/AudioWorklet chạy thật.
+- Build bundle native Linux x64 thành công từ revision PhoWhisper-small đã ghim; helper `--check` nạp model offline. Nhận dạng audio mẫu 11 giây bằng helper thành công, xác nhận cả VAD và FFmpeg chạy được.
+- Tạo được `.deb` và `.AppImage` Linux có helper/model; model INT8 khoảng 240 MB, runtime khoảng 453 MB trước nén. Mở Electron đã đóng gói qua Playwright với profile tạm, gọi IPC từ renderer đến helper đóng gói, nhận transcript và metadata `PhoWhisper-small` thành công. Không dùng Python bên ngoài cho đường gọi này.
+- Ruff, ESLint, TypeScript, Next production build, Electron syntax, 2 unit test audio và 1 unit test domain desktop đạt. `npm audit --audit-level=high` báo 0 vulnerabilities tại thời điểm kiểm tra.
+- `.env` đã bổ sung các khóa còn thiếu theo `.env.example`, giữ giá trị sẵn có và không đưa vào Git. Không chạy migration mới hoặc cập nhật deployment đang dùng dữ liệu thật.
+
+Chưa benchmark tiếng Việt với transcript chuẩn, chưa thử microphone phần cứng, chưa chạy Gemini/Ollama thật cho bản thay đổi này. Chưa kiểm tra bundle mới trên Windows/macOS; workflow đã bắt buộc build cả runtime và model trên OS đích. Các biên bản bên dưới là lịch sử, không mô tả luồng STT hiện hành.
+
+
 ## Google login, giao môn, cấu hình web và desktop — 13/09/2026
 
 - 30 test API/audio/migration đạt trên SQLite và PostgreSQL/pgvector. Test PostgreSQL dùng database riêng; E2E dùng Compose project `oral-accounts-check`, không dùng volume dữ liệu đang chạy.

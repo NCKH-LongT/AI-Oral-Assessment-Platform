@@ -204,7 +204,10 @@ def test_speech_policy_permissions_and_routing(env, monkeypatch):
         "language": "en",
     }
     assert clients["student"].post("/stt", files={"file": ("a.webm", b"audio")}).status_code == 409
-    for provider in ("local_server", "google"):
+    monkeypatch.setattr(ai.settings(), "gemini_api_key", "")
+    assert clients["admin"].put(path, json={"provider": "gemini"}).status_code == 422
+    monkeypatch.setattr(ai.settings(), "gemini_api_key", "test-key")
+    for provider in ("local_server", "google", "gemini"):
         monkeypatch.setattr(speech, "google_ready", lambda: True)
         monkeypatch.setattr(stt, "google_ready", lambda: True)
         ok(clients["admin"].put(path, json={"provider": provider, "preprocessing": "denoise"}))
@@ -212,13 +215,22 @@ def test_speech_policy_permissions_and_routing(env, monkeypatch):
         def transcribe(path, config):
             assert path.read_bytes() == b"audio"
             assert config["provider"] == provider
+            assert config["preprocessing"] == expected_preprocessing
             return {"transcript": "recognized", "stt_confidence": 0.9}
 
         monkeypatch.setattr(stt, "transcribe_file", transcribe)
+        expected_preprocessing = "denoise"
         assert (
             ok(clients["student"].post("/stt", files={"file": ("a.webm", b"audio")}))["transcript"]
             == "recognized"
         )
+        expected_preprocessing = "off"
+        ok(
+            clients["student"].post(
+                "/stt", files={"file": ("a.webm", b"audio")}, data={"preprocessing": "off"}
+            )
+        )
+        assert ok(clients["student"].get("/stt/config"))["preprocessing"] == "denoise"
     assert clients["admin"].put(path, json={"provider": "unexpected"}).status_code == 422
 
 

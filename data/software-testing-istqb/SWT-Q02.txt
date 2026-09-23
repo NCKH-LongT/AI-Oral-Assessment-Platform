@@ -1,0 +1,32 @@
+SOFTWARE TESTING — SWT-Q02 — Bảng quyết định và thiết kế ca kiểm thử
+Tài liệu tự biên soạn dùng làm căn cứ chấm vấn đáp. Nguồn khái niệm: ISTQB CTFL v4.0.1, mục 4.2.3, trang 41.
+https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf
+© ISTQB và các tác giả syllabus đối với nguồn tham chiếu. Bài tập và rubric dưới đây do dự án tự soạn, không phải đề ISTQB chính thức.
+
+TÓM TẮT KHÁI NIỆM
+Bảng quyết định mô tả kết quả theo tổ hợp điều kiện. Với bảng đầy đủ, đo bao phủ trên các cột khả thi được thực thi. Bảng rút gọn có tập cột khác nên phải nói rõ cơ sở đo.
+
+TÌNH HUỐNG SWT-Q02
+Một cửa hàng có hai điều kiện boolean độc lập: M=khách là thành viên, C=mã giảm giá hợp lệ. Khách thành viên được giảm 10% bất kể C; khách không là thành viên nhưng có mã hợp lệ được giảm 5%; còn lại không giảm. Không cộng dồn ưu đãi. Mọi tổ hợp M/C đều khả thi. (1) Lập bảng quyết định đầy đủ chưa rút gọn cho bốn tổ hợp. (2) Với đơn hàng 500.000đ, nêu đầu vào và số tiền phải trả của một test cho mỗi tổ hợp. (3) Bộ test hiện có chỉ gồm M=true,C=true và M=false,C=false: tính độ bao phủ theo bảng đầy đủ, nêu hai test cần bổ sung. (4) Chỉ ra test và kết quả phát hiện lỗi cộng dồn giảm 15%, giải thích vì sao bỏ tổ hợp thành viên không có mã là thiếu. (5) Giải thích vì sao bảng quyết định phù hợp và giới hạn của kết luận 100% bao phủ.
+
+ĐÁP ÁN THAM CHIẾU SWT-Q02
+Bốn quy tắc của bảng đầy đủ: M=T,C=T giảm10%, trả450.000đ; M=T,C=F giảm10%, trả450.000đ; M=F,C=T giảm5%, trả475.000đ; M=F,C=F giảm0%, trả500.000đ. M và C độc lập, mọi tổ hợp khả thi. Hai test TT và FF phủ2/4=50%, thiếu TF và FT; bổ sung cả hai được4/4=100%. Test TT phải trả450.000đ, nếu trả425.000đ thì đã cộng nhầm10%+5%. Test TF kiểm tra thành viên vẫn được10% khi không có mã. Bảng quyết định phù hợp vì đầu ra phụ thuộc tổ hợp điều kiện nghiệp vụ. Có thể gộp hai cột thành viên thành M=T,C=không quan tâm khi rút gọn, nhưng câu hỏi tính bao phủ trên bốn cột chưa rút gọn. 100% ở bảng này chưa kiểm tra làm tròn tiền, hoàn tiền hoặc quy tắc khác.
+
+THANG ĐIỂM SWT-Q02
+Mỗi ý đúng trong một tiêu chí được 0,5 điểm, tối đa 2 điểm/tiêu chí; không có điểm âm. Diễn đạt tương đương được chấp nhận. Không chấm giọng nói. Tổng 5 tiêu chí tối đa 10 điểm.
+Hiểu yêu cầu và khái niệm: 1) Xác định M là trạng thái thành viên. 2) Xác định C là mã hợp lệ. 3) Hai điều kiện độc lập; cả bốn tổ hợp khả thi. 4) Nêu quy tắc ưu tiên thành viên10%, không cộng dồn.
+
+Áp dụng kỹ thuật kiểm thử: 1) Cột TT có mức giảm10%. 2) Cột TF có mức giảm10%. 3) Cột FT có mức giảm5%. 4) Cột FF có mức giảm0%.
+
+Dữ liệu và kết quả mong đợi: 1) Test đơn500.000đ, M=T,C=T kỳ vọng450.000đ. 2) Test đơn500.000đ, M=T,C=F kỳ vọng450.000đ. 3) Test đơn500.000đ, M=F,C=T kỳ vọng475.000đ. 4) Test đơn500.000đ, M=F,C=F kỳ vọng500.000đ.
+
+Độ bao phủ và tính đầy đủ: 1) Tính TT/FF phủ2/4=50% trên bảng đầy đủ. 2) Chỉ ra cần bổ sung TF. 3) Chỉ ra cần bổ sung FT. 4) Sau bổ sung phủ4/4=100%; mẫu số là4 cột khả thi chưa rút gọn.
+
+Lập luận và giới hạn kết luận: 1) Bảng quyết định giúp xét tổ hợp điều kiện và hành động nghiệp vụ một cách hệ thống. 2) Test TT kỳ vọng450.000đ phát hiện kết quả sai425.000đ do cộng dồn15%. 3) Test TF xác nhận thành viên vẫn giảm10% khi không có mã. 4) 100% độ bao phủ bảng không chứng minh hết lỗi; ví dụ còn vấn đề làm tròn tiền hoặc yêu cầu khác.
+
+LỖI THƯỜNG GẶP SWT-Q02
+Cộng dồn10%+5% cho thành viên có mã.
+Nhầm FT với TF.
+Bỏ TF do đầu ra giống TT dù đề yêu cầu bảng đầy đủ.
+Đổi mẫu số sang3 sau rút gọn nhưng vẫn chấm bộ TT/FF theo bảng đầy đủ.
+Nhầm số tiền giảm với số tiền phải trả.

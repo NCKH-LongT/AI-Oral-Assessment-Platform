@@ -1,6 +1,10 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { normalizeServerURL } = require("../apps/desktop/server-config.cjs");
+const {
+  normalizeServerURL,
+  googleLoginURL,
+  hasSameOrigin,
+} = require("../apps/desktop/server-config.cjs");
 test("desktop root domain permits HTTPS and loopback, rejects credentials and paths", () => {
   assert.equal(
     normalizeServerURL(" https://oral.example.edu/ "),
@@ -20,5 +24,48 @@ test("desktop root domain permits HTTPS and loopback, rejects credentials and pa
     "https://oral.example.edu/#x",
   ]) {
     assert.throws(() => normalizeServerURL(url));
+  }
+});
+
+test("media permission accepts serialized origins with trailing slash", () => {
+  for (const url of [
+    "http://localhost:3001",
+    "http://localhost:3001/",
+    "http://localhost:3001/exam",
+  ])
+    assert.equal(hasSameOrigin(url, "http://localhost:3001"), true);
+  for (const url of [
+    undefined,
+    "null",
+    "file:///tmp/test",
+    "http://localhost:3000/",
+    "https://evil.example/",
+    "http://localhost:3001.evil.example/",
+  ])
+    assert.equal(hasSameOrigin(url, "http://localhost:3001"), false);
+});
+
+test("Google opens only the configured backend origin and start endpoint", () => {
+  const origin = "http://localhost:3000";
+  const url = origin + "/api/auth/google/start?flow_id=test-flow";
+  assert.equal(googleLoginURL(url, origin), url);
+  const remote = "https://oral.example.edu";
+  assert.equal(
+    googleLoginURL(remote + "/api/auth/google/start?flow_id=test-flow", remote),
+    remote + "/api/auth/google/start?flow_id=test-flow",
+  );
+  for (const invalid of [
+    "http://localhost:3001/api/auth/google/start?flow_id=test-flow",
+    "https://evil.example/api/auth/google/start?flow_id=test-flow",
+    "http://localhost:3000.evil.example/api/auth/google/start?flow_id=test-flow",
+    origin + "/api/auth/google/callback?flow_id=test-flow",
+    origin + "/api/auth/google/start",
+    origin + "/api/auth/google/start?flow_id=",
+    origin + "/api/auth/google/start?flow_id=test-flow#fragment",
+    "http://user:secret@localhost:3000/api/auth/google/start?flow_id=test-flow",
+    "file:///api/auth/google/start?flow_id=test-flow",
+    "javascript:alert(1)",
+  ]) {
+    assert.throws(() => googleLoginURL(invalid, origin), invalid);
   }
 });

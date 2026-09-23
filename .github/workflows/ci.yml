@@ -42,7 +42,8 @@ jobs:
           alembic -c services/api/alembic.ini downgrade base
           alembic -c services/api/alembic.ini upgrade head
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: ruff check services/api apps/desktop/transcribe.py scripts
+      - run: ruff check services/api apps/desktop/transcribe.py scripts tests/test_desktop_launcher.py
+      - run: python -m unittest discover -s tests -p test_desktop_launcher.py -v
       - run: pytest services/api/tests -q
       - run: npm ci
       - run: npm run lint && npm run typecheck && npm run build

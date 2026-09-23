@@ -39,6 +39,18 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
             "INSERT INTO document_chunks (id,created_at,document_id,course_id,topic_id,learning_outcome_id,page,content,embedding) VALUES ('ch',1,'d','c','t','lo',1,'Original knowledge',?)",
             (json.dumps([0.0] * 768),),
         )
+        db.execute(
+            "INSERT INTO rubrics (id,created_at,course_id,name,version,criteria) VALUES ('r',1,'c','Rubric',1,'[]')"
+        )
+        db.execute(
+            "INSERT INTO exams (id,created_at,course_id,rubric_id,name,time_limit,blueprint,status,snapshot) VALUES ('e',1,'c','r','Legacy exam',900,'[]','PUBLISHED','{}')"
+        )
+        db.execute(
+            "INSERT INTO exam_sessions (id,created_at,exam_id,student_id,status,started_at,completed_at,final_score) VALUES ('s',1,'e','u','COMPLETED',2,3,8)"
+        )
+        db.execute(
+            "INSERT INTO question_attempts (id,created_at,session_id,sequence,question,status,transcript) VALUES ('a',1,'s',1,'{}','GRADED','Original answer')"
+        )
     subprocess.run(command + ["head"], cwd=root, env=environment, check=True, capture_output=True)
     # A second upgrade must be a no-op.
     subprocess.run(command + ["head"], cwd=root, env=environment, check=True, capture_output=True)
@@ -51,4 +63,17 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
             "original-key",
         )
         assert db.execute("SELECT content FROM document_chunks").fetchone() == ("Original knowledge",)
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0003",)
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0004",)
+
+        assert db.execute(
+            "SELECT attempt_number,deleted_at,final_score FROM exam_sessions WHERE id='s'"
+        ).fetchone() == (1, None, 8)
+        assert db.execute("SELECT transcript FROM question_attempts WHERE id='a'").fetchone() == (
+            "Original answer",
+        )
+        assert db.execute("SELECT max_attempts FROM exams WHERE id='e'").fetchone() == (1,)
+        db.execute(
+            "INSERT INTO exam_sessions (id,created_at,exam_id,student_id,status,attempt_number) VALUES ('s2',4,'e','u','DEVICE_CHECK',2)"
+        )
+        assert db.execute("SELECT COUNT(*) FROM exam_sessions").fetchone() == (2,)
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []

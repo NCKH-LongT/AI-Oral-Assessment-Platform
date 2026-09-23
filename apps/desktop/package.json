@@ -5,7 +5,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check server-preload.cjs && node --check server-config.cjs && node --check server.js",
+    "check": "node --check main.cjs && node --check preload.cjs && node --check server-preload.cjs && node --check server-config.cjs && node --check server.js && node --check check-stt-bundle.cjs && node --check correction.cjs",
     "pack": "electron-builder --dir --publish never",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
@@ -34,7 +34,8 @@
       "server.html",
       "server.css",
       "server.js",
-      "package.json"
+      "package.json",
+      "correction.cjs"
     ],
     "extraResources": [
       {
@@ -80,8 +81,16 @@
         "NSCameraUsageDescription": "OralAI s\u1eed d\u1ee5ng camera \u0111\u1ec3 ghi h\u00ecnh c\u00e2u tr\u1ea3 l\u1eddi v\u1ea5n \u0111\u00e1p."
       }
     },
-    "executableName": "oralai"
+    "executableName": "oralai",
+    "beforePack": "./check-stt-bundle.cjs",
+    "asarUnpack": [
+      "node_modules/@node-llama-cpp/**/*",
+      "node_modules/node-llama-cpp/bins/**/*"
+    ]
   },
   "desktopName": "oralai",
-  "homepage": "https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform"
+  "homepage": "https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform",
+  "dependencies": {
+    "node-llama-cpp": "3.21.1"
+  }
 }

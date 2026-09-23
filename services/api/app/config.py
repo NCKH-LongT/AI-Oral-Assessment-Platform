@@ -21,12 +21,17 @@ class Settings(BaseSettings):
     s3_bucket: str = "oral-assessment"
     redis_url: str = ""
     ai_provider: str = "demo"
+    ai_config_source: Literal["env", "admin"] = "env"
     gemini_api_key: str = ""
+    gemini_timeout: int = Field(default=180, ge=10, le=900)
+    gemini_stt_model: str = "gemini-2.5-flash"
+    local_llm_url: str = "http://127.0.0.1:11434"
+    local_llm_timeout: int = Field(default=180, ge=10, le=900)
     llm_model: str = "gemini-2.5-flash"
     embedding_model: str = "gemini-embedding-001"
     top_k: int = Field(default=5, ge=1, le=20)
     confidence_threshold: float = Field(default=0.85, ge=0, le=1)
-    stt_provider: Literal["local", "local_server", "google"] = "local_server"
+    stt_provider: Literal["local", "local_server", "google", "gemini"] = "local_server"
     stt_model: str = "base"
     stt_language: str = "vi"
     google_stt_credentials_file: str = ""
@@ -43,8 +48,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_provider(self):
-        if self.ai_provider not in {"demo", "gemini"}:
-            raise ValueError("AI_PROVIDER must be demo or gemini")
+        if self.ai_provider not in {"demo", "gemini", "local"}:
+            raise ValueError("AI_PROVIDER must be demo, gemini or local (Ollama)")
         if self.ai_provider == "gemini" and not self.gemini_api_key:
             raise ValueError("GEMINI_API_KEY is required")
         if self.storage_backend not in {"local", "s3"}:

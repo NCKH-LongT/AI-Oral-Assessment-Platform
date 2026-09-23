@@ -21,3 +21,7 @@ secrets/
 *service-account*.json
 google-stt*.json
 apps/desktop/resources/stt/oral-stt/
+
+apps/admin-web/public/audio/
+apps/desktop/resources/stt/model/
+.venv-stt/

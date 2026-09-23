@@ -6,6 +6,7 @@ import SpeechSettings from "./speech-settings";
 
 type Config = {
   ai_provider: string;
+  ai_config_source?: "env" | "admin";
   llm_model: string;
   embedding_model: string;
   stt_model: string;
@@ -63,6 +64,35 @@ export default function PlatformSettings() {
       </div>
       {tab === "stt" ? (
         <SpeechSettings />
+      ) : tab === "ai" && config.ai_config_source === "env" ? (
+        <section className="panel">
+          <h2>LLM chấm điểm trên server</h2>
+          <p>
+            Cấu hình AI được đọc từ .env của server. Desktop chỉ gửi transcript
+            và minh chứng; API key không được đưa vào bộ cài.
+          </p>
+          <dl>
+            <dt>Nhà cung cấp</dt>
+            <dd>
+              {config.ai_provider === "local"
+                ? "Ollama local"
+                : config.ai_provider}
+            </dd>
+            <dt>Model chấm điểm</dt>
+            <dd>{config.llm_model}</dd>
+            <dt>Model embedding</dt>
+            <dd>{config.embedding_model}</dd>
+            <dt>Gemini API key cho chấm / nhận dạng lại</dt>
+            <dd>
+              {config.gemini_key_configured ? "Đã cấu hình" : "Chưa cấu hình"}
+            </dd>
+          </dl>
+          <p>
+            Đổi AI_PROVIDER, LLM_MODEL, EMBEDDING_MODEL trên server rồi tạo lại
+            API/worker. Nhận dạng lại bằng Gemini dùng GEMINI_API_KEY và
+            GEMINI_STT_MODEL riêng, kể cả khi LLM chấm bài là local.
+          </p>
+        </section>
       ) : (
         <section className="panel">
           {saved && (
@@ -77,11 +107,13 @@ export default function PlatformSettings() {
                 gemini_key_configured: _a,
                 google_secret_configured: _b,
                 google_redirect_uri: _c,
+                ai_config_source: _d,
                 ...values
               } = config;
               void _a;
               void _b;
               void _c;
+              void _d;
               setConfig(
                 await send<Config>(
                   "/admin/settings/platform",
@@ -118,6 +150,7 @@ export default function PlatformSettings() {
                   >
                     <option value="demo">Demo — không chấm điểm AI</option>
                     <option value="gemini">Google Gemini</option>
+                    <option value="local">Ollama local trên server</option>
                   </select>
                 </label>
                 {config.ai_provider === "demo" && (

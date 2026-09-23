@@ -1,0 +1,7 @@
+# Build environment only; torch/transformers are excluded from the shipped runtime.
+faster-whisper==1.2.1
+ctranslate2==4.8.2
+imageio-ffmpeg==0.6.0
+transformers==4.57.6
+torch==2.6.0
+pyinstaller==6.22.3

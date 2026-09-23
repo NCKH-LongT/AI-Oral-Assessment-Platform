@@ -1,30 +1,32 @@
-# Hướng dẫn chạy OralAI Desktop
+# OralAI Desktop
 
-OralAI Desktop là ứng dụng Electron tải giao diện web từ một máy chủ OralAI. Máy học viên không cần chạy PostgreSQL, MinIO hay backend khi ứng dụng kết nối tới server đã deploy.
+Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-small INT8**. Nhận dạng chạy trên CPU của máy học viên, không cần cài Python riêng hoặc tải model sau khi cài. LLM chấm bài chạy trên server.
 
-## 1. Chạy từ source
+## Đổi URL máy chủ khi chạy hoặc build
 
-Yêu cầu:
+Desktop cần **URL web gốc**, nơi có cả giao diện và `/api`, ví dụ `https://oral.example.edu` hoặc `http://localhost:3000`. Không nhập `/api` phía sau, không trỏ trực tiếp tới FastAPI cổng 8000. Thay domain ví dụ bên dưới bằng server thật của bạn. Máy chủ ở máy khác cần HTTPS với chứng chỉ được máy học viên tin cậy; HTTP chỉ hỗ trợ localhost. Trên PC học viên, `localhost` là chính PC đó.
 
-- Node.js 22.12 trở lên và npm.
-- Máy có môi trường đồ họa.
-- Backend/web OralAI đang hoạt động trên localhost hoặc một domain HTTPS.
-
-Mở terminal tại thư mục gốc repository, nơi có `package.json`:
+### Chạy UI mới từ source — Linux/macOS
 
 ```bash
-npm ci
+# Backend Docker trên cùng máy
+./run-desktop.sh --server http://localhost:3000
+
+# Backend ở máy chủ khác
+./run-desktop.sh --server https://oral.example.edu
+
+# Đổi cả cổng UI dev nếu 3001 đang bận
+./run-desktop.sh --server https://oral.example.edu --port 3002
 ```
 
-### Kết nối server đã deploy
+`--server` là backend mà UI dev gọi tới; UI mới vẫn chạy trên localhost. Script tự đặt `API_INTERNAL_URL=<server>/api` và origin đăng nhập Google. Backend cần cho phép origin UI dev trong `ALLOWED_ORIGINS`, ví dụ `http://localhost:3001` hoặc `http://localhost:3002`. Script không chạy Docker và không cập nhật backend.
 
-Thay `https://oral.example.edu` bằng domain thật. Không thêm `/api` và không thêm đường dẫn phía sau domain.
+### Mở trực tiếp giao diện từ server
 
-Ubuntu/Linux hoặc macOS:
+Linux/macOS, chạy tại thư mục repository:
 
 ```bash
-ORAL_WEB_URL=https://oral.example.edu \
-  env -u ELECTRON_RUN_AS_NODE npm run desktop
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu npm run desktop
 ```
 
 Windows PowerShell:
@@ -35,174 +37,214 @@ $env:ORAL_WEB_URL = "https://oral.example.edu"
 npm run desktop
 ```
 
-Ứng dụng sẽ dùng trực tiếp web, API, database và media trên server. Thay đổi trong `apps/desktop/main.cjs` hoặc preload cần đóng rồi mở lại app. Có thể mở **View → Toggle Developer Tools** để xem Console và Network.
+Cách này tải giao diện đã triển khai trên server; sửa source UI trên máy chưa làm giao diện server thay đổi. `ORAL_WEB_URL` được đọc từ môi trường tiến trình lúc chạy, không tự đọc từ file `.env` của backend. Biến này ưu tiên URL đã lưu trong app. Để lần khởi động sau dùng URL đã lưu, bỏ biến bằng `unset ORAL_WEB_URL` (Bash) hoặc `Remove-Item Env:ORAL_WEB_URL -ErrorAction SilentlyContinue` (PowerShell).
 
-### Kết nối hệ thống chạy trên cùng máy
+### Build bộ cài để dùng với server khác
 
-Khởi động hệ thống trước:
+**Hiện bộ cài không nhúng URL riêng lúc build.** Build một bộ cài, sau đó chọn server khi mở app lần đầu hoặc tại **OralAI → Cấu hình máy chủ…**. Địa chỉ được lưu riêng trên từng máy và dùng lại ở lần mở sau. Đặt `ORAL_WEB_URL` trước `npm run dist` không ghi biến này vào bộ cài.
+
+Sau khi chuẩn bị bundle STT theo mục [Build bộ cài và chạy lại](#build-bộ-cài-và-chạy-lại):
 
 ```bash
-docker compose up -d --wait
+# Linux/macOS: build trên đúng hệ điều hành đích
+npm run dist -w apps/desktop
 ```
 
-Sau đó chạy desktop:
+```powershell
+# Windows PowerShell
+npm run dist:win -w apps/desktop
+```
+
+Cài artifact trong `apps/desktop/dist/`, mở app và nhập `https://oral.example.edu` vào màn hình cấu hình. Không cần build lại để đổi server. Nếu dùng Google login, domain gốc trong admin và callback OAuth phải cùng server đã chọn, ví dụ `https://oral.example.edu/api/auth/google/callback`.
+
+Cũng có thể truyền URL khi **chạy app đã cài**, sau khi đóng phiên app cũ:
 
 ```bash
+# Linux: bản .deb
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu oralai
+
+# macOS: bộ cài đặt trong /Applications
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu /Applications/OralAI.app/Contents/MacOS/OralAI
+```
+
+```powershell
+# Windows: thay đường dẫn bằng vị trí OralAI.exe đã cài thực tế
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+$env:ORAL_WEB_URL = "https://oral.example.edu"
+& "C:\duong-dan-cai-dat\OralAI.exe"
+```
+
+`API_INTERNAL_URL` là cấu hình proxy của **web Next.js**, không phải biến đổi server cho bộ cài Electron. Chỉ cần tự đặt biến này khi chạy/build web riêng; launcher đã đặt giúp bạn khi dùng `--server`.
+
+## Một lệnh mở app từ code mới — Linux/macOS
+
+Trong thư mục repository, chạy:
+
+```bash
+./run-desktop.sh
+```
+
+Script chỉ mở giao diện **dev tại http://localhost:3001** và Electron, kết nối server có sẵn tại `http://localhost:3000`. Không chạy lệnh Docker, build server, cài dependency hay sửa cấu hình server. Sửa giao diện sẽ tự cập nhật; sửa Electron thì đóng app và chạy lại script. Backend do bạn chạy/cập nhật riêng. Script dùng profile dev riêng nên cần đăng nhập lại lần đầu; bỏ qua `ORAL_WEB_URL` cũ và gỡ `ELECTRON_RUN_AS_NODE` khỏi tiến trình con.
+
+Cần server đang chạy, Node 22.12+, Python 3, dependency đã cài bằng `npm ci` và bundle PhoWhisper đã build theo hướng dẫn bên dưới. Sửa helper STT/model thì build lại bundle trước khi chạy script. Script không đọc/sửa `.env` hoặc tự tải code từ Git.
+
+Docker mặc định dùng cổng **3000**: `./run-desktop.sh --server http://localhost:3000` (tương đương lệnh không tham số). Chỉ đổi `--server` nếu server thực sự chạy ở địa chỉ/cổng khác; tham số này không đổi cổng Docker. Dùng URL web gốc, không thêm `/api`. Nếu server chưa chạy, script báo rõ rồi dừng.
+
+Để đăng nhập/nộp bài từ UI dev, thêm `http://localhost:3001` vào `ALLOWED_ORIGINS` của API (giữ các origin đang có). Nếu đổi `--port`, thêm origin tương ứng. Bạn tự áp dụng cấu hình này khi chạy server; script không thay cấu hình hoặc khởi động lại Docker.
+
+Đăng nhập Google dùng domain của **server**, không dùng cổng UI dev. Launcher tự truyền `ORAL_AUTH_ORIGIN` bằng giá trị `--server` cho Electron chạy từ source. Với cấu hình mặc định, giữ domain gốc của backend là `http://localhost:3000` và callback Google là `http://localhost:3000/api/auth/google/callback`; không đổi sang 3001. Địa chỉ `--server` cần khớp domain gốc đã cấu hình trong admin. Bộ cài desktop dùng domain máy chủ đã chọn trong app và không nhận override đăng nhập dành cho dev này.
+
+Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev server đang chạy để tránh mở nhầm bản cũ. Đóng Electron hoặc Ctrl+C sẽ dừng dev server của phiên đó; server đang dùng không bị thay đổi. Lệnh `npm run desktop` đơn thuần chỉ mở Electron, không build hoặc cập nhật giao diện ở địa chỉ server.
+
+Có thể chạy lại ngay sau khi đóng app; kết nối TCP cũ ở trạng thái `TIME_WAIT` không bị tính là chiếm cổng. Nếu vẫn báo cổng 3001 bận, kiểm tra bằng `ss -ltnp 'sport = :3001'` trên Linux và đóng phiên đang dùng cổng. Khởi động lại Docker không giải phóng cổng của UI dev trên máy.
+
+Sau **Cho phép camera & mic**, phần **Nghe lại bản ghi kiểm tra** luôn hiển thị. Bấm **Kiểm tra độ ồn**, chờ thu xong 10 giây; app cuộn tới phần phát lại. Chọn checkbox **Nghe bản đã lọc nhiễu RNNoise** rồi bấm **Phát bản đã lọc nhiễu**, hoặc bỏ chọn để **Phát bản gốc**. Nếu bộ lọc lỗi, có thông báo và bản gốc vẫn nghe được khi đã thu thành công.
+
+## Cài và kết nối
+
+Tải artifact từ GitHub Actions → **Desktop installers**. Windows dùng `.exe`, Ubuntu dùng `.deb` hoặc AppImage, macOS dùng `.dmg`. Bộ cài chưa ký số/notarize. Chọn đúng OS/kiến trúc máy.
+
+Mở **OralAI → Cấu hình máy chủ…**, nhập domain HTTPS hoặc `http://localhost:3000` nếu server trên cùng máy. Không thêm `/api`. `ORAL_WEB_URL` nếu có sẽ ưu tiên domain đã lưu.
+
+## Kiểm tra mic trước khi thi
+
+1. Cấp quyền camera và microphone. Trong mục **Chọn thiết bị**, chọn **Microphone** và **Camera** từ danh sách; app kết nối ngay. Tên đầy đủ xuất hiện sau khi cấp quyền.
+2. Bấm **Kiểm tra độ ồn**. Ghi khoảng 10 giây: 3 giây đầu giữ im lặng, 7 giây sau nói thử.
+3. Bấm phát audio. Checkbox **Nghe bản đã lọc nhiễu RNNoise** đổi giữa bản gốc và bản lọc của cùng đoạn thu.
+4. Checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** quyết định bản audio dùng cho lần STT đầu tiên. App vẫn giữ cả hai bản khi bộ lọc hoạt động.
+
+Danh sách cập nhật khi cắm/rút thiết bị. Không đổi thiết bị khi đang ghi hoặc xử lý/nộp câu trả lời. Đổi mic/camera trước thi sẽ hủy kết quả kiểm tra cũ; kiểm tra lại hoặc chọn bỏ qua. Thiết bị bị rút sẽ báo lỗi để bạn chọn lại, không âm thầm dùng thiết bị khác.
+
+Bản kiểm tra chỉ giữ tạm trong bộ nhớ; kiểm tra lại hoặc rời trang sẽ giải phóng. Không gửi bản kiểm tra lên server. Nếu RNNoise không tải được, app báo lỗi và cho phép tắt lọc để dùng bản gốc. Không phát mic trực tiếp ra loa để tránh hú/vọng.
+
+## Khi làm bài
+
+- App giữ riêng audio/video gốc và audio dùng STT. RNNoise xử lý theo thời gian thực ở 48 kHz; trước PhoWhisper chỉ chuyển về WAV mono 16 kHz, không lọc FFmpeg lần nữa.
+- Khi dừng ghi, PhoWhisper nhận dạng local. Bạn xem lại transcript, sau đó gửi transcript và media gốc lên server.
+- Muốn nhận dạng lại: chọn **Bản ghi dùng cho STT → Bản gốc / Bản giảm nhiễu RNNoise**, rồi bấm **Thử STT lại**. Lựa chọn chỉ thay đầu vào STT, không đổi media minh chứng. Nếu bộ lọc lỗi lúc ghi, lựa chọn bản giảm nhiễu bị khóa; bản gốc vẫn dùng được. Lỗi STT giữ transcript hiện tại.
+- Worker chấm text bằng Gemini hoặc Ollama theo cấu hình đề; app cập nhật kết quả định kỳ. Đừng đóng app trước khi upload và nộp bài hoàn tất.
+- Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Ngôn ngữ vẫn lấy từ cấu hình server.
+- PhoWhisper-small được tinh chỉnh cho tiếng Việt. Có thể chọn tiếng Anh trong policy nhưng chưa benchmark chất lượng; đề tiếng Việt là mục tiêu chính.
+
+## Làm lại bài thi
+
+Danh sách bài thi hiển thị số lượt còn lại và **Lịch sử làm bài**. Bấm **Xem lần N** để mở kết quả cũ; bấm **Làm lại bài thi** để tạo lần mới khi còn lượt. Phiên đang làm luôn được tiếp tục, không tạo thêm phiên khi bấm lặp hoặc mở lại app. Mỗi lần mới cần kết nối thiết bị và kiểm tra mic lại.
+
+Admin cấu hình không cho làm lại, cho làm lại N lần hoặc không giới hạn ở đề thi; có thể cấp thêm lượt riêng cho sinh viên trong **Kết quả & xem lại → Quản lý lượt thi**. Hết lượt thì liên hệ admin; không cần xóa bài cũ để cấp thêm lượt. Sau khi admin thay đổi, bấm làm mới danh sách bài thi.
+
+Bản này cần backend đã chạy migration `0004`: cập nhật server bằng `docker compose up -d --build --wait`, rồi mở lại desktop. `./run-desktop.sh` vẫn chỉ chạy UI dev và Electron. Xem [hướng dẫn quản lý lượt thi](docs/architecture/exam-retakes.md).
+
+## Sửa chính tả local (tùy chọn)
+
+1. Trước khi thi, ở **Sửa chính tả local**, bấm **Tải model sửa chính tả (1,28 GB)**. Có tiến độ và nút hủy. Chỉ cần mạng để tải lần đầu; tải lỗi/hủy có thể thử lại từ đầu. STT PhoWhisper vẫn có sẵn và không cần model này.
+2. Sau STT, bấm **Gợi ý sửa chính tả**. App chạy [Qwen3 1.7B Q4_K_M](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF) trên CPU bằng [node-llama-cpp](https://node-llama-cpp.withcat.ai/guide/electron), không gửi đoạn văn lên server để sửa.
+3. Đối chiếu **Bản trước khi sửa** và **Bản đề xuất**, chọn **Áp dụng bản đề xuất** hoặc **Giữ bản hiện tại**. Không tự áp dụng. Bản đã sửa được đánh dấu cần giảng viên đối chiếu khi nộp, giống sửa tay.
+
+Model chỉ được yêu cầu sửa chính tả/dấu câu, giữ ý, thuật ngữ và số liệu; kết quả vẫn có thể sai, nhất là tên riêng và từ chuyên ngành. Đây không phải công cụ bổ sung đáp án. App chặn đầu ra trống, thay đổi số liệu hoặc độ dài quá nhiều; tối đa 12.000 ký tự mỗi lần, chia đoạn để tránh cắt mất nội dung. Chưa benchmark độ chính xác sửa lỗi STT tiếng Việt.
+
+Model tải về `models/correction` trong thư mục dữ liệu Electron, được ghim revision và kiểm tra SHA-256. Launcher mặc định dùng `.data/desktop-dev-profile/models/correction`; profile khác cần model riêng. Model được nạp khi bấm gợi ý và giải phóng sau xử lý; có nút hủy. Để gỡ model, đóng app rồi xóa thư mục `models/correction` của profile đó. Việc thi/nộp/chấm vẫn cần server như bình thường.
+
+Nếu danh sách mic/camera chỉ hiện tên chung chung trên bản cũ, đóng Electron rồi mở lại bản mới. Bản sửa chuẩn hóa origin quyền media, hỗ trợ tên thiết bị do hệ điều hành cung cấp; không cần cài driver hay đổi cấu hình Docker cho lỗi này.
+
+## Chạy từ source
+
+Cần Node.js 22.12+, Python 3.12 và giao diện đồ họa. Tại thư mục gốc:
+
+```bash
+npm ci
+python3.12 -m venv .venv-stt
+.venv-stt/bin/pip install -r scripts/requirements-desktop-stt.txt
+.venv-stt/bin/python scripts/build_desktop_stt.py
 env -u ELECTRON_RUN_AS_NODE npm run desktop
 ```
 
-Địa chỉ mặc định là `http://localhost:3000`.
+Windows PowerShell:
 
-### Dùng giao diện web local khi phát triển
-
-Nếu muốn sửa giao diện Next.js local và xem trong Electron, chạy web local ở terminal thứ nhất. Ví dụ backend local chạy tại `http://127.0.0.1:8001`:
-
-```bash
-API_INTERNAL_URL=http://127.0.0.1:8001 \
-  npm run dev -w apps/admin-web -- --port 3100
+```powershell
+npm ci
+py -3.12 -m venv .venv-stt
+.\.venv-stt\Scripts\pip install -r scripts/requirements-desktop-stt.txt
+.\.venv-stt\Scripts\python scripts/build_desktop_stt.py
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+npm run desktop
 ```
 
-Mở desktop ở terminal thứ hai:
+Bước build cần mạng để tải model VinAI và thư viện; bước chạy helper không cần mạng. Source desktop tự dùng helper đã build. `ORAL_PYTHON` chỉ dùng để debug bằng Python ngoài; `ORAL_STT_MODEL` có thể trỏ tới thư mục model CTranslate2 đã chuẩn bị. `STT_MODEL` trên server không thay model kèm desktop.
+
+Để dùng giao diện đang phát triển: chạy `API_INTERNAL_URL=http://127.0.0.1:8000 npm run dev`, rồi mở desktop với `ORAL_WEB_URL=http://localhost:3000`.
+
+## Build bộ cài và chạy lại
+
+Các lệnh chạy tại thư mục gốc repository. Đóng app trước khi thay bộ cài.
+
+**Linux / macOS — lần đầu chuẩn bị bundle:**
 
 ```bash
-ORAL_WEB_URL=http://localhost:3100 \
-  env -u ELECTRON_RUN_AS_NODE npm run desktop
+git pull --ff-only
+npm ci
+python3.12 -m venv .venv-stt
+.venv-stt/bin/python -m pip install -r scripts/requirements-desktop-stt.txt
+.venv-stt/bin/python scripts/build_desktop_stt.py
+npm run dist -w apps/desktop
 ```
 
-Nếu chỉ sửa web local nhưng muốn dùng API đã deploy, đặt `API_INTERNAL_URL=https://oral.example.edu/api` ở lệnh chạy Next.js. Trường hợp này có `/api` vì địa chỉ đi qua reverse proxy public của server.
+Linux có thể cài Torch CPU trước requirements để giảm dung lượng tải:
+`.venv-stt/bin/python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu`.
 
-Google login trên desktop hoạt động ổn định khi app tải trực tiếp domain đã cấu hình trong `PUBLIC_ORIGIN`. Khi dùng web local tại `localhost:3100`, callback Google vẫn quay về domain server; nên dùng tài khoản/mật khẩu để debug giao diện local, hoặc tạo một OAuth client riêng cho môi trường development.
+**Windows PowerShell:**
 
-## 2. Chọn hoặc đổi máy chủ trong ứng dụng
+```powershell
+git pull --ff-only
+npm ci
+py -3.12 -m venv .venv-stt
+.\.venv-stt\Scripts\python -m pip install -r scripts/requirements-desktop-stt.txt
+.\.venv-stt\Scripts\python scripts/build_desktop_stt.py
+npm run dist:win -w apps/desktop
+```
 
-Lần đầu chạy bản đóng gói, ứng dụng mở cửa sổ **Cấu hình máy chủ**:
-
-1. Nhập domain gốc, ví dụ `https://oral.example.edu`.
-2. Bấm **Kiểm tra kết nối**.
-3. Bấm **Lưu & kết nối**, sau đó xác nhận.
-
-Có thể mở lại bằng menu **OralAI → Cấu hình máy chủ…**. Ứng dụng kiểm tra endpoint `/api/health` và lưu domain trên máy cho lần chạy sau.
-
-Chỉ chấp nhận HTTPS. HTTP chỉ được dùng với `localhost`, `127.0.0.1` hoặc `::1`. Domain không được chứa `/api`, đường dẫn, query, username hoặc password.
-
-Biến `ORAL_WEB_URL` luôn ưu tiên hơn domain đã lưu. Bỏ biến này nếu muốn chọn server bằng giao diện. Nộp xong bài trước khi đổi domain vì ứng dụng sẽ tải lại và xóa phiên/cache của domain cũ.
-
-## 3. Chạy bằng bộ cài
-
-Tải artifact từ **GitHub → Actions → Desktop installers → một run thành công → Artifacts**, chọn đúng hệ điều hành rồi giải nén.
-
-### Ubuntu/Linux
-
-Cài file `.deb`:
+Kết quả nằm ở `apps/desktop/dist/`: mở `.exe` trên Windows, `.dmg` trên macOS; Linux cài `.deb` hoặc chạy AppImage. Build trên đúng hệ điều hành đích. Ví dụ Ubuntu với bản hiện tại:
 
 ```bash
 sudo apt install ./apps/desktop/dist/OralAI-0.1.0-linux-amd64.deb
 oralai
 ```
 
-Hoặc chạy AppImage:
+Hoặc chạy không cài đặt:
 
 ```bash
-chmod +x ./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
+chmod +x apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
 ./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
 ```
 
-Nếu máy thiếu FUSE:
+**Chạy lại từ source khi đã có bundle:** chỉ cần `npm ci` khi dependency thay đổi, rồi:
 
 ```bash
-APPIMAGE_EXTRACT_AND_RUN=1 \
-  ./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop
 ```
 
-### Windows
+PowerShell: đặt `$env:ORAL_WEB_URL="http://localhost:3000"`, xóa `ELECTRON_RUN_AS_NODE` như hướng dẫn trên rồi `npm run desktop`. Thay URL bằng server của bạn; nếu không đặt biến, app dùng địa chỉ đã lưu trong menu.
 
-Chạy file `.exe`, chọn thư mục cài đặt rồi mở **OralAI** từ Start Menu. Windows có thể hiện cảnh báo SmartScreen vì bộ cài hiện chưa ký số.
+**Khi cập nhật code:**
 
-### macOS
+- Đổi giao diện/cấu hình admin/backend: rebuild server bằng `docker compose up -d --build --wait`, đóng rồi mở lại desktop để tải UI mới. Không cần build lại model.
+- Đổi Electron/helper/model hoặc đang dùng bộ cài cũ chưa có PhoWhisper: build bundle bằng script, chạy `npm run dist -w apps/desktop`, rồi cài bộ mới. Script dùng lại model đúng revision đã có.
+- Chỉ đổi `.env` server: `docker compose up -d --no-deps --force-recreate api worker`. Nếu deploy qua Jenkins, sửa credential `oral-ai-env` và chạy pipeline.
 
-Mở file `.dmg`, kéo **OralAI** vào Applications rồi mở ứng dụng. Artifact macOS hiện tại là ARM64 cho Apple Silicon; máy Intel cần build bản x64. Bộ cài hiện chưa được ký và notarize.
+Không cần build thủ công nếu dùng GitHub: Actions → **Desktop installers** → **Run workflow** → chọn nhánh `main`; đợi build rồi tải artifact đúng OS. Workflow này chạy thủ công, push code không tự tạo bộ cài.
 
-## 4. Build bộ cài
+## STT trên server do admin chọn
 
-Kiểm tra source trước khi build:
+Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google Cloud STT dùng JSON service account upload ở mục riêng. Lựa chọn STT web không đổi PhoWhisper của desktop. Khi xem bài đã nộp, mở **Nhận dạng lại & chấm lại**, chọn Gemini hoặc Google, nhập lý do rồi gửi yêu cầu.
 
-```bash
-npm ci
-npm run check -w apps/desktop
-npm run test:desktop
-```
+## Xử lý lỗi
 
-Build trên hệ điều hành đích:
+| Lỗi | Kiểm tra |
+| --- | --- |
+| Bộ cài thiếu STT/model | Cài bản đầy đủ mới; bước đóng gói đã chặn thiếu helper/model |
+| Source chưa có model | Chạy `scripts/build_desktop_stt.py` trước `npm run desktop` |
+| STT quá thời gian | Thử câu ngắn hơn, đóng tác vụ nặng; mặc định giới hạn xử lý 7 phút |
+| RNNoise không tải được | Kiểm tra server đã build/copy tài nguyên `/audio/`; tắt lọc để tiếp tục |
+| Không có tiếng | Kiểm tra mic, quyền hệ điều hành, nghe lại bản thử |
+| Chưa có điểm | Kiểm tra worker, chế độ demo/luyện tập hoặc trạng thái cần xem lại |
 
-| Hệ điều hành | Lệnh                                 | Kết quả trong `apps/desktop/dist/` |
-| ------------ | ------------------------------------ | ---------------------------------- |
-| Windows      | `npm run dist:win -w apps/desktop`   | NSIS `.exe`                        |
-| Ubuntu/Linux | `npm run dist:linux -w apps/desktop` | `.deb` và `.AppImage`              |
-| macOS        | `npm run dist:mac -w apps/desktop`   | `.dmg` và `.zip`                   |
-
-Build thư mục unpacked để kiểm tra nhanh:
-
-```bash
-npm run pack -w apps/desktop
-```
-
-Có thể chạy workflow `.github/workflows/desktop.yml` trong GitHub Actions để build đồng thời trên Windows, Ubuntu và macOS. Các artifact mặc định không kèm code signing và không tự phát hành release.
-
-## 5. STT và Python trên máy học viên
-
-### Gemini chấm text, Whisper nhận dạng
-
-Trong **Cấu hình hệ thống**, lưu riêng hai lựa chọn:
-
-1. **AI & mô hình → Google Gemini**: nhập Gemini API key để sinh câu hỏi và chấm transcript.
-2. **STT & giọng nói → Whisper local trên máy sinh viên (desktop)**: nhận dạng trên máy học viên. Chọn **Whisper trên server nội bộ** nếu muốn chạy model trên API.
-
-**Không cần JSON Google STT cho cả hai cách dùng Whisper**, kể cả khi bật `AI_PROVIDER=gemini`. Desktop lấy STT policy từ server trước mỗi lần nhận dạng, rồi gửi transcript lên để worker chấm. Việc nộp bài không tự nhận dạng lại bằng Google.
-
-Nếu app đòi JSON, kiểm tra nhà cung cấp đang lưu trong **STT & giọng nói**: đổi từ Google sang Whisper và bấm **Lưu cấu hình STT**. `STT_PROVIDER=local` trong `.env` chỉ là mặc định khi chưa có STT policy lưu trên web; cấu hình đã lưu được ưu tiên. Đổi AI provider không thay đổi STT policy.
-
-### Chuẩn bị Whisper
-
-Nếu admin chọn **Whisper server** hoặc **Google STT**, máy học viên không cần Python hay FFmpeg.
-
-Nếu admin chọn **Whisper local trên máy sinh viên**, dùng một trong hai cách:
-
-- Cài Python 3.12 cùng `faster-whisper` và `imageio-ffmpeg`, sau đó đặt `ORAL_PYTHON` tới executable Python.
-- Build bộ cài kèm helper native theo hướng dẫn trong [docs/desktop-build.md](docs/desktop-build.md).
-
-Ví dụ Linux/macOS khi chạy từ source:
-
-```bash
-python3.12 -m venv .venv
-.venv/bin/pip install "faster-whisper>=1.1,<2" "imageio-ffmpeg>=0.6,<0.7"
-ORAL_PYTHON="$PWD/.venv/bin/python" \
-  env -u ELECTRON_RUN_AS_NODE npm run desktop
-```
-
-Model Whisper được tải ở lần sử dụng đầu tiên. Kiểm tra tiếng ồn trước khi thi chạy bằng Web Audio API trong Electron và không cần Python; học viên có thể dùng nút bỏ qua kiểm tra này.
-
-Windows PowerShell:
-
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\pip install "faster-whisper>=1.1,<2" "imageio-ffmpeg>=0.6,<0.7"
-$env:ORAL_PYTHON = "$PWD\.venv\Scripts\python.exe"
-Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-npm run desktop
-```
-
-Model desktop mặc định là `base`; có thể đặt biến `STT_MODEL` trên máy học viên trước khi mở app. Lựa chọn **Model Whisper trên server** trong trang quản trị chỉ áp dụng cho Whisper chạy trong API.
-
-## 6. Xử lý lỗi thường gặp
-
-| Lỗi                                  | Cách xử lý                                                                                    |
-| ------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Không mở cửa sổ Electron             | Chạy `env -u ELECTRON_RUN_AS_NODE npm run desktop`; kiểm tra đang có môi trường đồ họa.       |
-| Không kết nối được server            | Mở `https://DOMAIN/api/health` trên trình duyệt; ô domain không được có `/api`.               |
-| Domain HTTP trên máy khác bị từ chối | Cấu hình HTTPS cho server; HTTP chỉ hỗ trợ loopback.                                          |
-| Không thấy nút Google                | Admin cần bật Google OAuth và nhập Client ID/Secret; `PUBLIC_ORIGIN` phải đúng domain server. |
-| Camera/mic không hoạt động           | Cấp quyền hệ điều hành cho OralAI và kiểm tra domain dùng HTTPS hoặc localhost.               |
-| Web yêu cầu mở desktop để STT        | Admin đang chọn Whisper local; dùng Electron hoặc đổi STT sang Whisper server/Google.         |
-| AppImage báo lỗi FUSE                | Cài bằng `.deb` hoặc dùng `APPIMAGE_EXTRACT_AND_RUN=1`.                                       |
-
-Chi tiết đóng gói, helper STT và giới hạn phân phối: [docs/desktop-build.md](docs/desktop-build.md).
+Chi tiết bộ cài và kiểm tra offline: [docs/desktop-build.md](docs/desktop-build.md).

@@ -19,11 +19,18 @@ const { existsSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
-const { DEFAULT_URL, normalizeServerURL } = require("./server-config.cjs");
+const { createCorrectionService } = require("./correction.cjs");
+const {
+  DEFAULT_URL,
+  normalizeServerURL,
+  googleLoginURL,
+  hasSameOrigin,
+} = require("./server-config.cjs");
 let webURL = new URL(DEFAULT_URL),
   sttBusy = false,
   win,
   configWindow;
+let correction;
 const configPage = pathToFileURL(path.join(__dirname, "server.html")).href;
 function trustedConfig(event) {
   if (
@@ -85,17 +92,33 @@ app.whenReady().then(async () => {
       configured = false;
     }
   }
+  // The source launcher proxies a separate backend through the local dev UI.
+  // Only an explicit development launch can set a different login origin.
+  let authOrigin = webURL.origin;
+  if (
+    !app.isPackaged &&
+    configured &&
+    process.env.ORAL_WEB_URL &&
+    process.env.ORAL_AUTH_ORIGIN
+  )
+    authOrigin = normalizeServerURL(process.env.ORAL_AUTH_ORIGIN);
   session.defaultSession.setPermissionRequestHandler(
-    (contents, permission, callback) => {
+    (contents, permission, callback, details) => {
       callback(
         permission === "media" &&
-          new URL(contents.getURL()).origin === webURL.origin,
+          contents === win?.webContents &&
+          hasSameOrigin(
+            details.requestingUrl || contents?.getURL(),
+            webURL.origin,
+          ),
       );
     },
   );
   session.defaultSession.setPermissionCheckHandler(
     (contents, permission, origin) =>
-      permission === "media" && origin === webURL.origin,
+      permission === "media" &&
+      contents === win?.webContents &&
+      hasSameOrigin(origin, webURL.origin),
   );
   win = new BrowserWindow({
     show: configured || !app.isPackaged,
@@ -109,6 +132,34 @@ app.whenReady().then(async () => {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+  correction = createCorrectionService(
+    path.join(app.getPath("userData"), "models", "correction"),
+  );
+  function trustedStudent(event) {
+    if (
+      event.sender !== win.webContents ||
+      !hasSameOrigin(event.senderFrame?.url, webURL.origin)
+    )
+      throw new Error("Forbidden");
+  }
+  ipcMain.handle("oral:correction-status", (event) => {
+    trustedStudent(event);
+    return correction.status();
+  });
+  ipcMain.handle("oral:correction-install", (event) => {
+    trustedStudent(event);
+    if (sttBusy) throw new Error("Đang STT. Vui lòng chờ hoàn tất.");
+    return correction.install();
+  });
+  ipcMain.handle("oral:correction-cancel", (event) => {
+    trustedStudent(event);
+    correction.cancel();
+  });
+  ipcMain.handle("oral:correct", (event, text) => {
+    trustedStudent(event);
+    if (sttBusy) throw new Error("Đang STT. Vui lòng chờ hoàn tất.");
+    return correction.correct(text);
   });
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -144,9 +195,9 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("server:save", async (event, value) => {
     trustedConfig(event);
-    if (sttBusy)
+    if (sttBusy || correction.busy())
       throw new Error(
-        "Đang nhận dạng. Vui lòng chờ hoàn tất trước khi đổi máy chủ.",
+        "Đang xử lý local. Vui lòng chờ hoàn tất trước khi đổi máy chủ.",
       );
     const origin = await checkServer(value);
     const choice = await dialog.showMessageBox(configWindow, {
@@ -167,6 +218,7 @@ app.whenReady().then(async () => {
     await rename(temporary, configPath);
     await session.defaultSession.clearStorageData({ origin: webURL.origin });
     webURL = new URL(origin);
+    authOrigin = origin;
     await win.loadURL(webURL.href);
     win.show();
     configWindow?.close();
@@ -180,18 +232,7 @@ app.whenReady().then(async () => {
         new URL(event.senderFrame.url).origin !== webURL.origin)
     )
       throw new Error("Forbidden");
-    const url = new URL(value);
-    if (
-      url.origin !== webURL.origin ||
-      url.pathname !== "/api/auth/google/start" ||
-      !url.searchParams.get("flow_id") ||
-      url.username ||
-      url.password
-    )
-      throw new Error(
-        "Domain đăng nhập chưa khớp máy chủ. Nhờ admin kiểm tra domain gốc.",
-      );
-    await shell.openExternal(url.href);
+    await shell.openExternal(googleLoginURL(value, authOrigin));
   });
   ipcMain.handle("oral:transcribe", async (event, buffer, policy) => {
     if (
@@ -207,6 +248,8 @@ app.whenReady().then(async () => {
     )
       throw new Error("Invalid STT request");
     if (sttBusy) throw new Error("STT đang bận");
+    if (correction.busy())
+      throw new Error("Đang xử lý sửa chính tả. Vui lòng chờ hoàn tất.");
     sttBusy = true;
     let folder;
     try {
@@ -215,7 +258,9 @@ app.whenReady().then(async () => {
       await writeFile(audioPath, Buffer.from(buffer), { mode: 0o600 });
       return await new Promise((resolve, reject) => {
         const bundled = path.join(
-          process.resourcesPath,
+          app.isPackaged
+            ? process.resourcesPath
+            : path.join(__dirname, "resources"),
           "stt",
           "oral-stt",
           process.platform === "win32" ? "oral-stt.exe" : "oral-stt",
@@ -223,8 +268,15 @@ app.whenReady().then(async () => {
         const pythonScript = app.isPackaged
           ? path.join(process.resourcesPath, "python", "transcribe.py")
           : path.join(__dirname, "transcribe.py");
-        const useBundle =
-          app.isPackaged && existsSync(bundled) && !process.env.ORAL_PYTHON;
+        const useBundle = existsSync(bundled) && !process.env.ORAL_PYTHON;
+        if (app.isPackaged && !useBundle && !process.env.ORAL_PYTHON) {
+          reject(
+            new Error(
+              "Bộ cài thiếu STT local. Cài lại bản OralAI đầy đủ có PhoWhisper.",
+            ),
+          );
+          return;
+        }
         const child = spawn(
           useBundle
             ? bundled
@@ -236,9 +288,17 @@ app.whenReady().then(async () => {
             windowsHide: true,
             env: {
               ...process.env,
-              STT_MODEL: process.env.STT_MODEL || "base",
+              ORAL_STT_MODEL:
+                process.env.ORAL_STT_MODEL ||
+                path.join(
+                  app.isPackaged
+                    ? process.resourcesPath
+                    : path.join(__dirname, "resources"),
+                  "stt",
+                  "model",
+                ),
+              HF_HUB_OFFLINE: "1",
               STT_LANGUAGE: policy.language,
-              STT_PREPROCESSING: policy.preprocessing,
             },
           },
         );
@@ -246,7 +306,11 @@ app.whenReady().then(async () => {
           error = "";
         const timer = setTimeout(() => {
           child.kill();
-          reject(new Error("STT timeout. Thử model nhỏ hơn."));
+          reject(
+            new Error(
+              "STT local quá thời gian xử lý. Thử câu trả lời ngắn hơn và đóng ứng dụng đang dùng nhiều CPU.",
+            ),
+          );
         }, 420000);
         child.stdout.on("data", (data) => {
           output += data;
@@ -258,14 +322,20 @@ app.whenReady().then(async () => {
         });
         child.on("error", () => {
           clearTimeout(timer);
-          reject(new Error("Không tìm thấy Python. Kiểm tra ORAL_PYTHON."));
+          reject(
+            new Error(
+              useBundle
+                ? "Không khởi động được STT local. Cài lại bộ OralAI đầy đủ."
+                : "Không tìm thấy Python. Kiểm tra ORAL_PYTHON.",
+            ),
+          );
         });
         child.on("close", (code) => {
           clearTimeout(timer);
           if (code !== 0)
             return reject(
               new Error(
-                "STT local thất bại. Kiểm tra FFmpeg, faster-whisper, model và giới hạn 10 phút mỗi câu.",
+                "STT local thất bại. Kiểm tra mic, giới hạn 10 phút mỗi câu hoặc cài lại bộ OralAI đầy đủ.",
               ),
             );
           try {
@@ -288,3 +358,4 @@ app.whenReady().then(async () => {
   }
 });
 app.on("window-all-closed", () => app.quit());
+app.on("before-quit", () => correction?.cancel());

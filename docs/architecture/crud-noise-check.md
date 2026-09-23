@@ -14,29 +14,26 @@
 
 Không thay đổi bảng/cột hay chạy migration mới. Foreign key vẫn là lớp bảo vệ cuối khi có thao tác đồng thời.
 
-## Kiểm tra tiếng ồn
+## Chọn microphone và camera
 
-Module tái sử dụng: `apps/admin-web/lib/noise-check.ts`; UI: `components/noise-check.tsx`. Electron tải cùng renderer với web nên không cần IPC, quyền hệ thống mới hoặc mô hình tải về. Dùng [Web Audio AnalyserNode](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode/getFloatTimeDomainData) để đọc PCM và tính RMS.
+Bước kết nối có hai danh sách thiết bị từ `enumerateDevices`, cập nhật qua `devicechange`. Cấp quyền để xem tên đầy đủ. Chọn thiết bị gọi `getUserMedia` với `deviceId.exact`, dừng stream/RNNoise cũ và hủy phép đo mic cũ. Luồng ghi minh chứng, RNNoise và phép kiểm tra 10 giây dùng microphone đã chọn. Không tự fallback nếu thiết bị đã chọn bị rút; báo lỗi và cho chọn lại. Khóa lựa chọn khi đang kết nối, bắt đầu ghi, ghi, STT hoặc nộp câu trả lời.
 
-1. Sau cấp quyền camera/mic, nút bắt đầu thi chờ kết quả đạt hoặc thao tác bỏ qua.
-2. Người dùng bấm kiểm tra và giữ im lặng, tắt loa. Mở luồng audio riêng trên cùng device ID, yêu cầu tắt echo cancellation, noise suppression và auto gain. Nếu browser báo các xử lý đó vẫn bật, hiện lỗi thay vì báo đạt. Một số driver vẫn xử lý phần cứng; không coi đây là phép đo đã hiệu chuẩn.
-3. Bỏ 500 ms đầu; lấy 50 cửa sổ PCM dài 2048 sample, cách nhau 100 ms. Đo khoảng 5 giây, có tiến độ. Không dùng MediaRecorder hay gửi HTTP cho phép đo.
-4. Tính `20 log10(RMS)` theo dBFS; quá ồn nếu ít nhất 20% cửa sổ có mức ≥ −40 dBFS. Bỏ qua đột biến đơn lẻ. Nếu mọi cửa sổ dưới −90 dBFS, yêu cầu kiểm tra mic thay vì kết luận yên lặng. Đây là heuristic, không phân loại người nói, nhạc, quạt hoặc nguồn âm cụ thể.
-5. Phòng ồn → yêu cầu tìm nơi yên lặng và kiểm tra lại; lỗi hoặc không tín hiệu → có thể thử lại. Bỏ qua được cả trước/trong/sau đo; hủy phép đo, kết quả cũ không được ghi đè trạng thái bỏ qua.
-6. Dừng luồng kiểm tra và đóng AudioContext khi hoàn tất/lỗi/hủy/unmount; giữ luồng camera/mic chính cho thi. Kết nối lại thiết bị làm mất kết quả cũ và cần kiểm tra lại hoặc bỏ qua. Luồng getUserMedia đang chờ cấp quyền chỉ giải phóng được khi trình duyệt trả về; kết quả đó bị hủy và track được dừng ngay.
+Electron kiểm tra quyền media theo `new URL(value).origin`, không so chuỗi URL có/không có dấu `/` cuối. Chỉ renderer của cửa sổ chính ở origin đang chọn được cấp quyền. Đã đối chiếu tên mic/camera trên PC Linux với danh sách thiết bị hệ điều hành.
 
-Bước này chỉ hỗ trợ trước thi, không tính vào thời gian bài, không giám sát liên tục, không lưu quyết định bỏ qua hay audio lên server. API bắt đầu thi không dùng kết quả này để chống gian lận. Mức dBFS phụ thuộc mic/gain/vị trí, không đổi được trực tiếp thành dBA/dB SPL. Cần thử nghiệm thiết bị thật và tiếng Việt trong lớp trước khi đặt ngưỡng triển khai rộng.
+## Kiểm tra mic — cập nhật 17/09/2026
 
-## Spleeter và STT
+`lib/noise-check.ts` ghi thử khoảng **10 giây**: giữ im lặng 3 giây đầu để đánh giá nền, nói thử 7 giây sau để nghe giọng. Bỏ 500 ms khởi động trước lúc ghi. MediaRecorder thu đồng thời bản gốc và bản RNNoise, chỉ giữ Blob trong bộ nhớ máy học viên, không upload.
 
-[Spleeter](https://github.com/deezer/spleeter) là mô hình tách nguồn âm nhạc của Deezer, có 2/4/5 stems như giọng hát, nhạc đệm, trống, bass. Suy luận cho dự án: mô hình này không mặc nhiên tốt hơn denoiser cho tiếng nói vấn đáp; khả năng cải thiện khi có nhạc nền cần đo, tiếng nói chồng và tiếng môi trường không được bảo đảm. Không có benchmark trực tiếp trong thay đổi này.
+Sau khi ghi, dùng audio player và checkbox **Nghe bản đã lọc nhiễu RNNoise** để so sánh cùng một lần thu. Khi RNNoise không tải được, vẫn nghe bản gốc và thấy thông báo lỗi. Kiểm tra lại giải phóng URL/audio cũ; bỏ qua, lỗi và unmount đều dừng track, recorder và AudioContext.
 
-Giữ pipeline FFmpeg hiện tại: resample 16 kHz, highpass 80 Hz, lowpass 7600 Hz, `afftdn`, loudness normalization → Whisper/Google STT. Audio/video minh chứng luôn giữ bản gốc. TTS là tạo tiếng nói từ văn bản; xử lý ở đây là STT.
+Đánh giá dùng RMS/dBFS từ microphone yêu cầu tắt xử lý tự động. Ít nhất 20% cửa sổ trong 3 giây đầu ≥ −40 dBFS thì báo quá ồn. Nếu toàn bộ 10 giây không có tín hiệu ≥ −90 dBFS thì yêu cầu kiểm tra mic. Âm nền yên lặng nhưng sau đó có tiếng nói vẫn là mic hoạt động. Đây là ngưỡng tương đối, không phải dBA/SPL, không phân loại nguồn ồn hoặc chống gian lận.
 
-Nếu thử Spleeter sau này, so sánh ba nhánh không lọc/FFmpeg/Spleeter trên cùng audio và cùng cấu hình STT. Tập kiểm thử cần tiếng Việt có transcript chuẩn, nhiều microphone và mức nhiễu (quạt, xe, nhạc, người khác nói), cả mẫu sạch. Đo WER/CER, độ trễ, peak RAM và lỗi/mất từ. Chỉ đổi mặc định khi có cải thiện định lượng, không chỉ nghe có vẻ sạch hơn.
+Sau cấp quyền thiết bị, nút bắt đầu thi chờ kết quả đạt hoặc người dùng bỏ qua. Có thể kiểm tra lại, bỏ qua khi đang thu và kết nối lại thiết bị. Bản thử không tính vào thời gian thi. Hệ thống không ghi quyết định bỏ qua lên server.
 
-## Triển khai và kiểm thử
+## Lọc nhiễu câu trả lời
 
-Dockerfile/Compose hiện có sao chép đủ module web và API; không thêm dependency hoặc service Spleeter. Rebuild/recreate API, worker, web; giữ PostgreSQL, MinIO, Redis và app_data. Jenkins chưa có trong repository; CI chính là GitHub Actions, đã thêm unit test âm thanh bên cạnh lint/build/API/E2E.
+`lib/noise-filter.ts` dùng `@sapphi-red/web-noise-suppressor` (RNNoise WASM/AudioWorklet) ở 48 kHz. Khi bộ lọc hoạt động, câu trả lời luôn ghi đồng thời audio gốc, audio RNNoise và video gốc. Checkbox trước thi chọn bản dùng cho lần STT đầu; dropdown sau ghi cho phép nhận dạng lại từ một trong hai Blob. Lỗi RNNoise giữa lúc ghi làm bản lọc không hợp lệ và khóa lựa chọn đó. Không nối microphone ra loa để tránh hú; nghe thử bằng bản thu phát lại. Audio/video minh chứng luôn lấy từ nhánh gốc.
 
-Xem [biên bản kiểm thử](../validation.md) cho kết quả đã chạy và giới hạn phần cứng.
+Asset được copy từ dependency npm khi `predev`/`prebuild`, phục vụ tại `/audio` cùng origin, có trong Docker standalone. Không tải WASM từ CDN. Nếu bộ lọc lỗi, người dùng cần tắt lọc hoặc kết nối lại trước lần ghi tiếp theo. PhoWhisper chỉ đổi định dạng sang mono 16 kHz, không lọc FFmpeg lần hai. Client web mới gửi `preprocessing=off` đến `/stt` để tránh lọc lại; client cũ không gửi trường này vẫn theo policy lưu trên server.
+
+RNNoise phù hợp thử với tiếng quạt/âm nền, không bảo đảm loại được người nói chồng. Chưa có benchmark WER/CER tiếng Việt hoặc đo thiết bị lớp học thực tế; không khẳng định chất lượng STT cải thiện trên mọi mẫu. Không tích hợp Spleeter vì đó là mô hình tách nhạc, không cần cho luồng hiện tại.

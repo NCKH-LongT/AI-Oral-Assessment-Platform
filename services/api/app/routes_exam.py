@@ -7,15 +7,17 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from . import schemas as s
 from . import storage
 from .config import settings
 from .db import get_db
+from .grading import GradingError, check_config
 from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, Upload
 from .practice import COURSE_ID
+from .retakes import ACTIVE, allowance, history_row, sessions_for
 from .security import by_id, course_access, current_user, fail
 from .worker import finalize
 
@@ -24,6 +26,8 @@ router = APIRouter()
 
 def owned_session(db, key, user, lock=False):
     session = by_id(db, ExamSession, key, lock)
+    if session.deleted_at is not None:
+        fail(404, "NOT_FOUND", "Lần thi đã bị xóa")
     if session.student_id != user.id:
         fail(403, "FORBIDDEN", "Phiên thi không thuộc sinh viên")
     return session
@@ -51,7 +55,9 @@ def public_session(db, session):
     first = next((a for a in attempts if a.status in {"READY", "STARTED"}), None)
     if exam.snapshot.get("practice"):
         grading_message = "Bài luyện tập không tính điểm."
-    elif exam.snapshot.get("ai_provider") == "demo":
+    elif exam.snapshot.get("ai_provider") == "demo" and not any(
+        (a.assessment or {}).get("grading_exam_id") for a in attempts
+    ):
         grading_message = "Đề thi ở chế độ demo: AI không chấm điểm. Liên hệ giảng viên để được giao đề có bật chấm điểm AI."
     elif session.status == "SUBMITTED":
         grading_message = "Đã nộp bài, đang chờ máy chủ chấm điểm. Nếu chờ lâu, hãy liên hệ giảng viên kiểm tra dịch vụ chấm điểm."
@@ -65,6 +71,7 @@ def public_session(db, session):
         grading_message = None
     return {
         "id": session.id,
+        "attempt_number": session.attempt_number,
         "exam_name": exam.name,
         "practice": bool(exam.snapshot.get("practice")),
         "status": session.status,
@@ -106,9 +113,8 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
     ).all()
     result = []
     for exam in exams:
-        session = db.scalar(
-            select(ExamSession).where(ExamSession.exam_id == exam.id, ExamSession.student_id == user.id)
-        )
+        sessions = sessions_for(db, exam.id, user.id)
+        session = next((s for s in sessions if s.status in ACTIVE), sessions[0] if sessions else None)
         result.append(
             {
                 "id": exam.id,
@@ -120,6 +126,8 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
                 "question_count": len(exam.snapshot["questions"]),
                 "session_id": session.id if session else None,
                 "status": session.status if session else "ASSIGNED",
+                **allowance(db, exam, user.id, sessions),
+                "history": [history_row(s) for s in sessions],
             }
         )
     return result
@@ -141,12 +149,22 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
     )
     if exam.status != "PUBLISHED" or not allowed:
         fail(403, "NOT_ASSIGNED", "Bạn chưa được giao bài thi này")
-    existing = db.scalar(
-        select(ExamSession).where(ExamSession.exam_id == exam.id, ExamSession.student_id == user.id)
-    )
+    sessions = sessions_for(db, exam.id, user.id)
+    existing = next((s for s in sessions if s.status in ACTIVE), None)
     if existing:
         return public_session(db, existing)
-    session = ExamSession(exam_id=exam.id, student_id=user.id)
+    if sessions and not body.new_attempt:
+        return public_session(db, sessions[0])
+    try:
+        check_config(exam)
+    except GradingError as exc:
+        fail(409, exc.code, str(exc))
+    if not allowance(db, exam, user.id, sessions)["can_start_new"]:
+        fail(409, "ATTEMPT_LIMIT", "Đã hết lượt làm bài. Liên hệ admin để được cấp thêm lượt.")
+    last_number = db.scalar(select(func.max(ExamSession.attempt_number)).where(
+        ExamSession.exam_id == exam.id, ExamSession.student_id == user.id,
+    )) or 0
+    session = ExamSession(exam_id=exam.id, student_id=user.id, attempt_number=last_number + 1)
     db.add(session)
     db.flush()
     for index, question in enumerate(exam.snapshot["questions"]):
@@ -164,6 +182,10 @@ def get_session(key: str, db: Session = Depends(get_db), user=Depends(current_us
 def start_session(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     session = owned_session(db, key, user, lock=True)
     if session.status == "DEVICE_CHECK":
+        try:
+            check_config(by_id(db, Exam, session.exam_id))
+        except GradingError as exc:
+            fail(409, exc.code, str(exc))
         session.status, session.started_at = "IN_PROGRESS", time.time()
         db.add(Audit(user_id=user.id, event="START_EXAM", details={"session_id": key}))
         db.commit()
@@ -240,7 +262,8 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
                 a.assessment = {
                     "score": None,
                     "review_required": True,
-                    "confidence": 0,
+                    "confidence": None,
+                    "status": "NOT_GRADED",
                     "reasoning_summary": "Hết giờ, chưa có câu trả lời.",
                 }
     # Evidence is required for each submitted voice answer.
@@ -365,6 +388,8 @@ def evidence(key: str, request: Request, db: Session = Depends(get_db), user=Dep
     row = by_id(db, Upload, key)
     attempt = by_id(db, Attempt, row.attempt_id)
     session = by_id(db, ExamSession, attempt.session_id)
+    if session.deleted_at is not None:
+        fail(404, "NOT_FOUND", "Lần thi đã bị xóa")
     if session.student_id != user.id:
         if user.role == "STUDENT":
             fail(403, "FORBIDDEN", "Minh chứng không thuộc tài khoản")

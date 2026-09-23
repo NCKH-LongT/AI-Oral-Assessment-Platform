@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-for (const initialProvider of ["local_server", "google"]) {
+for (const initialProvider of ["local_server", "google", "gemini"]) {
   test(`Gemini with ${initialProvider}: save Whisper without Google JSON`, async ({
     page,
   }) => {
@@ -73,7 +73,6 @@ for (const initialProvider of ["local_server", "google"]) {
       initialProvider,
     );
     await page.getByLabel("Nhà cung cấp STT").selectOption("local");
-    await page.getByLabel("Xử lý audio trước STT").selectOption("off");
     await page.getByLabel("Ngôn ngữ nhận dạng").selectOption("en");
     await expect(
       page.getByLabel("File JSON service account Google (tối đa 64 KB)"),

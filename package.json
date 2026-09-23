@@ -14,7 +14,7 @@
     "desktop": "npm run start -w apps/desktop",
     "test:e2e": "playwright test",
     "test:audio": "node --experimental-strip-types --test tests/noise-check.test.mjs",
-    "test:desktop": "node --test tests/desktop-config.test.cjs"
+    "test:desktop": "node --test tests/desktop-config.test.cjs tests/desktop-correction.test.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.1",

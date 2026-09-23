@@ -20,7 +20,7 @@ Bootstrap tạo idempotent môn **Luyện tập vấn đáp** và đề **Thi th
 
 ADMIN vào môn → **04 · Học viên**, tìm tài khoản và **Thêm vào môn học**. Bảng `course_enrollments` lưu thành viên môn; danh sách bài thi truy vấn trực tiếp các đề PUBLISHED trong môn, nên cả đề công bố sau khi giao môn cũng xuất hiện. Học viên bấm **Làm mới bài thi** để cập nhật danh sách đang mở. Đề nháp bị ẩn và API cũng chặn truy cập. Giao riêng một đề vẫn được hỗ trợ trong mục thu gọn của đề đó. Gỡ khỏi môn không xóa kết quả/phiên thi đã tạo và không thu hồi các assignment riêng. Quyền vào một môn không cấp quyền chỉnh sửa hay xem bài của người khác.
 
-Mỗi người vẫn có tối đa một lượt cho mỗi đề theo quy tắc hiện tại; mở lại trả phiên/kết quả cũ, kể cả đề luyện tập. Chưa triển khai tạo nhiều lượt thi thử cho cùng đề.
+Số lượt do chính sách từng đề và lượt cấp thêm quyết định. Học viên có thể mở kết quả cũ hoặc tạo lượt mới khi còn quyền; hệ thống giữ lịch sử các lần thi. Xem [quản lý lượt thi](exam-retakes.md) và [hướng dẫn sử dụng](../user-guide.md#xem-kết-quả-và-làm-lại).
 
 ## Giao diện quản lý
 

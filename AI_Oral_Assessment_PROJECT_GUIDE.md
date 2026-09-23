@@ -3,6 +3,8 @@
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
 ## Project Guide for Codex / AI Coding Agent
 
+Hướng dẫn thao tác hiện hành: [Admin, giảng viên và học viên](docs/user-guide.md), [chạy desktop](readme-desktop.md#bắt-đầu-nhanh), [cập nhật Jenkins](docs/jenkins.md). Các phần thiết kế và ghi chú theo ngày bên dưới có nội dung lịch sử; dùng các hướng dẫn này để xác định chức năng đã triển khai.
+
 > **Cập nhật 23/09/2026:** Đã gỡ sửa chính tả bằng LLM khỏi desktop. PhoWhisper STT vẫn đi kèm bộ cài; người dùng có thể sửa transcript bằng tay. AI gợi ý thuật ngữ tiếng Anh khi sinh câu hỏi; admin có thể xóa cả môn học cùng dữ liệu liên quan. Xem [hướng dẫn](README.md#thuật-ngữ-tiếng-anh-và-xóa-môn-học). Windows đã sửa lỗi xuất transcript tiếng Việt qua pipe `cp1252`; cần bundle STT/bộ cài mới để nhận bản sửa.
 
 > **Cập nhật 20/09/2026:** tách trạng thái đánh giá FAILED/NOT_GRADED/COMPLETED, không dùng confidence 0 cho kết quả chưa chấm. Chặn đề lệch cấu hình AI trước khi bắt đầu; hỗ trợ ADMIN chấm lại transcript theo phiên bản đề tương thích, giữ nguyên bài gốc và lịch sử, không tự công bố điểm. Xem [thiết kế chấm và confidence](docs/architecture/grading-confidence.md). Các mô tả regrade ở phần thiết kế cũ bên dưới được thay thế trong phạm vi luồng đã triển khai này; manual override vẫn chưa được triển khai.

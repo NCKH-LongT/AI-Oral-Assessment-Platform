@@ -6,6 +6,39 @@ Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-
 
 Đi nhanh: [chọn server](#đổi-url-máy-chủ-khi-chạy-hoặc-build) · [kiểm tra mic](#kiểm-tra-mic-trước-khi-thi) · [làm bài](#khi-làm-bài) · [kiểm tra transcript](docs/transcript-correction.md) · [build và cập nhật](#build-bộ-cài-và-chạy-lại) · [xử lý lỗi](#xử-lý-lỗi).
 
+## Bắt đầu nhanh
+
+| Tình huống | Cách mở |
+| --- | --- |
+| Học viên đã cài OralAI | Mở app, chọn server trong **OralAI → Cấu hình máy chủ…**, đăng nhập và làm bài |
+| Đã có source, dependency và bundle STT; muốn tải giao diện đang triển khai | Chạy `npm run desktop` với môi trường và URL như ví dụ bên dưới |
+| Đang sửa giao diện trong repo trên Linux/macOS | Chạy `./run-desktop.sh --server http://localhost:3000` để mở UI dev tại cổng 3001 |
+| Chưa có dependency hoặc bundle STT | Hoàn tất mục [Chạy từ source](#chạy-từ-source) trước |
+
+Mở desktop từ source, dùng server local đã chạy, trên Linux/macOS:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop
+```
+
+Windows PowerShell:
+
+```powershell
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+$env:ORAL_WEB_URL = "http://localhost:3000"
+npm run desktop
+```
+
+Chạy lệnh tại thư mục gốc repository. Thay URL bằng địa chỉ server thực tế nếu dùng máy chủ khác. `npm run desktop` chỉ mở Electron, không chạy backend hoặc build giao diện. `./run-desktop.sh` cũng cần backend đã chạy sẵn.
+
+Nếu dùng Docker local và server chưa chạy:
+
+```bash
+docker compose up -d --build --wait
+```
+
+Lần đầu cần chuẩn bị `.env` theo [hướng dẫn server](README.md#chạy-server). Server triển khai qua Jenkins được cập nhật theo [hướng dẫn Jenkins](docs/jenkins.md). Admin xem [hướng dẫn tạo môn và giao bài](docs/user-guide.md).
+
 ## Đổi URL máy chủ khi chạy hoặc build
 
 Desktop cần **URL web gốc**, nơi có cả giao diện và `/api`, ví dụ `https://oral.example.edu` hoặc `http://localhost:3000`. Không nhập `/api` phía sau, không trỏ trực tiếp tới FastAPI cổng 8000. Thay domain ví dụ bên dưới bằng server thật của bạn. Máy chủ ở máy khác cần HTTPS với chứng chỉ được máy học viên tin cậy; HTTP chỉ hỗ trợ localhost. Trên PC học viên, `localhost` là chính PC đó.
@@ -132,6 +165,8 @@ Bản kiểm tra chỉ giữ tạm trong bộ nhớ; kiểm tra lại hoặc r�
 - Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Ngôn ngữ vẫn lấy từ cấu hình server.
 - PhoWhisper-small được tinh chỉnh cho tiếng Việt. Có thể chọn tiếng Anh trong policy nhưng chưa benchmark chất lượng; đề tiếng Việt là mục tiêu chính.
 
+App chưa hiện transcript trực tiếp khi đang nói. Với câu Việt xen tiếng Anh, nghe lại và kiểm tra thuật ngữ trước khi nộp. Gợi ý tiếng Anh do admin thấy khi sinh câu hỏi hiện chưa được truyền vào STT.
+
 ## Làm lại bài thi
 
 Danh sách bài thi hiển thị số lượt còn lại và **Lịch sử làm bài**. Bấm **Xem lần N** để mở kết quả cũ; bấm **Làm lại bài thi** để tạo lần mới khi còn lượt. Phiên đang làm luôn được tiếp tục, không tạo thêm phiên khi bấm lặp hoặc mở lại app. Mỗi lần mới cần kết nối thiết bị và kiểm tra mic lại.
@@ -171,7 +206,7 @@ npm run desktop
 
 Bước build cần mạng để tải model VinAI và thư viện; bước chạy helper không cần mạng. Source desktop tự dùng helper đã build. `ORAL_PYTHON` chỉ dùng để debug bằng Python ngoài; `ORAL_STT_MODEL` có thể trỏ tới thư mục model CTranslate2 đã chuẩn bị. `STT_MODEL` trên server không thay model kèm desktop.
 
-Để dùng giao diện đang phát triển: chạy `API_INTERNAL_URL=http://127.0.0.1:8000 npm run dev`, rồi mở desktop với `ORAL_WEB_URL=http://localhost:3000`.
+Để dùng giao diện đang phát triển trên Linux/macOS, giữ server đang chạy rồi dùng `./run-desktop.sh --server http://localhost:3000`. Script tự mở giao diện tại cổng 3001 và cấu hình kết nối API; xem [một lệnh mở app từ code mới](#một-lệnh-mở-app-từ-code-mới--linuxmacos).
 
 ## Build bộ cài và chạy lại
 
@@ -227,8 +262,11 @@ PowerShell: đặt `$env:ORAL_WEB_URL="http://localhost:3000"`, xóa `ELECTRON_R
 **Khi cập nhật code:**
 
 - Đổi giao diện/cấu hình admin/backend: rebuild server bằng `docker compose up -d --build --wait`, đóng rồi mở lại desktop để tải UI mới. Không cần build lại model.
-- Đổi Electron/helper/model hoặc đang dùng bộ cài cũ chưa có PhoWhisper: build bundle bằng script, chạy `npm run dist -w apps/desktop`, rồi cài bộ mới. Script dùng lại model đúng revision đã có.
-- Chỉ đổi `.env` server: `docker compose up -d --no-deps --force-recreate api worker`. Nếu deploy qua Jenkins, sửa credential `oral-ai-env` và chạy pipeline.
+- Đổi Electron/preload: người chạy source cập nhật dependency nếu cần rồi mở lại app; người dùng bộ cài cần chạy `npm run dist -w apps/desktop` và cài bản mới. Có thể dùng bundle STT hiện có nếu helper/model không đổi.
+- Đổi helper/model hoặc bộ cài cũ chưa có PhoWhisper: build lại bundle bằng script, chạy `npm run dist -w apps/desktop`, rồi cài bộ mới. Script dùng lại model đúng revision đã có.
+- Chỉ đổi biến AI/STT của API/worker trong `.env`: `docker compose up -d --no-deps --force-recreate api worker`. Nếu đổi cấu hình dịch vụ khác, áp dụng lại Compose cho dịch vụ tương ứng. Nếu deploy qua Jenkins, sửa credential `oral-ai-env` và chạy pipeline.
+
+Chức năng thuật ngữ/xóa môn cần backend mới cùng giao diện mới; không cần migration riêng ngoài các migration hiện có. Bỏ chức năng sửa chính tả LLM còn thay Electron/preload và dependency: người chạy source cần cập nhật code, chạy `npm ci`, đóng rồi mở lại desktop; người dùng bộ cài cần bộ mới để gỡ runtime cũ. Chỉ bỏ LLM sửa chính tả không yêu cầu build lại PhoWhisper.
 
 Không cần build thủ công nếu dùng GitHub: Actions → **Desktop installers** → **Run workflow** → chọn nhánh `main`; đợi build rồi tải artifact đúng OS. Workflow này chạy thủ công, push code không tự tạo bộ cài.
 
@@ -242,6 +280,9 @@ Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEM
 
 | Lỗi | Kiểm tra |
 | --- | --- |
+| `npm run desktop` vẫn thấy giao diện cũ | Lệnh này tải UI từ server đang cấu hình. Cập nhật server hoặc dùng `./run-desktop.sh` để xem UI source mới |
+| Launcher báo server chưa sẵn sàng | Khởi động backend hoặc sửa `--server` về đúng URL web gốc; launcher không tự chạy Docker |
+| Cổng UI dev 3001 đang bận | Đóng phiên dev cũ hoặc dùng `--port 3002`, đồng thời cho phép origin tương ứng trên backend |
 | Bộ cài thiếu STT/model | Cài bản đầy đủ mới; bước đóng gói đã chặn thiếu helper/model |
 | Source chưa có model | Chạy `scripts/build_desktop_stt.py` trước `npm run desktop` |
 | Windows báo STT thất bại sau khi dừng ghi âm, log có `UnicodeEncodeError` / `cp1252` | Cập nhật bộ cài đã sửa xuất JSON tiếng Việt. Nếu chạy source, build lại bundle STT; chỉ sửa `transcribe.py` không cập nhật `oral-stt.exe` đã đóng gói. |

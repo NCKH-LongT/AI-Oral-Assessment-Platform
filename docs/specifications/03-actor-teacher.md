@@ -58,7 +58,18 @@
 > **I want to** upload file PDF giáo trình cho môn học
 > **So that** hệ thống có thể extract nội dung và tạo RAG knowledge base cho việc sinh câu hỏi
 
+### US-TEACHER-010: Chấm phúc khảo độc lập (Blind Marking)
+> **As a** Giảng viên
+> **I want to** chấm lại bài thi của sinh viên khi được Khảo thí điều phối
+> **So that** đưa ra kết quả đánh giá độc lập, khách quan mà không bị ảnh hưởng bởi điểm cũ
+
+### US-TEACHER-011: Giao đề thi dùng chung cho lớp học phần
+> **As a** Giảng viên
+> **I want to** chọn đề thi chuẩn đã công bố và giao cho các lớp học phần mình phụ trách
+> **So that** sinh viên của lớp có thể tham gia thi mà không cần tôi phải tự tạo lại đề từ đầu
+
 ---
+
 
 ## 3. Use Cases
 
@@ -281,6 +292,48 @@
 
 ---
 
+### UC-TEACHER-010: Chấm phúc khảo độc lập (Blind Marking)
+
+| Thuộc tính | Mô tả |
+|------------|--------|
+| **UC-ID** | UC-TEACHER-010 |
+| **Tên** | Chấm phúc khảo độc lập (Blind Marking) |
+| **Actor** | Giảng viên |
+| **Mô tả** | Giảng viên nhận phân công từ Khảo thí để chấm lại bài thi ở chế độ ẩn điểm cũ |
+| **Pre-condition** | Khảo thí đã điều phối bài thi cần phúc khảo cho giảng viên |
+| **Post-condition** | Điểm chấm độc lập được lưu và gửi về cho Khảo thí |
+
+#### Main Flow
+1. Giảng viên mở mục "Nhiệm vụ chấm chéo / Phúc khảo"
+2. Giảng viên chọn bài thi được Khảo thí điều phối
+3. Hệ thống hiển thị: câu hỏi, transcript, audio và rubric chấm; **ẩn hoàn toàn điểm của AI và điểm của Giảng viên 1**
+4. Giảng viên nghe audio, đối chiếu transcript và cho điểm từng tiêu chí rubric
+5. Giảng viên nhập nhận xét chuyên môn và bấm "Lưu kết quả chấm độc lập"
+6. Hệ thống gửi kết quả chấm về cho Khảo thí để đối chiếu và chốt điểm
+
+---
+
+### UC-TEACHER-011: Giao đề thi dùng chung cho lớp học phần
+
+| Thuộc tính | Mô tả |
+|------------|--------|
+| **UC-ID** | UC-TEACHER-011 |
+| **Tên** | Giao đề thi dùng chung cho lớp học phần |
+| **Actor** | Giảng viên |
+| **Mô tả** | Giảng viên chọn đề thi chuẩn đã công bố (`PUBLISHED`) và giao cho lớp học phần mình phụ trách |
+| **Pre-condition** | Đề thi đã ở trạng thái `PUBLISHED` và giảng viên được phân công phụ trách lớp |
+| **Post-condition** | Toàn bộ sinh viên của lớp nhận được bài thi |
+
+#### Main Flow
+1. Giảng viên vào môn học → "Bài thi & giao bài"
+2. Giảng viên chọn đề thi chuẩn trong danh sách đề dùng chung
+3. Giảng viên chọn lớp học phần mình đang giảng dạy (ví dụ: `ENG101-SE1801`)
+4. Giảng viên thiết lập thời hạn bắt đầu/kết thúc (nếu có)
+5. Giảng viên bấm "Giao bài cho lớp"
+6. Hệ thống ghi nhận và hiển thị bài thi trong danh sách bài thi của toàn bộ sinh viên thuộc lớp đó
+
+---
+
 ## 4. Bảng tổng hợp Use Cases
 
 | UC-ID | Tên Use Case | Pre-condition | Post-condition |
@@ -288,12 +341,14 @@
 | UC-TEACHER-001 | Nhận yêu cầu ra đề | Khảo thí giao đề | Giảng viên nhận thông báo |
 | UC-TEACHER-002 | Tạo rubric đánh giá | Đã chọn môn học | Rubric được lưu |
 | UC-TEACHER-003 | Tạo exam blueprint | Môn có Topics, LO, giáo trình | Đề được sinh dạng bản nháp |
-| UC-TEACHER-004 | Duyệt đề | Đề đã sinh | Đề được công bố |
+| UC-TEACHER-004 | Duyệt đề trước khi công bố | Đề đã sinh | Đề được công bố (`PUBLISHED`) |
 | UC-TEACHER-005 | Quản lý ngân hàng câu hỏi | Có câu hỏi từ trước | Câu hỏi được hiển thị |
 | UC-TEACHER-006 | Xem và chấm lại bài thi | Sinh viên nộp bài | Kết quả được duyệt/chấm lại |
-| UC-TEACHER-007 | Chấm lại với transcript | Đang xem bài thi | AI chấm lại |
-| UC-TEACHER-008 | Kiểm tra thuật ngữ | Đề đã sinh | Thuật ngữ được xác nhận |
+| UC-TEACHER-007 | Chấm lại với transcript đã sửa | Đang xem bài thi | AI chấm lại |
+| UC-TEACHER-008 | Kiểm tra gợi ý thuật ngữ | Đề đã sinh | Thuật ngữ được xác nhận |
 | UC-TEACHER-009 | Upload tài liệu giáo trình | Đã chọn môn học | RAG knowledge base được tạo |
+| UC-TEACHER-010 | Chấm phúc khảo độc lập (Blind) | Được Khảo thí điều phối | Điểm độc lập được ghi nhận |
+| UC-TEACHER-011 | Giao đề dùng chung cho lớp | Đề đã công bố, có lớp phụ trách | Sinh viên của lớp nhận bài |
 
 ---
 
@@ -312,5 +367,6 @@
 - Gợi ý được lưu cùng phiên bản đề, không tự cập nhật cho đề cũ
 
 ### 5.3 Phân chia trách nhiệm với Khảo thí
-- **Khảo thí:** Tạo môn học, gán giảng viên, thêm sinh viên, setup lịch thi, chốt điểm
-- **Giảng viên:** Upload tài liệu, tạo LO/Topics, tạo rubric, ra đề, duyệt đề, chấm điểm
+- **Khảo thí:** Tạo môn học, thêm sinh viên, setup lịch thi, điều phối chấm chéo/phúc khảo, chốt điểm và xuất bảng điểm FAP
+- **Giảng viên:** Upload tài liệu, tạo LO/Topics, tạo rubric, ra đề chuẩn dùng chung, giao đề cho lớp mình dạy, chấm thẩm định và thực hiện chấm mù độc lập khi được điều phối
+

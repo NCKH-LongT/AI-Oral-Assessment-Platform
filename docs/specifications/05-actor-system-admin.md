@@ -161,10 +161,12 @@
 #### Vai trò hệ thống
 | Vai trò | Quyền hạn |
 |---------|-----------|
-| **ADMIN** | Quản lý kỳ thi, môn học, sinh viên, xem kết quả |
-| **TEACHER** | Ra đề, chấm điểm, quản lý môn được phân công |
-| **STUDENT** | Làm bài thi, xem điểm cá nhân |
-| **SYSTEM_ADMIN** | Cấu hình hệ thống, phân quyền |
+| **ADMIN** | Quản lý kỳ thi, môn học, sinh viên, xem kết quả (tương ứng vai trò Khảo thí / Examiner) |
+| **TEACHER** | Ra đề chuẩn dùng chung, giao bài cho lớp, chấm điểm, chấm phúc khảo |
+| **STUDENT** | Làm bài thi, kiểm tra mic, đối soát transcript, xem điểm cá nhân |
+| **SYSTEM_ADMIN** | Cấu hình hạ tầng AI/STT, phân quyền người dùng, quản trị kỹ thuật |
+
+> **Ghi chú phân định vai trò:** Vai trò **ADMIN** trong bảng quyền hạn hệ thống trên đại diện cho Cán bộ Khảo thí / Quản trị đào tạo (Actor trong `02-actor-admin.md`). Còn **SYSTEM_ADMIN** là Quản trị viên kỹ thuật toàn hệ thống (IT System Admin).
 
 #### Main Flow
 1. Admin vào "Người dùng"
@@ -175,22 +177,23 @@
 
 ---
 
-### UC-SYSADMIN-005: Quản lý Storage
+### UC-SYSADMIN-005: Quản lý Storage & Dọn rác Media
 
 | Thuộc tính | Mô tả |
 |------------|--------|
 | **UC-ID** | UC-SYSADMIN-005 |
-| **Tên** | Quản lý Storage |
+| **Tên** | Quản lý Storage & Dọn rác Media |
 | **Actor** | System Admin |
-| **Mô tả** | Admin theo dõi và quản lý object storage |
+| **Mô tả** | Admin theo dõi dung lượng và quản lý hàng đợi dọn dẹp object storage (MinIO/S3) |
 | **Pre-condition** | Admin đã đăng nhập |
-| **Post-condition** | Storage được giám sát |
+| **Post-condition** | Storage được giám sát, rác media được dọn dẹp |
 
 #### Main Flow
 1. Admin vào "Cấu hình hệ thống" → "Storage"
-2. Admin xem dung lượng sử dụng
-3. Admin có thể xem danh sách files gần đây
-4. Admin có thể trigger cleanup job
+2. Admin xem dung lượng sử dụng và số lượng files
+3. Admin có thể xem danh sách files media gần đây
+4. Admin có thể kích hoạt hoặc kiểm tra hàng đợi dọn rác bất đồng bộ (`media_cleanup`)
+5. Worker tự động xóa vĩnh viễn các file media trên MinIO khi môn học hoặc ca thi bị xóa để giải phóng dung lượng
 
 #### Monitoring
 | Metric | Mô tả |
@@ -198,6 +201,8 @@
 | Total Storage | Tổng dung lượng |
 | Used Storage | Dung lượng đã dùng |
 | File Count | Số lượng files |
+| Cleanup Queue | Số lượng files đang chờ dọn rác |
+
 
 ---
 

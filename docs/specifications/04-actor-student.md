@@ -121,17 +121,19 @@
 1. Sinh viên chọn bài thi → "Mở bài thi"
 2. Hệ thống yêu cầu quyền camera và microphone
 3. Sinh viên cấp quyền
-4. Hệ thống hiển thị camera preview và microphone test
-5. Sinh viên kiểm tra độ ồn: im lặng 3 giây, nói thử 7 giây
-6. Sinh viên phát lại để xác nhận chất lượng
-7. Sinh viên chỉnh gain nếu cần
-8. Sinh viên bấm "Bắt đầu thi"
+4. Hệ thống hiển thị camera preview, microphone test và thanh điều chỉnh Gain ($-12\text{ dB}$ đến $+18\text{ dB}$, mặc định 0)
+5. Sinh viên bấm kiểm tra âm thanh 10 giây:
+   - 3 giây đầu: Giữ im lặng để đo tạp âm nền (lấy tín hiệu trước Gain)
+   - 7 giây sau: Nói thử để kiểm tra tín hiệu microphone
+6. Sinh viên nghe lại bản thu thử (có thể bật/tắt thử lọc nhiễu RNNoise để so sánh)
+7. Nếu âm lượng quá nhỏ/lớn, sinh viên chỉnh thanh Gain (hệ thống cảnh báo hạ Gain nếu âm lượng sau gain vượt $-1\text{ dBFS}$)
+8. Khi âm thanh đạt chuẩn, sinh viên bấm "Bắt đầu thi" (thanh Gain và thiết bị sẽ bị khóa trong suốt lúc thi)
 
 #### Alternative Flows
 - **AF-003.1:** Camera không tìm thấy → Hệ thống yêu cầu cắm camera
-- **AF-003.2:** Microphone không tìm thấy → Hệ thống yêu cầu cắm microphone
-- **AF-003.3:** Độ ồn quá cao → Hệ thống cảnh báo tìm nơi yên lặng
-- **AF-003.4:** Sinh viên bỏ qua kiểm tra → Hệ thống vẫn cho phép bắt đầu
+- **AF-003.2:** Microphone không có tín hiệu (toàn bộ 10s không đạt $\ge -90\text{ dBFS}$) → Hệ thống cảnh báo mic hỏng
+- **AF-003.3:** Độ ồn quá cao ($\ge 20\%$ cửa sổ đo trong 3s đầu $\ge -40\text{ dBFS}$) → Hệ thống cảnh báo tìm nơi yên tĩnh
+- **AF-003.4:** Sinh viên bấm bỏ qua kiểm tra → Hệ thống cho phép bắt đầu (không ghi nhận quyết định bỏ qua lên server)
 
 ---
 
@@ -153,7 +155,7 @@
 4. Sinh viên nói câu trả lời
 5. Sinh viên bấm "Kết thúc trả lời"
 6. Hệ thống dừng ghi → PhoWhisper STT → hiển thị transcript
-7. Sinh viên nghe lại và sửa transcript nếu cần
+7. Sinh viên nghe lại và sửa transcript nếu cần (hoặc thử STT lại)
 8. Sinh viên bấm "Nộp câu trả lời & tiếp tục"
 9. Hệ thống chuyển câu hỏi tiếp theo
 10. Lặp lại cho đến khi hết câu hỏi
@@ -161,9 +163,9 @@
 12. Hệ thống nộp bài và hiển thị "Đang chấm điểm"
 
 #### Alternative Flows
-- **AF-004.1:** Thoát giữa chừng → Hệ thống lưu tiến độ, sinh viên có thể tiếp tục
-- **AF-004.2:** Mất kết nối mạng → Hệ thống lưu local, tiếp tục khi có mạng
-- **AF-004.3:** Quá thời gian → Hệ thống tự động nộp bài
+- **AF-004.1 (Bảo vệ phòng thi - Unload Guard):** Sinh viên vô tình bấm đóng cửa sổ hoặc reload khi ca thi đang `IN_PROGRESS` $\rightarrow$ Hệ thống hiển thị hộp thoại cảnh báo: *"Bạn còn bản ghi chưa nộp. Thoát sẽ mất dữ liệu."* và bắt buộc chọn "Ở lại".
+- **AF-004.2:** Mất kết nối mạng $\rightarrow$ Hệ thống lưu media local trong IndexedDB/Storage, tự động nộp lại khi có mạng
+- **AF-004.3:** Quá thời gian quy định $\rightarrow$ Hệ thống tự động nộp bài
 
 #### Ghi chú quan trọng
 - Camera và microphone được mở sẵn để giảm delay
@@ -179,26 +181,28 @@
 | **UC-ID** | UC-STUDENT-005 |
 | **Tên** | Nghe lại và sửa transcript |
 | **Actor** | Sinh viên |
-| **Mô tả** | Sinh viên nghe lại câu trả lời và sửa transcript nếu cần |
+| **Mô tả** | Sinh viên nghe lại câu trả lời, thử STT lại hoặc sửa transcript trước khi nộp |
 | **Pre-condition** | Đã có transcript từ STT |
-| **Post-condition** | Transcript được xác nhận hoặc sửa |
+| **Post-condition** | Transcript được xác nhận và nộp lên hệ thống |
 
 #### Main Flow
-1. Sau khi STT, hệ thống hiển thị transcript
-2. Sinh viên nghe lại bản ghi âm
-3. Sinh viên so sánh với transcript
-4. Sinh viên sửa transcript bằng tay nếu cần
-5. Sinh viên bấm "Nộp câu trả lời"
+1. Sau khi dừng ghi, hệ thống hiển thị transcript và audio player
+2. Sinh viên nghe lại bản ghi âm câu trả lời
+3. Sinh viên so sánh giọng nói thực tế với transcript
+4. Sinh viên có thể chọn giữa bản audio gốc hoặc bản RNNoise để bấm "Thử STT lại" nếu cần
+5. Sinh viên sửa lỗi chính tả trực tiếp trên ô transcript nếu STT nhận nhầm
+6. Sinh viên bấm "Nộp câu trả lời & tiếp tục"
 
 #### Tùy chọn bản ghi
 | Tùy chọn | Mô tả |
 |----------|--------|
-| **Bản gốc** | Audio chưa xử lý |
-| **Bản giảm nhiễu RNNoise** | Audio đã lọc nhiễu |
+| **Bản gốc** | Audio thu âm thực tế (áp dụng Gain). Luôn được chọn làm file upload lưu trữ pháp lý |
+| **Bản giảm nhiễu RNNoise** | Audio đã lọc nhiễu qua AudioWorklet 48kHz; dùng để thử nhận dạng lại khi phòng có tiếng ồn nền |
 
-#### Alternative Flows
-- **AF-005.1:** STT không chính xác → Sinh viên sửa tay và nộp
-- **AF-005.2:** Muốn thử lại STT → Sinh viên chọn bản gốc/giảm nhiễu → "Thử STT lại"
+#### Alternative Flows & Cơ chế Giám sát Chống Gian Lận (Tamper Flag)
+- **AF-005.1 (Sửa transcript thủ công):** Sinh viên sửa văn bản transcript khác với kết quả STT gốc gần nhất $\rightarrow$ **Hệ thống tự động gán `stt_confidence = 0`**. Backend phát hiện `stt_confidence < 0.70` sẽ **tự động bật cờ `review_required = True`** bắt buộc Giảng viên phải nghe lại audio đối soát trước khi công nhận điểm.
+- **AF-005.2 (Thử STT lại):** Sinh viên chọn bản gốc hoặc bản RNNoise $\rightarrow$ Bấm "Thử STT lại" $\rightarrow$ Kết quả mới thay thế transcript hiện tại (cần thử lại trước khi chỉnh sửa tay).
+
 
 ---
 

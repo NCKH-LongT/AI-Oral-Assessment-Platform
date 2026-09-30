@@ -193,7 +193,52 @@ Tài liệu này ghi lại các quy tắc nghiệp vụ của hệ thống AI Or
 
 ---
 
-## 11. Bảng tổng hợp Business Rules
+## 11. Quy tắc về Thiết bị & Tiền xử lý Âm thanh
+
+**Narrative:** Trước khi vào thi, sinh viên phải qua bước kiểm tra micro và độ ồn môi trường trong 10 giây. Hệ thống hỗ trợ điều chỉnh độ lợi (gain) âm thanh đầu vào để tối ưu chất lượng ghi âm mà không làm sai lệch kết quả đo tiếng ồn môi trường.
+
+| BR-ID | Quy tắc | Lý do |
+|-------|---------|-------|
+| **BR-059** | Ghi thử 10 giây trước thi: 3 giây đầu giữ im lặng để đo tạp âm nền, 7 giây sau nói thử để kiểm tra micro | Đánh giá chính xác điều kiện âm thanh trước khi vào phòng thi |
+| **BR-060** | Báo phòng quá ồn nếu $\ge 20\%$ cửa sổ trong 3s đầu $\ge -40\text{ dBFS}$; báo mic hỏng nếu 10s không có tín hiệu $\ge -90\text{ dBFS}$ | Tránh sinh viên thi trong môi trường quá ồn làm hỏng kết quả STT |
+| **BR-061** | Dữ liệu kiểm tra mic 10s chỉ lưu tạm trong bộ nhớ máy học viên; tuyệt đối không upload lên server | Bảo vệ quyền riêng tư và tránh tốn băng thông hệ thống |
+| **BR-062** | Hỗ trợ thanh Gain điều chỉnh âm lượng từ $-12\text{ dB}$ đến $+18\text{ dB}$ (mặc định 0); phép đo tiếng ồn nền luôn lấy tín hiệu trước Gain | Tối ưu âm lượng giọng nói mà không làm thay đổi kết luận tiếng ồn nền |
+| **BR-063** | Hiển thị cảnh báo hạ Gain khi âm lượng sau gain tiệm cận hoặc vượt $-1\text{ dBFS}$; khóa thanh Gain khi đang ghi âm/STT/nộp bài | Chống hiện tượng vỡ tiếng (audio clipping) và đảm bảo ổn định luồng ghi |
+
+---
+
+## 12. Quy tắc về Đối soát Transcript & Chống Gian lận
+
+**Narrative:** Sau khi hoàn thành câu trả lời, sinh viên nghe lại audio và kiểm tra transcript. Hệ thống gỡ bỏ mô hình LLM local nặng nề, cho phép sinh viên sửa tay hoặc thử nhận dạng lại, đồng thời kích hoạt cờ giám sát trung thực.
+
+| BR-ID | Quy tắc | Lý do |
+|-------|---------|-------|
+| **BR-064** | Gỡ bỏ hoàn toàn sửa lỗi LLM cục bộ (Qwen3); sinh viên tự đối soát transcript sau khi STT xong | Giảm tải tài nguyên máy trạm của sinh viên, tránh lag giật khi thi |
+| **BR-065** | Sinh viên được chọn giữa bản ghi gốc và bản lọc nhiễu RNNoise để bấm "Thử STT lại"; file lưu trữ minh chứng luôn là bản gốc | Hỗ trợ sinh viên thử lại khi có tạp âm nhưng vẫn bảo toàn chứng cứ gốc |
+| **BR-066** | Nếu sinh viên sửa tay transcript khác bản STT gốc $\rightarrow$ Hệ thống gán `stt_confidence = 0` và tự động bật `review_required = True` | Bắt buộc Giảng viên phải nghe lại audio đối soát, ngăn gian lận nói một đằng gõ một nẻo |
+| **BR-067** | Khi bài thi đang `IN_PROGRESS`, Desktop (Electron `will-prevent-unload`) và Web (`beforeunload`) chặn thoát đột ngột bằng hộp thoại Unload Guard | Ngăn sinh viên vô tình reload hoặc tắt app làm mất bài thi chưa nộp |
+
+---
+
+## 13. Quy tắc về Kích hoạt Thẩm định & Giới hạn Rubric
+
+| BR-ID | Quy tắc | Lý do |
+|-------|---------|-------|
+| **BR-068** | Kích hoạt `review_required = True` khi: AI confidence < threshold, STT confidence < threshold, hoặc điểm câu ngấp nghé ranh giới Đậu/Rớt ($|Score - 5| \le 0.25$) | Đảm bảo tính công bằng và chính xác cho các trường hợp ranh giới 5.0 điểm FPT |
+| **BR-069** | Backend kiểm tra trần điểm từng tiêu chí ($\le \text{max\_score}$); AI trả quá trần điểm sẽ bị từ chối kết quả (`AI_OUTPUT_INVALID`) | Không tin tưởng mù quáng vào AI, bảo đảm tính toàn vẹn của rubric |
+
+---
+
+## 14. Quy tắc về Xóa Môn học An toàn & Hàng đợi MinIO
+
+| BR-ID | Quy tắc | Lý do |
+|-------|---------|-------|
+| **BR-070** | Xóa môn học thực hiện khóa dòng `with_for_update(nowait=True)`; nếu worker đang chấm bài dính lock trả HTTP 409 `COURSE_BUSY` | Tránh deadlock và xung đột dữ liệu giữa quản trị viên và background worker |
+| **BR-071** | Đưa toàn bộ file media cần xóa (`document.storage_key` và `upload.storage_key`) vào bảng `MediaCleanup` để worker dọn sạch trên MinIO S3 sau commit | Dọn sạch triệt để dung lượng lưu trữ, tránh rác storage |
+
+---
+
+## 15. Bảng tổng hợp Business Rules
 
 | BR-ID | Phạm vi | Tóm tắt |
 |-------|---------|---------|
@@ -255,3 +300,17 @@ Tài liệu này ghi lại các quy tắc nghiệp vụ của hệ thống AI Or
 | BR-056 | Thời gian | Có time_limit |
 | BR-057 | Thời gian | Quá hạn tự nộp |
 | BR-058 | Thời gian | Server tính thời gian |
+| BR-059 | Thiết bị | Noise check 10 giây (3s im lặng, 7s nói) |
+| BR-060 | Thiết bị | Ngưỡng ồn -40dBFS & ngưỡng mic hỏng -90dBFS |
+| BR-061 | Thiết bị | Đo tiếng ồn luôn lấy tín hiệu trước Gain |
+| BR-062 | Thiết bị | Cảnh báo hạ Gain khi vượt -1dBFS (chống vỡ tiếng) |
+| BR-063 | Thiết bị | Khóa thanh Gain và chọn mic khi đang thi |
+| BR-064 | Transcript | Gỡ bỏ LLM local Qwen3 sửa chính tả |
+| BR-065 | Transcript | Chọn bản gốc hoặc RNNoise để thử STT lại |
+| BR-066 | Chống gian lận | Sửa transcript $\rightarrow$ gán confidence=0 $\rightarrow$ kích hoạt review |
+| BR-067 | Phòng thi | Unload Guard chặn đóng app/reload khi đang thi |
+| BR-068 | Thẩm định | Review khi confidence thấp hoặc điểm ngấp nghé 5.0 |
+| BR-069 | Rubric | Backend kiểm tra trần điểm criterion |
+| BR-070 | Xóa môn | Khóa NOWAIT, dính worker trả 409 COURSE_BUSY |
+| BR-071 | Xóa môn | Hàng đợi MediaCleanup dọn sạch rác MinIO sau commit |
+

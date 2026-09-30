@@ -14,44 +14,49 @@
 ## 2. User Stories
 
 ### US-TEACHER-001: Nhận yêu cầu ra đề
-> **As a** Giảng viên  
-> **I want to** nhận yêu cầu ra đề từ khảo thí  
+> **As a** Giảng viên
+> **I want to** nhận yêu cầu ra đề từ khảo thí
 > **So that** tôi biết cần tạo đề thi cho môn nào
 
 ### US-TEACHER-002: Tạo rubric đánh giá
-> **As a** Giảng viên  
-> **I want to** tạo rubric với các tiêu chí đánh giá  
+> **As a** Giảng viên
+> **I want to** tạo rubric với các tiêu chí đánh giá
 > **So that** hệ thống có tiêu chuẩn để chấm điểm
 
 ### US-TEACHER-003: Tạo đề thi
-> **As a** Giảng viên  
-> **I want to** tạo đề thi với blueprint (phân bổ câu hỏi theo topic/difficulty)  
+> **As a** Giảng viên
+> **I want to** tạo đề thi với blueprint (phân bổ câu hỏi theo topic/difficulty)
 > **So that** AI có thể sinh câu hỏi phù hợp
 
 ### US-TEACHER-004: Duyệt đề trước khi công bố
-> **As a** Giảng viên  
-> **I want to** xem và duyệt đề do AI sinh  
+> **As a** Giảng viên
+> **I want to** xem và duyệt đề do AI sinh
 > **So that** đảm bảo đề đúng yêu cầu trước khi giao cho sinh viên
 
 ### US-TEACHER-005: Quản lý ngân hàng câu hỏi
-> **As a** Giảng viên  
-> **I want to** xem câu hỏi đã tạo từ các lần ra đề trước  
+> **As a** Giảng viên
+> **I want to** xem câu hỏi đã tạo từ các lần ra đề trước
 > **So that** có thể tái sử dụng hoặc tham khảo
 
 ### US-TEACHER-006: Chấm điểm/rà soát bài thi
-> **As a** Giảng viên  
-> **I want to** xem và chấm lại bài thi sau khi AI chấm  
+> **As a** Giảng viên
+> **I want to** xem và chấm lại bài thi sau khi AI chấm
 > **So that** đảm bảo điểm chính xác
 
 ### US-TEACHER-007: Chấm lại với transcript đã sửa
-> **As a** Giảng viên  
-> **I want to** chấm lại bài thi với transcript đã được sửa  
+> **As a** Giảng viên
+> **I want to** chấm lại bài thi với transcript đã được sửa
 > **So that** có thể cập nhật điểm nếu transcript ban đầu không chính xác
 
 ### US-TEACHER-008: Kiểm tra gợi ý thuật ngữ tiếng Anh
-> **As a** Giảng viên  
-> **I want to** xem gợi ý thuật ngữ tiếng Anh cho từng câu hỏi  
+> **As a** Giảng viên
+> **I want to** xem gợi ý thuật ngữ tiếng Anh cho từng câu hỏi
 > **So that** tôi có thể kiểm tra và xác nhận
+
+### US-TEACHER-009: Upload tài liệu giáo trình
+> **As a** Giảng viên
+> **I want to** upload file PDF giáo trình cho môn học
+> **So that** hệ thống có thể extract nội dung và tạo RAG knowledge base cho việc sinh câu hỏi
 
 ---
 
@@ -171,6 +176,8 @@
 4. Giảng viên có thể xem chi tiết từng câu hỏi
 5. Giảng viên có thể đánh dấu câu hỏi yêu thích để dùng lại
 
+> **Ghi chú:** Tính năng ngân hàng câu hỏi sẽ được phát triển sau MVP.
+
 ---
 
 ### UC-TEACHER-006: Xem và chấm lại bài thi
@@ -250,18 +257,43 @@
 
 ---
 
+### UC-TEACHER-009: Upload tài liệu giáo trình
+
+| Thuộc tính | Mô tả |
+|------------|--------|
+| **UC-ID** | UC-TEACHER-009 |
+| **Tên** | Upload tài liệu giáo trình |
+| **Actor** | Giảng viên |
+| **Mô tả** | Giảng viên upload file PDF giáo trình cho môn học để tạo RAG knowledge base |
+| **Pre-condition** | Giảng viên đã chọn môn học được phân công |
+| **Post-condition** | File được upload, xử lý và lưu trữ trong RAG |
+
+#### Main Flow
+1. Giảng viên chọn môn học → "Tài liệu" → "Upload"
+2. Giảng viên chọn file PDF giáo trình
+3. Hệ thống upload file lên storage
+4. Worker xử lý: extract text → chunk → embedding → pgvector
+5. Hệ thống hiển thị trạng thái "Đang xử lý" → "Sẵn sàng"
+
+#### Alternative Flows
+- **AF-009.1:** File không phải PDF → Hệ thống báo lỗi "Chỉ chấp nhận file PDF"
+- **AF-009.2:** Xử lý thất bại → Trạng thái "Lỗi" + thông báo chi tiết
+
+---
+
 ## 4. Bảng tổng hợp Use Cases
 
 | UC-ID | Tên Use Case | Pre-condition | Post-condition |
 |-------|--------------|--------------|----------------|
 | UC-TEACHER-001 | Nhận yêu cầu ra đề | Khảo thí giao đề | Giảng viên nhận thông báo |
 | UC-TEACHER-002 | Tạo rubric đánh giá | Đã chọn môn học | Rubric được lưu |
-| UC-TEACHER-003 | Tạo exam blueprint | Môn có Topics, LO | Đề được sinh dạng bản nháp |
+| UC-TEACHER-003 | Tạo exam blueprint | Môn có Topics, LO, giáo trình | Đề được sinh dạng bản nháp |
 | UC-TEACHER-004 | Duyệt đề | Đề đã sinh | Đề được công bố |
 | UC-TEACHER-005 | Quản lý ngân hàng câu hỏi | Có câu hỏi từ trước | Câu hỏi được hiển thị |
 | UC-TEACHER-006 | Xem và chấm lại bài thi | Sinh viên nộp bài | Kết quả được duyệt/chấm lại |
 | UC-TEACHER-007 | Chấm lại với transcript | Đang xem bài thi | AI chấm lại |
 | UC-TEACHER-008 | Kiểm tra thuật ngữ | Đề đã sinh | Thuật ngữ được xác nhận |
+| UC-TEACHER-009 | Upload tài liệu giáo trình | Đã chọn môn học | RAG knowledge base được tạo |
 
 ---
 
@@ -271,9 +303,14 @@
 - Câu hỏi tạo từ mỗi lần ra đề được tự động đưa vào ngân hàng câu hỏi chung
 - Câu hỏi trong ngân hàng có thể được tham khảo khi tạo đề mới
 - Giảng viên có thể đánh dấu câu hỏi yêu thích để ưu tiên sử dụng lại
+- **Lưu ý:** Tính năng ngân hàng câu hỏi sẽ được phát triển sau MVP
 
 ### 5.2 Gợi ý thuật ngữ tiếng Anh
 - AI gợi ý tối đa 20 thuật ngữ mỗi câu hỏi
 - Gợi ý gồm: thuật ngữ tiếng Anh + nghĩa tiếng Việt
 - Gợi ý chỉ là tham khảo, giảng viên cần kiểm tra độ chính xác
 - Gợi ý được lưu cùng phiên bản đề, không tự cập nhật cho đề cũ
+
+### 5.3 Phân chia trách nhiệm với Khảo thí
+- **Khảo thí:** Tạo môn học, gán giảng viên, thêm sinh viên, setup lịch thi, chốt điểm
+- **Giảng viên:** Upload tài liệu, tạo LO/Topics, tạo rubric, ra đề, duyệt đề, chấm điểm

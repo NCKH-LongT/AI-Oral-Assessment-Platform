@@ -4,7 +4,7 @@
 
 | Thuộc tính | Mô tả |
 |------------|--------|
-| **Vai trò** | `SYSTEM_ADMIN` hoặc `ADMIN` với quyền cao nhất |
+| **Vai trò** | `SYSTEM_ADMIN`
 | **Mô tả** | Người cấu hình hệ thống và phân quyền người dùng |
 | **Phạm vi quyền hạn** | Toàn bộ hệ thống, bao gồm cấu hình kỹ thuật |
 

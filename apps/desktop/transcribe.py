@@ -49,6 +49,7 @@ def main():
             vad_filter=True,
             beam_size=5,
             condition_on_previous_text=False,
+            hotwords=", ".join(json.loads(os.getenv("STT_HOTWORDS", "[]"))) or None,
         )
         segments = list(segments)
     text = " ".join(s.text.strip() for s in segments).strip()

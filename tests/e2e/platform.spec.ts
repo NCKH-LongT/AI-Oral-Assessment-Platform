@@ -123,7 +123,7 @@ test("login, responsive layout and admin course form", async ({ page }) => {
   ).toBeVisible();
   await page.screenshot({ path: "docs/screenshots/login.png", fullPage: true });
   await page
-    .getByLabel("Tên đăng nhập", { exact: true })
+    .getByLabel("Email hoặc tên đăng nhập", { exact: true })
     .fill(env.BOOTSTRAP_ADMIN);
   await page.getByLabel("Mật khẩu", { exact: true }).fill("wrong-password");
   await page.getByRole("button", { name: "Vào không gian làm việc" }).click();
@@ -408,7 +408,7 @@ test("student records only during answer, submits media, admin plays real WebM",
   });
   await page.goto("/");
   await page
-    .getByLabel("Tên đăng nhập", { exact: true })
+    .getByLabel("Email hoặc tên đăng nhập", { exact: true })
     .fill(student.username);
   await page.getByLabel("Mật khẩu", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Vào không gian làm việc" }).click();
@@ -503,7 +503,7 @@ test("student records only during answer, submits media, admin plays real WebM",
     .toBe("REVIEW_REQUIRED");
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await page
-    .getByLabel("Tên đăng nhập", { exact: true })
+    .getByLabel("Email hoặc tên đăng nhập", { exact: true })
     .fill(env.BOOTSTRAP_ADMIN);
   await page
     .getByLabel("Mật khẩu", { exact: true })
@@ -643,7 +643,7 @@ test("admin enrolls a course, promotes a user, and configures services without e
   ).toHaveAttribute("type", "password");
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await page
-    .getByLabel("Tên đăng nhập", { exact: true })
+    .getByLabel("Email hoặc tên đăng nhập", { exact: true })
     .fill(learner.username);
   await page.getByLabel("Mật khẩu", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Vào không gian làm việc" }).click();

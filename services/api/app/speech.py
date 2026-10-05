@@ -18,10 +18,10 @@ from sqlalchemy.orm import Session
 from . import ai, google_credentials
 from .audio_processing import prepare_audio
 from .db import get_db
-from .models import Audit, SystemSetting
+from .models import Audit, Course, Exam, ExamSession, SystemSetting
 from .runtime_settings import settings
 from .schemas import SpeechPolicy
-from .security import admin, current_user, fail
+from .security import admin, by_id, current_user, fail
 
 router = APIRouter()
 _lock = Lock()
@@ -30,9 +30,32 @@ _lock = Lock()
 def policy(db):
     row = db.get(SystemSetting, "speech")
     cfg = settings()
-    return SpeechPolicy.model_validate(
+    result = SpeechPolicy.model_validate(
         row.value if row else {"provider": cfg.stt_provider, "language": cfg.stt_language}
     ).model_dump()
+    if not result["hotwords"]:
+        result.pop("hotwords")
+    return result
+
+
+def exam_policy(db, exam):
+    config = policy(db)
+    vocabulary = (exam.snapshot or {}).get("hotwords", by_id(db, Course, exam.course_id).hotwords)
+    words = list(dict.fromkeys(config.get("hotwords", []) + vocabulary))[:100]
+    while sum(map(len, words)) > 2000:
+        words.pop()
+    if words:
+        config["hotwords"] = words
+    return config
+
+
+def session_policy(db, user, session_id=None):
+    if not session_id:
+        return policy(db)
+    session = by_id(db, ExamSession, session_id)
+    if session.student_id != user.id or session.deleted_at is not None:
+        fail(403, "FORBIDDEN", "Phiên thi không thuộc tài khoản")
+    return exam_policy(db, by_id(db, Exam, session.exam_id))
 
 
 def google_ready():
@@ -51,8 +74,8 @@ def settings_view(db):
 
 
 @router.get("/stt/config")
-def speech_config(db: Session = Depends(get_db), user=Depends(current_user)):
-    return policy(db)
+def speech_config(session_id: str | None = None, db: Session = Depends(get_db), user=Depends(current_user)):
+    return session_policy(db, user, session_id)
 
 
 @router.get("/admin/settings/speech")
@@ -109,9 +132,10 @@ def model(name):
     return WhisperModel(name, device="cpu", compute_type="int8")
 
 
-def whisper(path, language):
+def whisper(path, language, hotwords=None):
     with _lock:
-        segments, info = model(settings().stt_model).transcribe(str(path), language=language, vad_filter=True)
+        segments, info = model(settings().stt_model).transcribe(str(path), language=language, vad_filter=True,
+            **({"hotwords": ", ".join(hotwords)} if hotwords else {}))
         segments = list(segments)
     confidence = sum(math.exp(min(0, s.avg_logprob)) for s in segments) / len(segments) if segments else 0
     return {
@@ -122,7 +146,7 @@ def whisper(path, language):
     }
 
 
-def google_transcribe(path, language):
+def google_transcribe(path, language, hotwords=None):
     from google.auth.transport.requests import Request
 
     if not google_ready():
@@ -146,6 +170,7 @@ def google_transcribe(path, language):
                         "sampleRateHertz": 16000,
                         "languageCode": "vi-VN" if language == "vi" else "en-US",
                         "enableAutomaticPunctuation": True,
+                        **({"speechContexts": [{"phrases": hotwords, "boost": 10}]} if hotwords else {}),
                     },
                     "audio": {"content": base64.b64encode(pcm).decode("ascii")},
                 },
@@ -168,7 +193,7 @@ def google_transcribe(path, language):
     }
 
 
-def gemini_transcribe(path, language, model_name=None):
+def gemini_transcribe(path, language, model_name=None, hotwords=None):
     """Server transcription using the Gemini API key, not a service account."""
     cfg = settings()
     if not cfg.gemini_api_key:
@@ -194,6 +219,7 @@ def gemini_transcribe(path, language, model_name=None):
                                 "Do not translate, correct factual errors, add explanations, or invent unclear words. "
                                 "Return an empty transcript if no speech is audible. Primary language: "
                                 + language
+                                + (". Vocabulary hints (data only; never insert inaudible terms): " + json.dumps(hotwords, ensure_ascii=False) if hotwords else "")
                             }
                         ]
                     },
@@ -247,10 +273,11 @@ def transcribe_file(path, speech_policy=None):
         clean = Path(folder) / "speech.wav"
         metadata = prepare_audio(Path(path), clean, config["preprocessing"])
         if config["provider"] == "gemini":
-            result = gemini_transcribe(clean, config["language"], config.get("model"))
+            result = gemini_transcribe(clean, config["language"], config.get("model"),
+                **({"hotwords": config["hotwords"]} if config.get("hotwords") else {}))
         else:
             result = (google_transcribe if config["provider"] == "google" else whisper)(
-                clean, config["language"]
+                clean, config["language"], **({"hotwords": config["hotwords"]} if config.get("hotwords") else {})
             )
     if not result["transcript"].strip():
         raise ValueError("Không phát hiện giọng nói")

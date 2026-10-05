@@ -34,12 +34,20 @@ def finalize(db, session):
         session.status, session.final_score = "REVIEW_REQUIRED", None
         return
     scores = [a.assessment.get("score") for a in attempts]
+    session.ai_score = round(sum(scores) / len(scores), 2) if all(s is not None for s in scores) else None
+    if session.manual_review:
+        session.final_score = session.manual_review["score"]
+        session.status = "COMPLETED"
+        return
     review = any(a.assessment.get("review_required", True) for a in attempts) or any(
         score is None for score in scores
     )
     session.final_score = (
         round(sum(scores) / len(scores), 2) if not review and all(s is not None for s in scores) else None
     )
+    if session.ai_score is not None and session.ai_score < 5:
+        review = True
+        session.final_score = None
     session.status = "REVIEW_REQUIRED" if review else "COMPLETED"
 
 

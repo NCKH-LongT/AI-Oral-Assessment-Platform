@@ -44,8 +44,8 @@ test("admin sees generated terms and confirms full course deletion with retry", 
         rubrics: [{ id: "rubric", name: "Rubric" }],
         exams: [exam],
       };
-    else if (path.endsWith("/publish")) {
-      exam.status = "PUBLISHED";
+    else if (path.endsWith("/generate")) {
+      exam.status = "GENERATED";
       exam.questions = [
         {
           text: "Giải thích unit test.",
@@ -53,7 +53,28 @@ test("admin sees generated terms and confirms full course deletion with retry", 
         },
       ];
       json = { status: "PUBLISHED", question_count: 1 };
-    } else if (
+    } else if (path.endsWith("/hotwords")) json = { hotwords: [] };
+    else if (path.endsWith("/draft"))
+      json = {
+        status: exam.status,
+        snapshot: {
+          questions: exam.questions.map((q) => ({
+            ...q,
+            difficulty: "EASY",
+            expected_concepts: ["unit test"],
+            reference_chunk_ids: ["chunk"],
+          })),
+          criteria: [
+            {
+              name: "Kiến thức",
+              description: "Đúng khái niệm",
+              max_score: 10,
+              weight: 1,
+            },
+          ],
+        },
+      };
+    else if (
       path === "/api/admin/courses/course" &&
       route.request().method() === "DELETE"
     ) {
@@ -79,16 +100,18 @@ test("admin sees generated terms and confirms full course deletion with retry", 
     .click();
   await page.getByRole("button", { name: /Software Testing/ }).click();
   await page.getByRole("button", { name: "03 · Bài thi & giao bài" }).click();
-  await page.getByRole("button", { name: "Sinh câu hỏi & công bố" }).click();
+  await page
+    .getByRole("button", { name: "Sinh câu hỏi & rubric để review" })
+    .click();
   await expect(
-    page.getByRole("heading", { name: "Câu hỏi & thuật ngữ tiếng Anh gợi ý" }),
+    page.getByRole("heading", { name: "Review câu hỏi & rubric" }),
   ).toBeVisible();
-  await expect(page.locator(".generated-question")).toContainText(
+  await expect(page.getByLabel("Nội dung câu hỏi")).toHaveValue(
     "Giải thích unit test.",
   );
-  await expect(page.locator(".generated-question li")).toHaveText(
-    "unit test: kiểm thử đơn vị",
-  );
+  await expect(
+    page.getByText("unit test: kiểm thử đơn vị", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
   await page.getByRole("button", { name: "Xóa môn học", exact: true }).click();
   await expect(

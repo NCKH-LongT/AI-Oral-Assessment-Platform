@@ -3,7 +3,8 @@ export type User = {
   username: string;
   email?: string | null;
   name: string;
-  role: "ADMIN" | "TEACHER" | "STUDENT" | "REVIEWER";
+  role: "ADMIN" | "TEACHER" | "STUDENT" | "REVIEWER" | "EXAM_OFFICER";
+  requested_role?: string | null;
 };
 export type Course = {
   id: string;
@@ -41,6 +42,7 @@ export type Rubric = {
 };
 export type Blueprint = { topic_id: string; difficulty: string; count: number };
 export type Exam = {
+  workflow?: boolean;
   max_attempts: number | null;
   id: string;
   name: string;
@@ -72,6 +74,7 @@ export type Chapter = {
   source: string;
 };
 export type SpeechPolicy = {
+  hotwords?: string[];
   provider: "local" | "google" | "gemini" | "local_server";
   preprocessing: "off" | "denoise";
   language: "vi" | "en";
@@ -94,6 +97,14 @@ export type Sitting = {
   final_score: number | null;
 };
 export type Result = {
+  ai_score?: number | null;
+  low_score?: boolean;
+  manual_review?: {
+    score: number;
+    reason: string;
+    reviewed_by: string;
+    reviewed_at: number;
+  } | null;
   attempt_number: number;
   created_at: number;
   started_at: number | null;
@@ -165,6 +176,10 @@ export type Review = Result & {
   }[];
 };
 export type StudentExam = {
+  opens_at?: number | null;
+  closes_at?: number | null;
+  server_time?: number;
+  workflow?: boolean;
   attempt_count: number;
   remaining_attempts: number | null;
   can_start_new: boolean;

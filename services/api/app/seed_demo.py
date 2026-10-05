@@ -8,6 +8,7 @@ from sqlalchemy import select
 from . import ai, storage
 from .db import SessionLocal
 from .documents import process_document
+from .exam_generation import build_snapshot
 from .models import (
     Assignment,
     Course,
@@ -21,7 +22,6 @@ from .models import (
     User,
     uid,
 )
-from .routes_admin import publish
 from .security import hasher
 
 
@@ -107,7 +107,8 @@ def seed():
         )
         db.add(exam)
         db.commit()
-        publish(exam.id, db, teacher)
+        exam.snapshot = build_snapshot(db, exam)
+        exam.status = "PUBLISHED"
         db.add(Assignment(exam_id=exam.id, student_id=student.id))
         db.commit()
         print("Đã tạo teacher.demo, student.demo và bài thi SE101-DEMO. Mật khẩu lấy từ DEMO_PASSWORD.")

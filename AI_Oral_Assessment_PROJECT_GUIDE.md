@@ -1,5 +1,8 @@
 # AI Oral Assessment Platform
 
+> **Cập nhật triển khai 05/10/2026:** Quy trình khảo thí hiện hành được mô tả tại [examination-workflow.md](docs/architecture/examination-workflow.md), kèm [Excel mẫu](docs/templates/danh-sach-sinh-vien.xlsx). Role mới `EXAM_OFFICER` do admin duyệt; khảo thí phân công giảng viên theo môn, nhập roster, kiểm tra đề đã duyệt, xếp lịch và xuất điểm. Giảng viên cấu hình độ khó/số câu, sinh và review câu hỏi/rubric. Điểm AI dưới 5 phải qua chấm lại trước khi công bố. STT hỗ trợ hotword chung/theo môn trên desktop và server. Migration hiện tại: `0005`. Các mục MVP bên dưới phản ánh nền tảng ban đầu; dùng tài liệu cập nhật này cho luồng duyệt và giao bài mới.
+
+
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
 ## Project Guide for Codex / AI Coding Agent
 

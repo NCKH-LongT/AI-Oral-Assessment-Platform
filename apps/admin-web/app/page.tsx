@@ -12,10 +12,11 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { api, send, User } from "../components/api";
-import { Form, Field } from "../components/shared";
+import { Action, Form, Field } from "../components/shared";
 import Admin from "../components/admin";
 import Student from "../components/student";
 import GoogleLogin from "../components/google-login";
+import Examination from "../components/examination";
 import DesktopExit from "../components/desktop-exit";
 
 export default function Home() {
@@ -96,9 +97,9 @@ export default function Home() {
             }}
           >
             <Field
-              label="Tên đăng nhập"
+              label="Email hoặc tên đăng nhập"
               name="username"
-              placeholder="Tên đăng nhập được cấp"
+              placeholder="Email sinh viên hoặc tên đăng nhập được cấp"
             />
             <Field label="Mật khẩu" name="password" type="password" />
           </Form>
@@ -120,6 +121,15 @@ export default function Home() {
     : [
         { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
         { id: "courses", label: "Môn học & đề thi", icon: BookOpen },
+        ...(["ADMIN", "EXAM_OFFICER", "TEACHER"].includes(user.role)
+          ? [
+              {
+                id: "examination",
+                label: "Điều phối kỳ thi",
+                icon: ClipboardCheck,
+              },
+            ]
+          : []),
         { id: "users", label: "Người dùng", icon: Users },
         { id: "results", label: "Kết quả & xem lại", icon: ClipboardCheck },
         { id: "student", label: "Học & thi thử", icon: GraduationCap },
@@ -187,7 +197,29 @@ export default function Home() {
           <span className="pill">MVP · Giai đoạn 1</span>
         </header>
         <div className="content">
-          {isStudent || page === "student" ? (
+          {isStudent && (
+            <details className="role-request">
+              <summary>Yêu cầu quyền khảo thí</summary>
+              <p>
+                Admin kiểm tra và duyệt trước khi tài khoản có quyền tổ chức kỳ
+                thi.
+              </p>
+              <Action
+                disabled={user.requested_role === "EXAM_OFFICER"}
+                action={async () => {
+                  await send("/auth/request-exam-officer");
+                  setUser(await api<User>("/auth/me"));
+                }}
+              >
+                {user.requested_role === "EXAM_OFFICER"
+                  ? "Đang chờ admin duyệt"
+                  : "Gửi yêu cầu làm khảo thí"}
+              </Action>
+            </details>
+          )}
+          {page === "examination" && !isStudent ? (
+            <Examination user={user} navigate={setPage} />
+          ) : isStudent || page === "student" ? (
             <Student />
           ) : (
             <Admin key={page} user={user} page={page} navigate={setPage} />

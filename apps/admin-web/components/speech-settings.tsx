@@ -43,6 +43,7 @@ export default function SpeechSettings() {
             {
               provider: value.provider,
               language: value.language,
+              hotwords: value.hotwords || [],
               preprocessing: "off",
             },
             "PUT",
@@ -87,6 +88,22 @@ export default function SpeechSettings() {
             <option value="en">Tiếng Anh</option>
           </select>
         </label>
+        <label>
+          Hotword chung (mỗi dòng một thuật ngữ)
+          <textarea
+            value={(value.hotwords || []).join("\n")}
+            onChange={(e) => {
+              setValue({ ...value, hotwords: e.target.value.split("\n") });
+              setSaved(false);
+            }}
+            placeholder="PostgreSQL\nDependency Injection"
+          />
+        </label>
+        <p>
+          Tối đa 100 thuật ngữ, tổng 2000 ký tự. Dùng từ vựng chuyên ngành,
+          không nhập đáp án. Hotword gợi ý nhận dạng, không bảo đảm STT đúng
+          tuyệt đối.
+        </p>
         <p>
           Whisper server: {value.server_model}. Chọn LLM chấm bài riêng trong
           cấu hình AI. Không cần JSON Google cho PhoWhisper hoặc Gemini.

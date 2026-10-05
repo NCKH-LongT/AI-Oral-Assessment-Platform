@@ -35,6 +35,8 @@ import { Action, Badge, Empty, Field, Form, Modal } from "./shared";
 import { TextbookPanel, TopicPanel } from "./knowledge";
 import PlatformSettings from "./platform-settings";
 import CourseStudents from "./course-students";
+import ExamDraftReview from "./exam-draft-review";
+import CourseHotwords from "./course-hotwords";
 import { TranscriptionReview } from "./transcription-review";
 
 export default function Admin({
@@ -117,6 +119,7 @@ export default function Admin({
     return (
       <ReviewPage
         review={review}
+        canGrade={editable}
         admin={user.role === "ADMIN"}
         refresh={async () =>
           setReview(await api<Review>(`/admin/results/${review.id}`))
@@ -373,6 +376,7 @@ export default function Admin({
                 onSubmit={async (d) => {
                   await send("/admin/users", {
                     username: d.get("username"),
+                    email: d.get("email") || null,
                     name: d.get("name"),
                     password: d.get("password"),
                     role: d.get("role"),
@@ -384,6 +388,12 @@ export default function Admin({
                 <div className="form-grid">
                   <Field label="Họ và tên" name="name" />
                   <Field label="Tên đăng nhập" name="username" />
+                  <Field
+                    label="Email"
+                    name="email"
+                    type="email"
+                    required={false}
+                  />
                   <label>
                     Mật khẩu (tối thiểu 12 ký tự)
                     <input
@@ -395,7 +405,8 @@ export default function Admin({
                   </label>
                   <label>
                     Vai trò
-                    <select name="role">
+                    <select name="role" defaultValue="STUDENT">
+                      <option value="EXAM_OFFICER">Khảo thí</option>
                       <option value="STUDENT">Sinh viên</option>
                       <option value="TEACHER">Giảng viên</option>
                       <option value="REVIEWER">Người duyệt</option>
@@ -506,7 +517,14 @@ function ResultTable({
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id}>
+            <tr
+              key={r.id}
+              className={
+                r.low_score && r.status === "REVIEW_REQUIRED"
+                  ? "low-score-row"
+                  : undefined
+              }
+            >
               <td>
                 <strong>{r.student_name}</strong>
               </td>
@@ -519,6 +537,11 @@ function ResultTable({
               </td>
               <td>
                 <Badge status={r.status} />
+                {r.low_score && r.status === "REVIEW_REQUIRED" && (
+                  <p className="error">
+                    AI: {r.ai_score}/10 · dưới 5, cần chấm lại
+                  </p>
+                )}
               </td>
               <td>
                 {r.final_score === null
@@ -927,6 +950,7 @@ function CourseWorkspace({
           )}
         </>
       )}
+      {tab === "exams" && editable && <CourseHotwords courseId={course.id} />}
       {tab === "exams" && (
         <>
           {editable && (
@@ -999,8 +1023,10 @@ function CourseWorkspace({
               )}
               {editable && e.status === "DRAFT" && (
                 <div className="inline">
-                  <Action action={() => mutate(`/admin/exams/${e.id}/publish`)}>
-                    Sinh câu hỏi & công bố
+                  <Action
+                    action={() => mutate(`/admin/exams/${e.id}/generate`)}
+                  >
+                    Sinh câu hỏi & rubric để review
                   </Action>
                   <button
                     className="button secondary"
@@ -1037,6 +1063,17 @@ function CourseWorkspace({
                   Sao chép thành bản nháp
                 </Action>
               )}
+              {["GENERATED", "TEACHER_APPROVED"].includes(e.status) && (
+                <ExamDraftReview
+                  key={`${e.id}-${e.status}`}
+                  examId={e.id}
+                  editable={editable}
+                  refresh={load}
+                />
+              )}
+              {e.status === "TEACHER_APPROVED" && (
+                <p>Khảo thí kiểm tra đề và xếp lịch trong Điều phối kỳ thi.</p>
+              )}
               {e.status === "PUBLISHED" && (
                 <>
                   <p className="muted">
@@ -1072,7 +1109,7 @@ function CourseWorkspace({
                   </div>
                 </>
               )}
-              {editable && e.status === "PUBLISHED" && (
+              {editable && e.status === "PUBLISHED" && !e.workflow && (
                 <details>
                   <summary>Giao riêng đề này cho học viên</summary>
                   <Form
@@ -1412,7 +1449,7 @@ function ExamForm({
     initial?.max_attempts === undefined ? 1 : initial.max_attempts,
   );
   const [blueprint, setBlueprint] = useState<Blueprint[]>(
-    initial?.blueprint || [
+    (initial?.blueprint.length ? initial.blueprint : null) || [
       { topic_id: data.topics[0]?.id || "", difficulty: "MEDIUM", count: 1 },
     ],
   );
@@ -1547,14 +1584,15 @@ function ExamForm({
           + Thêm phân bổ
         </button>
         <p className="muted">
-          Công bố đề sẽ sinh câu hỏi và cố định rubric, tài liệu, model và
-          prompt. Tổng tối đa 20 câu.
+          Lưu cấu hình, sinh câu hỏi và rubric, sau đó review và duyệt gửi khảo
+          thí. Tổng tối đa 20 câu; chọn số lượng 1 để đặt độ khó từng câu.
         </p>
       </Form>
     </section>
   );
 }
 function ReviewPage({
+  canGrade,
   review,
   back,
   admin,
@@ -1562,6 +1600,7 @@ function ReviewPage({
   open,
 }: {
   review: Review;
+  canGrade: boolean;
   back: () => void;
   admin: boolean;
   refresh: () => Promise<void>;
@@ -1630,6 +1669,53 @@ function ReviewPage({
           Điểm từng câu do AI đề xuất. Bài cần xem lại chưa có điểm chính thức.
         </span>
       </div>
+      {review.ai_score != null && (
+        <p className={review.ai_score < 5 ? "error" : "muted"}>
+          Điểm AI đề xuất: {review.ai_score}/10
+          {review.ai_score < 5
+            ? " — dưới 5, cần giảng viên chấm lại trước khi công bố"
+            : ""}
+        </p>
+      )}
+      {review.manual_review && (
+        <p>Nhận xét chấm lại: {review.manual_review.reason}</p>
+      )}
+      {canGrade && ["REVIEW_REQUIRED", "COMPLETED"].includes(review.status) && (
+        <section className="panel">
+          <h2>Giảng viên chấm lại</h2>
+          <Form
+            label="Lưu điểm chính thức"
+            onSubmit={async (d) => {
+              await send(`/admin/results/${review.id}/manual-grade`, {
+                score: Number(d.get("score")),
+                reason: d.get("reason"),
+              });
+              await refresh();
+            }}
+          >
+            <label>
+              Điểm chính thức (0–10)
+              <input
+                name="score"
+                type="number"
+                min="0"
+                max="10"
+                step="0.01"
+                required
+              />
+            </label>
+            <label>
+              Nhận xét và lý do chấm lại
+              <textarea
+                name="reason"
+                minLength={10}
+                maxLength={3000}
+                required
+              />
+            </label>
+          </Form>
+        </section>
+      )}
       {review.attempts.map((a) => (
         <section className="panel" key={a.id}>
           <div className="section-title">
@@ -1748,21 +1834,28 @@ function RoleEditor({
   user: User;
   saved: () => Promise<void>;
 }) {
-  const [role, setRole] = useState(user.role);
+  const [role, setRole] = useState<User["role"]>(
+    user.requested_role === "EXAM_OFFICER" ? "EXAM_OFFICER" : user.role,
+  );
   return (
     <div className="inline">
+      {user.requested_role && (
+        <span className="badge pending">Yêu cầu: {user.requested_role}</span>
+      )}
       <select
         aria-label={`Vai trò của ${user.name}`}
         value={role}
         onChange={(e) => setRole(e.target.value as User["role"])}
       >
-        {["STUDENT", "TEACHER", "REVIEWER", "ADMIN"].map((r) => (
-          <option key={r}>{r}</option>
-        ))}
+        {["STUDENT", "TEACHER", "EXAM_OFFICER", "REVIEWER", "ADMIN"].map(
+          (r) => (
+            <option key={r}>{r}</option>
+          ),
+        )}
       </select>
       <Action
         className="text-button"
-        disabled={role === user.role}
+        disabled={role === user.role && !user.requested_role}
         action={async () => {
           await send(`/admin/users/${user.id}/role`, { role }, "PUT");
           await saved();

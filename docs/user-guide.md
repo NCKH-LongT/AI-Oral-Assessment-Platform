@@ -1,5 +1,10 @@
 # Hướng dẫn sử dụng OralAI
 
+## Quy trình khảo thí mới
+
+Bắt đầu tại [hướng dẫn khảo thí → giảng viên → sinh viên](architecture/examination-workflow.md). Tải [Excel mẫu](templates/danh-sach-sinh-vien.xlsx). Admin duyệt role khảo thí và cấp role giảng viên; khảo thí giao môn, nhập danh sách, kiểm tra đề đã được giảng viên duyệt, xếp lịch từng sinh viên rồi mở thi. Bài AI dưới 5 được đánh dấu để giảng viên chấm lại; khảo thí xuất điểm chính thức trong Điều phối kỳ thi.
+
+
 [README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu) · [Desktop](../readme-desktop.md) · [Cập nhật qua Jenkins](jenkins.md)
 
 Hướng dẫn theo chức năng hiện có ngày 23/09/2026. Admin và giảng viên quản lý trên web; học viên dùng desktop để nhận dạng giọng nói bằng PhoWhisper trên máy.
@@ -29,7 +34,7 @@ Tài liệu phải ở trạng thái `READY` và dùng cấu hình embedding hi�
 2. Mở **03 · Bài thi & giao bài → Tạo bài thi**.
 3. Nhập tên, thời gian, chọn rubric và phân bổ câu hỏi theo chủ đề, độ khó, số lượng. Bấm **Lưu bản nháp**.
 4. Kiểm tra lại bản nháp. Admin có thể đặt **Cấu hình số lần làm lại**: không cho làm lại, cho thêm N lần hoặc không giới hạn.
-5. Bấm **Sinh câu hỏi & công bố**, chờ hoàn tất trước khi giao bài.
+5. Bấm **Sinh câu hỏi & rubric để review**, sửa câu hỏi/ý chính/rubric và lưu, rồi **Duyệt đề & gửi khảo thí**. Khảo thí kiểm tra, nhập danh sách, xếp lịch và mở kỳ thi.
 
 Chế độ `AI_PROVIDER=demo` chỉ thử quy trình, không chấm điểm thật và không sinh gợi ý thuật ngữ. Người vận hành cấu hình Gemini/Ollama trên server theo [README](../README.md#chọn-llm-qua-env).
 
@@ -41,9 +46,9 @@ Sau khi công bố, ngay dưới đề xuất hiện **Câu hỏi & thuật ng�
 - Gợi ý được lưu cùng phiên bản đề và hiển thị trong trang quản lý. Học viên không nhận danh sách này qua màn hình câu hỏi.
 - Đề cũ, đề demo hoặc câu không có thuật ngữ phù hợp có thể hiển thị **Chưa có gợi ý thuật ngữ cho câu hỏi này**.
 - Hiện chưa có thao tác sửa trực tiếp danh sách thuật ngữ. Để sinh lại câu hỏi/gợi ý, chọn **Sao chép thành bản nháp**, điều chỉnh bản nháp và công bố lại; bản đề mới có thể có câu hỏi khác.
-- Danh sách này chưa tự truyền vào PhoWhisper và chưa tự sửa transcript. Nhận dạng câu Việt xen tiếng Anh vẫn cần người dùng nghe lại, kiểm tra tên riêng và thuật ngữ.
+- Hotword STT được cấu hình riêng ở **Cấu hình giọng nói** và **Hotword STT của môn học**, áp dụng cho desktop/server. Danh sách thuật ngữ AI không tự trở thành hotword. Nghe lại và kiểm tra transcript trước khi nộp.
 
-Đề đã công bố giữ nguyên nội dung để đối chiếu kết quả. Nếu muốn kiểm tra đề trước khi học viên thấy, thực hiện trước khi thêm học viên vào môn; thành viên môn sẽ thấy các đề được công bố sau đó.
+Đề đã công bố giữ nguyên nội dung để đối chiếu kết quả. Kỳ thi mới bắt buộc giảng viên và khảo thí duyệt trước; chỉ sinh viên trong roster thấy kỳ thi và chỉ bắt đầu trong lịch được xếp.
 
 ### 4. Giao bài
 
@@ -54,9 +59,11 @@ Sau khi công bố, ngay dưới đề xuất hiện **Câu hỏi & thuật ng�
 
 Học viên bấm **Làm mới bài thi** nếu danh sách chưa cập nhật. **Bỏ khỏi môn** không xóa lịch sử thi hoặc thu hồi đề đã giao riêng.
 
+Hai cách giao trong bảng trên chỉ áp dụng đề legacy. Kỳ thi mới dùng danh sách Excel trong **Điều phối kỳ thi**; đăng ký môn không cấp quyền thi tự động.
+
 ## Học viên làm bài trên desktop
 
-1. Mở OralAI, chọn máy chủ tại **OralAI → Cấu hình máy chủ…** rồi đăng nhập.
+1. Mở OralAI, chọn máy chủ tại **OralAI → Cấu hình máy chủ…** rồi đăng nhập bằng email/mật khẩu được cấp hoặc Google đúng email trong danh sách Excel.
 2. Chọn bài thi, bấm **Mở bài thi → Cho phép camera & mic**. Chọn đúng microphone và camera.
 3. Để gain 0 dB, bấm **Kiểm tra độ ồn**: im lặng 3 giây, nói thử 7 giây. Phát lại bản gốc/bản lọc và chỉnh gain nếu cần. Hướng dẫn và chỉ số mức đỉnh được bố trí thành hai hàng cố định.
 4. Chọn có dùng RNNoise cho STT hay không, bấm **Bắt đầu thi**. Mỗi câu bấm **Bắt đầu trả lời**, nói xong bấm **Kết thúc trả lời**.

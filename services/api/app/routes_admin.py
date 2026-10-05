@@ -1,4 +1,3 @@
-import hashlib
 import time
 from copy import deepcopy
 from pathlib import Path
@@ -14,8 +13,9 @@ from . import ai, storage
 from . import schemas as s
 from .course_deletion import delete_course_tree
 from .db import get_db
+from .exam_generation import build_snapshot
 from .grading import GradingError, assessment_view, check_config, review_question
-from .knowledge import chunk_scope, set_mappings, topic_data
+from .knowledge import set_mappings, topic_data
 from .models import (
     Assignment,
     Attempt,
@@ -39,7 +39,7 @@ from .models import (
 from .retakes import allowance, history_row, sessions_for
 from .runtime_settings import settings
 from .security import admin, by_id, course_access, editor, fail, hasher, public_user, staff
-from .speech import google_ready, policy
+from .speech import exam_policy, google_ready
 
 router = APIRouter()
 
@@ -79,6 +79,10 @@ def users(db: Session = Depends(get_db), user=Depends(staff)):
 
 @router.post("/users", status_code=201)
 def create_user(body: s.UserIn, db: Session = Depends(get_db), user=Depends(admin)):
+    if body.email:
+        body.email = body.email.lower()
+        if "@" not in body.email or db.scalar(select(User.id).where(func.lower(User.email) == body.email)):
+            fail(422, "EMAIL_CONFLICT", "Email không hợp lệ hoặc đã được sử dụng")
     row = User(**body.model_dump(exclude={"password"}), password_hash=hasher.hash(body.password))
     db.add(row)
     db.add(Audit(user_id=user.id, event="USER_CREATED", details={"username": row.username}))
@@ -176,7 +180,7 @@ def workspace(course_id: str, db: Session = Depends(get_db), user=Depends(staff)
         "chapters": rows(BookSection, "document_id", "title", "level", "start_page", "end_page", "source"),
         "rubrics": rows(Rubric, "name", "version", "criteria"),
         "exams": [
-            data(exam, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts")
+            data(exam, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts", "workflow")
             | {"questions": [
                 {"text": q["text"], "english_terms": q.get("english_terms", [])}
                 for q in (exam.snapshot or {}).get("questions", [])
@@ -438,7 +442,7 @@ def create_exam(body: s.ExamIn, db: Session = Depends(get_db), user=Depends(edit
     validate_exam(db, body, user)
     if user.role != "ADMIN" and body.max_attempts != 1:
         fail(403, "FORBIDDEN", "Chỉ admin được cấu hình số lượt làm bài")
-    row = Exam(**body.model_dump())
+    row = Exam(**body.model_dump(), workflow=user.role != "ADMIN")
     db.add(row)
     db.commit()
     return data(row, "name", "status")
@@ -457,6 +461,7 @@ def update_exam(key: str, body: s.ExamIn, db: Session = Depends(get_db), user=De
         fail(403, "FORBIDDEN", "Chỉ admin được cấu hình số lượt làm bài")
     for field, value in body.model_dump().items():
         setattr(row, field, value)
+    row.snapshot = None
     db.commit()
     return data(row, "name", "status", "max_attempts")
 
@@ -467,6 +472,7 @@ def delete_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     course_access(db, row.course_id, user)
     if row.status != "DRAFT":
         fail(409, "PUBLISHED", "Không xóa đề đã công bố")
+    db.execute(delete(Assignment).where(Assignment.exam_id == key))
     db.delete(row)
     db.commit()
     return {"ok": True}
@@ -484,7 +490,7 @@ def copy_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
         max_attempts=source.max_attempts,
     )
     validate_exam(db, body, user)
-    row = Exam(**body.model_dump())
+    row = Exam(**body.model_dump(), workflow=user.role != "ADMIN")
     db.add(row)
     db.commit()
     return data(row, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts")
@@ -496,84 +502,21 @@ def publish(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     course_access(db, exam.course_id, user)
     if exam.status == "PUBLISHED":
         return {"status": exam.status}
-    rubric = by_id(db, Rubric, exam.rubric_id)
-    docs = db.scalars(
-        select(Document).where(
-            Document.course_id == exam.course_id,
-            Document.status == "READY",
-            Document.embedding_model == ai.embedding_name(),
-        )
-    ).all()
-    if not docs:
-        fail(409, "KNOWLEDGE_NOT_READY", "Cần tài liệu READY với cấu hình embedding hiện tại")
-    questions = []
-    topic_scopes = {}
-    mappings = {}
-    for row in exam.blueprint:
-        topic = by_id(db, Topic, row["topic_id"])
-        topic_scopes[topic.id] = chunk_scope(db, exam.course_id, topic.id, ai.embedding_name())
-        mappings[topic.id] = topic_data(db, topic)
-        mappings[topic.id]["outcomes"] = [
-            data(by_id(db, LearningOutcome, lo), "code", "description", "weight")
-            for lo in mappings[topic.id]["learning_outcome_ids"]
-        ]
-        mappings[topic.id]["chapters"] = [
-            data(by_id(db, BookSection, chapter), "title", "level", "start_page", "end_page")
-            for chapter in mappings[topic.id]["chapter_ids"]
-        ]
-        chunks = ai.retrieve(
-            db, exam.course_id, topic.id, topic.name, [d.id for d in docs], topic_scopes[topic.id]
-        )
-        if not chunks:
-            fail(409, "NO_EVIDENCE", f"Chủ đề {topic.name} chưa có tài liệu READY")
-        for _ in range(row["count"]):
-            question = ai.generate_question(
-                topic,
-                row["difficulty"],
-                chunks,
-                [q["text"] for q in questions],
-                outcomes=mappings[topic.id]["outcomes"],
-            )
-            questions.append(
-                question
-                | {
-                    "topic_id": topic.id,
-                    "learning_outcome_id": topic.learning_outcome_id,
-                    "learning_outcome_ids": mappings[topic.id]["learning_outcome_ids"],
-                    "chapter_ids": mappings[topic.id]["chapter_ids"],
-                    "difficulty": row["difficulty"],
-                }
-            )
-    doc_ids = sorted(d.id for d in docs)
-    exam.snapshot = {
-        "exam_version": 2,
-        "generation_prompt_version": "topic-los-english-terms-v3",
-        "topic_chunk_ids": topic_scopes,
-        "topic_mappings": mappings,
-        "rubric_id": rubric.id,
-        "rubric_version": rubric.version,
-        "criteria": rubric.criteria,
-        "document_ids": doc_ids,
-        "questions": questions,
-        "knowledge_version": hashlib.sha256(
-            ",".join(sorted({c for ids in topic_scopes.values() for c in ids})).encode()
-        ).hexdigest(),
-        "ai_provider": settings().ai_provider,
-        "llm_model": settings().llm_model,
-        "embedding_model": ai.embedding_name(),
-        "prompt_version": ai.PROMPT_VERSION,
-        "published_at": time.time(),
-    }
+    if exam.workflow or user.role != "ADMIN":
+        fail(409, "APPROVAL_REQUIRED", "Sinh bản nháp, giảng viên duyệt và khảo thí kiểm tra trước khi mở thi")
+    exam.snapshot = build_snapshot(db, exam)
     exam.status = "PUBLISHED"
     db.add(Audit(user_id=user.id, event="EXAM_PUBLISHED", details={"exam_id": exam.id}))
     db.commit()
-    return {"status": exam.status, "question_count": len(questions)}
+    return {"status": exam.status, "question_count": len(exam.snapshot["questions"])}
 
 
 @router.post("/exams/{key}/assign")
 def assign(key: str, body: s.AssignIn, db: Session = Depends(get_db), user=Depends(editor)):
     exam = by_id(db, Exam, key, lock=True)
     course_access(db, exam.course_id, user)
+    if exam.workflow:
+        fail(409, "ROSTER_REQUIRED", "Khảo thí nhập danh sách và xếp lịch trong Điều phối kỳ thi")
     if exam.status != "PUBLISHED":
         fail(409, "NOT_PUBLISHED", "Công bố đề trước khi giao bài")
     for student_id in set(body.student_ids):
@@ -600,7 +543,8 @@ def results(db: Session = Depends(get_db), user=Depends(staff)):
         query = query.join(Course).where(Course.owner_id == user.id)
     return [
         history_row(session)
-        | {"exam_name": exam.name, "student_name": student.name,
+        | {"ai_score": session.ai_score, "low_score": session.ai_score is not None and session.ai_score < 5,
+           "exam_name": exam.name, "student_name": student.name,
            "student_id": student.id, "exam_id": exam.id, **allowance(db, exam, student.id)}
         for session, exam, student in db.execute(query.order_by(ExamSession.created_at.desc()))
     ]
@@ -615,6 +559,7 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
     course_access(db, exam.course_id, user)
     attempts = db.scalars(select(Attempt).where(Attempt.session_id == key).order_by(Attempt.sequence)).all()
     return history_row(session) | {
+        "ai_score": session.ai_score, "manual_review": session.manual_review,
         "exam_id": exam.id, "student_id": session.student_id,
         **allowance(db, exam, session.student_id),
         "history": [history_row(row) for row in sessions_for(db, exam.id, session.student_id)],
@@ -696,6 +641,7 @@ def grade_review(key: str, body: s.GradeReviewIn, db: Session = Depends(get_db),
                     original={"transcript": attempt.transcript, "stt_confidence": attempt.stt_confidence,
                               "assessment": attempt.assessment, "source_exam_id": exam.id})
     db.add(job)
+    session.manual_review = None
     session.status, session.final_score = "REVIEW_REQUIRED", None
     db.flush()
     db.add(Audit(user_id=user.id, event="GRADING_REVIEW_REQUESTED",
@@ -753,7 +699,7 @@ def request_transcription_review(key, body, db, user, provider):
         attempt_id=key,
         requested_by=user.id,
         reason=body.reason,
-        policy=policy(db)
+        policy=exam_policy(db, exam)
         | {"provider": provider}
         | ({"model": settings().gemini_stt_model, "preprocessing": "off"} if provider == "gemini" else {}),
         original={
@@ -766,6 +712,7 @@ def request_transcription_review(key, body, db, user, provider):
         },
     )
     db.add(job)
+    session.manual_review = None
     session.status, session.final_score = "REVIEW_REQUIRED", None
     db.flush()
     db.add(
@@ -789,6 +736,7 @@ def change_role(key: str, body: s.RoleIn, db: Session = Depends(get_db), user=De
         fail(409, "LAST_ADMIN", "Cần giữ ít nhất một quản trị viên đang hoạt động")
     before = row.role
     row.role = body.role
+    row.requested_role = None
     db.add(
         Audit(
             user_id=user.id,

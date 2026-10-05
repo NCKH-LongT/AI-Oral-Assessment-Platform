@@ -1388,3 +1388,35 @@ hr {
 .generated-question li {
   margin: 6px 0;
 }
+
+/* Exam workflow: pending low scores remain visibly distinct from official grades. */
+.low-score-row {
+  background: #fff0eb;
+}
+.low-score-row td:first-child {
+  border-left: 4px solid #c34f32;
+}
+.badge.generated,
+.badge.teacher_approved {
+  background: #fff1ce;
+  color: #72540b;
+}
+.role-request {
+  margin-bottom: 1rem;
+}
+fieldset {
+  border: 1px solid var(--border, #dce3e4);
+  border-radius: 10px;
+  padding: 1rem;
+  margin: 0 0 1rem;
+  min-width: 0;
+}
+fieldset legend {
+  font-weight: 600;
+  padding: 0 0.4rem;
+}
+fieldset label {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}

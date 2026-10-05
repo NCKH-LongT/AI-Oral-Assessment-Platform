@@ -14,6 +14,7 @@ from . import schemas as s
 from . import storage
 from .config import settings
 from .db import get_db
+from .examination import check_schedule, schedule_for
 from .grading import GradingError, check_config
 from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, Upload
 from .practice import COURSE_ID
@@ -113,6 +114,9 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
     ).all()
     result = []
     for exam in exams:
+        assignment = schedule_for(db, exam, user.id)
+        if exam.workflow and (user.role != "STUDENT" or assignment is None):
+            continue
         sessions = sessions_for(db, exam.id, user.id)
         session = next((s for s in sessions if s.status in ACTIVE), sessions[0] if sessions else None)
         result.append(
@@ -124,6 +128,10 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
                 "practice": bool(exam.snapshot.get("practice")),
                 "time_limit": exam.time_limit,
                 "question_count": len(exam.snapshot["questions"]),
+                "opens_at": assignment.opens_at if assignment else None,
+                "closes_at": assignment.closes_at if assignment else None,
+                "server_time": time.time(),
+                "workflow": exam.workflow,
                 "session_id": session.id if session else None,
                 "status": session.status if session else "ASSIGNED",
                 **allowance(db, exam, user.id, sessions),
@@ -147,6 +155,8 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
             select(Assignment.id).where(Assignment.exam_id == exam.id, Assignment.student_id == user.id)
         )
     )
+    if exam.workflow and (user.role != "STUDENT" or not schedule_for(db, exam, user.id)):
+        fail(403, "NOT_ASSIGNED", "Bạn không có tên trong danh sách kỳ thi")
     if exam.status != "PUBLISHED" or not allowed:
         fail(403, "NOT_ASSIGNED", "Bạn chưa được giao bài thi này")
     sessions = sessions_for(db, exam.id, user.id)
@@ -155,6 +165,7 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
         return public_session(db, existing)
     if sessions and not body.new_attempt:
         return public_session(db, sessions[0])
+    check_schedule(db, exam, user)
     try:
         check_config(exam)
     except GradingError as exc:
@@ -182,6 +193,7 @@ def get_session(key: str, db: Session = Depends(get_db), user=Depends(current_us
 def start_session(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     session = owned_session(db, key, user, lock=True)
     if session.status == "DEVICE_CHECK":
+        check_schedule(db, by_id(db, Exam, session.exam_id), user)
         try:
             check_config(by_id(db, Exam, session.exam_id))
         except GradingError as exc:

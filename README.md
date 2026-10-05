@@ -1,5 +1,15 @@
 # OralAI — Thi vấn đáp
 
+## Quy trình khảo thí và hotword STT — 05/10/2026
+
+Đã bổ sung role **EXAM_OFFICER** do admin duyệt, giao giảng viên theo môn, nhập sinh viên Excel, sinh/review/duyệt câu hỏi và rubric, xếp lịch theo sinh viên, chấm lại bài AI dưới 5 và xuất điểm Excel. Module sinh snapshot và Excel được tách khỏi router quản trị.
+
+- [Hướng dẫn đầy đủ và thiết kế luồng thi](docs/architecture/examination-workflow.md).
+- [Tải Excel mẫu danh sách sinh viên](docs/templates/danh-sach-sinh-vien.xlsx).
+- Hotword chung và theo môn áp dụng cho PhoWhisper desktop, Whisper server, Google STT và Gemini STT.
+- Cần migration **0005**, dependency Excel mới và build lại desktop để nhận hotword. Xem hướng dẫn triển khai trong tài liệu trên.
+
+
 Desktop ghi audio/video, lọc nhiễu RNNoise và nhận dạng **PhoWhisper-small cục bộ**. Server nhận media gốc + transcript, chấm theo rubric/RAG bằng **Ollama local hoặc Gemini**, rồi trả kết quả cho app.
 
 ## Hướng dẫn theo nhu cầu
@@ -97,7 +107,7 @@ Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khi�
 
 ## Thuật ngữ tiếng Anh và xóa môn học
 
-Khi bấm **Sinh câu hỏi & công bố**, AI gợi ý thuật ngữ tiếng Anh kèm nghĩa tiếng Việt cho từng câu hỏi. Admin xem ngay trong **Môn học & đề thi → Bài thi & giao bài → Câu hỏi & thuật ngữ tiếng Anh gợi ý**. Gợi ý được lưu cùng phiên bản đề; đề cũ không tự sinh lại, chế độ demo không tạo thuật ngữ. Đây là gợi ý để giảng viên kiểm tra, chưa tự truyền làm hotwords cho STT.
+Khi bấm **Sinh câu hỏi & rubric để review**, AI gợi ý thuật ngữ tiếng Anh kèm nghĩa tiếng Việt cho từng câu hỏi. Admin xem ngay trong **Môn học & đề thi → Bài thi & giao bài → Câu hỏi & thuật ngữ tiếng Anh gợi ý**. Gợi ý được lưu cùng phiên bản đề; đề cũ không tự sinh lại, chế độ demo không tạo thuật ngữ. Thuật ngữ do AI sinh để giảng viên kiểm tra; STT dùng bảng hotword riêng do admin/giảng viên cấu hình, không tự đưa đáp án vào nhận dạng.
 
 Thao tác từng bước từ chuẩn bị giáo trình đến giao đề: [hướng dẫn admin/giảng viên](docs/user-guide.md#admin-và-giảng-viên-chuẩn-bị-bài-thi). Hiện chưa sửa trực tiếp thuật ngữ; sao chép đề thành bản nháp rồi công bố để sinh bộ câu hỏi/gợi ý mới.
 
@@ -136,7 +146,7 @@ Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn deskto
 
 Xem [các bước cập nhật và chẩn đoán lỗi Jenkins](docs/jenkins.md). Lỗi 4 test Gemini/Ollama thiếu `english_terms` đã được sửa ở `b546e84`; job cần checkout commit này hoặc mới hơn, không cần đổi `.env` cho lỗi đó.
 
-Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration `0004` để lưu nhiều lần thi; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0005` để lưu nhiều lần thi và quy trình khảo thí; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
 
 ```bash
 .venv/bin/python -m pytest services/api/tests -q

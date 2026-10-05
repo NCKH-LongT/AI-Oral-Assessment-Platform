@@ -1,5 +1,8 @@
 # OralAI Desktop
 
+> **05/10/2026:** Desktop mới nhận hotword chung và theo môn từ server, truyền vào PhoWhisper qua `STT_HOTWORDS`. Cần build lại desktop sau cập nhật helper. Sinh viên đăng nhập bằng email trong danh sách Excel và mở **Bài thi của tôi** theo lịch khảo thí. Xem [quy trình mới](docs/architecture/examination-workflow.md).
+
+
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
 
 Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-small INT8**. Nhận dạng chạy trên CPU của máy học viên, không cần cài Python riêng hoặc tải thêm model STT. LLM chấm bài chạy trên server.

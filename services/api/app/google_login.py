@@ -13,7 +13,7 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 from pydantic import Field
 from redis import Redis
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .db import get_db
@@ -177,6 +177,16 @@ def callback(
         db.commit()
         return failure
     user = db.scalar(select(User).where(User.google_sub == claims["sub"]))
+    if not user and claims.get("email_verified") is True:
+        # Only provisioned roster students can bind their verified Google identity.
+        # Privileged/manual accounts are never implicitly linked by email.
+        matches = db.scalars(select(User).where(func.lower(User.email) == claims["email"].lower()).with_for_update()).all()
+        if len(matches) == 1:
+            candidate = matches[0]
+            if (candidate.username.startswith("sv-") and candidate.role == "STUDENT"
+                    and candidate.status == "ACTIVE" and candidate.google_sub is None):
+                user = candidate
+                user.google_sub = claims["sub"]
     if not user:
         # Never link to a password account merely because its username matches an email.
         user = User(
@@ -193,7 +203,7 @@ def callback(
         flow.failed = True
         db.commit()
         return failure
-    user.email = claims["email"]
+    user.email = claims["email"].lower()
     flow.user_id, flow.completed = user.id, True
     db.add(Audit(user_id=user.id, event="GOOGLE_LOGIN", details={"desktop": bool(flow.poll_hash)}))
     if flow.poll_hash:

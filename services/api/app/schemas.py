@@ -8,14 +8,16 @@ class Input(BaseModel):
 
 
 class Login(Input):
-    username: str = Field(min_length=1, max_length=80)
+    username: str = Field(min_length=1, max_length=320)
     password: str = Field(min_length=1, max_length=128)
 
 
 class UserIn(Login):
+    username: str = Field(min_length=1, max_length=80)
+    email: str | None = Field(default=None, max_length=320)
     password: str = Field(min_length=12, max_length=128)
     name: str = Field(min_length=1, max_length=150)
-    role: Literal["ADMIN", "TEACHER", "STUDENT", "REVIEWER"] = "STUDENT"
+    role: Literal["ADMIN", "TEACHER", "STUDENT", "REVIEWER", "EXAM_OFFICER"] = "STUDENT"
 
 
 class CourseIn(Input):
@@ -67,6 +69,16 @@ class SectionIn(Input):
 
 
 class SpeechPolicy(Input):
+    hotwords: list[str] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def valid_hotwords(self):
+        words = list(dict.fromkeys(w.strip() for w in self.hotwords if w.strip()))
+        if any(len(w) > 100 for w in words) or sum(map(len, words)) > 2000:
+            raise ValueError("Hotword tối đa 100 ký tự/từ và 2000 ký tự tổng cộng")
+        self.hotwords = words
+        return self
+
     provider: Literal["local", "google", "gemini", "local_server"] = "local_server"
     preprocessing: Literal["off", "denoise"] = "denoise"
     language: Literal["vi", "en"] = "vi"
@@ -188,4 +200,4 @@ class GradeOutput(Input):
 
 
 class RoleIn(Input):
-    role: Literal["ADMIN", "TEACHER", "STUDENT", "REVIEWER"]
+    role: Literal["ADMIN", "TEACHER", "STUDENT", "REVIEWER", "EXAM_OFFICER"]

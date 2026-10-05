@@ -3,6 +3,7 @@
 import importlib.util
 import io
 import json
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -53,11 +54,13 @@ class DesktopSTTOutputTests(unittest.TestCase):
                     raw, encoding=encoding, errors="strict"
                 ) as stdout:
                     with (
+                        patch.dict(os.environ, {"STT_HOTWORDS": json.dumps(["PostgreSQL", "Dependency Injection"])}),
                         patch.object(sys, "stdout", stdout),
                         patch.object(sys, "argv", ["transcribe.py", "answer.webm"]),
                         patch.object(helper, "model_path", return_value=Path("model")),
                     ):
                         helper.main()
+                        self.assertEqual(whisper.WhisperModel.return_value.transcribe.call_args.kwargs["hotwords"], "PostgreSQL, Dependency Injection")
                     stdout.flush()
                     # Match Electron's UTF-8 decoding of stdout and JSON.parse.
                     result = json.loads(raw.getvalue().decode("utf-8"))

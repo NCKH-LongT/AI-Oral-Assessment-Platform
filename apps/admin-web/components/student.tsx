@@ -373,7 +373,9 @@ export default function Student() {
   }
   async function transcribe(audio: Blob): Promise<STT> {
     setSpeechStage("Đang tải cấu hình nhận dạng…");
-    const savedPolicy = await api<SpeechPolicy>("/stt/config");
+    const savedPolicy = await api<SpeechPolicy>(
+      `/stt/config${session ? `?session_id=${encodeURIComponent(session.id)}` : ""}`,
+    );
     // Desktop always transcribes locally. Filtering is already performed on the client.
     const policy: SpeechPolicy = {
       ...savedPolicy,
@@ -399,6 +401,7 @@ export default function Student() {
     const form = new FormData();
     form.set("file", audio, "answer.webm");
     form.set("preprocessing", "off");
+    if (session) form.set("session_id", session.id);
     return api<STT>("/stt", { method: "POST", body: form });
   }
   async function start() {
@@ -694,6 +697,18 @@ export default function Student() {
                   {e.question_count} câu hỏi · {Math.round(e.time_limit / 60)}{" "}
                   phút
                 </p>
+                {e.workflow && (
+                  <p>
+                    Lịch vào thi:{" "}
+                    {e.opens_at
+                      ? new Date(e.opens_at * 1000).toLocaleString("vi-VN")
+                      : "Chưa xếp lịch"}{" "}
+                    →{" "}
+                    {e.closes_at
+                      ? new Date(e.closes_at * 1000).toLocaleString("vi-VN")
+                      : "—"}
+                  </p>
+                )}
                 <Action action={() => openExam(e.id)}>
                   {!e.session_id
                     ? "Mở bài thi →"

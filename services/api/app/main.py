@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from redis import Redis
-from sqlalchemy import select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException
@@ -146,7 +146,10 @@ def login(body: schemas.Login, request: Request, response: Response, db: Session
         cache.expire(key, 65)
         if count > 10:
             fail(429, "RATE_LIMITED", "Quá nhiều lần đăng nhập; thử lại sau 1 phút")
-    user = db.scalar(select(User).where(User.username == body.username))
+    matches = db.scalars(select(User).where(or_(
+        User.username == body.username, func.lower(User.email) == body.username.lower(),
+    ))).all()
+    user = matches[0] if len(matches) == 1 else None
     verified = verify_password(body.password, user.password_hash if user else dummy_hash)
     if not user or not verified or user.status != "ACTIVE":
         fail(401, "INVALID_CREDENTIALS", "Tên đăng nhập hoặc mật khẩu không đúng")
@@ -190,6 +193,9 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+from . import examination  # noqa: E402
+
+app.include_router(examination.router, tags=["Examination workflow"])
 app.include_router(routes_admin.router, prefix="/admin", tags=["Administration"])
 app.include_router(routes_exam.router, tags=["Exams and evidence"])
 app.include_router(stt.router, tags=["Speech to text"])

@@ -1,5 +1,19 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Quy trình khảo thí, Excel và hotword — 05/10/2026
+
+- Bộ API đầy đủ trên SQLite: **70 passed, 5 skipped** (các ca cần PostgreSQL). Migration `0001 → head (0005)` trên database có dữ liệu đạt; dữ liệu thi cũ được giữ nguyên.
+- Sau khi bổ sung kiểm tra liên kết Google cho tài khoản import và Excel formula, chạy lại nhóm workflow/STT/chấm lại bị ảnh hưởng: **27 passed**. Bao gồm 2 ca bổ sung ngoài lượt đầy đủ phía trên.
+- Kiểm tra nghiệp vụ: role khảo thí phải được admin cấp; giảng viên chỉ thao tác đúng môn; chặn bypass publish; duyệt từng bước; lịch được kiểm tra khi tạo và bắt đầu phiên; thành viên môn không tự được vào kỳ thi; import lỗi rollback; nhập lại không nhân đôi; email đăng nhập không phân biệt hoa thường; Google verified identity giữ roster đã nhập.
+- Điểm `0`, `4.99` cần review; `5`, `8` không bị chặn bởi riêng ngưỡng dưới 5. Điểm chấm lại được giữ riêng, có nhận xét/audit và xuất đúng cột `final_score`; các điều kiện review khác như độ tin cậy vẫn áp dụng.
+- STT: kiểm tra hotword môn được cố định trong snapshot, người ngoài không đọc được policy phiên, server chuyển hotword vào Whisper, helper desktop chuyển vocabulary qua tham số `hotwords`. Kiểm thử không tải model hoặc gọi STT/LLM trả phí.
+- Playwright trên web production build với API mô phỏng: **4 ca đạt** — review/lưu/duyệt đề, khảo thí xếp lịch/mở thi, highlight điểm thấp và lưu điểm chính thức, hồi quy review đề/xóa môn.
+- Ruff, ESLint, TypeScript, production build, kiểm tra cú pháp Electron đạt. Python desktop **4 ca đạt**, Node desktop **4 ca đạt**.
+- Chưa chạy bộ Compose E2E đầy đủ, PostgreSQL concurrency, nhà cung cấp AI/STT thật hoặc đo WER hotword. Chưa triển khai/migrate database đang vận hành và chưa đóng gói lại installer desktop.
+
+Xem [hướng dẫn quy trình mới](architecture/examination-workflow.md) và [Excel mẫu](templates/danh-sach-sinh-vien.xlsx).
+
+
 [README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu)
 
 ## Sửa kiểm thử Jenkins sau khi thêm thuật ngữ — 23/09/2026

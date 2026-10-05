@@ -92,23 +92,24 @@ def roles(*allowed):
     return guard
 
 
-staff = roles("ADMIN", "TEACHER", "REVIEWER")
+staff = roles("ADMIN", "TEACHER", "REVIEWER", "EXAM_OFFICER")
 editor = roles("ADMIN", "TEACHER")
 student = roles("STUDENT")
 admin = roles("ADMIN")
+exam_officer = roles("ADMIN", "EXAM_OFFICER")
 
 
 def course_access(db, course_id, user):
     course = db.get(Course, course_id)
     if not course:
         fail(404, "NOT_FOUND", "Không tìm thấy môn học")
-    if user.role not in {"ADMIN", "REVIEWER"} and course.owner_id != user.id:
+    if user.role not in {"ADMIN", "REVIEWER", "EXAM_OFFICER"} and course.owner_id != user.id:
         fail(403, "FORBIDDEN", "Bạn không phụ trách môn học này")
     return course
 
 
 def public_user(user):
-    return {k: getattr(user, k) for k in ("id", "username", "name", "role", "status", "email")}
+    return {k: getattr(user, k) for k in ("id", "username", "name", "role", "status", "email", "requested_role")}
 
 
 def by_id(db, model, key, lock=False):

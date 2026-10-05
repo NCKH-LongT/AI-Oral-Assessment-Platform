@@ -345,7 +345,7 @@ def test_public_grading_state(env, status, score, error, expected):
 
 
 @pytest.mark.parametrize(
-    "score,expected_status", [(None, "REVIEW_REQUIRED"), (0, "COMPLETED"), (7.2, "COMPLETED")]
+    "score,expected_status", [(None, "REVIEW_REQUIRED"), (0, "REVIEW_REQUIRED"), (7.2, "COMPLETED")]
 )
 def test_finalize_requires_actual_score(env, score, expected_status):
     context = prepare(env, 1)
@@ -359,7 +359,8 @@ def test_finalize_requires_actual_score(env, score, expected_status):
         db.flush()
         worker.finalize(db, row)
         assert row.status == expected_status
-        assert row.final_score == score
+        assert row.final_score == (score if expected_status == "COMPLETED" else None)
+        assert row.ai_score == score
 
 
 def test_chunking_and_rubric_validation():

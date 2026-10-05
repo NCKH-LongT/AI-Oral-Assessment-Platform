@@ -233,7 +233,10 @@ app.whenReady().then(async () => {
       !policy ||
       policy.provider !== "local" ||
       !["off", "denoise"].includes(policy.preprocessing) ||
-      !["vi", "en"].includes(policy.language)
+      !["vi", "en"].includes(policy.language) ||
+      (policy.hotwords !== undefined && (!Array.isArray(policy.hotwords) ||
+        policy.hotwords.length > 100 || policy.hotwords.some(word => typeof word !== "string" || word.length > 100) ||
+        policy.hotwords.join("").length > 2000))
     )
       throw new Error("Invalid STT request");
     if (sttBusy) throw new Error("STT đang bận");
@@ -286,6 +289,7 @@ app.whenReady().then(async () => {
                 ),
               HF_HUB_OFFLINE: "1",
               STT_LANGUAGE: policy.language,
+              STT_HOTWORDS: JSON.stringify(policy.hotwords || []),
             },
           },
         );

@@ -11,4 +11,13 @@ function validHotwords(words) {
   );
 }
 
-module.exports = { validHotwords };
+const STT_MODELS = Object.freeze({
+  "phowhisper-small": { label: "PhoWhisper-small", folder: "model" },
+  "whisper-small": { label: "Whisper-small", folder: "whisper-small" },
+});
+
+function validModel(model) {
+  return typeof model === "string" && Object.hasOwn(STT_MODELS, model);
+}
+
+module.exports = { validHotwords, validModel, STT_MODELS };

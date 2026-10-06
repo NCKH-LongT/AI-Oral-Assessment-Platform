@@ -1,6 +1,21 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { validHotwords } = require("../apps/desktop/stt-policy.cjs");
+const { validHotwords, validModel } = require("../apps/desktop/stt-policy.cjs");
+
+test("desktop permits only the two bundled STT model ids", () => {
+  for (const id of ["phowhisper-small", "whisper-small"])
+    assert.equal(validModel(id), true);
+  for (const id of [
+    undefined,
+    null,
+    {},
+    "small.en",
+    "../../model",
+    "toString",
+    "__proto__",
+  ])
+    assert.equal(validModel(id), false);
+});
 
 test("desktop accepts the complete course vocabulary and enforces server limits", () => {
   assert.equal(validHotwords(undefined), true);

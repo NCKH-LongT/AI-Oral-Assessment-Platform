@@ -1,5 +1,13 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Desktop chọn model/ngôn ngữ — 07/10/2026
+
+- Playwright: **8 ca desktop đạt** (4 tổ hợp PhoWhisper-small/Whisper-small × vi/en và 4 ca browser/runtime cũ/model thiếu/preference hỏng); **3 ca cloud STT đạt**. Kiểm tra lựa chọn được giữ sau reload, bị khóa khi ghi, đổi model/ngôn ngữ khi retry, hotword còn nguyên và giữ transcript nếu STT thất bại.
+- Node desktop **6 ca đạt**; Python launcher/helper **4 ca đạt**, trong đó kiểm tra truyền model/ngôn ngữ với ba kiểu mã hóa stdout và từ chối model/ngôn ngữ không hợp lệ. Ruff, ESLint, TypeScript và cú pháp Electron đạt.
+- Runtime đã build lại, `--capabilities` trả protocol 2, hai model, hai ngôn ngữ và hỗ trợ hotword; `--check` nạp thành công cả hai model offline. Kiểm tra bundle đạt.
+- Kiểm thử **Electron thật → preload → IPC → helper đóng gói → model local** đạt với cả bốn tổ hợp, trả transcript không rỗng và metadata đúng model/ngôn ngữ. Dùng file giọng nói mẫu `tests/jfk.flac` của Whisper, profile/trang local riêng; không gọi STT trả phí hoặc thay đổi bài thi thật. Test này kiểm tra đường chạy, không đánh giá độ chính xác tiếng Việt/tiếng Anh xen kẽ.
+- Web production build và Compose local được cập nhật. Chưa đóng gói installer mới hoặc kiểm thử bộ cài trên Windows/macOS; Electron đã mở trước cập nhật cần đóng/mở lại để nhận preload và main process mới.
+
 ## Hotword riêng theo môn và danh sách 200 mục — 06/10/2026
 
 - Bộ API SQLite: **73 passed, 5 skipped** (các ca cần khóa PostgreSQL). Hồi quy xác nhận lưu/đọc 200 và 500 mục, bỏ trùng/dòng trống trước giới hạn, chặn quá 500 mục/100 ký tự mỗi mục/10.000 ký tự tổng cộng mà không ghi đè dữ liệu đã lưu.

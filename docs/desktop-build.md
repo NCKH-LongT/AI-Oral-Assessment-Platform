@@ -13,9 +13,10 @@ Hướng dẫn từng bước chạy lại source, cài đè và build trên Lin
 - Electron tải UI từ server được chọn.
 - Helper `resources/stt/oral-stt/`: Python đóng gói bằng PyInstaller, faster-whisper, CTranslate2, VAD và FFmpeg.
 - Model `resources/stt/model/`: PhoWhisper-small của VinAI, chuyển INT8 bằng CTranslate2; kèm tokenizer, preprocessing config, license và metadata revision.
+- Model `resources/stt/whisper-small/`: Whisper-small đa ngôn ngữ từ `Systran/faster-whisper-small`, trọng số FP16 và runtime CPU INT8; kèm config, tokenizer, vocabulary, license MIT và metadata revision.
 - RNNoise WASM/AudioWorklet được phục vụ cùng UI tại `/audio/`; xử lý âm thanh tại máy học viên, không gửi audio đến dịch vụ lọc nhiễu.
 
-Model PhoWhisper nguồn được khóa revision trong `scripts/build_desktop_stt.py`. Model/binary sinh ra không đưa vào Git. Bộ cài lớn hơn trước vì chứa đầy đủ model STT. Không còn tùy chọn `bundle_stt=false`; `beforePack` từ chối tạo installer thiếu helper/model STT.
+Cả hai model được khóa revision trong `scripts/build_desktop_stt.py`. Model/binary sinh ra không đưa vào Git. Bộ cài lớn hơn vì chứa hai model STT. Không còn tùy chọn `bundle_stt=false`; `beforePack` từ chối tạo installer thiếu helper/model STT. Trên cùng OS, kiểm tra thêm `--capabilities` protocol 2, hai model và hỗ trợ hotword để phát hiện helper cũ ngay cả khi đủ file.
 
 ## Build trên OS/architecture đích
 
@@ -38,19 +39,25 @@ Output ở `apps/desktop/dist`: Windows NSIS `.exe`; Linux `.deb`/AppImage; macO
 
 ## Kiểm tra trước phát hành
 
-Chạy `npm run test:desktop` để kiểm tra quyền media, URL đăng nhập và xử lý đóng app. Desktop không còn runtime sửa chính tả LLM; chỉ đóng gói STT PhoWhisper.
+Chạy `npm run test:desktop` để kiểm tra quyền media, URL đăng nhập, giới hạn hotword, model cho phép và xử lý đóng app. Desktop không có runtime sửa chính tả LLM; đóng gói STT PhoWhisper-small và Whisper-small.
 
-Kiểm thử giao diện: chạy web source rồi `npx playwright test tests/e2e/desktop-stt.spec.ts` (đặt `E2E_BASE_URL` nếu web không ở cổng 3000). Bộ test kiểm tra chọn audio gốc/bản lọc, thử STT lại và sửa transcript bằng tay trước khi nộp; bridge STT được giả lập.
+Kiểm thử giao diện: chạy web source rồi `npx playwright test tests/e2e/desktop-stt.spec.ts tests/e2e/desktop-speech-settings.spec.ts` (đặt `E2E_BASE_URL` nếu web không ở cổng 3000). Kiểm tra bốn tổ hợp model/ngôn ngữ, khóa lựa chọn khi ghi, đổi model khi retry, nhớ sau reload, hotword giữ nguyên, thiếu model/runtime cũ và transcript khi STT lỗi; bridge STT được giả lập.
 
-Script build tự chạy helper `--check` để nạp model cục bộ. Trên Linux, sau khi pack:
+Script build tự chạy helper `--capabilities` và `--check` cho cả hai model. Trên Linux, sau khi pack:
 
 ```bash
 HF_HUB_OFFLINE=1 apps/desktop/dist/linux-unpacked/resources/stt/oral-stt/oral-stt --check
 HF_HUB_OFFLINE=1 apps/desktop/dist/linux-unpacked/resources/stt/oral-stt/oral-stt sample.wav
+ORAL_STT_VARIANT=whisper-small STT_LANGUAGE=en HF_HUB_OFFLINE=1 apps/desktop/dist/linux-unpacked/resources/stt/oral-stt/oral-stt --check
+ORAL_STT_VARIANT=whisper-small STT_LANGUAGE=en HF_HUB_OFFLINE=1 apps/desktop/dist/linux-unpacked/resources/stt/oral-stt/oral-stt sample.wav
 ```
+
+Kiểm thử Electron thực với một file giọng nói ngắn: `ORAL_STT_TEST_AUDIO=/path/to/sample.wav npm run test:desktop-stt`. Test dùng profile và trang local riêng, chạy đủ bốn tổ hợp qua IPC/helper, kiểm tra metadata và transcript không rỗng, không truy cập bài thi thật. Đây là kiểm tra đường chạy, không phải benchmark độ chính xác (đặc biệt nếu ngôn ngữ file mẫu khác lựa chọn).
 
 Thử thêm trên máy sạch không có Python: mở app, ghi mic 10 giây, phát bản gốc/bản lọc, làm một bài thi và xem kết quả. Mất mạng không ảnh hưởng STT cục bộ nhưng app vẫn cần server để lấy đề/nộp bài.
 
 ## Attribution
 
 Model: [VinAI PhoWhisper](https://github.com/VinAIResearch/PhoWhisper), BSD-3-Clause; license nằm trong resources. Engine: [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Noise suppression: [web-noise-suppressor](https://github.com/sapphi-red/web-noise-suppressor), RNNoise qua WebAssembly/AudioWorklet. Các dependency được đóng gói phải giữ license đi kèm.
+
+Whisper-small: [OpenAI Whisper](https://github.com/openai/whisper), MIT; bản CTranslate2 từ [SYSTRAN](https://huggingface.co/Systran/faster-whisper-small). License được lưu trong `WHISPER-LICENSE.txt` và sao chép vào thư mục model khi build.

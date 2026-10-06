@@ -1,32 +1,50 @@
 import { test, expect } from "@playwright/test";
+import type { SpeechPolicy } from "../../apps/admin-web/components/api";
 
-for (const [denoise, filterAvailable] of [
-  [true, true],
-  [false, true],
-  [false, false],
-])
-  test(`desktop retries original/filtered audio with initial denoise=${denoise}, filter=${filterAvailable}`, async ({
+for (const [denoise, filterAvailable, model, language] of [
+  [true, true, "phowhisper-small", "vi"],
+  [false, true, "whisper-small", "en"],
+  [false, false, "whisper-small", "vi"],
+  [true, true, "phowhisper-small", "en"],
+] as const)
+  test(`desktop ${model}/${language} retries audio with denoise=${denoise}, filter=${filterAvailable}`, async ({
     page,
   }) => {
     const transcript =
       "Whisper local supplies this transcript for Gemini grading.";
     const localHashes: string[] = [];
+    const policies: SpeechPolicy[] = [];
     let uploadedAudioHash: string | undefined;
     let submitted: unknown;
     const serverSttCalls: string[] = [];
-    await page.exposeFunction("recordLocalStt", (hash: string) => {
-      localHashes.push(hash);
-      if (!filterAvailable && localHashes.length === 2)
-        throw new Error("STT retry failed");
-    });
+    await page.exposeFunction(
+      "recordLocalStt",
+      (hash: string, policy: SpeechPolicy) => {
+        localHashes.push(hash);
+        policies.push(policy);
+        if (!filterAvailable && localHashes.length === 2)
+          throw new Error("STT retry failed");
+      },
+    );
     await page.addInitScript((transcript) => {
       window.oralDesktop = {
+        sttModels: async () => [
+          {
+            id: "phowhisper-small",
+            label: "PhoWhisper-small",
+            available: true,
+          },
+          { id: "whisper-small", label: "Whisper-small", available: true },
+        ],
         transcribe: async (audio, policy) => {
           if (!audio.byteLength || policy.provider !== "local")
             throw new Error("Expected recorded audio and a local STT policy");
           await (
             window as unknown as {
-              recordLocalStt: (hash: string) => Promise<void>;
+              recordLocalStt: (
+                hash: string,
+                policy: SpeechPolicy,
+              ) => Promise<void>;
             }
           ).recordLocalStt(
             Array.from(
@@ -34,6 +52,7 @@ for (const [denoise, filterAvailable] of [
             )
               .map((x) => x.toString(16).padStart(2, "0"))
               .join(""),
+            policy,
           );
           return { transcript, stt_confidence: 0.99 };
         },
@@ -80,6 +99,7 @@ for (const [denoise, filterAvailable] of [
             provider: "google",
             language: "vi",
             preprocessing: "denoise",
+            hotwords: ["Dependency Injection"],
           },
         });
       if (path === "/api/stt" || path.includes("google")) {
@@ -128,6 +148,17 @@ for (const [denoise, filterAvailable] of [
       await page.route("**/audio/**", (route) => route.abort());
     await page.goto("/");
     await page.getByRole("button", { name: "Mở bài thi" }).click();
+    const modelSelect = page.getByRole("combobox", {
+      name: "Model nhận dạng",
+      exact: true,
+    });
+    const languageSelect = page.getByRole("combobox", {
+      name: "Ngôn ngữ nói",
+      exact: true,
+    });
+    await expect(modelSelect).toBeEnabled();
+    await modelSelect.selectOption(model);
+    await languageSelect.selectOption(language);
     await page.getByRole("button", { name: "Cho phép camera & mic" }).click();
     await page
       .getByRole("slider", { name: "Gain microphone", exact: true })
@@ -151,6 +182,8 @@ for (const [denoise, filterAvailable] of [
       .click();
     // Wait for a real media chunk from Chromium's fake camera/mic.
     await page.waitForTimeout(1200);
+    await expect(modelSelect).toBeDisabled();
+    await expect(languageSelect).toBeDisabled();
     await expect(
       page.getByRole("combobox", { name: "Microphone", exact: true }),
     ).toBeDisabled();
@@ -167,6 +200,17 @@ for (const [denoise, filterAvailable] of [
       transcript,
     );
     const source = page.getByRole("combobox", { name: "Bản ghi dùng cho STT" });
+    expect(policies[0]).toMatchObject({
+      provider: "local",
+      desktop_model: model,
+      language,
+      hotwords: ["Dependency Injection"],
+    });
+    const retryModel =
+      model === "whisper-small" ? "phowhisper-small" : "whisper-small";
+    const retryLanguage = language === "en" ? "vi" : "en";
+    await modelSelect.selectOption(retryModel);
+    await languageSelect.selectOption(retryLanguage);
     await expect(source).toHaveValue(denoise ? "filtered" : "original");
     if (!filterAvailable)
       await expect(source.locator('option[value="filtered"]')).toHaveJSProperty(
@@ -219,4 +263,15 @@ for (const [denoise, filterAvailable] of [
       stt_confidence: denoise ? 0 : 0.99,
     });
     expect(serverSttCalls).toEqual([]);
+    for (const policy of policies.slice(1))
+      expect(policy).toMatchObject({
+        desktop_model: retryModel,
+        language: retryLanguage,
+        hotwords: ["Dependency Injection"],
+      });
+    session.status = "DEVICE_CHECK";
+    await page.reload();
+    await page.getByRole("button", { name: "Mở bài thi" }).click();
+    await expect(modelSelect).toHaveValue(retryModel);
+    await expect(languageSelect).toHaveValue(retryLanguage);
   });

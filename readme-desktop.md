@@ -1,11 +1,13 @@
 # OralAI Desktop
 
+> **07/10/2026:** Desktop chọn trực tiếp tiếng Việt/tiếng Anh và PhoWhisper-small/Whisper-small đa ngôn ngữ. Cần build lại runtime, bổ sung model Whisper-small rồi đóng/mở lại app; không chỉ reload trang. Xem [cách chọn](#chọn-ngôn-ngữ-và-model-nhận-dạng).
+
 > **06/10/2026:** Desktop chỉ nhận hotword của môn thuộc phiên thi, truyền vào PhoWhisper qua `STT_HOTWORDS`; không gộp từ vựng chung. Hỗ trợ tối đa 500 mục, 100 ký tự/mục và 10.000 ký tự tổng cộng. Sau cập nhật cần đóng/mở lại app từ source hoặc đóng gói/cài lại desktop để thay giới hạn cũ 100 mục. Không cần tải lại model STT cho bản sửa này. Sinh viên đăng nhập bằng email trong danh sách Excel và mở **Bài thi của tôi** theo lịch khảo thí. Xem [quy trình mới](docs/architecture/examination-workflow.md).
 
 
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
 
-Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg và **PhoWhisper-small INT8**. Nhận dạng chạy trên CPU của máy học viên, không cần cài Python riêng hoặc tải thêm model STT. LLM chấm bài chạy trên server.
+Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg, **PhoWhisper-small** và **Whisper-small đa ngôn ngữ**. Cả hai nhận dạng cục bộ bằng CPU INT8; không cần cài Python riêng hoặc tải thêm model STT trên máy học viên. LLM chấm bài chạy trên server.
 
 Đi nhanh: [chọn server](#đổi-url-máy-chủ-khi-chạy-hoặc-build) · [kiểm tra mic](#kiểm-tra-mic-trước-khi-thi) · [làm bài](#khi-làm-bài) · [kiểm tra transcript](docs/transcript-correction.md) · [build và cập nhật](#build-bộ-cài-và-chạy-lại) · [xử lý lỗi](#xử-lý-lỗi).
 
@@ -162,13 +164,25 @@ Bản kiểm tra chỉ giữ tạm trong bộ nhớ; kiểm tra lại hoặc r�
 ## Khi làm bài
 
 - App giữ riêng audio/video gốc và audio dùng STT. RNNoise xử lý theo thời gian thực ở 48 kHz; trước PhoWhisper chỉ chuyển về WAV mono 16 kHz, không lọc FFmpeg lần nữa.
-- Khi dừng ghi, PhoWhisper nhận dạng local. Bạn xem lại transcript, sau đó gửi transcript và media gốc lên server.
+- Khi dừng ghi, model và ngôn ngữ bạn chọn nhận dạng local. Bạn xem lại transcript, sau đó gửi transcript và media gốc lên server.
 - Muốn nhận dạng lại: chọn **Bản ghi dùng cho STT → Bản gốc / Bản giảm nhiễu RNNoise**, rồi bấm **Thử STT lại**. Lựa chọn chỉ thay đầu vào STT, không đổi media minh chứng. Nếu bộ lọc lỗi lúc ghi, lựa chọn bản giảm nhiễu bị khóa; bản gốc vẫn dùng được. Lỗi STT giữ transcript hiện tại.
 - Worker chấm text bằng Gemini hoặc Ollama theo cấu hình đề; app cập nhật kết quả định kỳ. Đừng đóng app trước khi upload và nộp bài hoàn tất.
-- Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Ngôn ngữ vẫn lấy từ cấu hình server.
-- PhoWhisper-small được tinh chỉnh cho tiếng Việt. Có thể chọn tiếng Anh trong policy nhưng chưa benchmark chất lượng; đề tiếng Việt là mục tiêu chính.
+- Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Desktop dùng ngôn ngữ đã chọn trong màn hình làm bài; web vẫn dùng cấu hình server.
+- PhoWhisper-small được tinh chỉnh cho tiếng Việt. Có thể chọn tiếng Anh trên desktop; chưa benchmark chất lượng tiếng Anh/câu xen ngôn ngữ.
 
-App chưa hiện transcript trực tiếp khi đang nói. Với câu Việt xen tiếng Anh, nghe lại và kiểm tra thuật ngữ trước khi nộp. Gợi ý tiếng Anh do admin thấy khi sinh câu hỏi hiện chưa được truyền vào STT.
+App chưa hiện transcript trực tiếp khi đang nói. Với câu Việt xen tiếng Anh, nghe lại và kiểm tra thuật ngữ trước khi nộp. Gợi ý tiếng Anh do admin thấy khi sinh câu hỏi không tự trở thành hotword; STT chỉ dùng bảng từ vựng môn đã cấu hình.
+
+## Chọn ngôn ngữ và model nhận dạng
+
+Mở bài thi trên desktop. Phía trên phần kiểm tra thiết bị/câu hỏi có **Nhận dạng giọng nói trên desktop**:
+
+1. Chọn **Ngôn ngữ nói: Tiếng Việt hoặc Tiếng Anh**. Đây là ngôn ngữ âm thanh, không phải ngôn ngữ muốn dịch sang.
+2. Chọn **Model nhận dạng: PhoWhisper-small hoặc Whisper-small (đa ngôn ngữ)**. PhoWhisper được tinh chỉnh cho tiếng Việt; Whisper-small là bản đa ngôn ngữ, không phải `small.en`. Có thể thử cả hai với tiếng Việt hoặc tiếng Anh; chất lượng cần đối chiếu với bản ghi thực tế.
+3. Thu câu trả lời như bình thường. Muốn đổi cho bản ghi đã thu, chọn lại rồi bấm **Thử STT lại**. Bản ghi và transcript hiện tại được giữ khi đổi lựa chọn; transcript chỉ đổi khi nhận dạng lại thành công.
+
+App nhớ lựa chọn bằng bộ nhớ trình duyệt của profile desktop, riêng theo origin máy chủ (profile dev cổng 3001 cũng riêng). Mặc định là **Tiếng Việt + PhoWhisper-small**. Hai ô bị khóa khi đang ghi, nhận dạng hoặc nộp; lựa chọn không sửa cấu hình STT chung trên server và không đổi hotword môn/phiên thi. Trình duyệt web không hiển thị hai ô này.
+
+Nếu model ghi **chưa cài**, chọn model còn sẵn hoặc cài lại bộ OralAI đầy đủ. Nếu báo runtime cũ/không hỗ trợ lựa chọn, build lại `scripts/build_desktop_stt.py` và đóng/mở lại desktop; với bộ cài phải đóng gói/cài bản mới. Model chạy offline, không tải trong lúc thi. Hotword vẫn bị giới hạn ngữ cảnh gợi ý của Whisper; chọn model không đảm bảo mọi thuật ngữ sẽ đúng.
 
 ## Làm lại bài thi
 
@@ -207,7 +221,7 @@ Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
 npm run desktop
 ```
 
-Bước build cần mạng để tải model VinAI và thư viện; bước chạy helper không cần mạng. Source desktop tự dùng helper đã build. `ORAL_PYTHON` chỉ dùng để debug bằng Python ngoài; `ORAL_STT_MODEL` có thể trỏ tới thư mục model CTranslate2 đã chuẩn bị. `STT_MODEL` trên server không thay model kèm desktop.
+Bước build cần mạng để tải PhoWhisper, Whisper-small và thư viện; bước chạy helper không cần mạng. Source desktop tự dùng helper đã build. `ORAL_PYTHON` chỉ dùng để debug bằng Python ngoài; `ORAL_STT_MODEL` trỏ thư mục PhoWhisper; `ORAL_WHISPER_MODEL` trỏ thư mục Whisper-small nếu cần đường dẫn tùy chỉnh. Khi chạy helper trực tiếp, `ORAL_STT_VARIANT=phowhisper-small|whisper-small` chọn model, `STT_LANGUAGE=vi|en` chọn ngôn ngữ; `ORAL_STT_MODEL` của helper trực tiếp là đường dẫn model đang chọn. `STT_MODEL` trên server không thay model kèm desktop.
 
 Để dùng giao diện đang phát triển trên Linux/macOS, giữ server đang chạy rồi dùng `./run-desktop.sh --server http://localhost:3000`. Script tự mở giao diện tại cổng 3001 và cấu hình kết nối API; xem [một lệnh mở app từ code mới](#một-lệnh-mở-app-từ-code-mới--linuxmacos).
 

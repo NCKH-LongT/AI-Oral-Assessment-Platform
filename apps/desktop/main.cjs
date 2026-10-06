@@ -7,7 +7,8 @@ const {
   dialog,
   shell,
 } = require("electron");
-const { spawn } = require("node:child_process");
+const { spawn, execFile } = require("node:child_process");
+const { promisify } = require("node:util");
 const {
   mkdtemp,
   writeFile,
@@ -20,7 +21,72 @@ const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
 const { installUnloadGuard } = require("./unload-guard.cjs");
-const { validHotwords } = require("./stt-policy.cjs");
+const { validHotwords, validModel, STT_MODELS } = require("./stt-policy.cjs");
+const runFile = promisify(execFile);
+
+function sttRoot() {
+  return path.join(
+    app.isPackaged ? process.resourcesPath : path.join(__dirname, "resources"),
+    "stt",
+  );
+}
+function sttModelPath(model) {
+  return (
+    (model === "phowhisper-small"
+      ? process.env.ORAL_STT_MODEL
+      : process.env.ORAL_WHISPER_MODEL) ||
+    path.join(sttRoot(), STT_MODELS[model].folder)
+  );
+}
+function sttCommand() {
+  const bundled = path.join(
+    sttRoot(),
+    "oral-stt",
+    process.platform === "win32" ? "oral-stt.exe" : "oral-stt",
+  );
+  if (existsSync(bundled) && !process.env.ORAL_PYTHON)
+    return { command: bundled, args: [], bundled: true };
+  if (app.isPackaged && !process.env.ORAL_PYTHON)
+    throw new Error("Bộ cài thiếu STT local. Cài lại OralAI đầy đủ.");
+  return {
+    command:
+      process.env.ORAL_PYTHON ||
+      (process.platform === "win32" ? "python" : "python3"),
+    args: [
+      app.isPackaged
+        ? path.join(process.resourcesPath, "python", "transcribe.py")
+        : path.join(__dirname, "transcribe.py"),
+    ],
+    bundled: false,
+  };
+}
+async function checkSttRuntime() {
+  const helper = sttCommand();
+  try {
+    const { stdout } = await runFile(
+      helper.command,
+      [...helper.args, "--capabilities"],
+      { timeout: 15000, windowsHide: true },
+    );
+    const capabilities = JSON.parse(stdout);
+    if (
+      capabilities.protocol !== 2 ||
+      !capabilities.hotwords ||
+      !Object.keys(STT_MODELS).every((key) =>
+        capabilities.models?.includes(key),
+      ) ||
+      !["vi", "en"].every((language) =>
+        capabilities.languages?.includes(language),
+      )
+    )
+      throw new Error("Old runtime");
+  } catch {
+    throw new Error(
+      "Bộ STT local chưa hỗ trợ chọn model/ngôn ngữ. Build lại runtime STT hoặc cài bản OralAI mới.",
+    );
+  }
+  return helper;
+}
 const {
   DEFAULT_URL,
   normalizeServerURL,
@@ -224,6 +290,20 @@ app.whenReady().then(async () => {
       throw new Error("Forbidden");
     await shell.openExternal(googleLoginURL(value, authOrigin));
   });
+  ipcMain.handle("oral:stt-models", async (event) => {
+    if (
+      event.sender !== win.webContents ||
+      !event.senderFrame ||
+      new URL(event.senderFrame.url).origin !== webURL.origin
+    )
+      throw new Error("Forbidden");
+    await checkSttRuntime();
+    return Object.entries(STT_MODELS).map(([id, model]) => ({
+      id,
+      label: model.label,
+      available: existsSync(path.join(sttModelPath(id), "model.bin")),
+    }));
+  });
   ipcMain.handle("oral:transcribe", async (event, buffer, policy) => {
     if (
       !event.senderFrame ||
@@ -235,6 +315,8 @@ app.whenReady().then(async () => {
       policy.provider !== "local" ||
       !["off", "denoise"].includes(policy.preprocessing) ||
       !["vi", "en"].includes(policy.language) ||
+      (policy.desktop_model !== undefined &&
+        !validModel(policy.desktop_model)) ||
       !validHotwords(policy.hotwords)
     )
       throw new Error("Invalid STT request");
@@ -242,56 +324,29 @@ app.whenReady().then(async () => {
     sttBusy = true;
     let folder;
     try {
+      const selected = policy.desktop_model || "phowhisper-small";
+      const modelPath = sttModelPath(selected);
+      if (!existsSync(path.join(modelPath, "model.bin")))
+        throw new Error(
+          `Chưa có model ${STT_MODELS[selected].label} trên máy. Cài bộ OralAI đầy đủ hoặc build lại tài nguyên STT.`,
+        );
+      const helper = await checkSttRuntime();
       folder = await mkdtemp(path.join(tmpdir(), "oral-stt-"));
       const audioPath = path.join(folder, "answer.webm");
       await writeFile(audioPath, Buffer.from(buffer), { mode: 0o600 });
       return await new Promise((resolve, reject) => {
-        const bundled = path.join(
-          app.isPackaged
-            ? process.resourcesPath
-            : path.join(__dirname, "resources"),
-          "stt",
-          "oral-stt",
-          process.platform === "win32" ? "oral-stt.exe" : "oral-stt",
-        );
-        const pythonScript = app.isPackaged
-          ? path.join(process.resourcesPath, "python", "transcribe.py")
-          : path.join(__dirname, "transcribe.py");
-        const useBundle = existsSync(bundled) && !process.env.ORAL_PYTHON;
-        if (app.isPackaged && !useBundle && !process.env.ORAL_PYTHON) {
-          reject(
-            new Error(
-              "Bộ cài thiếu STT local. Cài lại bản OralAI đầy đủ có PhoWhisper.",
-            ),
-          );
-          return;
-        }
-        const child = spawn(
-          useBundle
-            ? bundled
-            : process.env.ORAL_PYTHON ||
-                (process.platform === "win32" ? "python" : "python3"),
-          useBundle ? [audioPath] : [pythonScript, audioPath],
-          {
-            shell: false,
-            windowsHide: true,
-            env: {
-              ...process.env,
-              ORAL_STT_MODEL:
-                process.env.ORAL_STT_MODEL ||
-                path.join(
-                  app.isPackaged
-                    ? process.resourcesPath
-                    : path.join(__dirname, "resources"),
-                  "stt",
-                  "model",
-                ),
-              HF_HUB_OFFLINE: "1",
-              STT_LANGUAGE: policy.language,
-              STT_HOTWORDS: JSON.stringify(policy.hotwords || []),
-            },
+        const child = spawn(helper.command, [...helper.args, audioPath], {
+          shell: false,
+          windowsHide: true,
+          env: {
+            ...process.env,
+            ORAL_STT_MODEL: modelPath,
+            ORAL_STT_VARIANT: selected,
+            HF_HUB_OFFLINE: "1",
+            STT_LANGUAGE: policy.language,
+            STT_HOTWORDS: JSON.stringify(policy.hotwords || []),
           },
-        );
+        });
         sttChild = child;
         let output = "",
           error = "";
@@ -315,7 +370,7 @@ app.whenReady().then(async () => {
           clearTimeout(timer);
           reject(
             new Error(
-              useBundle
+              helper.bundled
                 ? "Không khởi động được STT local. Cài lại bộ OralAI đầy đủ."
                 : "Không tìm thấy Python. Kiểm tra ORAL_PYTHON.",
             ),

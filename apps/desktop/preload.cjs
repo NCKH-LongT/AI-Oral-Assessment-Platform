@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld(
   Object.freeze({
     openGoogle: (url) => ipcRenderer.invoke("oral:google", url),
     quit: () => ipcRenderer.invoke("oral:quit"),
+    sttModels: () => ipcRenderer.invoke("oral:stt-models"),
     transcribe: (audio, policy) =>
       ipcRenderer.invoke("oral:transcribe", audio, policy),
   }),

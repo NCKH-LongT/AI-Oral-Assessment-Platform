@@ -20,6 +20,7 @@ import {
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
 import NoiseCheck from "./noise-check";
+import DesktopSpeechSettings, { useDesktopSpeech, type DesktopModel } from "./desktop-speech-settings";
 import { createNoiseFilter, type NoiseFilter } from "../lib/noise-filter";
 import {
   createMicrophoneGain,
@@ -33,6 +34,7 @@ declare global {
     oralDesktop?: {
       openGoogle?: (url: string) => Promise<void>;
       quit?: () => Promise<void>;
+      sttModels?: () => Promise<DesktopModel[]>;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
     };
   }
@@ -72,6 +74,7 @@ const mime = (kind: "audio" | "video") =>
   ).find((t) => MediaRecorder.isTypeSupported(t));
 
 export default function Student() {
+  const desktopSpeech = useDesktopSpeech();
   const [courseFilter, setCourseFilter] = useState("");
   const [exams, setExams] = useState<StudentExam[]>([]),
     [session, setSession] = useState<ExamSession | null>(null),
@@ -381,6 +384,10 @@ export default function Student() {
       ...savedPolicy,
       provider: window.oralDesktop ? "local" : savedPolicy.provider,
       preprocessing: "off",
+      ...(window.oralDesktop ? {
+        language: desktopSpeech.preferences.language,
+        desktop_model: desktopSpeech.preferences.model,
+      } : {}),
     };
     const providerLabel = {
       local: "Whisper trên máy của bạn",
@@ -388,14 +395,20 @@ export default function Student() {
       gemini: "Gemini",
       local_server: "Whisper trên server",
     }[policy.provider];
+    const label = window.oralDesktop
+      ? `${desktopSpeech.preferences.model === "whisper-small" ? "Whisper-small" : "PhoWhisper-small"} · ${policy.language === "en" ? "Tiếng Anh" : "Tiếng Việt"}`
+      : providerLabel;
     setSpeechStage(
-      `${policy.preprocessing === "denoise" ? "Đang lọc nhiễu và nhận dạng" : "Đang nhận dạng"} bằng ${providerLabel}. Vui lòng đợi…`,
+      `${policy.preprocessing === "denoise" ? "Đang lọc nhiễu và nhận dạng" : "Đang nhận dạng"} bằng ${label}. Vui lòng đợi…`,
     );
     if (policy.provider === "local") {
       if (!window.oralDesktop)
         throw new Error(
           "Admin chọn STT local. Vui lòng dùng ứng dụng desktop để nhận dạng.",
         );
+      if (!desktopSpeech.ready) throw new Error(desktopSpeech.error || "Đang kiểm tra bộ nhận dạng trên máy. Vui lòng thử lại.");
+      if (!desktopSpeech.models.some(model => model.id === policy.desktop_model && model.available))
+        throw new Error("Model đã chọn chưa có trên máy. Chọn model đã cài hoặc cập nhật bộ OralAI đầy đủ.");
       return window.oralDesktop.transcribe(await audio.arrayBuffer(), policy);
     }
     const form = new FormData();
@@ -847,6 +860,7 @@ export default function Student() {
       ) : (
         <div className="exam-grid">
           <section className="panel question-panel">
+            <DesktopSpeechSettings settings={desktopSpeech} disabled={recording || startingRecording || processing || submitting} />
             {session.status === "DEVICE_CHECK" ? (
               <>
                 <span className="eyebrow">TRƯỚC KHI BẮT ĐẦU</span>

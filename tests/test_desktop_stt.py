@@ -2,6 +2,7 @@
 
 import importlib.util
 import io
+import itertools
 import json
 import os
 import sys
@@ -42,8 +43,10 @@ class DesktopSTTOutputTests(unittest.TestCase):
         ):
             spec.loader.exec_module(helper)
 
-        for encoding in ("cp1252", "ascii", "utf-8"):
-            with self.subTest(encoding=encoding):
+        for encoding, variant, language in itertools.product(
+            ("cp1252", "ascii", "utf-8"), ("phowhisper-small", "whisper-small"), ("vi", "en")
+        ):
+            with self.subTest(encoding=encoding, variant=variant, language=language):
                 transcript = "Đây là câu trả lời tiếng Việt: kiểm thử phần mềm."
                 hotwords = [f"Thuật ngữ chuyên ngành {i}" for i in range(200)]
                 whisper.WhisperModel.return_value.transcribe.return_value = (
@@ -55,21 +58,36 @@ class DesktopSTTOutputTests(unittest.TestCase):
                     raw, encoding=encoding, errors="strict"
                 ) as stdout:
                     with (
-                        patch.dict(os.environ, {"STT_HOTWORDS": json.dumps(hotwords)}),
+                        patch.dict(os.environ, {"STT_HOTWORDS": json.dumps(hotwords), "ORAL_STT_VARIANT": variant, "STT_LANGUAGE": language}),
                         patch.object(sys, "stdout", stdout),
                         patch.object(sys, "argv", ["transcribe.py", "answer.webm"]),
                         patch.object(helper, "model_path", return_value=Path("model")),
                     ):
                         helper.main()
                         self.assertEqual(whisper.WhisperModel.return_value.transcribe.call_args.kwargs["hotwords"], ", ".join(hotwords))
+                        self.assertEqual(whisper.WhisperModel.return_value.transcribe.call_args.kwargs["language"], language)
+                        self.assertEqual(whisper.WhisperModel.return_value.transcribe.call_args.kwargs["task"], "transcribe")
                     stdout.flush()
                     # Match Electron's UTF-8 decoding of stdout and JSON.parse.
                     result = json.loads(raw.getvalue().decode("utf-8"))
                 self.assertEqual(result["transcript"], transcript)
                 self.assertEqual(result["provider"], "local")
+                self.assertEqual(result["model"], "Whisper-small" if variant == "whisper-small" else "PhoWhisper-small")
+                self.assertEqual(result["language"], language)
                 self.assertEqual(result["stt_confidence"], 0.8187)
                 for key, value in metadata.items():
                     self.assertEqual(result[key], value)
+
+        with (
+            patch.dict(os.environ, {"ORAL_STT_VARIANT": "../../arbitrary"}),
+            self.assertRaisesRegex(ValueError, "Unsupported desktop STT model"),
+        ):
+            helper.main()
+        with (
+            patch.dict(os.environ, {"STT_LANGUAGE": "invalid"}),
+            self.assertRaisesRegex(ValueError, "Unsupported desktop STT language"),
+        ):
+            helper.main()
 
 
 if __name__ == "__main__":

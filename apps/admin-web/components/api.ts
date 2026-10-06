@@ -74,6 +74,7 @@ export type Chapter = {
   source: string;
 };
 export type SpeechPolicy = {
+  desktop_model?: "phowhisper-small" | "whisper-small";
   hotwords?: string[];
   provider: "local" | "google" | "gemini" | "local_server";
   preprocessing: "off" | "denoise";

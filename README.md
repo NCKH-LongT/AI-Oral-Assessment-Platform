@@ -1,5 +1,11 @@
 # OralAI — Thi vấn đáp
 
+## Desktop chọn ngôn ngữ và model — 07/10/2026
+
+Mở bài thi trên desktop, tại **Nhận dạng giọng nói trên desktop** chọn **Tiếng Việt / Tiếng Anh** và **PhoWhisper-small / Whisper-small (đa ngôn ngữ)**. Lựa chọn được nhớ trên thiết bị cho máy chủ hiện tại, áp dụng cả khi ghi mới và **Thử STT lại**. Không đổi giữa lúc ghi/nhận dạng/nộp bài. Hotword vẫn lấy từ đúng môn/phiên thi; lựa chọn trên desktop không thay cấu hình STT của trình duyệt web.
+
+Cần build lại runtime và bổ sung model Whisper-small bằng `python scripts/build_desktop_stt.py`, rồi mở lại Electron hoặc đóng gói lại bộ cài. Launcher/bộ cài kiểm tra đủ hai model và khả năng của helper; runtime cũ không được âm thầm bỏ qua lựa chọn. Máy học viên dùng bộ cài đầy đủ không phải tự tải model. Xem [hướng dẫn desktop](readme-desktop.md#chọn-ngôn-ngữ-và-model-nhận-dạng).
+
 ## Hotword riêng theo môn — 06/10/2026
 
 Vào **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học** để lưu từ vựng riêng cho môn đó. Hỗ trợ tối đa **500 thuật ngữ**, **100 ký tự/mục**, **10.000 ký tự tổng cộng**; danh sách 200 mục không còn bị giới hạn 100 mục. Dòng trống và mục trùng được loại trước khi tính giới hạn. Web hiển thị số mục/ký tự và báo lỗi trước khi lưu.
@@ -18,7 +24,7 @@ Vào **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotwo
 - Cần migration **0005**, dependency Excel mới và build lại desktop để nhận hotword. Xem hướng dẫn triển khai trong tài liệu trên.
 
 
-Desktop ghi audio/video, lọc nhiễu RNNoise và nhận dạng **PhoWhisper-small cục bộ**. Server nhận media gốc + transcript, chấm theo rubric/RAG bằng **Ollama local hoặc Gemini**, rồi trả kết quả cho app.
+Desktop ghi audio/video, lọc nhiễu RNNoise và nhận dạng **PhoWhisper-small hoặc Whisper-small cục bộ**. Server nhận media gốc + transcript, chấm theo rubric/RAG bằng **Ollama local hoặc Gemini**, rồi trả kết quả cho app.
 
 ## Hướng dẫn theo nhu cầu
 
@@ -97,7 +103,7 @@ docker compose up -d --no-deps --force-recreate api worker
 
 Đang sửa source trên Linux/macOS: chạy **`./run-desktop.sh`**. Script chỉ mở UI dev cổng 3001 và Electron, dùng server bạn đã chạy tại localhost:3000; không gọi Docker. Sửa giao diện tự cập nhật. Cần bundle STT đã build; xem [hướng dẫn](readme-desktop.md).
 
-Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small INT8, runtime STT và FFmpeg**; máy học viên không cần Python hoặc tải thêm model để nhận dạng. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
+Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small, Whisper-small đa ngôn ngữ, runtime STT và FFmpeg**; cả hai chạy CPU INT8. Máy học viên không cần Python hoặc tải thêm model để nhận dạng. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
 
 1. Chọn server tại **OralAI → Cấu hình máy chủ…**.
 2. Mở bài, cấp quyền và chọn microphone/camera trong danh sách **Chọn thiết bị**.

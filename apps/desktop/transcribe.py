@@ -1,4 +1,4 @@
-"""Offline PhoWhisper helper. The installer includes runtime and model weights."""
+"""Offline Vietnamese/English STT with bundled PhoWhisper-small or Whisper-small."""
 
 import json
 import math
@@ -16,27 +16,48 @@ except ModuleNotFoundError:
     from audio_processing import prepare_audio
 
 
+MODELS = {
+    "phowhisper-small": ("PhoWhisper-small", "model"),
+    "whisper-small": ("Whisper-small", "whisper-small"),
+}
+
+
+def selected_model():
+    key = os.getenv("ORAL_STT_VARIANT", "phowhisper-small")
+    if key not in MODELS:
+        raise ValueError("Unsupported desktop STT model")
+    return key
+
+
 def model_path():
+    folder = MODELS[selected_model()][1]
     default = (
-        Path(sys.executable).parent.parent / "model"
+        Path(sys.executable).parent.parent / folder
         if getattr(sys, "frozen", False)
-        else Path(__file__).parent / "resources" / "stt" / "model"
+        else Path(__file__).parent / "resources" / "stt" / folder
     )
     path = Path(os.getenv("ORAL_STT_MODEL", str(default)))
     if not (path / "model.bin").is_file():
         raise FileNotFoundError(
-            "Missing bundled PhoWhisper model. Reinstall the full desktop package."
+            "Missing selected STT model. Reinstall the full desktop package."
         )
     return path
 
 
 def main():
+    if sys.argv[1:] == ["--capabilities"]:
+        print(json.dumps({"protocol": 2, "models": list(MODELS), "languages": ["vi", "en"], "hotwords": True}))
+        return
+    label = MODELS[selected_model()][0]
+    language = os.getenv("STT_LANGUAGE", "vi")
+    if language not in {"vi", "en"}:
+        raise ValueError("Unsupported desktop STT language")
     path = model_path()
     model = WhisperModel(
         str(path), device="cpu", compute_type="int8", local_files_only=True
     )
     if sys.argv[1:] == ["--check"]:
-        print(json.dumps({"ready": True, "model": "PhoWhisper-small", "offline": True}))
+        print(json.dumps({"ready": True, "model": label, "language": language, "offline": True}))
         return
     with tempfile.TemporaryDirectory(prefix="oral-desktop-stt-") as folder:
         clean = Path(folder) / "speech.wav"
@@ -44,7 +65,7 @@ def main():
         metadata = prepare_audio(Path(sys.argv[1]), clean, "off")
         segments, _ = model.transcribe(
             str(clean),
-            language=os.getenv("STT_LANGUAGE", "vi"),
+            language=language,
             task="transcribe",
             vad_filter=True,
             beam_size=5,
@@ -62,7 +83,8 @@ def main():
                 "transcript": text,
                 "stt_confidence": round(confidence, 4),
                 "provider": "local",
-                "model": "PhoWhisper-small",
+                "model": label,
+                "language": language,
                 **metadata,
             },
             # Electron reads a pipe, which defaults to an ANSI code page on

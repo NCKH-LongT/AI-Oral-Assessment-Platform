@@ -30,9 +30,9 @@ export default function SpeechSettings() {
     <section className="panel">
       <h1>Cấu hình giọng nói</h1>
       <p>
-        Desktop luôn dùng PhoWhisper-small cục bộ kèm bộ cài. Người dùng bật/tắt
-        RNNoise và nghe thử mic trước khi thi. Server nhận media gốc và
-        transcript để chấm.
+        Desktop chọn PhoWhisper-small hoặc Whisper-small và ngôn ngữ ngay trong
+        màn hình làm bài, nhận dạng cục bộ. Người dùng bật/tắt RNNoise và nghe
+        thử mic trước khi thi. Server nhận media gốc và transcript để chấm.
       </p>
       <Form
         label="Lưu cấu hình STT"
@@ -87,6 +87,10 @@ export default function SpeechSettings() {
             <option value="en">Tiếng Anh</option>
           </select>
         </label>
+        <p>
+          Ngôn ngữ ở đây áp dụng cho trình duyệt web. Desktop chọn ngôn ngữ
+          riêng trong màn hình làm bài.
+        </p>
         <p>
           Hotword được lưu riêng cho từng môn. Vào Môn học &amp; đề thi → chọn
           môn → Bài thi &amp; giao bài → Hotword STT của môn học để chỉnh sửa.

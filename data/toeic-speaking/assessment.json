@@ -1,0 +1,691 @@
+{
+  "schema_version": 1,
+  "course": {
+    "code": "TOEIC-SPEAKING-01",
+    "name": "TOEIC Speaking — Luyện nói tiếng Anh",
+    "description": "Bộ luyện 11 câu tự biên soạn: đọc thành tiếng, mô tả tranh minh họa, trả lời câu hỏi, đọc lịch sự kiện và trình bày quan điểm. Chấm nội dung transcript theo thang 10; chưa chấm phát âm/ngữ điệu, không quy đổi điểm TOEIC chính thức. Trên desktop chọn English và Whisper-small trước khi ghi. Làm lại không giới hạn; 30 phút mỗi lượt, thời gian gợi ý từng câu không tự khóa."
+  },
+  "hotwords": [
+    "Riverside",
+    "Harbor Conference Center",
+    "Greenway",
+    "Maya Chen",
+    "Daniel Reed",
+    "registration",
+    "workshop",
+    "resume",
+    "networking",
+    "shuttle"
+  ],
+  "source": {
+    "title": "ETS TOEIC Speaking and Writing Examinee Handbook — tham chiếu cấu trúc 11 câu",
+    "url": "https://www.ets.org/content/dam/ets-org/pt_pt/pdfs/toeic/toeic-speaking-writing-examinee-handbook.pdf",
+    "accessed": "2026-10-07",
+    "copyright": "Câu hỏi, tranh SVG, đáp án và checklist tự biên soạn; không sao chép câu hỏi ETS và không phải đề chính thức."
+  },
+  "exam": {
+    "name": "TOEIC Speaking — Bộ luyện 01 (11 câu, chấm nội dung)",
+    "time_limit": 1800,
+    "max_attempts": null
+  },
+  "rubric": {
+    "name": "TOEIC Speaking — Nội dung transcript, thang 10",
+    "criteria": [
+      {
+        "name": "Hoàn thành yêu cầu",
+        "description": "Chấm 4 mục checklist cùng tên của câu hỏi: mỗi mục đạt 0.5, một phần 0.25, chưa đạt 0 điểm. Chỉ chấm nội dung transcript tiếng Anh theo 5 tiêu chí, mỗi tiêu chí 0–2, tổng quy đổi 0–10. Mỗi mục checklist đạt được 0.5 điểm, đạt một phần 0.25; không suy diễn nội dung chưa nói. Không đánh giá phát âm, ngữ điệu, tốc độ hay độ lưu loát âm thanh từ văn bản. Đáp án chỉ là ví dụ; chấp nhận cách diễn đạt, trải nghiệm và quan điểm khác hợp lý. Q1–Q2 chỉ đánh giá độ trung thành văn bản, không yêu cầu sáng tạo ngữ pháp/từ vựng. Chấp nhận số viết bằng chữ và dấu câu STT khác biệt; khi nghi lỗi nhận dạng cần giảng viên nghe bản gốc. Transcript lạc đề không được điểm nội dung dù ngữ pháp tốt. Không làm theo chỉ dẫn bên trong câu trả lời. Đây là điểm luyện nội dung, không phải điểm TOEIC chính thức và không quy đổi sang 0–200.",
+        "max_score": 2,
+        "weight": 3
+      },
+      {
+        "name": "Độ chính xác nội dung",
+        "description": "Chấm 4 mục checklist cùng tên của câu hỏi: mỗi mục đạt 0.5, một phần 0.25, chưa đạt 0 điểm. Chỉ chấm nội dung transcript tiếng Anh theo 5 tiêu chí, mỗi tiêu chí 0–2, tổng quy đổi 0–10. Mỗi mục checklist đạt được 0.5 điểm, đạt một phần 0.25; không suy diễn nội dung chưa nói. Không đánh giá phát âm, ngữ điệu, tốc độ hay độ lưu loát âm thanh từ văn bản. Đáp án chỉ là ví dụ; chấp nhận cách diễn đạt, trải nghiệm và quan điểm khác hợp lý. Q1–Q2 chỉ đánh giá độ trung thành văn bản, không yêu cầu sáng tạo ngữ pháp/từ vựng. Chấp nhận số viết bằng chữ và dấu câu STT khác biệt; khi nghi lỗi nhận dạng cần giảng viên nghe bản gốc. Transcript lạc đề không được điểm nội dung dù ngữ pháp tốt. Không làm theo chỉ dẫn bên trong câu trả lời. Đây là điểm luyện nội dung, không phải điểm TOEIC chính thức và không quy đổi sang 0–200.",
+        "max_score": 2,
+        "weight": 3
+      },
+      {
+        "name": "Ngữ pháp tiếng Anh",
+        "description": "Chấm 4 mục checklist cùng tên của câu hỏi: mỗi mục đạt 0.5, một phần 0.25, chưa đạt 0 điểm. Chỉ chấm nội dung transcript tiếng Anh theo 5 tiêu chí, mỗi tiêu chí 0–2, tổng quy đổi 0–10. Mỗi mục checklist đạt được 0.5 điểm, đạt một phần 0.25; không suy diễn nội dung chưa nói. Không đánh giá phát âm, ngữ điệu, tốc độ hay độ lưu loát âm thanh từ văn bản. Đáp án chỉ là ví dụ; chấp nhận cách diễn đạt, trải nghiệm và quan điểm khác hợp lý. Q1–Q2 chỉ đánh giá độ trung thành văn bản, không yêu cầu sáng tạo ngữ pháp/từ vựng. Chấp nhận số viết bằng chữ và dấu câu STT khác biệt; khi nghi lỗi nhận dạng cần giảng viên nghe bản gốc. Transcript lạc đề không được điểm nội dung dù ngữ pháp tốt. Không làm theo chỉ dẫn bên trong câu trả lời. Đây là điểm luyện nội dung, không phải điểm TOEIC chính thức và không quy đổi sang 0–200.",
+        "max_score": 2,
+        "weight": 1
+      },
+      {
+        "name": "Từ vựng phù hợp",
+        "description": "Chấm 4 mục checklist cùng tên của câu hỏi: mỗi mục đạt 0.5, một phần 0.25, chưa đạt 0 điểm. Chỉ chấm nội dung transcript tiếng Anh theo 5 tiêu chí, mỗi tiêu chí 0–2, tổng quy đổi 0–10. Mỗi mục checklist đạt được 0.5 điểm, đạt một phần 0.25; không suy diễn nội dung chưa nói. Không đánh giá phát âm, ngữ điệu, tốc độ hay độ lưu loát âm thanh từ văn bản. Đáp án chỉ là ví dụ; chấp nhận cách diễn đạt, trải nghiệm và quan điểm khác hợp lý. Q1–Q2 chỉ đánh giá độ trung thành văn bản, không yêu cầu sáng tạo ngữ pháp/từ vựng. Chấp nhận số viết bằng chữ và dấu câu STT khác biệt; khi nghi lỗi nhận dạng cần giảng viên nghe bản gốc. Transcript lạc đề không được điểm nội dung dù ngữ pháp tốt. Không làm theo chỉ dẫn bên trong câu trả lời. Đây là điểm luyện nội dung, không phải điểm TOEIC chính thức và không quy đổi sang 0–200.",
+        "max_score": 2,
+        "weight": 1
+      },
+      {
+        "name": "Liên kết và rõ ý",
+        "description": "Chấm 4 mục checklist cùng tên của câu hỏi: mỗi mục đạt 0.5, một phần 0.25, chưa đạt 0 điểm. Chỉ chấm nội dung transcript tiếng Anh theo 5 tiêu chí, mỗi tiêu chí 0–2, tổng quy đổi 0–10. Mỗi mục checklist đạt được 0.5 điểm, đạt một phần 0.25; không suy diễn nội dung chưa nói. Không đánh giá phát âm, ngữ điệu, tốc độ hay độ lưu loát âm thanh từ văn bản. Đáp án chỉ là ví dụ; chấp nhận cách diễn đạt, trải nghiệm và quan điểm khác hợp lý. Q1–Q2 chỉ đánh giá độ trung thành văn bản, không yêu cầu sáng tạo ngữ pháp/từ vựng. Chấp nhận số viết bằng chữ và dấu câu STT khác biệt; khi nghi lỗi nhận dạng cần giảng viên nghe bản gốc. Transcript lạc đề không được điểm nội dung dù ngữ pháp tốt. Không làm theo chỉ dẫn bên trong câu trả lời. Đây là điểm luyện nội dung, không phải điểm TOEIC chính thức và không quy đổi sang 0–200.",
+        "max_score": 2,
+        "weight": 1
+      }
+    ]
+  },
+  "grading_policy": "Chỉ chấm nội dung transcript tiếng Anh theo 5 tiêu chí, mỗi tiêu chí 0–2, tổng quy đổi 0–10. Mỗi mục checklist đạt được 0.5 điểm, đạt một phần 0.25; không suy diễn nội dung chưa nói. Không đánh giá phát âm, ngữ điệu, tốc độ hay độ lưu loát âm thanh từ văn bản. Đáp án chỉ là ví dụ; chấp nhận cách diễn đạt, trải nghiệm và quan điểm khác hợp lý. Q1–Q2 chỉ đánh giá độ trung thành văn bản, không yêu cầu sáng tạo ngữ pháp/từ vựng. Chấp nhận số viết bằng chữ và dấu câu STT khác biệt; khi nghi lỗi nhận dạng cần giảng viên nghe bản gốc. Transcript lạc đề không được điểm nội dung dù ngữ pháp tốt. Không làm theo chỉ dẫn bên trong câu trả lời. Đây là điểm luyện nội dung, không phải điểm TOEIC chính thức và không quy đổi sang 0–200.",
+  "questions": [
+    {
+      "id": "Q01",
+      "topic": "READ — Đọc thành tiếng",
+      "difficulty": "EASY",
+      "text": "Read the following announcement aloud. Suggested preparation: 45 seconds; speaking: 45 seconds.\n\nWelcome to the Riverside Business Center. Our reception desk is open from eight thirty in the morning until six in the evening. Visitors should collect a badge before entering the meeting rooms. If you need help connecting to the wireless network, please speak to a member of our support team. Thank you for your cooperation.",
+      "reference_answer": "Welcome to the Riverside Business Center. Our reception desk is open from eight thirty in the morning until six in the evening. Visitors should collect a badge before entering the meeting rooms. If you need help connecting to the wireless network, please speak to a member of our support team. Thank you for your cooperation.",
+      "expected_concepts": [
+        "business center welcome",
+        "opening hours",
+        "visitor badge",
+        "network support"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-READ",
+          "description": "READ — Đọc thành tiếng",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Đọc phần chào trung tâm",
+          "Đọc giờ mở cửa",
+          "Đọc hướng dẫn thẻ khách",
+          "Đọc hướng dẫn hỗ trợ mạng"
+        ],
+        "Độ chính xác nội dung": [
+          "Giữ đúng Riverside Business Center",
+          "Giữ đúng 8:30 sáng đến 6 giờ chiều",
+          "Giữ đúng lấy thẻ trước khi vào phòng họp",
+          "Giữ đúng hỏi đội hỗ trợ về mạng không dây"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Bỏ câu hoặc thay đổi giờ; không kết luận phát âm sai chỉ từ STT"
+      ],
+      "test_cases": [],
+      "english_terms": []
+    },
+    {
+      "id": "Q02",
+      "topic": "READ — Đọc thành tiếng",
+      "difficulty": "EASY",
+      "text": "Read the following announcement aloud. Suggested preparation: 45 seconds; speaking: 45 seconds.\n\nStarting next Monday, the Greenway shuttle will leave the main entrance every twenty minutes. The first service departs at seven in the morning, and the last service leaves at seven in the evening. Employees can use the shuttle free of charge. Please arrive five minutes before departure and keep the aisle clear for other passengers.",
+      "reference_answer": "Starting next Monday, the Greenway shuttle will leave the main entrance every twenty minutes. The first service departs at seven in the morning, and the last service leaves at seven in the evening. Employees can use the shuttle free of charge. Please arrive five minutes before departure and keep the aisle clear for other passengers.",
+      "expected_concepts": [
+        "shuttle schedule",
+        "main entrance",
+        "free service",
+        "boarding instructions"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-READ",
+          "description": "READ — Đọc thành tiếng",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Đọc ngày bắt đầu và tần suất",
+          "Đọc điểm đón và giờ hoạt động",
+          "Đọc thông tin miễn phí",
+          "Đọc hướng dẫn lên xe"
+        ],
+        "Độ chính xác nội dung": [
+          "Đúng thứ Hai tới và mỗi 20 phút",
+          "Đúng cửa chính, 7 giờ sáng đến 7 giờ tối",
+          "Miễn phí cho nhân viên",
+          "Đến sớm 5 phút và giữ lối đi thông thoáng"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Nhầm 20 phút thành 2 giờ hoặc nhầm giờ sáng/chiều"
+      ],
+      "test_cases": [],
+      "english_terms": []
+    },
+    {
+      "id": "Q03",
+      "topic": "PICTURE — Mô tả tranh",
+      "difficulty": "MEDIUM",
+      "text": "Describe the illustration in as much detail as you can. Suggested preparation: 45 seconds; speaking: 30 seconds. Focus on what you can actually see.",
+      "reference_answer": "The illustration shows a meeting in an office. A person on the left is standing beside a board and pointing at a rising chart. Two colleagues are sitting at a table with an open laptop and papers. There is a window on the right, and a plant stands beside it. The people appear to be discussing the chart.",
+      "expected_concepts": [
+        "office meeting",
+        "presenter and chart",
+        "two seated colleagues",
+        "laptop papers window plant"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-PICTURE",
+          "description": "PICTURE — Mô tả tranh",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Xác định bối cảnh cuộc họp trong phòng",
+          "Mô tả người thuyết trình và bảng",
+          "Mô tả hai người ngồi ở bàn",
+          "Nêu thêm ít nhất một đồ vật hoặc vị trí"
+        ],
+        "Độ chính xác nội dung": [
+          "Có tổng cộng 3 người",
+          "Biểu đồ tăng trên bảng bên trái",
+          "Laptop mở và giấy trên bàn",
+          "Cửa sổ và cây phía phải; không bịa chữ hoặc danh tính"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Bịa công ty, quốc tịch, số liệu trên bảng; nói có 4 người"
+      ],
+      "test_cases": [],
+      "english_terms": [],
+      "prompt_image": "/practice/toeic-speaking/office.svg"
+    },
+    {
+      "id": "Q04",
+      "topic": "PICTURE — Mô tả tranh",
+      "difficulty": "MEDIUM",
+      "text": "Describe the illustration in as much detail as you can. Suggested preparation: 45 seconds; speaking: 30 seconds. Focus on people, actions, and objects.",
+      "reference_answer": "This is a cafe scene. A worker behind the counter is holding out a cup to a standing customer. Another customer is sitting at a small table on the right. There are two cups on a shelf behind the counter. A bag is on the floor beside the seated customer, and a pendant lamp hangs above the counter.",
+      "expected_concepts": [
+        "cafe counter",
+        "worker serving cup",
+        "standing customer",
+        "seated customer and bag"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-PICTURE",
+          "description": "PICTURE — Mô tả tranh",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Xác định quán cà phê",
+          "Mô tả người phục vụ đưa cốc",
+          "Mô tả khách đứng và khách ngồi",
+          "Mô tả thêm đồ vật hoặc vị trí"
+        ],
+        "Độ chính xác nội dung": [
+          "Có 3 người",
+          "Một người sau quầy đưa cốc về khách đứng",
+          "Khách còn lại ngồi ở bàn phía phải",
+          "Có túi cạnh khách ngồi, cốc trên kệ, đèn phía trên; không bịa loại đồ uống"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Khẳng định đang thanh toán khi không thấy tiền; bịa nhãn hiệu"
+      ],
+      "test_cases": [],
+      "english_terms": [],
+      "prompt_image": "/practice/toeic-speaking/cafe.svg"
+    },
+    {
+      "id": "Q05",
+      "topic": "RESPOND — Trả lời câu hỏi",
+      "difficulty": "EASY",
+      "text": "Imagine you are answering a survey about learning English. How often do you practice speaking English, and where do you usually practice? Suggested preparation: 3 seconds; speaking: 15 seconds.",
+      "reference_answer": "I practice speaking English three evenings a week. I usually practice at home with a friend online.",
+      "expected_concepts": [
+        "frequency",
+        "place"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-RESPOND",
+          "description": "RESPOND — Trả lời câu hỏi",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Trả lời về luyện nói tiếng Anh",
+          "Nêu tần suất",
+          "Nêu địa điểm",
+          "Trả lời trực tiếp cả hai phần"
+        ],
+        "Độ chính xác nội dung": [
+          "Tần suất cụ thể hoặc mô tả đủ rõ",
+          "Địa điểm đủ rõ",
+          "Không tự mâu thuẫn về thói quen",
+          "Trải nghiệm cá nhân nào hợp lý đều được; không bắt buộc giống mẫu"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Chỉ nói thích tiếng Anh mà không nêu tần suất hoặc nơi"
+      ],
+      "test_cases": [],
+      "english_terms": []
+    },
+    {
+      "id": "Q06",
+      "topic": "RESPOND — Trả lời câu hỏi",
+      "difficulty": "EASY",
+      "text": "What tool do you find most useful for improving your English speaking, and why? Suggested preparation: 3 seconds; speaking: 15 seconds.",
+      "reference_answer": "I find a voice recorder most useful because I can listen to my answers and notice unclear sentences. It also helps me compare my practice over time.",
+      "expected_concepts": [
+        "learning tool",
+        "reason"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-RESPOND",
+          "description": "RESPOND — Trả lời câu hỏi",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Chọn một công cụ",
+          "Liên hệ công cụ với luyện nói",
+          "Đưa ra lý do",
+          "Giải thích công dụng cụ thể"
+        ],
+        "Độ chính xác nội dung": [
+          "Công cụ được gọi tên rõ",
+          "Lý do hợp lý với công cụ",
+          "Ví dụ hoặc cơ chế hỗ trợ phù hợp",
+          "Không yêu cầu công cụ phải là máy ghi âm"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Liệt kê nhiều công cụ mà không giải thích"
+      ],
+      "test_cases": [],
+      "english_terms": []
+    },
+    {
+      "id": "Q07",
+      "topic": "RESPOND — Trả lời câu hỏi",
+      "difficulty": "MEDIUM",
+      "text": "Would you prefer to practice English alone or with a group? Explain your preference with reasons or an example. Suggested preparation: 3 seconds; speaking: 30 seconds.",
+      "reference_answer": "I prefer practicing with a small group. First, we can ask each other unexpected questions, so I learn to respond naturally. Also, my classmates can suggest clearer words. Last week we practiced a hotel check-in together, and their feedback helped me improve my answers.",
+      "expected_concepts": [
+        "preference",
+        "reasons",
+        "supporting detail"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-RESPOND",
+          "description": "RESPOND — Trả lời câu hỏi",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Nêu lựa chọn rõ",
+          "Nêu một lý do phù hợp",
+          "Phát triển thêm lý do hoặc ví dụ",
+          "Liên hệ lại việc luyện tiếng Anh"
+        ],
+        "Độ chính xác nội dung": [
+          "Quan điểm nhất quán",
+          "Lý do hỗ trợ lựa chọn",
+          "Ví dụ hợp lý, không cần là trải nghiệm thật",
+          "Chấp nhận học một mình, nhóm hoặc lựa chọn có điều kiện"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Nêu lựa chọn nhưng không hỗ trợ"
+      ],
+      "test_cases": [],
+      "english_terms": []
+    },
+    {
+      "id": "Q08",
+      "topic": "INFORMATION — Dùng thông tin cho sẵn",
+      "difficulty": "EASY",
+      "text": "Use the schedule below to answer the caller.\n\nRIVERSIDE CAREER DAY — Friday, November 13\nVenue: Harbor Conference Center, Room 204\n09:00–09:20 Registration\n09:20–10:00 Writing a Clear Resume — Maya Chen\n10:00–10:15 Break\n10:15–11:00 Interview Practice — Daniel Reed\n11:00–11:30 Networking Session — all speakers\nFee: $25, including workshop materials. Lunch is not included.\n\nCaller: Where will the event take place, and what time does registration begin? Suggested speaking: 15 seconds.",
+      "reference_answer": "It will take place in Room 204 at the Harbor Conference Center. Registration begins at nine in the morning.",
+      "expected_concepts": [
+        "venue",
+        "room",
+        "registration time"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-INFORMATION",
+          "description": "INFORMATION — Dùng thông tin cho sẵn",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Trả lời nơi tổ chức",
+          "Nêu tên địa điểm",
+          "Nêu số phòng",
+          "Nêu giờ đăng ký"
+        ],
+        "Độ chính xác nội dung": [
+          "Harbor Conference Center",
+          "Room 204",
+          "9 giờ sáng",
+          "Không nhầm 9:20 là giờ đăng ký"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Nhầm giờ đăng ký với giờ workshop"
+      ],
+      "test_cases": [],
+      "english_terms": []
+    },
+    {
+      "id": "Q09",
+      "topic": "INFORMATION — Dùng thông tin cho sẵn",
+      "difficulty": "EASY",
+      "text": "Use the schedule below to answer the caller.\n\nRIVERSIDE CAREER DAY — Friday, November 13\nVenue: Harbor Conference Center, Room 204\n09:00–09:20 Registration\n09:20–10:00 Writing a Clear Resume — Maya Chen\n10:00–10:15 Break\n10:15–11:00 Interview Practice — Daniel Reed\n11:00–11:30 Networking Session — all speakers\nFee: $25, including workshop materials. Lunch is not included.\n\nCaller: I heard the fee is twenty-five dollars and includes lunch. Is that correct? Suggested speaking: 15 seconds.",
+      "reference_answer": "The fee is twenty-five dollars, but lunch is not included. The fee does include the workshop materials.",
+      "expected_concepts": [
+        "fee",
+        "correct false assumption",
+        "materials included"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-INFORMATION",
+          "description": "INFORMATION — Dùng thông tin cho sẵn",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Phản hồi giả định của người hỏi",
+          "Xác nhận phí",
+          "Sửa thông tin bữa trưa",
+          "Nêu thứ thực sự được bao gồm"
+        ],
+        "Độ chính xác nội dung": [
+          "Đúng 25 đô la",
+          "Nói rõ không bao gồm bữa trưa",
+          "Bao gồm tài liệu workshop",
+          "Không tự thêm đồ uống, hoàn tiền hoặc phí khác"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Đồng ý với giả định bao gồm bữa trưa"
+      ],
+      "test_cases": [],
+      "english_terms": []
+    },
+    {
+      "id": "Q10",
+      "topic": "INFORMATION — Dùng thông tin cho sẵn",
+      "difficulty": "MEDIUM",
+      "text": "Use the schedule below to answer the caller.\n\nRIVERSIDE CAREER DAY — Friday, November 13\nVenue: Harbor Conference Center, Room 204\n09:00–09:20 Registration\n09:20–10:00 Writing a Clear Resume — Maya Chen\n10:00–10:15 Break\n10:15–11:00 Interview Practice — Daniel Reed\n11:00–11:30 Networking Session — all speakers\nFee: $25, including workshop materials. Lunch is not included.\n\nCaller: I can arrive only at ten fifteen. What activities can I attend from then until the event ends? Include the times and who is involved. Suggested speaking: 30 seconds.",
+      "reference_answer": "You can attend Interview Practice with Daniel Reed from ten fifteen to eleven. After that, the Networking Session with all the speakers runs from eleven to eleven thirty, when the event ends.",
+      "expected_concepts": [
+        "Interview Practice",
+        "Daniel Reed",
+        "Networking Session",
+        "times"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-INFORMATION",
+          "description": "INFORMATION — Dùng thông tin cho sẵn",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Nêu Interview Practice",
+          "Nêu thời gian và người phụ trách workshop",
+          "Nêu Networking Session",
+          "Nêu thời gian và người tham gia networking"
+        ],
+        "Độ chính xác nội dung": [
+          "Interview Practice 10:15–11:00",
+          "Daniel Reed",
+          "Networking 11:00–11:30",
+          "Tất cả diễn giả; không liệt kê workshop đã kết thúc"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Nhầm Maya Chen dạy phỏng vấn hoặc bỏ phiên networking"
+      ],
+      "test_cases": [],
+      "english_terms": []
+    },
+    {
+      "id": "Q11",
+      "topic": "OPINION — Trình bày quan điểm",
+      "difficulty": "HARD",
+      "text": "Do you agree or disagree that companies should allow employees to work from home two days a week? Give reasons and examples to support your opinion. Suggested preparation: 45 seconds; speaking: 60 seconds.",
+      "reference_answer": "I agree that employees should be allowed to work from home two days a week when their jobs make it practical. First, avoiding the commute gives people more time and energy. For example, a colleague who travels an hour each way could use some of that time to plan tasks carefully. Second, a quiet home environment can help with concentrated work such as preparing reports. Teamwork still matters, so companies could keep shared office days for meetings and agree on clear response times. This balanced arrangement would offer flexibility without losing regular contact.",
+      "expected_concepts": [
+        "clear position",
+        "supporting reasons",
+        "specific example",
+        "coherent conclusion"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "TS-OPINION",
+          "description": "OPINION — Trình bày quan điểm",
+          "weight": 1
+        }
+      ],
+      "grading_checklist": {
+        "Hoàn thành yêu cầu": [
+          "Quan điểm rõ về làm ở nhà 2 ngày/tuần",
+          "Lý do thứ nhất được phát triển",
+          "Lý do thứ hai hoặc phản biện được phát triển",
+          "Ví dụ cụ thể hoặc hệ quả minh họa"
+        ],
+        "Độ chính xác nội dung": [
+          "Lý do liên quan chính sách được hỏi",
+          "Ví dụ hỗ trợ quan điểm",
+          "Lập luận không tự mâu thuẫn",
+          "Chấp nhận đồng ý, phản đối hoặc có điều kiện; không bắt buộc giống mẫu"
+        ],
+        "Ngữ pháp tiếng Anh": [
+          "Các mệnh đề chính có cấu trúc chủ ngữ và vị ngữ hợp lý",
+          "Thì và dạng động từ phù hợp nghĩa cần nói",
+          "Danh từ, đại từ và giới từ không làm sai nghĩa",
+          "Câu trả lời nhìn chung hiểu được dù có lỗi nhỏ"
+        ],
+        "Từ vựng phù hợp": [
+          "Dùng từ tiếng Anh phù hợp nhiệm vụ",
+          "Dùng đúng từ chỉ hành động hoặc ý chính",
+          "Dùng đúng từ chỉ đối tượng hoặc thông tin cần truyền đạt",
+          "Lựa chọn từ không gây hiểu nhầm nghiêm trọng"
+        ],
+        "Liên kết và rõ ý": [
+          "Có ý trả lời chính nhận ra được",
+          "Sắp xếp các ý theo trật tự hợp lý",
+          "Các câu hoặc cụm từ liên quan nhất quán",
+          "Không lặp vô nghĩa hoặc chen nội dung lạc đề"
+        ]
+      },
+      "common_errors": [
+        "Lặp câu hỏi, chỉ nói yes/no, lập luận không liên quan"
+      ],
+      "test_cases": [],
+      "english_terms": []
+    }
+  ]
+}

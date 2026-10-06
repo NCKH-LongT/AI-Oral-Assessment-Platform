@@ -38,6 +38,8 @@ def policy(db):
 
 def exam_policy(db, exam):
     config = policy(db)
+    if (exam.snapshot or {}).get("speech_language") in {"vi", "en"}:
+        config["language"] = exam.snapshot["speech_language"]
     vocabulary = (exam.snapshot or {}).get("hotwords", by_id(db, Course, exam.course_id).hotwords)
     if vocabulary:
         config["hotwords"] = list(vocabulary)

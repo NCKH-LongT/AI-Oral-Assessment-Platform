@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+<rect width="960" height="540" fill="#eef2f6"/><path d="M0 390H960V540H0Z" fill="#cbd4dc"/>
+<rect x="50" y="60" width="315" height="210" rx="8" fill="white" stroke="#566577" stroke-width="8"/>
+<path d="M85 235V95M85 235H330" fill="none" stroke="#8995a5" stroke-width="4"/>
+<path d="M100 215L160 185L220 198L285 125L325 105" fill="none" stroke="#388d89" stroke-width="10"/>
+<rect x="715" y="55" width="195" height="230" fill="#abd8eb" stroke="#fff" stroke-width="12"/><path d="M812 55V285M715 169H910" stroke="white" stroke-width="8"/>
+<!-- Standing presenter -->
+<circle cx="220" cy="282" r="30" fill="#bf8660"/><path d="M191 276Q191 238 222 245Q254 248 248 270" fill="#303641"/>
+<path d="M185 326Q218 305 250 323L265 408H178Z" fill="#376180"/>
+<path d="M248 333L300 302L315 220M187 335L153 381" fill="none" stroke="#bf8660" stroke-width="18" stroke-linecap="round"/>
+<path d="M196 407L187 489M240 407L251 489" stroke="#303641" stroke-width="24"/><path d="M169 497H196M239 497H270" stroke="#263344" stroke-width="13" stroke-linecap="round"/>
+<!-- Two seated colleagues behind the table -->
+<rect x="426" y="335" width="75" height="122" rx="15" fill="#7e919e"/><rect x="639" y="332" width="75" height="125" rx="15" fill="#7e919e"/>
+<circle cx="464" cy="288" r="29" fill="#deae88"/><path d="M432 285Q425 248 465 250Q501 250 493 278" fill="#5a3b2c"/>
+<path d="M426 330Q460 311 491 332L512 402H414Z" fill="#af675b"/>
+<circle cx="675" cy="280" r="29" fill="#85573f"/><path d="M647 276Q645 239 675 244Q703 242 707 276" fill="#252a33"/>
+<path d="M640 324Q674 306 704 325L723 405H624Z" fill="#d19b3d"/>
+<path d="M442 421L449 499M488 421L503 499M655 420L642 499M695 420L715 499" stroke="#35475a" stroke-width="22"/>
+<!-- Table, laptop, papers -->
+<path d="M352 392H773L810 432H320Z" fill="#c39363" stroke="#986e47" stroke-width="4"/>
+<path d="M342 432V521M784 432V521" stroke="#64574c" stroke-width="15"/>
+<path d="M485 350H590L603 408H499Z" fill="#566b7d" stroke="#364859" stroke-width="4"/><path d="M490 408H615L609 419H490Z" fill="#8798a6"/>
+<path d="M650 391L713 386L740 412L675 420Z" fill="white"/><path d="M665 398L710 395M678 407L725 402" stroke="#adb8c3" stroke-width="3"/>
+<path d="M875 459V341" stroke="#447a55" stroke-width="7"/><ellipse cx="852" cy="364" rx="27" ry="13" transform="rotate(35 852 364)" fill="#63966b"/><ellipse cx="896" cy="340" rx="28" ry="13" transform="rotate(-35 896 340)" fill="#558c5c"/><ellipse cx="896" cy="399" rx="25" ry="12" transform="rotate(-30 896 399)" fill="#558c5c"/><path d="M840 445H910L899 511H850Z" fill="#ab7760"/>
+</svg>

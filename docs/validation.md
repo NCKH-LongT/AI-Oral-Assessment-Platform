@@ -258,3 +258,12 @@ Ngày kiểm tra: 10/09/2026. Chỉ ghi kết quả đã chạy; kiểm thử AI
 Ở lần kiểm tra MVP ban đầu, Docker chưa chạy trên máy phát triển; build/Compose được xác minh trên GitHub Actions. Hiện Docker Desktop đã hoạt động và bản mở rộng được kiểm tra cả local. Hai job `checks` và `compose-e2e` của bản MVP thành công trên commit `7d298b6`.
 
 [CI đã chạy thành công: MVP checks #1](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/actions/runs/34502364619). Bộ kiểm tra này gồm migration PostgreSQL, Ruff, 9 test API, TypeScript, ESLint, production build, Electron syntax, npm audit và 2 bài Playwright trên Docker Compose. STT bằng audio thật được kiểm tra riêng ở máy local; test trình duyệt stub STT và dùng Gemini demo.
+
+## 2026-10-07 — Audio gốc và môn TOEIC Speaking
+
+- `npm run lint`, `npm run typecheck`, Ruff: đạt.
+- Pytest `test_toeic_course.py` + `test_examination.py`: 12 đạt (SQLite). Kiểm tra import, thêm sinh viên mới, không tạo trùng, không thêm tài khoản ngừng hoạt động, scope hotword/ngôn ngữ, truy cập đề và không lộ đáp án/URL ảnh ngoài danh sách cho phép.
+- Playwright `desktop-stt.spec.ts` + `original-audio.spec.ts`: 5 đạt. Kiểm tra mặc định tắt RNNoise, các cặp model/ngôn ngữ, thử lại STT, SHA-256 bản gốc, tranh SVG và xuống dòng lịch sự kiện. Desktop bridge và cloud STT được giả lập trong nhóm kiểm thử này; không coi đây là đo chất lượng nhận dạng thực tế.
+- Docker production build/deploy: web/API/worker healthy; trang web và hai tài nguyên tranh truy cập được.
+- Dữ liệu local: `TOEIC-SPEAKING-01`, một đề đang công bố, 11 câu, 5 LO, 11 tài liệu READY/15 chunks, 6 enrollment và 6 assignment. Chạy lại importer trả `already_exists`. Phiên bản rubric ban đầu chưa có lượt thi đã lưu trữ, giữ phiên bản có trọng số nội dung 3:3:1:1:1.
+- Chấm thử qua `grade_answer` với Gemini 2.5 Flash, evidence thật: Q09 đầy đủ **10/10**, Q09 sai thông tin **6.67/10**, Q11 lập luận đầy đủ **10/10**. Ba mẫu đạt khoảng điểm trong `calibration.json`; không tạo lượt thi hay lưu điểm sinh viên. Đây là smoke test chấm nội dung transcript, không phải hiệu chuẩn TOEIC hoặc đánh giá phát âm.

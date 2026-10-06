@@ -909,6 +909,7 @@ footer {
   gap: 24px;
 }
 .question-text {
+  white-space: pre-line;
   font-size: 24px !important;
   line-height: 1.7 !important;
   margin: 25px 0 !important;

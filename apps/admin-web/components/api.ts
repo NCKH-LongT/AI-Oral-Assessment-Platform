@@ -211,6 +211,7 @@ export type ExamSession = {
   current_attempt: {
     id: string;
     sequence: number;
+    prompt_image?: string | null;
     text: string;
     status: string;
   } | null;

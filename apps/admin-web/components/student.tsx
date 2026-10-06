@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -20,7 +21,10 @@ import {
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
 import NoiseCheck from "./noise-check";
-import DesktopSpeechSettings, { useDesktopSpeech, type DesktopModel } from "./desktop-speech-settings";
+import DesktopSpeechSettings, {
+  useDesktopSpeech,
+  type DesktopModel,
+} from "./desktop-speech-settings";
 import { createNoiseFilter, type NoiseFilter } from "../lib/noise-filter";
 import {
   createMicrophoneGain,
@@ -99,7 +103,7 @@ export default function Student() {
   const [connecting, setConnecting] = useState(false);
   const [startingRecording, setStartingRecording] = useState(false);
   const connectingRef = useRef(false);
-  const [denoise, setDenoise] = useState(true);
+  const [denoise, setDenoise] = useState(false);
   const [gainDb, setGainDb] = useState(0);
   const [micPeak, setMicPeak] = useState(-120);
   const gainRef = useRef<MicrophoneGain | null>(null);
@@ -384,10 +388,12 @@ export default function Student() {
       ...savedPolicy,
       provider: window.oralDesktop ? "local" : savedPolicy.provider,
       preprocessing: "off",
-      ...(window.oralDesktop ? {
-        language: desktopSpeech.preferences.language,
-        desktop_model: desktopSpeech.preferences.model,
-      } : {}),
+      ...(window.oralDesktop
+        ? {
+            language: desktopSpeech.preferences.language,
+            desktop_model: desktopSpeech.preferences.model,
+          }
+        : {}),
     };
     const providerLabel = {
       local: "Whisper trên máy của bạn",
@@ -406,9 +412,19 @@ export default function Student() {
         throw new Error(
           "Admin chọn STT local. Vui lòng dùng ứng dụng desktop để nhận dạng.",
         );
-      if (!desktopSpeech.ready) throw new Error(desktopSpeech.error || "Đang kiểm tra bộ nhận dạng trên máy. Vui lòng thử lại.");
-      if (!desktopSpeech.models.some(model => model.id === policy.desktop_model && model.available))
-        throw new Error("Model đã chọn chưa có trên máy. Chọn model đã cài hoặc cập nhật bộ OralAI đầy đủ.");
+      if (!desktopSpeech.ready)
+        throw new Error(
+          desktopSpeech.error ||
+            "Đang kiểm tra bộ nhận dạng trên máy. Vui lòng thử lại.",
+        );
+      if (
+        !desktopSpeech.models.some(
+          (model) => model.id === policy.desktop_model && model.available,
+        )
+      )
+        throw new Error(
+          "Model đã chọn chưa có trên máy. Chọn model đã cài hoặc cập nhật bộ OralAI đầy đủ.",
+        );
       return window.oralDesktop.transcribe(await audio.arrayBuffer(), policy);
     }
     const form = new FormData();
@@ -860,7 +876,12 @@ export default function Student() {
       ) : (
         <div className="exam-grid">
           <section className="panel question-panel">
-            <DesktopSpeechSettings settings={desktopSpeech} disabled={recording || startingRecording || processing || submitting} />
+            <DesktopSpeechSettings
+              settings={desktopSpeech}
+              disabled={
+                recording || startingRecording || processing || submitting
+              }
+            />
             {session.status === "DEVICE_CHECK" ? (
               <>
                 <span className="eyebrow">TRƯỚC KHI BẮT ĐẦU</span>
@@ -900,8 +921,8 @@ export default function Student() {
                   </p>
                 )}
                 <p className="muted">
-                  Audio/video gốc được giữ để đối chiếu. Lựa chọn lọc chỉ áp
-                  dụng cho audio dùng STT.
+                  Mặc định STT dùng bản gốc. Audio/video gốc được giữ để đối
+                  chiếu. Lựa chọn lọc chỉ áp dụng cho audio dùng STT.
                 </p>
                 {stream && !deviceError && (
                   <NoiseCheck
@@ -939,6 +960,20 @@ export default function Student() {
                 <h2 className="question-text">
                   {session.current_attempt.text}
                 </h2>
+                {session.current_attempt.prompt_image && (
+                  <Image
+                    unoptimized
+                    src={session.current_attempt.prompt_image}
+                    alt="Tranh minh họa cho câu hỏi mô tả bằng tiếng Anh"
+                    width={960}
+                    height={540}
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 12,
+                    }}
+                  />
+                )}
                 <div className="recording-status">
                   {recording ? (
                     <>

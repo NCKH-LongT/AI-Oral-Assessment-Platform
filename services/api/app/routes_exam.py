@@ -88,6 +88,9 @@ def public_session(db, session):
                 "id": first.id,
                 "sequence": first.sequence,
                 "text": first.question["text"],
+                "prompt_image": first.question.get("prompt_image") if first.question.get("prompt_image") in {
+                    "/practice/toeic-speaking/office.svg", "/practice/toeic-speaking/cafe.svg"
+                } else None,
                 "status": first.status,
             }
             if first and session.status == "IN_PROGRESS"

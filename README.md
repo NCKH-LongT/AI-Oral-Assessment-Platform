@@ -172,3 +172,9 @@ npm run test:desktop
 ```
 
 Tra cứu thêm trong [Hướng dẫn theo nhu cầu](#hướng-dẫn-theo-nhu-cầu) ở đầu trang.
+
+## Môn luyện nói TOEIC
+
+Đã bổ sung bộ dữ liệu `TOEIC-SPEAKING-01`: 11 câu, 2 tranh minh họa, tài liệu RAG, đáp án và rubric chấm nội dung transcript thang 10; 30 phút/lượt, làm lại không giới hạn. Script nhập môn và giao đề cho toàn bộ sinh viên đang hoạt động: [hướng dẫn và dữ liệu](data/toeic-speaking/README.md). Điểm này chưa đánh giá phát âm/ngữ điệu và không quy đổi thành điểm TOEIC chính thức.
+
+Cả web và desktop **mặc định STT dùng bản ghi gốc**; checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt. Có thể bật khi cần, hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **English + Whisper-small**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.

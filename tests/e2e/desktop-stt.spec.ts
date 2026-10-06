@@ -166,11 +166,11 @@ for (const [denoise, filterAvailable, model, language] of [
     await page
       .getByRole("button", { name: "Bỏ qua kiểm tra độ ồn", exact: true })
       .click();
-    await page
-      .getByRole("checkbox", {
-        name: "Lọc nhiễu RNNoise khi nhận dạng câu trả lời",
-      })
-      .setChecked(denoise);
+    const denoiseCheckbox = page.getByRole("checkbox", {
+      name: "Lọc nhiễu RNNoise khi nhận dạng câu trả lời",
+    });
+    await expect(denoiseCheckbox).not.toBeChecked();
+    if (denoise) await denoiseCheckbox.check();
     await expect(
       page.getByRole("button", { name: /Gợi ý sửa chính tả/ }),
     ).toHaveCount(0);

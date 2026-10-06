@@ -1,5 +1,7 @@
 # OralAI — Thi vấn đáp
 
+> **07/10/2026:** Web và desktop mặc định dùng audio gốc cho STT. Đã có bộ luyện TOEIC Speaking gồm 11 câu, tranh minh họa, đáp án và rubric chấm nội dung. Xem [cách nhập môn và giao bài](#môn-luyện-nói-toeic).
+
 ## Desktop chọn ngôn ngữ và model — 07/10/2026
 
 Mở bài thi trên desktop, tại **Nhận dạng giọng nói trên desktop** chọn **Tiếng Việt / Tiếng Anh** và **PhoWhisper-small / Whisper-small (đa ngôn ngữ)**. Lựa chọn được nhớ trên thiết bị cho máy chủ hiện tại, áp dụng cả khi ghi mới và **Thử STT lại**. Không đổi giữa lúc ghi/nhận dạng/nộp bài. Hotword vẫn lấy từ đúng môn/phiên thi; lựa chọn trên desktop không thay cấu hình STT của trình duyệt web.
@@ -24,7 +26,7 @@ Vào **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotwo
 - Cần migration **0005**, dependency Excel mới và build lại desktop để nhận hotword. Xem hướng dẫn triển khai trong tài liệu trên.
 
 
-Desktop ghi audio/video, lọc nhiễu RNNoise và nhận dạng **PhoWhisper-small hoặc Whisper-small cục bộ**. Server nhận media gốc + transcript, chấm theo rubric/RAG bằng **Ollama local hoặc Gemini**, rồi trả kết quả cho app.
+Desktop ghi audio/video, mặc định nhận dạng bản gốc bằng **PhoWhisper-small hoặc Whisper-small cục bộ**; RNNoise là tùy chọn. Server nhận media gốc + transcript, chấm theo rubric/RAG bằng **Ollama local hoặc Gemini**, rồi trả kết quả cho app.
 
 ## Hướng dẫn theo nhu cầu
 
@@ -109,7 +111,7 @@ Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhi
 2. Mở bài, cấp quyền và chọn microphone/camera trong danh sách **Chọn thiết bị**.
 3. Để **Gain microphone** ở 0 dB rồi bấm **Kiểm tra độ ồn**: giữ im lặng 3 giây đầu, nói thử 7 giây sau.
 4. Phát lại bản thử, bật/tắt **Nghe bản đã lọc nhiễu RNNoise** để so sánh. Bản thử không upload.
-5. Chọn bật/tắt **Lọc nhiễu RNNoise khi nhận dạng câu trả lời**, bắt đầu thi, kiểm tra transcript rồi nộp.
+5. Giữ **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ở trạng thái tắt để STT dùng bản gốc (mặc định); chỉ bật khi muốn dùng bản lọc. Bắt đầu thi, kiểm tra transcript rồi nộp.
 
 Giọng nhỏ có thể tăng gain từng ít một; âm rè/gần −1 dBFS thì giảm gain và thu lại. Gain áp dụng cho bản thu thử, audio/video và STT của lần ghi mới. Bấm **Thoát ứng dụng** hoặc X để đóng; nếu còn bản chưa nộp, chọn **Ở lại** hoặc xác nhận **Rời trang / thoát**. Xem [hướng dẫn mic và thoát app](docs/microphone-desktop.md).
 
@@ -178,3 +180,16 @@ Tra cứu thêm trong [Hướng dẫn theo nhu cầu](#hướng-dẫn-theo-nhu-c
 Đã bổ sung bộ dữ liệu `TOEIC-SPEAKING-01`: 11 câu, 2 tranh minh họa, tài liệu RAG, đáp án và rubric chấm nội dung transcript thang 10; 30 phút/lượt, làm lại không giới hạn. Script nhập môn và giao đề cho toàn bộ sinh viên đang hoạt động: [hướng dẫn và dữ liệu](data/toeic-speaking/README.md). Điểm này chưa đánh giá phát âm/ngữ điệu và không quy đổi thành điểm TOEIC chính thức.
 
 Cả web và desktop **mặc định STT dùng bản ghi gốc**; checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt. Có thể bật khi cần, hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **English + Whisper-small**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.
+
+### Cài bộ luyện TOEIC trên server khác
+
+Source chứa dữ liệu mẫu và script nhập; `git pull` không sao chép database, tài khoản hoặc danh sách giao bài từ máy khác. Sau khi cấu hình môi trường và tài khoản trên server đích, chạy tại thư mục gốc dự án:
+
+```bash
+git pull --ff-only origin main
+docker compose up -d --build --wait
+docker compose cp data/toeic-speaking api:/tmp/toeic-speaking
+docker compose exec -T api python /tmp/toeic-speaking/import_course.py
+```
+
+Cần có ADMIN đang hoạt động và cấu hình LLM/embedding thật. Script tạo môn, tài liệu và đề, rồi thêm/giao bài cho các tài khoản **STUDENT / ACTIVE trên server đích**. Chạy lại cùng phiên bản không tạo trùng; có thể dùng lại lệnh import để thêm sinh viên mới. Chi tiết dữ liệu và cách kiểm tra chấm: [bộ TOEIC Speaking](data/toeic-speaking/README.md).

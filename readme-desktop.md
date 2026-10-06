@@ -1,5 +1,7 @@
 # OralAI Desktop
 
+> **07/10/2026 — audio và TOEIC:** STT mặc định dùng bản ghi gốc trên cả web và desktop; RNNoise ban đầu tắt. Môn `TOEIC-SPEAKING-01` có 11 câu và rubric chấm nội dung transcript. Xem [cách làm bài](#môn-luyện-nói-toeic).
+
 > **07/10/2026:** Desktop chọn trực tiếp tiếng Việt/tiếng Anh và PhoWhisper-small/Whisper-small đa ngôn ngữ. Cần build lại runtime, bổ sung model Whisper-small rồi đóng/mở lại app; không chỉ reload trang. Xem [cách chọn](#chọn-ngôn-ngữ-và-model-nhận-dạng).
 
 > **06/10/2026:** Desktop chỉ nhận hotword của môn thuộc phiên thi, truyền vào PhoWhisper qua `STT_HOTWORDS`; không gộp từ vựng chung. Hỗ trợ tối đa 500 mục, 100 ký tự/mục và 10.000 ký tự tổng cộng. Sau cập nhật cần đóng/mở lại app từ source hoặc đóng gói/cài lại desktop để thay giới hạn cũ 100 mục. Không cần tải lại model STT cho bản sửa này. Sinh viên đăng nhập bằng email trong danh sách Excel và mở **Bài thi của tôi** theo lịch khảo thí. Xem [quy trình mới](docs/architecture/examination-workflow.md).
@@ -128,7 +130,7 @@ Trong thư mục repository, chạy:
 
 Script chỉ mở giao diện **dev tại http://localhost:3001** và Electron, kết nối server có sẵn tại `http://localhost:3000`. Không chạy lệnh Docker, build server, cài dependency hay sửa cấu hình server. Sửa giao diện sẽ tự cập nhật; sửa Electron thì đóng app và chạy lại script. Backend do bạn chạy/cập nhật riêng. Script dùng profile dev riêng nên cần đăng nhập lại lần đầu; bỏ qua `ORAL_WEB_URL` cũ và gỡ `ELECTRON_RUN_AS_NODE` khỏi tiến trình con.
 
-Cần server đang chạy, Node 22.12+, Python 3, dependency đã cài bằng `npm ci` và bundle PhoWhisper đã build theo hướng dẫn bên dưới. Sửa helper STT/model thì build lại bundle trước khi chạy script. Script không đọc/sửa `.env` hoặc tự tải code từ Git.
+Cần server đang chạy, Node 22.12+, Python 3, dependency đã cài bằng `npm ci` và bundle đủ PhoWhisper-small và Whisper-small đã build theo hướng dẫn bên dưới. Sửa helper STT/model thì build lại bundle trước khi chạy script. Script không đọc/sửa `.env` hoặc tự tải code từ Git.
 
 Docker mặc định dùng cổng **3000**: `./run-desktop.sh --server http://localhost:3000` (tương đương lệnh không tham số). Chỉ đổi `--server` nếu server thực sự chạy ở địa chỉ/cổng khác; tham số này không đổi cổng Docker. Dùng URL web gốc, không thêm `/api`. Nếu server chưa chạy, script báo rõ rồi dừng.
 
@@ -155,7 +157,7 @@ Có thể thu thử/nghe lại trước khi bắt đầu tính giờ. **Gain mic
 1. Cấp quyền camera và microphone. Trong mục **Chọn thiết bị**, chọn **Microphone** và **Camera** từ danh sách; app kết nối ngay. Tên đầy đủ xuất hiện sau khi cấp quyền.
 2. Bấm **Kiểm tra độ ồn**. Ghi khoảng 10 giây: 3 giây đầu giữ im lặng, 7 giây sau nói thử.
 3. Bấm phát audio. Checkbox **Nghe bản đã lọc nhiễu RNNoise** đổi giữa bản gốc và bản lọc của cùng đoạn thu.
-4. Checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** quyết định bản audio dùng cho lần STT đầu tiên. App vẫn giữ cả hai bản khi bộ lọc hoạt động.
+4. Checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** mặc định **tắt**, nên lần STT đầu dùng bản gốc. Bật checkbox để dùng bản lọc. App vẫn giữ cả hai bản khi bộ lọc hoạt động.
 
 Danh sách cập nhật khi cắm/rút thiết bị. Không đổi thiết bị khi đang ghi hoặc xử lý/nộp câu trả lời. Đổi mic/camera trước thi sẽ hủy kết quả kiểm tra cũ; kiểm tra lại hoặc chọn bỏ qua. Thiết bị bị rút sẽ báo lỗi để bạn chọn lại, không âm thầm dùng thiết bị khác.
 
@@ -163,11 +165,11 @@ Bản kiểm tra chỉ giữ tạm trong bộ nhớ; kiểm tra lại hoặc r�
 
 ## Khi làm bài
 
-- App giữ riêng audio/video gốc và audio dùng STT. RNNoise xử lý theo thời gian thực ở 48 kHz; trước PhoWhisper chỉ chuyển về WAV mono 16 kHz, không lọc FFmpeg lần nữa.
+- App giữ riêng audio/video gốc và audio dùng STT. RNNoise xử lý theo thời gian thực ở 48 kHz; trước model STT đã chọn chỉ chuyển về WAV mono 16 kHz, không lọc FFmpeg lần nữa.
 - Khi dừng ghi, model và ngôn ngữ bạn chọn nhận dạng local. Bạn xem lại transcript, sau đó gửi transcript và media gốc lên server.
 - Muốn nhận dạng lại: chọn **Bản ghi dùng cho STT → Bản gốc / Bản giảm nhiễu RNNoise**, rồi bấm **Thử STT lại**. Lựa chọn chỉ thay đầu vào STT, không đổi media minh chứng. Nếu bộ lọc lỗi lúc ghi, lựa chọn bản giảm nhiễu bị khóa; bản gốc vẫn dùng được. Lỗi STT giữ transcript hiện tại.
 - Worker chấm text bằng Gemini hoặc Ollama theo cấu hình đề; app cập nhật kết quả định kỳ. Đừng đóng app trước khi upload và nộp bài hoàn tất.
-- Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Desktop dùng ngôn ngữ đã chọn trong màn hình làm bài; web vẫn dùng cấu hình server.
+- Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Desktop dùng ngôn ngữ đã chọn trong màn hình làm bài; web dùng cấu hình server, với ngôn ngữ của phiên bản đề nếu đề có thiết lập riêng (bộ TOEIC đặt tiếng Anh).
 - PhoWhisper-small được tinh chỉnh cho tiếng Việt. Có thể chọn tiếng Anh trên desktop; chưa benchmark chất lượng tiếng Anh/câu xen ngôn ngữ.
 
 App chưa hiện transcript trực tiếp khi đang nói. Với câu Việt xen tiếng Anh, nghe lại và kiểm tra thuật ngữ trước khi nộp. Gợi ý tiếng Anh do admin thấy khi sinh câu hỏi không tự trở thành hotword; STT chỉ dùng bảng từ vựng môn đã cấu hình.
@@ -289,7 +291,7 @@ Không cần build thủ công nếu dùng GitHub: Actions → **Desktop install
 
 ## STT trên server do admin chọn
 
-Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google Cloud STT dùng JSON service account upload ở mục riêng. Lựa chọn STT web không đổi PhoWhisper của desktop. Khi xem bài đã nộp, mở **Nhận dạng lại & chấm lại**, chọn Gemini hoặc Google, nhập lý do rồi gửi yêu cầu.
+Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google Cloud STT dùng JSON service account upload ở mục riêng. Lựa chọn STT web không đổi model local đã chọn trên desktop. Khi xem bài đã nộp, mở **Nhận dạng lại & chấm lại**, chọn Gemini hoặc Google, nhập lý do rồi gửi yêu cầu.
 
 ## Xử lý lỗi
 
@@ -315,3 +317,7 @@ Chi tiết bộ cài và kiểm tra offline: [docs/desktop-build.md](docs/deskto
 Đã bổ sung bộ dữ liệu `TOEIC-SPEAKING-01`: 11 câu, 2 tranh minh họa, tài liệu RAG, đáp án và rubric chấm nội dung transcript thang 10; 30 phút/lượt, làm lại không giới hạn. Script nhập môn và giao đề cho toàn bộ sinh viên đang hoạt động: [hướng dẫn và dữ liệu](data/toeic-speaking/README.md). Điểm này chưa đánh giá phát âm/ngữ điệu và không quy đổi thành điểm TOEIC chính thức.
 
 Cả web và desktop **mặc định STT dùng bản ghi gốc**; checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt. Có thể bật khi cần, hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **English + Whisper-small**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.
+
+Để bắt đầu: đăng nhập sinh viên → **Mở bài thi** của bộ TOEIC → chọn **Tiếng Anh + Whisper-small** → kiểm tra mic → bắt đầu thi. Ngôn ngữ/model trên desktop không tự đổi theo môn; kiểm tra hai lựa chọn này trước khi ghi.
+
+Nếu cài trên server mới, nhập bộ dữ liệu theo [hướng dẫn triển khai TOEIC](README.md#cài-bộ-luyện-toeic-trên-server-khác). Tài khoản sinh viên và danh sách giao bài thuộc database của từng server, không tự xuất hiện khi tải source từ Git. Riêng thay đổi audio mặc định và tranh TOEIC cần cập nhật web/API; không cần build lại helper nếu máy đã có bundle đủ hai model.

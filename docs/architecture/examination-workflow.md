@@ -51,9 +51,17 @@ Export gồm `student_number`, `email`, `full_name`, `attempt`, `status`, `ai_sc
 
 ## Hotword STT
 
-Admin đặt từ vựng chung ở **Cấu hình giọng nói**. Giảng viên đặt từ vựng môn học trong tab đề thi. Tối đa 100 từ/cụm từ, 100 ký tự mỗi mục và 2000 ký tự tổng cộng. Từ vựng môn được cố định khi sinh đề; muốn thay cần trả về nháp và sinh/duyệt lại. Từ vựng chung áp dụng theo cấu hình đang lưu; khi gộp, tổng vẫn bị giới hạn.
+**Cập nhật 06/10/2026:** Hotword chỉ lưu riêng theo môn, không còn cấu hình từ vựng chung. Admin hoặc giảng viên quản lý môn vào **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học**. API GET/PUT `/admin/courses/{id}/hotwords` kiểm tra quyền với đúng môn đó. Mỗi môn có danh sách độc lập; xóa danh sách một môn không ảnh hưởng môn khác.
+
+Tối đa **500 từ/cụm từ**, **100 ký tự mỗi mục**, **10.000 ký tự tổng cộng** (không tính dấu xuống dòng). Bỏ khoảng trắng đầu/cuối, dòng trống và mục trùng trước khi tính giới hạn. Web hiển thị bộ đếm và thông báo lỗi tiếng Việt trước khi gửi; API kiểm tra lại và từ chối toàn bộ nếu vượt giới hạn, không lưu một phần. Electron dùng cùng giới hạn, kể cả ký tự Unicode; server không âm thầm cắt danh sách còn 100 mục/2000 ký tự.
+
+Từ vựng môn được cố định trong snapshot khi sinh đề hoặc publish đề legacy mới; muốn thay cần trả về nháp và sinh/duyệt lại. Với đề cũ chưa có trường hotword trong snapshot, dùng danh sách hiện tại của chính môn đó. Snapshot có danh sách rỗng vẫn giữ rỗng. `/stt/config` không có phiên thi không trả từ vựng môn nào.
+
+Hotword chung đã lưu ở phiên bản cũ được bỏ qua khi đọc cấu hình, không gộp vào phiên thi và không tự sao chép sang các môn. Nếu cần giữ thuật ngữ cũ, quản trị viên chọn các từ phù hợp rồi lưu vào từng môn. API cấu hình giọng nói chỉ lưu nhà cung cấp, ngôn ngữ và tiền xử lý; không nhận trường `hotwords` nữa.
 
 Desktop lấy `/stt/config?session_id=…`; server kiểm tra chủ sở hữu phiên rồi trả hotword, không trả đáp án hoặc expected concepts. Renderer truyền cấu hình qua IPC, main process kiểm tra giới hạn, rồi helper nhận `STT_HOTWORDS` JSON. PhoWhisper và Whisper server dùng tham số `hotwords`; Google Speech v1 dùng `speechContexts` với boost 10; Gemini nhận gợi ý từ vựng với chỉ dẫn không thêm từ không nghe thấy. Luồng chấm bài vẫn độc lập STT.
+
+Bản sửa 06/10 không thêm migration hoặc biến `.env`. Cập nhật API/worker/web bằng `docker compose up -d --build --wait`. Đóng/mở lại Electron đang chạy từ source để nạp giới hạn mới, hoặc đóng gói/cài lại desktop; không cần tải lại model hay build lại helper STT chỉ vì thay đổi này. Bộ cài cũ vẫn giới hạn 100 mục nên phải nâng cấp trước khi dùng danh sách lớn hơn.
 
 Hotword hỗ trợ nhận dạng, không tự sửa đáp án hoặc bảo đảm chính xác. Ưu tiên bảng từ vựng ngắn, sát môn; không nhập đáp án. Thuật ngữ tiếng Anh do AI sinh cho từng câu vẫn để giảng viên review, **không tự lấy expected concepts hoặc đáp án làm gợi ý STT**. Sinh viên vẫn cần nghe và kiểm tra transcript trước khi nộp.
 

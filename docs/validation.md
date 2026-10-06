@@ -1,5 +1,14 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Hotword riêng theo môn và danh sách 200 mục — 06/10/2026
+
+- Bộ API SQLite: **73 passed, 5 skipped** (các ca cần khóa PostgreSQL). Hồi quy xác nhận lưu/đọc 200 và 500 mục, bỏ trùng/dòng trống trước giới hạn, chặn quá 500 mục/100 ký tự mỗi mục/10.000 ký tự tổng cộng mà không ghi đè dữ liệu đã lưu.
+- Kiểm tra phân quyền và phạm vi: giảng viên chỉ sửa đúng môn; hai môn lưu độc lập; hotword chung cũ bị bỏ qua; STT không có phiên không trả từ vựng; snapshot giữ nguyên từ vựng kể cả danh sách rỗng. Danh sách 200 mục được truyền đầy đủ tới STT/Whisper.
+- Playwright trên UI dev với API mô phỏng: **5 ca đạt**, gồm lưu 200 mục rồi chuyển môn và đọc lại, chặn ba loại vượt giới hạn trước khi gửi, bỏ ô hotword chung, lưu cấu hình STT, hồi quy review đề/xóa môn.
+- Node desktop **5 ca đạt**, gồm kiểm tra giới hạn 500 mục/10.000 ký tự và Unicode. Python launcher/helper **4 ca đạt**; helper chuyển đủ 200 hotword vào PhoWhisper trong cả ba chế độ mã hóa stdout mô phỏng.
+- Ruff, ESLint, TypeScript và kiểm tra cú pháp Electron đạt. Không gọi nhà cung cấp AI/STT trả phí, không đo độ chính xác nhận dạng, chưa đóng gói lại installer desktop.
+- Build production và cập nhật Compose local đạt; web trả HTTP 200, `/api/health` trả `ok`, OpenAPI đang chạy xác nhận giới hạn môn là 500 và cấu hình STT chung không còn trường hotword. App Electron đã mở trước bản sửa cần đóng/mở lại để nạp giới hạn IPC mới.
+
 ## Quy trình khảo thí, Excel và hotword — 05/10/2026
 
 - Bộ API đầy đủ trên SQLite: **70 passed, 5 skipped** (các ca cần PostgreSQL). Migration `0001 → head (0005)` trên database có dữ liệu đạt; dữ liệu thi cũ được giữ nguyên.

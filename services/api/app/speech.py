@@ -30,22 +30,17 @@ _lock = Lock()
 def policy(db):
     row = db.get(SystemSetting, "speech")
     cfg = settings()
-    result = SpeechPolicy.model_validate(
-        row.value if row else {"provider": cfg.stt_provider, "language": cfg.stt_language}
-    ).model_dump()
-    if not result["hotwords"]:
-        result.pop("hotwords")
-    return result
+    stored = dict(row.value) if row else {"provider": cfg.stt_provider, "language": cfg.stt_language}
+    # Older installations may still have a global vocabulary. Never apply it to a course.
+    stored.pop("hotwords", None)
+    return SpeechPolicy.model_validate(stored).model_dump()
 
 
 def exam_policy(db, exam):
     config = policy(db)
     vocabulary = (exam.snapshot or {}).get("hotwords", by_id(db, Course, exam.course_id).hotwords)
-    words = list(dict.fromkeys(config.get("hotwords", []) + vocabulary))[:100]
-    while sum(map(len, words)) > 2000:
-        words.pop()
-    if words:
-        config["hotwords"] = words
+    if vocabulary:
+        config["hotwords"] = list(vocabulary)
     return config
 
 

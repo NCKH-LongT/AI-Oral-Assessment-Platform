@@ -45,6 +45,7 @@ class DesktopSTTOutputTests(unittest.TestCase):
         for encoding in ("cp1252", "ascii", "utf-8"):
             with self.subTest(encoding=encoding):
                 transcript = "Đây là câu trả lời tiếng Việt: kiểm thử phần mềm."
+                hotwords = [f"Thuật ngữ chuyên ngành {i}" for i in range(200)]
                 whisper.WhisperModel.return_value.transcribe.return_value = (
                     iter([SimpleNamespace(text=transcript, avg_logprob=-0.2)]),
                     None,
@@ -54,13 +55,13 @@ class DesktopSTTOutputTests(unittest.TestCase):
                     raw, encoding=encoding, errors="strict"
                 ) as stdout:
                     with (
-                        patch.dict(os.environ, {"STT_HOTWORDS": json.dumps(["PostgreSQL", "Dependency Injection"])}),
+                        patch.dict(os.environ, {"STT_HOTWORDS": json.dumps(hotwords)}),
                         patch.object(sys, "stdout", stdout),
                         patch.object(sys, "argv", ["transcribe.py", "answer.webm"]),
                         patch.object(helper, "model_path", return_value=Path("model")),
                     ):
                         helper.main()
-                        self.assertEqual(whisper.WhisperModel.return_value.transcribe.call_args.kwargs["hotwords"], "PostgreSQL, Dependency Injection")
+                        self.assertEqual(whisper.WhisperModel.return_value.transcribe.call_args.kwargs["hotwords"], ", ".join(hotwords))
                     stdout.flush()
                     # Match Electron's UTF-8 decoding of stdout and JSON.parse.
                     result = json.loads(raw.getvalue().decode("utf-8"))

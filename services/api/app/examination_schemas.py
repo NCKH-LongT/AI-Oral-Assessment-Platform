@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from .schemas import Criterion, Input, QuestionOutput
 
@@ -8,13 +8,19 @@ Hotword = Annotated[str, Field(min_length=1, max_length=100)]
 
 
 class HotwordsIn(Input):
-    hotwords: list[Hotword] = Field(default_factory=list, max_length=100)
+    hotwords: list[Hotword] = Field(default_factory=list, max_length=500)
+
+    @field_validator("hotwords", mode="before")
+    @classmethod
+    def clean_words(cls, value):
+        if isinstance(value, list) and all(isinstance(word, str) for word in value):
+            return list(dict.fromkeys(word.strip() for word in value if word.strip()))
+        return value
 
     @model_validator(mode="after")
     def normalize(self):
-        self.hotwords = list(dict.fromkeys(word.strip() for word in self.hotwords if word.strip()))
-        if sum(map(len, self.hotwords)) > 2000:
-            raise ValueError("Tổng hotword không vượt 2000 ký tự")
+        if sum(map(len, self.hotwords)) > 10000:
+            raise ValueError("Tổng hotword của môn học không vượt 10.000 ký tự")
         return self
 
 

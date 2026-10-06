@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from . import ai
 from .knowledge import chunk_scope, topic_data
-from .models import BookSection, Document, LearningOutcome, Rubric, Topic
+from .models import BookSection, Course, Document, LearningOutcome, Rubric, Topic
 from .runtime_settings import settings
 from .security import by_id, fail
 
@@ -66,6 +66,7 @@ def build_snapshot(db, exam):
             )
     doc_ids = sorted(d.id for d in docs)
     return {
+        "hotwords": list(by_id(db, Course, exam.course_id).hotwords),
         "exam_version": 2,
         "generation_prompt_version": "topic-los-english-terms-v3",
         "topic_chunk_ids": topic_scopes,

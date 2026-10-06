@@ -43,7 +43,6 @@ export default function SpeechSettings() {
             {
               provider: value.provider,
               language: value.language,
-              hotwords: value.hotwords || [],
               preprocessing: "off",
             },
             "PUT",
@@ -88,21 +87,9 @@ export default function SpeechSettings() {
             <option value="en">Tiếng Anh</option>
           </select>
         </label>
-        <label>
-          Hotword chung (mỗi dòng một thuật ngữ)
-          <textarea
-            value={(value.hotwords || []).join("\n")}
-            onChange={(e) => {
-              setValue({ ...value, hotwords: e.target.value.split("\n") });
-              setSaved(false);
-            }}
-            placeholder="PostgreSQL\nDependency Injection"
-          />
-        </label>
         <p>
-          Tối đa 100 thuật ngữ, tổng 2000 ký tự. Dùng từ vựng chuyên ngành,
-          không nhập đáp án. Hotword gợi ý nhận dạng, không bảo đảm STT đúng
-          tuyệt đối.
+          Hotword được lưu riêng cho từng môn. Vào Môn học &amp; đề thi → chọn
+          môn → Bài thi &amp; giao bài → Hotword STT của môn học để chỉnh sửa.
         </p>
         <p>
           Whisper server: {value.server_model}. Chọn LLM chấm bài riêng trong

@@ -950,7 +950,9 @@ function CourseWorkspace({
           )}
         </>
       )}
-      {tab === "exams" && editable && <CourseHotwords courseId={course.id} />}
+      {tab === "exams" && editable && (
+        <CourseHotwords key={course.id} courseId={course.id} courseName={course.name} />
+      )}
       {tab === "exams" && (
         <>
           {editable && (

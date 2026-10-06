@@ -1,12 +1,20 @@
 # OralAI — Thi vấn đáp
 
+## Hotword riêng theo môn — 06/10/2026
+
+Vào **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học** để lưu từ vựng riêng cho môn đó. Hỗ trợ tối đa **500 thuật ngữ**, **100 ký tự/mục**, **10.000 ký tự tổng cộng**; danh sách 200 mục không còn bị giới hạn 100 mục. Dòng trống và mục trùng được loại trước khi tính giới hạn. Web hiển thị số mục/ký tự và báo lỗi trước khi lưu.
+
+Đã bỏ hotword chung trong Cấu hình giọng nói; dữ liệu chung cũ không còn áp dụng hoặc tự sao chép sang các môn. STT chỉ nhận hotword của môn thuộc phiên thi, không cắt về 100 mục. Đề mới giữ bản sao hotword tại lúc sinh đề; sửa danh sách môn không đổi đề đã sinh. Xem [hướng dẫn hotword và cập nhật](docs/architecture/examination-workflow.md#hotword-stt).
+
+Áp dụng: `docker compose up -d --build --wait`, sau đó đóng/mở lại desktop từ source; bộ cài desktop cần đóng gói lại. Bản sửa này không thêm migration hoặc biến `.env`.
+
 ## Quy trình khảo thí và hotword STT — 05/10/2026
 
 Đã bổ sung role **EXAM_OFFICER** do admin duyệt, giao giảng viên theo môn, nhập sinh viên Excel, sinh/review/duyệt câu hỏi và rubric, xếp lịch theo sinh viên, chấm lại bài AI dưới 5 và xuất điểm Excel. Module sinh snapshot và Excel được tách khỏi router quản trị.
 
 - [Hướng dẫn đầy đủ và thiết kế luồng thi](docs/architecture/examination-workflow.md).
 - [Tải Excel mẫu danh sách sinh viên](docs/templates/danh-sach-sinh-vien.xlsx).
-- Hotword chung và theo môn áp dụng cho PhoWhisper desktop, Whisper server, Google STT và Gemini STT.
+- Hotword riêng theo môn áp dụng cho PhoWhisper desktop, Whisper server, Google STT và Gemini STT (cập nhật 06/10/2026).
 - Cần migration **0005**, dependency Excel mới và build lại desktop để nhận hotword. Xem hướng dẫn triển khai trong tài liệu trên.
 
 

@@ -1,5 +1,27 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const { validHotwords } = require("../apps/desktop/stt-policy.cjs");
+
+test("desktop accepts the complete course vocabulary and enforces server limits", () => {
+  assert.equal(validHotwords(undefined), true);
+  assert.equal(validHotwords([]), true);
+  assert.equal(
+    validHotwords(
+      Array.from({ length: 200 }, (_, i) => `Thuật ngữ chuyên ngành ${i}`),
+    ),
+    true,
+  );
+  const boundary = Array.from({ length: 500 }, (_, i) =>
+    String(i).padEnd(20, "x"),
+  );
+  assert.equal(validHotwords(boundary), true);
+  assert.equal(validHotwords([...boundary, "extra"]), false);
+  assert.equal(validHotwords(["x".repeat(101)]), false);
+  assert.equal(validHotwords(boundary.map((word) => word + "x")), false);
+  assert.equal(validHotwords(["😀".repeat(100)]), true);
+  for (const value of [null, "word", [1], [{}]])
+    assert.equal(validHotwords(value), false);
+});
 const {
   normalizeServerURL,
   googleLoginURL,

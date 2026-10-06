@@ -203,7 +203,6 @@ def generate(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     snapshot["criteria"] = criteria
     snapshot.pop("published_at", None)
     snapshot["generated_at"] = time.time()
-    snapshot["hotwords"] = list(by_id(db, Course, exam.course_id).hotwords)
     exam.snapshot, exam.status, exam.workflow = snapshot, "GENERATED", True
     audit(db, user, "EXAM_DRAFT_GENERATED", exam_id=key)
     db.commit()

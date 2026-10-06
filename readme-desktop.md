@@ -1,6 +1,6 @@
 # OralAI Desktop
 
-> **05/10/2026:** Desktop mới nhận hotword chung và theo môn từ server, truyền vào PhoWhisper qua `STT_HOTWORDS`. Cần build lại desktop sau cập nhật helper. Sinh viên đăng nhập bằng email trong danh sách Excel và mở **Bài thi của tôi** theo lịch khảo thí. Xem [quy trình mới](docs/architecture/examination-workflow.md).
+> **06/10/2026:** Desktop chỉ nhận hotword của môn thuộc phiên thi, truyền vào PhoWhisper qua `STT_HOTWORDS`; không gộp từ vựng chung. Hỗ trợ tối đa 500 mục, 100 ký tự/mục và 10.000 ký tự tổng cộng. Sau cập nhật cần đóng/mở lại app từ source hoặc đóng gói/cài lại desktop để thay giới hạn cũ 100 mục. Không cần tải lại model STT cho bản sửa này. Sinh viên đăng nhập bằng email trong danh sách Excel và mở **Bài thi của tôi** theo lịch khảo thí. Xem [quy trình mới](docs/architecture/examination-workflow.md).
 
 
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)

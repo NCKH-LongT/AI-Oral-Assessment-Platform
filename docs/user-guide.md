@@ -46,7 +46,7 @@ Sau khi công bố, ngay dưới đề xuất hiện **Câu hỏi & thuật ng�
 - Gợi ý được lưu cùng phiên bản đề và hiển thị trong trang quản lý. Học viên không nhận danh sách này qua màn hình câu hỏi.
 - Đề cũ, đề demo hoặc câu không có thuật ngữ phù hợp có thể hiển thị **Chưa có gợi ý thuật ngữ cho câu hỏi này**.
 - Hiện chưa có thao tác sửa trực tiếp danh sách thuật ngữ. Để sinh lại câu hỏi/gợi ý, chọn **Sao chép thành bản nháp**, điều chỉnh bản nháp và công bố lại; bản đề mới có thể có câu hỏi khác.
-- Hotword STT được cấu hình riêng ở **Cấu hình giọng nói** và **Hotword STT của môn học**, áp dụng cho desktop/server. Danh sách thuật ngữ AI không tự trở thành hotword. Nghe lại và kiểm tra transcript trước khi nộp.
+- Hotword STT lưu riêng tại **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học**, áp dụng cho desktop/server khi làm bài của môn đó. Mỗi dòng một thuật ngữ; tối đa 500 mục, 100 ký tự/mục, tổng 10.000 ký tự sau khi bỏ dòng trống/mục trùng. Bấm **Lưu hotword môn học**, kiểm tra thông báo tên môn và số mục đã lưu. Không còn hotword chung trong Cấu hình giọng nói. Đề giữ hotword lúc sinh; sau khi sửa danh sách, cần sinh đề mới hoặc trả đề về nháp rồi sinh/duyệt lại để áp dụng. Danh sách thuật ngữ AI không tự trở thành hotword. Nghe lại và kiểm tra transcript trước khi nộp.
 
 Đề đã công bố giữ nguyên nội dung để đối chiếu kết quả. Kỳ thi mới bắt buộc giảng viên và khảo thí duyệt trước; chỉ sinh viên trong roster thấy kỳ thi và chỉ bắt đầu trong lịch được xếp.
 

@@ -9,7 +9,7 @@ from test_mvp import ok, prepare
 
 from app import speech, worker
 from app.excel import HEADERS, workbook_bytes
-from app.models import Assignment, Attempt, CourseEnrollment, Exam, ExamSession, User
+from app.models import Assignment, Attempt, CourseEnrollment, Exam, ExamSession, SystemSetting, User
 
 
 def setup_workflow(env):
@@ -163,16 +163,23 @@ def test_request_role_requires_admin_approval(env):
 
 
 def test_hotwords_are_frozen_scoped_and_forwarded(env, monkeypatch):
-    clients, _, key, context = setup_workflow(env)
+    clients, factory, key, context = setup_workflow(env)
     teacher, office, student = clients["teacher"], clients["reviewer"], clients["student"]
     path = f"/admin/courses/{context['course']['id']}/hotwords"
-    ok(teacher.put(path, json={"hotwords": ["Dependency Injection", "PostgreSQL"]}))
+    words = [f"Thuật ngữ chuyên ngành {i}" for i in range(200)]
+    ok(teacher.put(path, json={"hotwords": words}))
+    # Old global lists, including those larger than the former limit, are ignored.
+    with factory() as db:
+        db.add(SystemSetting(key="speech", value={"provider": "local_server", "hotwords": ["Global"] * 200}))
+        db.commit()
+    assert "hotwords" not in ok(student.get("/stt/config"))
+    assert "hotwords" not in ok(clients["admin"].get("/admin/settings/speech"))
     ok(import_roster(office, key))
     approve_and_schedule(clients, key)
     ok(teacher.put(path, json={"hotwords": ["Changed vocabulary"]}))
     session = ok(student.post("/exam-sessions", json={"exam_id": key}))
     config = ok(student.get("/stt/config", params={"session_id": session["id"]}))
-    assert config["hotwords"] == ["Dependency Injection", "PostgreSQL"]
+    assert config["hotwords"] == words
     assert clients["outsider"].get("/stt/config", params={"session_id": session["id"]}).status_code == 403
     seen = {}
     def recognize(path, policy):
@@ -186,7 +193,36 @@ def test_hotwords_are_frozen_scoped_and_forwarded(env, monkeypatch):
         return [SimpleNamespace(text="PostgreSQL", avg_logprob=-.1)], SimpleNamespace(language="vi")
     monkeypatch.setattr(speech, "model", lambda _: SimpleNamespace(transcribe=transcribe))
     speech.whisper("audio.wav", "vi", config["hotwords"])
-    assert seen["hotwords"] == "Dependency Injection, PostgreSQL"
+    assert seen["hotwords"] == ", ".join(words)
+
+
+def test_course_hotwords_are_independent_and_validate_before_saving(env):
+    clients, factory = env
+    admin, teacher, student = clients["admin"], clients["teacher"], clients["student"]
+    first = ok(teacher.post("/admin/courses", json={"code": "CS", "name": "Computing"}), 201)
+    second = ok(admin.post("/admin/courses", json={"code": "BIO", "name": "Biology"}), 201)
+    first_path, second_path = [f"/admin/courses/{course['id']}/hotwords" for course in (first, second)]
+    words = [str(i).ljust(20, "x") for i in range(500)]
+    assert ok(teacher.put(first_path, json={"hotwords": words + ["", " ", " " + words[0] + " "]}))["hotwords"] == words
+    ok(admin.put(second_path, json={"hotwords": ["Mitosis"]}))
+    assert ok(teacher.get(first_path))["hotwords"] == words
+    assert ok(admin.get(second_path))["hotwords"] == ["Mitosis"]
+    assert teacher.put(second_path, json={"hotwords": ["Wrong course"]}).status_code == 403
+    assert teacher.get(second_path).status_code == 403
+    assert student.put(first_path, json={"hotwords": []}).status_code == 403
+    for invalid in (words + ["extra"], ["x" * 101], [word + "x" for word in words], [12]):
+        assert teacher.put(first_path, json={"hotwords": invalid}).status_code == 422
+        assert ok(teacher.get(first_path))["hotwords"] == words
+    with factory() as db:
+        assert speech.exam_policy(db, SimpleNamespace(course_id=first["id"], snapshot={}))['hotwords'] == words
+        assert speech.exam_policy(db, SimpleNamespace(course_id=second["id"], snapshot={}))['hotwords'] == ["Mitosis"]
+        # An explicitly empty frozen vocabulary must not fall back to current course words.
+        assert "hotwords" not in speech.exam_policy(db, SimpleNamespace(course_id=first["id"], snapshot={"hotwords": []}))
+    ok(teacher.put(first_path, json={"hotwords": []}))
+    assert ok(teacher.get(first_path))["hotwords"] == []
+    assert ok(admin.get(second_path))["hotwords"] == ["Mitosis"]
+    assert admin.put("/admin/settings/speech", json={"hotwords": ["Global"]}).status_code == 422
+    ok(admin.put("/admin/settings/speech", json={"provider": "local_server", "language": "vi"}))
 
 
 def test_imported_student_google_login_preserves_roster(env, monkeypatch):

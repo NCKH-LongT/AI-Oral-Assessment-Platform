@@ -5,7 +5,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check server-preload.cjs && node --check server-config.cjs && node --check server.js && node --check check-stt-bundle.cjs && node --check unload-guard.cjs",
+    "check": "node --check main.cjs && node --check preload.cjs && node --check server-preload.cjs && node --check server-config.cjs && node --check server.js && node --check check-stt-bundle.cjs && node --check unload-guard.cjs && node --check stt-policy.cjs",
     "pack": "electron-builder --dir --publish never",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
@@ -35,7 +35,8 @@
       "server.css",
       "server.js",
       "package.json",
-      "unload-guard.cjs"
+      "unload-guard.cjs",
+      "stt-policy.cjs"
     ],
     "extraResources": [
       {

@@ -20,6 +20,7 @@ const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
 const { installUnloadGuard } = require("./unload-guard.cjs");
+const { validHotwords } = require("./stt-policy.cjs");
 const {
   DEFAULT_URL,
   normalizeServerURL,
@@ -234,9 +235,7 @@ app.whenReady().then(async () => {
       policy.provider !== "local" ||
       !["off", "denoise"].includes(policy.preprocessing) ||
       !["vi", "en"].includes(policy.language) ||
-      (policy.hotwords !== undefined && (!Array.isArray(policy.hotwords) ||
-        policy.hotwords.length > 100 || policy.hotwords.some(word => typeof word !== "string" || word.length > 100) ||
-        policy.hotwords.join("").length > 2000))
+      !validHotwords(policy.hotwords)
     )
       throw new Error("Invalid STT request");
     if (sttBusy) throw new Error("STT đang bận");

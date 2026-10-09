@@ -4,13 +4,15 @@
 >
 > **Mốc rà soát:** 09/10/2026, mã nguồn `main` tại [`80c17fde39f6c99ee1036db19e7fc3c9f5c87090`](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/tree/80c17fde39f6c99ee1036db19e7fc3c9f5c87090), sau khi PR #8 được merge. Thay đổi trong tài liệu này chỉ là hướng dẫn; không bổ sung runner, huấn luyện mô hình hay chạy thí nghiệm.
 
+> **Bổ sung định hướng PhoWhisper — 09/10/2026:** tài liệu được mở rộng từ `main` tại [`7289f611b5a242219290fc80436eb307f4758aa4`](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/tree/7289f611b5a242219290fc80436eb307f4758aa4), sau PR #9. Xem mục 2.4–2.5 để chọn giữa fine-tuning, hotword, chấm nội dung và chuyển liên môn; mục 15 là protocol cho nhánh PhoWhisper. Audit tính năng trước đó vẫn giữ mốc ở trên.
+
 **Đọc nhanh:**
 
-- Chọn topic và giới hạn claim: mục 1–2.
+- Chọn topic và giới hạn claim: mục 1–2; so bốn hướng ở mục 2.4.
 - Đối chiếu source và phần chưa làm: mục 3.
 - Lập protocol, baseline và thí nghiệm: mục 4–9.
 - Bắt tay thực hiện/viết paper: mục 10–12; đọc nguồn gốc ở mục 13.
-- Ưu tiên ASR → sai số điểm và review theo ngân sách; chỉ thêm nhánh thí nghiệm khi trả lời một câu hỏi rõ.
+- Hướng fine-tuning mới: ưu tiên LoRA vs hotword theo ngân sách dữ liệu ở mục 15; hướng chấm nội dung giữ ASR → sai số điểm và review làm trục chính. Chọn một hướng cho bài đầu tiên.
 
 ## 1. Câu trả lời ngắn: có thể viết bài báo không?
 
@@ -28,7 +30,7 @@ Nếu chưa thu được dữ liệu, nên chuẩn bị protocol hoặc demo ph�
 
 ## 2. Chốt đề tài và phạm vi
 
-### 2.1. Tên đề tài đề xuất chính
+### 2.1. Hướng chấm nội dung và review: đề xuất ban đầu
 
 **Tiếng Anh:** _ASR Error Propagation and Budgeted Human Review in Rubric-Based Vietnamese Oral Content Assessment_
 
@@ -61,6 +63,32 @@ Dự kiến ba đóng góp, chỉ giữ những gì thực sự làm được:
 - Đánh giá chính sách chọn bài cần người duyệt theo cùng ngân sách, so với confidence tự báo, confidence STT, ngẫu nhiên và quy tắc đang có.
 
 **Không tuyên bố mới chỉ vì tích hợp Whisper/PhoWhisper + RAG + LLM + Electron.** Ảnh hưởng ASR lên content scoring đã có nghiên cứu trước [Zechner2013]. Chấm rubric và calibration cũng có prior [LLMRubric2024]. Novelty khả dĩ là bằng chứng cho tiếng Việt/chuyên ngành, protocol tái lập và cách đánh giá an toàn ở ngân sách review thực tế. Cần tìm thêm bài gần nhất trước khi nộp; danh mục bên dưới là điểm khởi đầu, không phải systematic review.
+
+### 2.4. So sánh bốn hướng sau khi bổ sung ý tưởng fine-tune PhoWhisper
+
+**Làm rõ mục tiêu:** nếu muốn máy ghi đúng `boundary value analysis`, `equivalence partitioning` hoặc `acceptance criteria` khi người học nói xen trong tiếng Việt, đó là **ASR/transcription có chuyển mã ngôn ngữ**, không phải dịch Anh → Việt. Ví dụ, audio “em dùng boundary value analysis để chọn giá trị biên” nên giữ thuật ngữ như đã nói. Nếu muốn sinh bản dịch/nghĩa tiếng Việt, đó là một tác vụ sau ASR, cần dữ liệu song ngữ và phép đánh giá riêng. Helper hiện tại dùng `task="transcribe"`; hướng dưới đây không đổi thành hệ thống dịch.
+
+| Hướng                                     | Tên topic tiếng Anh / tiếng Việt                                                                                                                                                                                   | Câu hỏi trung tâm                                                                                   | Điều kiện và vị trí trong paper                                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **F1, khuyến nghị cho nhánh fine-tuning** | **Low-Resource Adaptation of PhoWhisper for Vietnamese–English Technical-Term Recognition in Software Testing** / **Thích nghi PhoWhisper ít dữ liệu để nhận dạng thuật ngữ Việt–Anh trong môn Kiểm thử phần mềm** | Với cùng ngân sách audio gán nhãn, LoRA tốt hơn hotword tới mức nào, trên từ đã gặp và từ chưa gặp? | Cần audio–transcript chuẩn và GPU được cấp; đóng góp thực nghiệm/dữ liệu/learning curve, không nhận LoRA là thuật toán mới. Kế hoạch chi tiết ở mục 15  |
+| **F2, nhẹ hơn nếu chưa có dữ liệu train** | **Contextual Glossary Biasing for Vietnamese–English Software Requirements Speech** / **Gợi ý từ vựng theo ngữ cảnh cho nhận dạng lời nói Việt–Anh trong môn Yêu cầu phần mềm**                                    | Glossary đầy đủ hay chọn theo chủ đề giúp nhận thuật ngữ, và có làm chèn từ không được nói?         | Không cập nhật trọng số; vẫn cần test audio độc lập. So glossary rỗng, cố định, chọn theo chủ đề và distractors. Glossary/hotword đơn thuần đã có prior |
+| **F3, hướng chấm nội dung đã trình bày**  | **ASR Error Propagation and Budgeted Human Review in Rubric-Based Vietnamese Oral Content Assessment** / **Lan truyền lỗi ASR và chuyển giảng viên duyệt theo ngân sách trong chấm nội dung vấn đáp tiếng Việt**   | Transcript tốt hơn có thực sự giảm lỗi điểm và số bài phải review?                                  | Cần rubric + nhiều rater + điểm tham chiếu; giữ mục 4–12 làm protocol. Có thể dùng ASR từ F1 làm một điều kiện, không bắt buộc fit selector mới         |
+| **F4, mở rộng sau khi F1 ổn định**        | **Cross-Course Generalization of Adapted Vietnamese–English Speech Recognition** / **Khả năng tổng quát hóa liên môn của ASR Việt–Anh sau thích nghi**                                                             | Fine-tune Software Testing có giữ chất lượng khi chuyển sang Software Requirements hoặc môn khác?   | Test khóa theo môn, người và thuật ngữ. Cần dữ liệu môn đích độc lập; không gộp thành đóng góp chính ngay từ pilot một môn                              |
+
+**Nên bắt đầu F1 với Software Testing** vì repo đã có câu hỏi/rubric khởi điểm, dù hai câu hiện tại chưa phải bộ audio để train. Software Requirements cũng hợp lý nếu dễ tuyển người học/giảng viên và có dữ liệu được phép dùng hơn: các nhóm từ như `functional requirement`, `stakeholder`, `traceability`, `acceptance criteria` giúp tạo phạm vi rõ. Chỉ chọn một môn chính trước; không chọn môn vì hy vọng có kết quả đẹp.
+
+Tên paper nhấn mạnh phép so sánh, nếu chọn F1:
+
+- **English:** _LoRA or Contextual Hotwords? Low-Resource PhoWhisper Adaptation for Vietnamese–English Software Testing Speech_.
+- **Tiếng Việt:** _LoRA hay hotword theo ngữ cảnh? Thích nghi PhoWhisper ít dữ liệu cho lời nói Việt–Anh trong môn Kiểm thử phần mềm_.
+
+### 2.5. Novelty của hướng fine-tuning: cần thu hẹp claim
+
+PhoWhisper đã là mô hình Whisper thích nghi cho tiếng Việt [PhoWhisper2024]. **ViMedCSS đã nghiên cứu PhoWhisper-small, LoRA và contextual biasing cho thuật ngữ y khoa Việt–Anh** [ViMedCSS2026]; CB-Whisper cũng đã nghiên cứu gợi ý ngữ cảnh cho tên/thuật ngữ hiếm [CBWhisper2024]. Vì vậy “fine-tune PhoWhisper cho từ chuyên ngành” hoặc “thêm glossary” chưa đủ làm novelty độc lập.
+
+Đóng góp có thể bảo vệ cho F1 là: benchmark lời nói tự nhiên của người học trong một môn cụ thể; learning curve theo lượng audio và độ phủ người/thuật ngữ; so LoRA với hotword công bằng; đánh giá từ chưa gặp, chèn sai thuật ngữ và suy giảm tiếng Việt. Nếu có nhãn chấm nội dung, thêm một kiểm tra tác động xuống điểm như secondary analysis. Chưa có số liệu để nói hướng này thắng baseline hoặc chắc chắn được nhận ở hội nghị.
+
+**Chọn một trục bài báo:** F1 tập trung ASR; F3 tập trung reliability của điểm. Không bắt buộc làm đồng thời fine-tuning, mô hình retrieval mới, bộ selector mới, nhiều môn và user study trong một bài đầu tiên. Các mục 4–12 bên dưới giữ nguyên cho F3; chọn F1 thì ưu tiên protocol riêng ở mục 15 và dùng lại nguyên tắc ethics/split/thống kê phù hợp.
 
 ## 3. Source hiện có gì, và chưa chứng minh được gì?
 
@@ -570,14 +598,37 @@ Sebastian Gombert, Zhifan Sun, Fabian Zehner, Jannik Lossjew, Tobias Wyrwich, Be
 
 Bản xuất bản nêu hai kiến trúc GRAASP/ToLeGRAA align câu trả lời với tiêu chí rubric, đánh giá ALICE-LP và ASAP-SAS. Không dùng tên GRASP từ bản review cũ để mô tả bản cuối. Dùng để định vị rubric alignment không mới; chưa xác minh đủ việc lấy dataset/code để hứa tái lập, nên coi là **related work**, không baseline bắt buộc.
 
+### [R13] ViMedCSS: prior sát hướng fine-tune thuật ngữ Việt–Anh
+
+Tung X. Nguyen và cộng sự (2026). **ViMedCSS: A Vietnamese Medical Code-Switching Speech Dataset & Benchmark.** LREC 2026, 5657–5665. [ACL Anthology](https://aclanthology.org/2026.lrec-1.445/), DOI [10.63317/58uwrquo3znb](https://doi.org/10.63317/58uwrquo3znb), [PDF, Table 5](https://aclanthology.org/2026.lrec-1.445.pdf#page=5).
+
+Prior trực tiếp về thích nghi PhoWhisper-small cho thuật ngữ y khoa. Dùng để định vị F1 và đối chiếu protocol; số tham khảo ở mục 15.6 thuộc nghiên cứu của tác giả.
+
+### [R14] CB-Whisper: contextual biasing đã có nghiên cứu trước
+
+Yuang Li, Yinglu Li, Min Zhang, Chang Su, Jiawei Yu, Mengyao Piao, Xiaosong Qiao, Miaomiao Ma, Yanqing Zhao, Hao Yang (2024). **CB-Whisper: Contextual Biasing Whisper Using Open-Vocabulary Keyword-Spotting.** LREC-COLING 2024, 2941–2946. [ACL Anthology](https://aclanthology.org/2024.lrec-main.262/). Trang chính thức không liệt kê DOI.
+
+Bài dùng keyword-spotting trước decoder và contextual prompts cho thực thể/thuật ngữ; đánh giá có English, Chinese và code-switching. Dùng làm prior cho F2, không suy ra chất lượng tiếng Việt và không gọi tham số hotword có sẵn của app là tái lập CB-Whisper.
+
+### [R15] LoRA: nền tảng parameter-efficient adaptation
+
+Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen (2022). **LoRA: Low-Rank Adaptation of Large Language Models.** ICLR 2022. [Trang hội nghị](https://openreview.net/forum?id=nZeVKeeFYf9), [bản tác giả arXiv](https://arxiv.org/abs/2106.09685), DOI arXiv [10.48550/arXiv.2106.09685](https://doi.org/10.48550/arXiv.2106.09685); [repo tác giả](https://github.com/microsoft/LoRA).
+
+LoRA đóng băng trọng số nền và học cập nhật hạng thấp. Dùng làm nguồn phương pháp; kết quả language-model gốc không bảo đảm lợi ích trên PhoWhisper hay mức VRAM cụ thể. Recipe ASR trong đề xuất F1 là adaptation cần mô tả và kiểm thử riêng.
+
 [Whisper2023]: https://proceedings.mlr.press/v202/radford23a.html
 [PhoWhisper2024]: https://arxiv.org/abs/2406.02555
 [Zechner2013]: https://aclanthology.org/W13-1709/
 [LLMRubric2024]: https://aclanthology.org/2024.acl-long.745/
 [Kane2013]: https://doi.org/10.1111/jedm.12000
 [MultilingualSBERT2020]: https://aclanthology.org/2020.emnlp-main.365/
+[ViMedCSS2026]: https://aclanthology.org/2026.lrec-1.445/
+[CBWhisper2024]: https://aclanthology.org/2024.lrec-main.262/
+[LoRA2022]: https://arxiv.org/abs/2106.09685
 
-## 14. Bắt đầu ngay bằng việc gì?
+## 14. Bắt đầu ngay với hướng chấm nội dung
+
+Nếu chọn hướng fine-tuning/hotword mới, dùng mục 15 thay cho danh sách bắt đầu của hướng chấm nội dung dưới đây.
 
 1. Chọn một môn và một mục tiêu: **chấm nội dung tiếng Việt**, không ôm cả TOEIC/phát âm/đa môn.
 2. Đọc trước [Zechner2013], [PhoWhisper2024], [LLMRubric2024] và [Kane2013]; ghi rõ mình kế thừa gì.
@@ -586,3 +637,128 @@ Bản xuất bản nêu hai kiến trúc GRAASP/ToLeGRAA align câu trả lời 
 5. Xây runner riêng, chạy baseline và ablation theo protocol; viết paper từ bằng chứng đã đo.
 
 **Kết luận:** giá trị bài báo nên nằm ở hiểu rõ khi nào điểm tự động đáng tin và khi nào cần người duyệt, với bằng chứng tái lập trong bối cảnh tiếng Việt. Source hiện tại giúp bắt đầu công việc đó; thí nghiệm và lập luận validity mới quyết định độ thuyết phục của bài.
+
+## 15. Kế hoạch cụ thể cho bài PhoWhisper theo môn học
+
+> **Trạng thái:** toàn bộ mục này là đề xuất nghiên cứu; chưa thu dữ liệu, chưa train LoRA, chưa chuyển đổi checkpoint mới và chưa thay model đang dùng trong app. Chỉ cập nhật hướng dẫn viết bài.
+
+### 15.1. Một câu hỏi hẹp và giả thuyết
+
+**FT-RQ:** Trong câu trả lời tiếng Việt có thuật ngữ tiếng Anh của môn Software Testing, PhoWhisper-small được thích nghi bằng LoRA có giảm lỗi thuật ngữ hơn PhoWhisper-small chỉ thêm hotword ở các mức dữ liệu gán nhãn khác nhau, mà không làm tăng chèn thuật ngữ sai hoặc suy giảm tiếng Việt quá mức chấp nhận được không?
+
+- **FT-H1:** LoRA giảm lỗi thuật ngữ so frozen+hotword ở ít nhất một ngân sách đã đăng ký; kiểm định trên test khóa trước. Không giả định ngân sách nhỏ nhất cũng thắng.
+- **FT-H2:** lợi ích trên từ thấy trong train có thể lớn hơn trên từ chưa thấy. Đo riêng; không lấy điểm trung bình toàn tập che hạn chế long-tail.
+- **FT-H3:** LoRA/hotword có thể đánh đổi giữa recall thuật ngữ, chèn sai và chất lượng tiếng Việt. Báo trade-off, không chỉ WER tốt nhất.
+
+Chốt primary endpoint, ví dụ technical-term error rate trên test chính, và primary comparison LoRA vs frozen+hotword tại ngân sách train cao nhất đã định trước. Learning curve và các ngân sách còn lại là secondary; điều chỉnh multiple comparisons nếu đưa ra kết luận xác nhận cho nhiều mức. Margin chấp nhận suy giảm tiếng Việt phải được đặt trước theo nhu cầu sử dụng; muốn kết luận non-inferiority cần thiết kế/CI tương ứng, không chỉ p-value không có ý nghĩa.
+
+### 15.2. Dữ liệu thật sự cần có
+
+**Cần cặp audio và transcript verbatim đã kiểm tra.** Giáo trình PDF, slide, danh sách từ Anh–Việt và rubric giúp soạn glossary/câu hỏi; riêng text không thay thế dữ liệu acoustic–text có giám sát cho fine-tune ASR.
+
+- Thu câu trả lời tự nhiên của nhiều người, giọng/thiết bị đa dạng theo phạm vi có consent. Ghi cả cách đọc thuật ngữ theo thói quen người Việt, từ viết tắt, số và từ phủ định; không ép mọi người đọc một giọng mẫu.
+- Transcript giữ đúng điều đã nói, kể cả kiến thức sai; dùng tiếng Anh đúng chữ khi thực sự nghe thấy thuật ngữ Anh. Không tự dịch sang nghĩa Việt, không thêm từ theo đáp án. Hai người kiểm tra chéo các span thuật ngữ/không rõ tiếng; có quy tắc adjudication.
+- Lưu full recording và segmentation provenance trong kho kiểm soát. Tạo đoạn huấn luyện vừa cửa sổ xử lý, không cắt mất âm đầu/cuối thuật ngữ; mọi đoạn cùng người/phiên nguồn giữ cùng split. Dữ liệu test chính vẫn phản ánh câu trả lời tự nhiên, không chỉ đọc glossary.
+- Có các câu tiếng Việt không chứa thuật ngữ đích và câu chứa từ gần âm để phát hiện chèn sai. Audio chỉ có im lặng/nhiễu có thể là stress set phụ, không thay test lời nói.
+- Mỗi mẫu có `speaker_id`, `session_id`, `question_id`, `prompt_family_id`, `course_id`, audio hash/duration, split, transcript, term spans/IDs và phiên bản annotation. Có thể gắn language tag ở span để đo lỗi Việt/Anh; không đoán thuộc tính cá nhân từ giọng.
+- Dữ liệu TTS/tổng hợp, nếu dùng, chỉ là augmentation train có nhãn rõ. Không dùng cùng template, giọng tổng hợp hoặc audio phái sinh ở test rồi gọi đó là tổng quát hóa sang sinh viên thật.
+- Consent phải bao phủ sử dụng để train mô hình và kế hoạch chia sẻ checkpoint; quyền sử dụng audio để học tập không tự bao gồm quyền phát hành mô hình/dữ liệu. Áp dụng toàn bộ mục 9; không push audio/transcript định danh lên repo public.
+
+**Ngân sách pilot:** có thể lập kế hoạch 5–10 giờ audio được gán nhãn để kiểm tra tính khả thi của thích nghi, tùy nguồn lực. Đây là **mục tiêu thu thập, không phải mức tối thiểu đã được chứng minh hay bảo đảm có cải thiện**. Dành dev/test độc lập ngoài lượng audio gọi là “giờ train”. Nếu chỉ có tổng cộng 5 giờ, phải báo đúng phần train sau chia; không vừa nói train 5 giờ vừa lấy test từ chính 5 giờ đó.
+
+Learning curve đề xuất: 0 giờ (frozen), 1, 2, 5, 10 giờ train **chỉ khi đủ dữ liệu train sạch**. Dùng các subset lồng nhau, lặp cách lấy mẫu theo người/term coverage khi khả thi; dev/test giữ cố định. Báo giờ audio, số người, số utterance, số loại thuật ngữ và số lần xuất hiện mỗi mức. Tăng giờ bằng lặp lại cùng người/câu không tương đương tăng độ đa dạng. Không chuyển test thành train để đủ mốc 10 giờ. Ước lượng CI/power theo số người và sự kiện thuật ngữ sau pilot; tổng số giờ một mình không xác định độ tin cậy.
+
+### 15.3. Split người, câu hỏi và thuật ngữ
+
+Đăng ký rõ từng loại test, không gọi chung tất cả là “unseen”:
+
+1. **Test người mới:** không trùng người/phiên nguồn với train/dev; có thể dùng câu hỏi/thuật ngữ quen thuộc. Đây là test core nếu nguồn lực hạn chế.
+2. **Test câu hỏi mới:** thêm ràng buộc prompt family/paraphrase không trùng; cân bằng LO/độ khó. Nêu rõ nếu chưa đủ dữ liệu để tách cùng lúc người và câu hỏi.
+3. **Test thuật ngữ chưa gặp khi thích nghi:** loại mọi occurrence của các term ID đã chọn khỏi train và khỏi dev dùng để chỉnh mô hình. Giữ nhóm biến thể spelling/acronym/phrase liên quan cùng term family khi protocol coi chúng tương đương. Không chọn “từ khó” sau khi xem lỗi test.
+4. **Vietnamese retention:** một tập tiếng Việt phổ thông độc lập không dùng để train/tune, cùng preprocessing trước/sau thích nghi; thêm lỗi ở span tiếng Việt trong tập môn học. Nếu benchmark công khai có nguy cơ đã xuất hiện trong pretraining, ghi rõ; “held out khỏi fine-tuning” không có nghĩa chưa từng được pretrained model thấy.
+
+Với test thuật ngữ mới, báo **hai chế độ từ vựng khác nhau** nếu có thể:
+
+- **Unseen-in-training, known-at-inference:** term không có audio train/dev nhưng đã nằm trong glossary môn được giảng viên xây độc lập trước khi khóa test. Cho mọi nhánh có contextual input cùng quyền dùng glossary; đây là điều kiện vận hành hợp lệ nếu mô tả rõ.
+- **Strict unseen-term:** term family vắng cả train/dev lẫn glossary/prompt lúc inference. Đây là kiểm tra tổng quát hóa mạnh hơn, không được trộn với chế độ trên.
+
+Không dựng bias list bằng cách đọc transcript chuẩn từng mẫu test rồi gọi đó là deployment baseline. Nếu dùng danh sách oracle như diagnostic, tách nhãn/bảng riêng. Glossary từ giáo trình độc lập cũng cần nguồn, version và cut-off; không sửa nó sau khi xem lỗi test. Các thuật ngữ đã có từ pretraining thường không xác minh được, nên tránh claim “hoàn toàn chưa từng gặp”.
+
+### 15.4. Baseline gọn và phép so sánh công bằng
+
+Dùng một backbone PhoWhisper-small cho thí nghiệm nhân tố 2 × 2:
+
+| Mã ASR    | Cập nhật trọng số    | Glossary lúc inference               | Vai trò                                                                                         |
+| --------- | -------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| FT-B0     | Frozen               | Không                                | Mốc gốc, cùng decoder/runtime với các nhánh còn lại                                             |
+| FT-B1     | Frozen               | Có, hotword cố định                  | Baseline rẻ, gần tính năng source hiện tại; bắt buộc so trước khi kết luận cần fine-tune        |
+| FT-B2     | LoRA                 | Không                                | Đo riêng tác động thích nghi bằng audio–text                                                    |
+| FT-B3     | LoRA                 | Có, cùng glossary FT-B1              | Đo phối hợp và tương tác, có thể không tốt hơn từng thành phần                                  |
+| FT-B4 phụ | Whisper-small frozen | Không/có glossary theo cùng protocol | Kiểm tra lợi thế backbone đa ngôn ngữ; không so small với large rồi gán lợi ích cho phương pháp |
+
+Full fine-tuning có thể là baseline thêm nếu ngân sách compute cho phép, nhưng không bắt buộc trong pilot. “LoRA” là phương pháp có prior [LoRA2022]; không mặc định tiết kiệm một tỷ lệ VRAM/tốc độ cụ thể trên setup của mình. Báo số tham số trainable/tổng, GPU, peak VRAM, GPU-hours, số bước, epochs, learning rate, rank/alpha/dropout và target modules thực sự dùng; chọn trên train/dev, không tối ưu riêng theo test.
+
+Giữ cùng audio, task `transcribe`, decoder settings, VAD, beam và normalization. Với câu Việt xen Anh, cấu hình language phải cố định hoặc theo cơ chế xác định trước; không chọn `vi`/`en` hậu nghiệm cho từng file theo transcript gold. Báo rõ thứ tự ưu tiên decoding config của checkpoint và runtime vì forced language/task có thể khác giữa thư viện.
+
+**Hotword trong app không tự là CB-Whisper.** Source truyền danh sách vào `faster-whisper`; CB-Whisper dùng pipeline keyword-spotting riêng. Chỉ ghi “hotword/contextual-prompt baseline” nếu dùng app hiện tại. Muốn gọi là reproduction CB-Whisper phải cài đúng thành phần và công bố adaptation.
+
+Nếu chọn F2 làm bài chính, mở ablation glossary theo 0/số ít/nhiều thuật ngữ, glossary theo môn vs chọn theo chủ đề được biết trước, và distractor terms. Chọn từ bằng thông tin thực sự sẵn trước khi nghe/chấm câu trả lời; nếu dựa transcript ASR vòng đầu thì báo vòng hai và chi phí. Không thêm đáp án hoặc expected concepts làm hotword để gợi ý nội dung cho người học.
+
+### 15.5. Metrics cần thêm ngoài WER
+
+| Metric                         | Định nghĩa vận hành cần chốt trước                                                                                                                             | Vì sao cần                                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| WER/CER toàn transcript        | Giữ Unicode/dấu tiếng Việt, tokenization và quy tắc số/acronym cố định như mục 8                                                                               | Đo tổng thể; không xóa dấu để làm số đẹp                                                                  |
+| Technical-term error rate      | Lỗi substitution/deletion/insertion trên các term span theo alignment/term matching đã khóa, nêu denominator                                                   | Tập trung phần quan trọng của môn; khác với chỉ đếm lỗi từ thường                                         |
+| Term precision/recall/F1       | Exact hoặc canonical term-match theo quy tắc được giảng viên xác nhận; macro theo term và micro theo occurrence                                                | Recall cao do “đoán nhiều từ” sẽ bị precision phát hiện                                                   |
+| CS-WER / Vietnamese-span error | Alignment full transcript với nhãn span/ngôn ngữ; nêu quy tắc gán insertion ở biên                                                                             | Tách lợi ích tiếng Anh với thiệt hại phần tiếng Việt; không chỉ lọc từ đúng rồi đo                        |
+| Spurious-term rate             | Số term occurrence được model tạo nhưng không có trong reference, chuẩn hóa theo phút audio; thêm tỷ lệ utterance bị chèn term trên tập **không có thuật ngữ** | Đo rủi ro hotword/LoRA thêm kiến thức không được nói; audit nghe lại mẫu lỗi vì reference cũng có thể sai |
+| Rare/unseen-term performance   | Cùng metrics trên nhóm term có tần suất train đã chốt, cả known-glossary và strict-unseen                                                                      | Không đánh đồng học từ phổ biến với tổng quát hóa                                                         |
+| Vietnamese retention           | ΔWER/CER trên tập tiếng Việt độc lập; Δlỗi span Việt trong môn                                                                                                 | Phát hiện quên/suy giảm sau thích nghi                                                                    |
+| Chi phí                        | Giờ gán nhãn, GPU-hours/VRAM train; latency/RTF/RAM inference                                                                                                  | So lợi ích với hotword không cần train                                                                    |
+
+Tách **term bị nghe nhầm** khỏi **hallucinated/spurious insertion** khi phân tích lỗi; một substitution sai không tự chứng minh model bịa khi không có tín hiệu âm thanh. Silence/noise stress test là phụ, báo tỷ lệ từ sinh ngoài âm thanh thay vì tính WER khi reference rỗng. Với reference không có term, term recall không xác định; không gán 100% tùy ý.
+
+CI cho chênh lệch model phải ghép cặp cùng audio và bootstrap theo người; nếu claim tổng quát hóa sang từ mới, xem thêm biến thiên theo term family/crossed grouping. Lặp seed train/subsampling trong budget cho phép và công bố biến thiên; không coi mỗi seed là một nhóm người độc lập. Chọn checkpoint bằng dev, lưu failures và báo đúng số mẫu/thuật ngữ mỗi nhóm.
+
+### 15.6. Đọc kết quả prior đúng phạm vi
+
+ViMedCSS [ViMedCSS2026], Table 5: PhoWhisper-small có **CS-WER (%)** frozen → LoRA là **62.55 → 30.26** trên Test và **66.01 → 60.71** trên Hard (thuật ngữ hiếm/chưa gặp). Đây là **kết quả y khoa của tác giả, không phải OralAI hay dự báo Software Testing**. Cần đối chiếu split, quyền dùng bias list và metric trước khi so sánh.
+
+Kế hoạch ở đây là nghiên cứu adaptation trên dữ liệu môn học mới, không tái lập số ViMedCSS. Nếu muốn chạy lại benchmark đó, phải kiểm tra license, dữ liệu, cấu hình và quyền sử dụng riêng; không trộn kết quả y khoa vào cùng bảng với điểm môn học như cùng test set.
+
+### 15.7. Chuyển model vào app là bước validation riêng
+
+Source hiện có [`scripts/build_desktop_stt.py`](../../scripts/build_desktop_stt.py) chuyển checkpoint PhoWhisper gốc đã pin sang CTranslate2 INT8; [`apps/desktop/transcribe.py`](../../apps/desktop/transcribe.py) nạp model local bằng faster-whisper. **Chưa có training pipeline hay luồng thay checkpoint fine-tuned được kiểm chứng trong thay đổi tài liệu này.**
+
+Lộ trình tùy chọn sau khi có kết quả ASR:
+
+1. Huấn luyện/đánh giá bằng checkpoint định dạng hỗ trợ training, tách khỏi bundle inference `model.bin`. Không coi file CTranslate2 INT8 đang ship là checkpoint để tiếp tục LoRA training.
+2. Lưu base revision + adapter + tokenizer/processor + config. Nếu toolchain hỗ trợ, merge adapter vào đúng base rồi export checkpoint; kiểm tra output trước/sau merge, không chỉ thấy file được tạo.
+3. Chuyển checkpoint tương thích sang CTranslate2 theo [hướng dẫn chính thức](https://opennmt.net/CTranslate2/guides/transformers.html#whisper), nạp bằng [faster-whisper](https://github.com/SYSTRAN/faster-whisper). [PEFT](https://huggingface.co/docs/peft/en/developer_guides/lora) có tài liệu adapter/merge; version/runtime thực tế vẫn cần xác minh tương thích.
+4. Đo lại WER/term metrics, RTF và RAM với cùng decoder trước/sau export và INT8. Tách ảnh hưởng fine-tuning khỏi ảnh hưởng quantization/runtime; không bảo đảm transcript giống từng byte.
+5. Thử helper → Electron → upload trên dữ liệu kiểm thử được phép, gắn model revision mới vào metadata/snapshot và giữ khả năng quay về bản gốc. Việc cập nhật app/bundle là một thay đổi riêng cần được yêu cầu; không ghi đè model đang vận hành trong nghiên cứu tài liệu.
+
+Bài nghiên cứu ASR có thể hoàn tất bằng runner tái lập mà chưa phát hành installer. Nếu paper claim deployable on-device, phải đo thiết bị thật và đóng gói/kiểm thử tương ứng.
+
+### 15.8. Cách viết paper cho F1, theo thứ tự
+
+1. **Chốt scope:** một môn, lời nói Việt xen thuật ngữ Anh, task transcription; FT-RQ và comparison LoRA vs hotword. Thu hẹp title nếu dữ liệu chỉ là đọc câu có sẵn.
+2. **Đọc prior sát nhất:** PhoWhisper, ViMedCSS, CB-Whisper và LoRA; viết bảng khác biệt về domain, cách nói, dữ liệu, unseen terms và access glossary.
+3. **Data/annotation protocol:** ethics, cách thu/cắt audio, transcript verbatim, kiểm tra span, splits và learning-curve budgets. Có thể kế thừa mục 5/9 nhưng nhãn ASR không thay nhãn chấm kiến thức.
+4. **Method/baselines:** FT-B0–FT-B3 là core; mô tả chính xác LoRA config và contextual input, chi phí train/inference, policy model selection.
+5. **Experiments:** báo kết quả tổng, theo thuật ngữ, unseen, Vietnamese retention và hallucination controls; paired CI, learning curve và error examples đã được phép công bố.
+6. **Discussion:** khi hotword đủ tốt, khi train có ích, khi model thêm/sai thuật ngữ; ngưỡng dữ liệu chưa chắc chuyển được sang môn/nhóm người khác. Kết quả âm vẫn có giá trị nếu protocol đủ chặt.
+7. **Optional downstream:** khóa một grader/rubric và dùng các transcript ASR trên cùng audio để kiểm tra ΔMAE điểm theo mục 7/E1. Không từ WER giảm suy ra điểm đúng hơn nếu chưa đo.
+8. **Abstract/title cuối cùng:** nêu số người, giờ train/test riêng, comparison chính và effect size+CI thật. Không đưa con số ViMedCSS vào abstract như kết quả của mình.
+
+**Bảng nên chuẩn bị:** thống kê train/dev/test và term coverage; FT-B0–B3 theo budgets; Test/Hard/retention; runtime cost. **Hình:** learning curve term error theo giờ train kèm CI; trade-off term recall–spurious insertion; error taxonomy. Dùng “Chưa đo” cho template, chỉ điền số từ run đã khóa.
+
+### 15.9. Quyết định tiếp theo để bắt đầu đúng hướng
+
+- Nếu có thể thu audio–text có consent và có GPU: chọn **F1**, pilot trước, so hotword ngay trước khi đầu tư train lớn.
+- Nếu chỉ có giáo trình/glossary: chọn **F2** hoặc chuẩn bị thu dữ liệu; chưa gọi đó là đủ dữ liệu fine-tune.
+- Nếu có nhiều bài vấn đáp và điểm giảng viên nhưng ít nguồn lực training: chọn **F3**, dùng ASR có sẵn và đo lan truyền lỗi.
+- Nếu F1 đã có kết quả ổn định và dữ liệu môn thứ hai độc lập: mở **F4**; khóa môn đích trước, không fine-tune/tune trên test đích rồi gọi zero-shot transfer.
+
+Đầu ra cần làm trước là protocol và kế hoạch dữ liệu cho **một** hướng đã chọn. Hướng dẫn này chưa tạo cam kết thu âm, trả phí GPU, train model hoặc thay đổi ứng dụng.

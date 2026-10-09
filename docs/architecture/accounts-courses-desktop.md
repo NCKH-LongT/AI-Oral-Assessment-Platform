@@ -42,4 +42,4 @@ Migration `0003` thêm `users.email`, Google `sub` duy nhất, bảng OAuth flow
 
 Bộ cài desktop bắt buộc kèm runtime và model PhoWhisper-small INT8; CI không còn tùy chọn bỏ bundle. Desktop gửi media gốc + transcript local để server chấm bằng Ollama/Gemini. Hướng dẫn build, cấu hình domain và STT local: [Desktop đa nền tảng](../desktop-build.md).
 
-Chức năng sửa chính tả LLM đã được gỡ. Học viên vẫn nghe lại và sửa transcript bằng tay trước khi nộp. Xem [kiểm tra transcript](../transcript-correction.md).
+Chức năng sửa chính tả LLM đã được gỡ. Học viên vẫn kiểm tra và sửa transcript bằng tay trước khi nộp; giảng viên có thể xem/nghe minh chứng đã upload khi review bài. Xem [kiểm tra transcript](../transcript-correction.md).

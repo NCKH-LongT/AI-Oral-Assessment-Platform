@@ -1,32 +1,23 @@
-# Thu thử, chỉnh gain, dấu câu và thoát desktop
+# Microphone, dấu câu và thoát desktop
 
 [README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu) · [Hướng dẫn desktop](../readme-desktop.md) · [Kiểm tra transcript](transcript-correction.md)
 
-## Ghi thử và nghe lại trước khi thi
+## Kết nối thiết bị và kiểm tra transcript
+
+**Cập nhật 09/10/2026:** Desktop đã bỏ thu thử/kiểm tra độ ồn trước thi, gain microphone và RNNoise. Trình duyệt web vẫn giữ những chức năng này; xem [kiến trúc âm thanh trên web](architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).
 
 1. Mở một bài thi hoặc bài luyện tập, bấm **Cho phép camera & mic**. Chọn đúng **Microphone** và **Camera** trong phần **Chọn thiết bị**.
-2. Để **Gain microphone** ở **0 dB** trước. Nói bình thường và quan sát thanh tín hiệu/mức đỉnh.
-3. Bấm **Kiểm tra độ ồn** trong mục **Thu thử, nghe lại và kiểm tra độ ồn**. Giữ im lặng 3 giây đầu, sau đó nói thử 7 giây bằng giọng sẽ dùng khi thi.
-4. Bấm **Phát bản gốc**. Có thể tua/dừng bằng bộ phát audio, rồi bật **Nghe bản đã lọc nhiễu RNNoise** và bấm **Phát bản đã lọc nhiễu** để so sánh.
-5. Nếu cần, chỉnh gain và thu lại. Đổi gain sẽ xóa bản thử cũ và yêu cầu kiểm tra lại hoặc chọn bỏ qua trước khi bắt đầu.
+2. Chọn ngôn ngữ và model tại **Nhận dạng giọng nói trên desktop**.
+3. Khi thiết bị đã kết nối, bấm **Bắt đầu thi**. Desktop không yêu cầu thu thử hoặc chọn bỏ qua.
+4. Ghi câu trả lời rồi bấm **Kết thúc trả lời**. Kiểm tra transcript trước khi nộp.
 
-Thu thử không tính vào thời gian thi, không nộp thành câu trả lời và không gửi lên server. Không phát mic trực tiếp ra loa; app chỉ phát bản thu sau khi thu xong. Khi ghi câu trả lời thật, có thể nghe lại audio trong màn hình kiểm tra transcript trước lúc nộp.
+Nếu âm nhỏ hoặc rè, kiểm tra vị trí microphone và mức đầu vào trong cài đặt âm thanh của hệ điều hành. Desktop vẫn có thanh tín hiệu microphone và mức đỉnh dBFS để quan sát đầu vào, kèm cảnh báo khi gần/vượt −1 dBFS. Những chỉ số này không thay đổi âm thanh; desktop không có thanh gain và không tự khuếch đại qua gain phần mềm của ứng dụng. Không phát mic trực tiếp ra loa.
 
-## Bản ghi mặc định dùng cho STT
+## Bản ghi dùng cho STT
 
-Cả web và desktop mặc định dùng **bản gốc**, chưa qua RNNoise. Checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt; bật khi muốn nhận dạng bản lọc. Sau khi ghi, có thể chọn **Bản ghi dùng cho STT** rồi bấm **Thử STT lại**. Audio/video minh chứng vẫn giữ bản gốc.
+Desktop luôn dùng **audio gốc** cho lần nhận dạng đầu và **Thử STT lại**, không tạo bản RNNoise. Có thể đổi ngôn ngữ/model trước khi thử lại; lựa chọn bị khóa khi đang ghi, nhận dạng hoặc nộp. Nhận dạng lại thành công thay transcript đang sửa, còn lỗi STT giữ transcript hiện tại.
 
-## Gain microphone hoạt động thế nào?
-
-Gain là mức tăng/giảm âm lượng **đầu vào bản ghi**, khác với nút âm lượng loa khi nghe lại. Khoảng chỉnh là **−12 đến +18 dB**; **0 dB** giữ nguyên mức mic. Thiết lập áp dụng cho audio/video và audio dùng STT của các lần ghi mới. Bản gốc là bản chưa qua RNNoise, đã dùng gain bạn chọn lúc ghi; app không chỉnh lại những bản đã ghi hoặc đã nộp.
-
-- Giọng nhỏ: thử tăng lên +3 dB, thu và nghe lại; tiếp tục tăng từng ít một nếu cần.
-- Âm rè hoặc báo gần/vượt **−1 dBFS**: giảm gain hoặc đưa mic ra xa rồi thu lại.
-- Giọng rõ, không rè: giữ thiết lập đó; âm lượng lớn hơn không luôn giúp STT tốt hơn.
-
-Gain phần mềm cũng tăng tiếng nền. Nó không khôi phục âm đã vỡ tại mic hoặc sound card. Ưu tiên vị trí mic và nơi yên lặng. Mức đỉnh/dBFS là tham khảo tương đối, không phải phép đo độ ồn dBA và có thể bỏ sót xung rất ngắn; luôn nghe lại bản thu.
-
-Không thể đổi gain trong lúc đang ghi, STT hoặc nộp bài. Phép đánh giá tiếng ồn môi trường vẫn đo tín hiệu trước gain, nên giảm gain không làm một phòng ồn thành kết quả yên lặng giả. Gain trở về 0 khi mở lại giao diện; nên thu thử mỗi phiên hoặc sau khi đổi thiết bị.
+Audio/video minh chứng vẫn được ghi và upload theo từng câu trả lời. Màn hình trả lời hiện không có bộ phát lại audio; giảng viên có thể mở minh chứng đã upload khi review bài. Helper STT chỉ đổi định dạng về mono 16 kHz trước khi nhận dạng; không thêm bước lọc nhiễu. Bản đã ghi hoặc nộp không bị chỉnh lại.
 
 ## Vì sao transcript thiếu dấu câu?
 
@@ -49,5 +40,5 @@ Khi thực sự đóng, app hủy tác vụ local đang chạy. Hủy hộp tho�
 
 ## Nhận bản cập nhật
 
-- Gain, thu thử, nhãn dấu câu và nút thoát trên giao diện: triển khai lại web đang phục vụ desktop, rồi mở lại app.
+- Bỏ gain/thu thử/RNNoise trên desktop, nhãn dấu câu và nút thoát trên giao diện: triển khai lại web đang phục vụ desktop, rồi mở lại app. Riêng thay đổi luồng audio này không cần build lại helper hoặc model STT.
 - Xử lý đóng cửa sổ và IPC thoát: chạy Electron source mới hoặc cài bộ desktop mới. Chỉ cập nhật server sẽ không sửa được việc nút X bị chặn trong desktop cũ.

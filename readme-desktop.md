@@ -1,6 +1,6 @@
 # OralAI Desktop
 
-> **07/10/2026 — audio và TOEIC:** STT mặc định dùng bản ghi gốc trên cả web và desktop; RNNoise ban đầu tắt. Môn `TOEIC-SPEAKING-01` có 11 câu và rubric chấm nội dung transcript. Xem [cách làm bài](#môn-luyện-nói-toeic).
+> **09/10/2026 — audio desktop:** STT và nhận dạng lại luôn dùng bản ghi gốc; desktop đã bỏ RNNoise, thu thử trước thi và gain microphone. Trình duyệt web giữ nguyên các tính năng này, mặc định STT dùng bản gốc. Môn `TOEIC-SPEAKING-01` có 11 câu và rubric chấm nội dung transcript. Xem [cách làm bài](#môn-luyện-nói-toeic).
 
 > **07/10/2026:** Desktop chọn trực tiếp tiếng Việt/tiếng Anh và PhoWhisper-small/Whisper-small đa ngôn ngữ. Cần build lại runtime, bổ sung model Whisper-small rồi đóng/mở lại app; không chỉ reload trang. Xem [cách chọn](#chọn-ngôn-ngữ-và-model-nhận-dạng).
 
@@ -11,7 +11,7 @@
 
 Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg, **PhoWhisper-small** và **Whisper-small đa ngôn ngữ**. Cả hai nhận dạng cục bộ bằng CPU INT8; không cần cài Python riêng hoặc tải thêm model STT trên máy học viên. LLM chấm bài chạy trên server.
 
-Đi nhanh: [chọn server](#đổi-url-máy-chủ-khi-chạy-hoặc-build) · [kiểm tra mic](#kiểm-tra-mic-trước-khi-thi) · [làm bài](#khi-làm-bài) · [kiểm tra transcript](docs/transcript-correction.md) · [build và cập nhật](#build-bộ-cài-và-chạy-lại) · [xử lý lỗi](#xử-lý-lỗi).
+Đi nhanh: [chọn server](#đổi-url-máy-chủ-khi-chạy-hoặc-build) · [kết nối thiết bị](#kết-nối-mic-và-camera-trước-khi-thi) · [làm bài](#khi-làm-bài) · [kiểm tra transcript](docs/transcript-correction.md) · [build và cập nhật](#build-bộ-cài-và-chạy-lại) · [xử lý lỗi](#xử-lý-lỗi).
 
 ## Bắt đầu nhanh
 
@@ -142,7 +142,7 @@ Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev
 
 Có thể chạy lại ngay sau khi đóng app; kết nối TCP cũ ở trạng thái `TIME_WAIT` không bị tính là chiếm cổng. Nếu vẫn báo cổng 3001 bận, kiểm tra bằng `ss -ltnp 'sport = :3001'` trên Linux và đóng phiên đang dùng cổng. Khởi động lại Docker không giải phóng cổng của UI dev trên máy.
 
-Sau **Cho phép camera & mic**, phần **Nghe lại bản ghi kiểm tra** luôn hiển thị. Bấm **Kiểm tra độ ồn**, chờ thu xong 10 giây; app cuộn tới phần phát lại. Chọn checkbox **Nghe bản đã lọc nhiễu RNNoise** rồi bấm **Phát bản đã lọc nhiễu**, hoặc bỏ chọn để **Phát bản gốc**. Nếu bộ lọc lỗi, có thông báo và bản gốc vẫn nghe được khi đã thu thành công.
+Sau **Cho phép camera & mic**, chọn đúng thiết bị và ngôn ngữ/model STT rồi bấm **Bắt đầu thi**. Desktop không có bước thu thử hoặc kiểm tra độ ồn; thanh tín hiệu và mức đỉnh dBFS vẫn cho biết microphone đang nhận âm. Kiểm tra transcript sau khi ghi câu trả lời.
 
 ## Cài và kết nối
 
@@ -150,29 +150,28 @@ Tải artifact từ GitHub Actions → **Desktop installers**. Windows dùng `.e
 
 Mở **OralAI → Cấu hình máy chủ…**, nhập domain HTTPS hoặc `http://localhost:3000` nếu server trên cùng máy. Không thêm `/api`. `ORAL_WEB_URL` nếu có sẽ ưu tiên domain đã lưu.
 
-## Kiểm tra mic trước khi thi
-
-Có thể thu thử/nghe lại trước khi bắt đầu tính giờ. **Gain microphone** từ −12 đến +18 dB, mặc định 0 dB. Tăng từ từ nếu giọng nhỏ, giảm nếu báo âm quá lớn hoặc nghe rè. Gain áp dụng cho bản thu mới (cả audio/video và STT), không sửa bản đã ghi. Đổi gain sẽ xóa bản thử cũ để thu lại. Xem [hướng dẫn chi tiết](docs/microphone-desktop.md).
+## Kết nối mic và camera trước khi thi
 
 1. Cấp quyền camera và microphone. Trong mục **Chọn thiết bị**, chọn **Microphone** và **Camera** từ danh sách; app kết nối ngay. Tên đầy đủ xuất hiện sau khi cấp quyền.
-2. Bấm **Kiểm tra độ ồn**. Ghi khoảng 10 giây: 3 giây đầu giữ im lặng, 7 giây sau nói thử.
-3. Bấm phát audio. Checkbox **Nghe bản đã lọc nhiễu RNNoise** đổi giữa bản gốc và bản lọc của cùng đoạn thu.
-4. Checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** mặc định **tắt**, nên lần STT đầu dùng bản gốc. Bật checkbox để dùng bản lọc. App vẫn giữ cả hai bản khi bộ lọc hoạt động.
+2. Chọn ngôn ngữ/model tại **Nhận dạng giọng nói trên desktop**.
+3. Khi thiết bị kết nối thành công, bấm **Bắt đầu thi**. Không cần thu thử, đo độ ồn hoặc chọn bỏ qua.
 
-Danh sách cập nhật khi cắm/rút thiết bị. Không đổi thiết bị khi đang ghi hoặc xử lý/nộp câu trả lời. Đổi mic/camera trước thi sẽ hủy kết quả kiểm tra cũ; kiểm tra lại hoặc chọn bỏ qua. Thiết bị bị rút sẽ báo lỗi để bạn chọn lại, không âm thầm dùng thiết bị khác.
+Danh sách cập nhật khi cắm/rút thiết bị. Không đổi thiết bị khi đang ghi hoặc xử lý/nộp câu trả lời. Thiết bị bị rút sẽ báo lỗi để bạn chọn lại, không âm thầm dùng thiết bị khác.
 
-Bản kiểm tra chỉ giữ tạm trong bộ nhớ; kiểm tra lại hoặc rời trang sẽ giải phóng. Không gửi bản kiểm tra lên server. Nếu RNNoise không tải được, app báo lỗi và cho phép tắt lọc để dùng bản gốc. Không phát mic trực tiếp ra loa để tránh hú/vọng.
+Desktop giữ thanh tín hiệu microphone và mức đỉnh dBFS; không có gain microphone, RNNoise hoặc lựa chọn bản gốc/bản lọc. Audio từ thiết bị được dùng để ghi âm, ghi video và STT mà không qua gain/RNNoise của ứng dụng. Kiểm tra transcript sau khi dừng ghi; không phát mic trực tiếp ra loa. Nếu âm nhỏ hoặc rè, kiểm tra vị trí mic, quyền và mức đầu vào của hệ điều hành. Xem [hướng dẫn mic và transcript](docs/microphone-desktop.md).
+
+Trình duyệt web vẫn giữ thu thử trước thi, gain và RNNoise. Xem [luồng âm thanh trên web](docs/architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).
 
 ## Khi làm bài
 
-- App giữ riêng audio/video gốc và audio dùng STT. RNNoise xử lý theo thời gian thực ở 48 kHz; trước model STT đã chọn chỉ chuyển về WAV mono 16 kHz, không lọc FFmpeg lần nữa.
+- App ghi audio/video gốc, không tạo nhánh audio RNNoise hoặc gain phần mềm. Helper chuyển audio gốc về WAV mono 16 kHz cho model STT đã chọn, không lọc FFmpeg lần nữa.
 - Khi dừng ghi, model và ngôn ngữ bạn chọn nhận dạng local. Bạn xem lại transcript, sau đó gửi transcript và media gốc lên server.
-- Muốn nhận dạng lại: chọn **Bản ghi dùng cho STT → Bản gốc / Bản giảm nhiễu RNNoise**, rồi bấm **Thử STT lại**. Lựa chọn chỉ thay đầu vào STT, không đổi media minh chứng. Nếu bộ lọc lỗi lúc ghi, lựa chọn bản giảm nhiễu bị khóa; bản gốc vẫn dùng được. Lỗi STT giữ transcript hiện tại.
+- Muốn nhận dạng lại: bấm **Thử STT lại**. Có thể đổi model/ngôn ngữ trước khi thử lại; desktop luôn dùng audio gốc. Nhận dạng lại không đổi media minh chứng. Lỗi STT giữ transcript hiện tại.
 - Worker chấm text bằng Gemini hoặc Ollama theo cấu hình đề; app cập nhật kết quả định kỳ. Đừng đóng app trước khi upload và nộp bài hoàn tất.
 - Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Desktop dùng ngôn ngữ đã chọn trong màn hình làm bài; web dùng cấu hình server, với ngôn ngữ của phiên bản đề nếu đề có thiết lập riêng (bộ TOEIC đặt tiếng Anh).
 - PhoWhisper-small được tinh chỉnh cho tiếng Việt. Có thể chọn tiếng Anh trên desktop; chưa benchmark chất lượng tiếng Anh/câu xen ngôn ngữ.
 
-App chưa hiện transcript trực tiếp khi đang nói. Với câu Việt xen tiếng Anh, nghe lại và kiểm tra thuật ngữ trước khi nộp. Gợi ý tiếng Anh do admin thấy khi sinh câu hỏi không tự trở thành hotword; STT chỉ dùng bảng từ vựng môn đã cấu hình.
+App chưa hiện transcript trực tiếp khi đang nói. Với câu Việt xen tiếng Anh, kiểm tra thuật ngữ trong transcript trước khi nộp. Gợi ý tiếng Anh do admin thấy khi sinh câu hỏi không tự trở thành hotword; STT chỉ dùng bảng từ vựng môn đã cấu hình.
 
 ## Chọn ngôn ngữ và model nhận dạng
 
@@ -188,7 +187,7 @@ Nếu model ghi **chưa cài**, chọn model còn sẵn hoặc cài lại bộ O
 
 ## Làm lại bài thi
 
-Danh sách bài thi hiển thị số lượt còn lại và **Lịch sử làm bài**. Bấm **Xem lần N** để mở kết quả cũ; bấm **Làm lại bài thi** để tạo lần mới khi còn lượt. Phiên đang làm luôn được tiếp tục, không tạo thêm phiên khi bấm lặp hoặc mở lại app. Mỗi lần mới cần kết nối thiết bị và kiểm tra mic lại.
+Danh sách bài thi hiển thị số lượt còn lại và **Lịch sử làm bài**. Bấm **Xem lần N** để mở kết quả cũ; bấm **Làm lại bài thi** để tạo lần mới khi còn lượt. Phiên đang làm luôn được tiếp tục, không tạo thêm phiên khi bấm lặp hoặc mở lại app. Mỗi lần mới cần kết nối thiết bị; desktop không có bước kiểm tra mic trước thi.
 
 Admin cấu hình không cho làm lại, cho làm lại N lần hoặc không giới hạn ở đề thi; có thể cấp thêm lượt riêng cho sinh viên trong **Kết quả & xem lại → Quản lý lượt thi**. Hết lượt thì liên hệ admin; không cần xóa bài cũ để cấp thêm lượt. Sau khi admin thay đổi, bấm làm mới danh sách bài thi.
 
@@ -196,7 +195,7 @@ Bản này cần backend đã chạy migration `0004`: cập nhật server bằn
 
 ## Kiểm tra transcript
 
-Sau STT, nghe lại bản ghi và sửa transcript bằng tay nếu cần. Bản chỉnh sửa được đánh dấu để giảng viên đối chiếu. Chức năng gợi ý sửa chính tả bằng LLM và tải model Qwen3 đã được gỡ khỏi desktop.
+Sau STT, kiểm tra và sửa transcript bằng tay nếu cần. Giảng viên có thể mở audio/video minh chứng đã upload khi review bài. Bản chỉnh sửa được đánh dấu để giảng viên đối chiếu. Chức năng gợi ý sửa chính tả bằng LLM và tải model Qwen3 đã được gỡ khỏi desktop.
 
 Nếu đã tải model sửa chính tả ở phiên bản cũ, file đó không còn được sử dụng. Có thể đóng app và xóa thư mục `models/correction` trong profile Electron để giải phóng dung lượng; profile dev mặc định nằm tại `.data/desktop-dev-profile`.
 
@@ -306,8 +305,7 @@ Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEM
 | Source chưa có model | Chạy `scripts/build_desktop_stt.py` trước `npm run desktop` |
 | Windows báo STT thất bại sau khi dừng ghi âm, log có `UnicodeEncodeError` / `cp1252` | Cập nhật bộ cài đã sửa xuất JSON tiếng Việt. Nếu chạy source, build lại bundle STT; chỉ sửa `transcribe.py` không cập nhật `oral-stt.exe` đã đóng gói. |
 | STT quá thời gian | Thử câu ngắn hơn, đóng tác vụ nặng; mặc định giới hạn xử lý 7 phút |
-| RNNoise không tải được | Kiểm tra server đã build/copy tài nguyên `/audio/`; tắt lọc để tiếp tục |
-| Không có tiếng | Kiểm tra mic, quyền hệ điều hành, nghe lại bản thử |
+| Không có tiếng | Quan sát thanh tín hiệu/mức đỉnh; kiểm tra thiết bị đã chọn, quyền và mức đầu vào của hệ điều hành |
 | Chưa có điểm | Kiểm tra worker, chế độ demo/luyện tập hoặc trạng thái cần xem lại |
 
 Chi tiết bộ cài và kiểm tra offline: [docs/desktop-build.md](docs/desktop-build.md).
@@ -316,8 +314,8 @@ Chi tiết bộ cài và kiểm tra offline: [docs/desktop-build.md](docs/deskto
 
 Đã bổ sung bộ dữ liệu `TOEIC-SPEAKING-01`: 11 câu, 2 tranh minh họa, tài liệu RAG, đáp án và rubric chấm nội dung transcript thang 10; 30 phút/lượt, làm lại không giới hạn. Script nhập môn và giao đề cho toàn bộ sinh viên đang hoạt động: [hướng dẫn và dữ liệu](data/toeic-speaking/README.md). Điểm này chưa đánh giá phát âm/ngữ điệu và không quy đổi thành điểm TOEIC chính thức.
 
-Cả web và desktop **mặc định STT dùng bản ghi gốc**; checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt. Có thể bật khi cần, hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **English + Whisper-small**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.
+Desktop luôn dùng **bản ghi gốc** cho STT và **Thử STT lại**. Trên web, checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt; có thể bật khi cần hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **English + Whisper-small**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.
 
-Để bắt đầu: đăng nhập sinh viên → **Mở bài thi** của bộ TOEIC → chọn **Tiếng Anh + Whisper-small** → kiểm tra mic → bắt đầu thi. Ngôn ngữ/model trên desktop không tự đổi theo môn; kiểm tra hai lựa chọn này trước khi ghi.
+Để bắt đầu: đăng nhập sinh viên → **Mở bài thi** của bộ TOEIC → kết nối mic/camera → chọn **Tiếng Anh + Whisper-small** → bắt đầu thi. Ngôn ngữ/model trên desktop không tự đổi theo môn; kiểm tra hai lựa chọn này trước khi ghi.
 
 Nếu cài trên server mới, nhập bộ dữ liệu theo [hướng dẫn triển khai TOEIC](README.md#cài-bộ-luyện-toeic-trên-server-khác). Tài khoản sinh viên và danh sách giao bài thuộc database của từng server, không tự xuất hiện khi tải source từ Git. Riêng thay đổi audio mặc định và tranh TOEIC cần cập nhật web/API; không cần build lại helper nếu máy đã có bundle đủ hai model.

@@ -63,7 +63,7 @@ Desktop lấy `/stt/config?session_id=…`; server kiểm tra chủ sở hữu p
 
 Bản sửa 06/10 không thêm migration hoặc biến `.env`. Cập nhật API/worker/web bằng `docker compose up -d --build --wait`. Đóng/mở lại Electron đang chạy từ source để nạp giới hạn mới, hoặc đóng gói/cài lại desktop; không cần tải lại model hay build lại helper STT chỉ vì thay đổi này. Bộ cài cũ vẫn giới hạn 100 mục nên phải nâng cấp trước khi dùng danh sách lớn hơn.
 
-Hotword hỗ trợ nhận dạng, không tự sửa đáp án hoặc bảo đảm chính xác. Ưu tiên bảng từ vựng ngắn, sát môn; không nhập đáp án. Thuật ngữ tiếng Anh do AI sinh cho từng câu vẫn để giảng viên review, **không tự lấy expected concepts hoặc đáp án làm gợi ý STT**. Sinh viên vẫn cần nghe và kiểm tra transcript trước khi nộp.
+Hotword hỗ trợ nhận dạng, không tự sửa đáp án hoặc bảo đảm chính xác. Ưu tiên bảng từ vựng ngắn, sát môn; không nhập đáp án. Thuật ngữ tiếng Anh do AI sinh cho từng câu vẫn để giảng viên review, **không tự lấy expected concepts hoặc đáp án làm gợi ý STT**. Sinh viên vẫn cần kiểm tra transcript trước khi nộp; giảng viên có thể đối chiếu với audio/video minh chứng đã upload.
 
 Tham khảo triển khai: [faster-whisper hotwords](https://github.com/SYSTRAN/faster-whisper/blob/master/faster_whisper/transcribe.py), [Google SpeechContext](https://github.com/googleapis/googleapis/blob/master/google/cloud/speech/v1/cloud_speech.proto).
 

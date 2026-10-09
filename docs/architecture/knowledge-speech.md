@@ -27,13 +27,12 @@ erDiagram
 - Mỗi bản công bố mới lưu `topic_chunk_ids`, các ánh xạ LO/chương/tài liệu và câu hỏi trong snapshot. Chấm thường/chấm lại dùng đúng tập chunk này. Chỉnh ánh xạ hoặc trang chương chỉ ảnh hưởng đề công bố sau. Đề MVP cũ dùng tập tài liệu snapshot và cột topic cũ để giữ phạm vi ban đầu.
 - Giáo trình READY được giữ bất biến. Nếu upload lỗi, có thể thay PDF tại mục **Thay PDF bị lỗi**; version tăng và worker xử lý lại. Cơ chế nhiều phiên bản giáo trình đang sử dụng chưa triển khai.
 
-## Pipeline giọng nói — cập nhật 17/09/2026
+## Pipeline giọng nói desktop — cập nhật 09/10/2026
 
 ```mermaid
 flowchart LR
   Mic[Microphone] --> Raw[Audio và video gốc]
-  Mic --> Filter[RNNoise bật hoặc tắt]
-  Filter --> Local[PhoWhisper-small INT8 trên desktop]
+  Raw --> Local[PhoWhisper-small hoặc Whisper-small INT8 trên desktop]
   Local --> Text[Transcript để học viên kiểm tra]
   Raw --> Server[Server lưu minh chứng]
   Text --> Server
@@ -43,9 +42,9 @@ flowchart LR
   Review --> Grade
 ```
 
-Desktop luôn dùng helper local, kể cả khi cấu hình STT cũ trên server là Google. Bộ cài chứa runtime, FFmpeg và model PhoWhisper-small; không tải model lúc thi, không cần Python trên máy học viên. RNNoise chạy trong AudioWorklet ở 48 kHz; helper chuyển âm thanh thành mono 16 kHz và nhận dạng với ngôn ngữ đã chọn. `STT_MODEL` chỉ điều khiển Whisper server, không thay model đóng gói trong desktop.
+Desktop luôn dùng helper local, kể cả khi cấu hình STT cũ trên server là Google. Bộ cài chứa runtime, FFmpeg, PhoWhisper-small và Whisper-small đa ngôn ngữ; không tải model lúc thi, không cần Python trên máy học viên. Desktop không tạo nhánh RNNoise hoặc gain phần mềm, không có thu thử/kiểm tra độ ồn trước thi. Helper chuyển audio gốc thành mono 16 kHz và nhận dạng với model/ngôn ngữ đã chọn. `STT_MODEL` chỉ điều khiển Whisper server, không thay model đóng gói trong desktop.
 
-Media gốc và audio để nhận dạng là hai nhánh riêng. Bật/tắt RNNoise chỉ ảnh hưởng audio nhận dạng. Khi nộp, desktop upload audio/video gốc và transcript; worker chấm bất đồng bộ. Transcript nhập tay hoặc độ tin cậy thấp cần giảng viên kiểm tra. Lỗi AI, bài demo hoặc đang chờ chấm không được hiển thị thành điểm 0/10.
+STT lần đầu và **Thử STT lại** trên desktop đều dùng audio gốc. Khi nộp, desktop upload audio/video gốc và transcript; worker chấm bất đồng bộ. Transcript nhập tay hoặc độ tin cậy thấp cần giảng viên kiểm tra. Lỗi AI, bài demo hoặc đang chờ chấm không được hiển thị thành điểm 0/10.
 
 ### Transcript và thuật ngữ
 
@@ -69,7 +68,7 @@ Gemini không trả acoustic confidence tương đương Whisper: adapter đánh
 
 ### Trình duyệt và credentials
 
-Cấu hình STT trên web chọn `local` (yêu cầu desktop), `local_server` (Whisper trong API), `gemini` hoặc `google`, cùng ngôn ngữ `vi`/`en`. Policy đã lưu ưu tiên hơn `STT_PROVIDER`; desktop chỉ dùng ngôn ngữ, luôn nhận dạng local. Audio nhận dạng tối đa 600 giây, request tối đa 30 MB. RNNoise không tách được chắc chắn người khác nói chồng.
+Cấu hình STT trên web chọn `local` (yêu cầu desktop), `local_server` (Whisper trong API), `gemini` hoặc `google`, cùng ngôn ngữ `vi`/`en`. Policy đã lưu ưu tiên hơn `STT_PROVIDER`; desktop dùng model/ngôn ngữ chọn trên thiết bị và luôn nhận dạng local. Audio nhận dạng tối đa 600 giây, request tối đa 30 MB. Trình duyệt web giữ gain, thu thử 10 giây trước thi và tùy chọn RNNoise (mặc định tắt), cùng lựa chọn bản gốc/bản lọc khi nhận dạng lại. RNNoise chỉ ảnh hưởng nhánh audio STT, không thay bản media minh chứng; không tách được chắc chắn người khác nói chồng. Xem [luồng audio desktop/web](crud-noise-check.md).
 
 Google Cloud STT là lựa chọn được hỗ trợ trên giao diện: admin upload JSON qua `/admin/settings/speech/google-credentials`. File riêng quyền 600, không trả private key hoặc chuyển xuống desktop; upload không đổi policy hoặc LLM. Thiếu key Gemini/JSON Google chỉ chặn provider tương ứng. Job đang chờ bằng provider khác trả 409 khi admin yêu cầu đổi provider; không tạo hai job song song hoặc âm thầm dùng nhầm provider.
 

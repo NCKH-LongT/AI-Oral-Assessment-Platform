@@ -46,9 +46,12 @@ test("web defaults to original audio, shows the picture and submits the same rec
         json: { provider: "gemini", language: "en", preprocessing: "denoise" },
       });
     if (path === "/api/stt") {
-      const form = await new Response(request.postDataBuffer(), {
-        headers: { "content-type": request.headers()["content-type"] },
-      }).formData();
+      const form = await new Response(
+        new Uint8Array(request.postDataBuffer()!),
+        {
+          headers: { "content-type": request.headers()["content-type"] },
+        },
+      ).formData();
       expect(form.get("preprocessing")).toBe("off");
       expect(form.get("session_id")).toBe("session");
       const file = form.get("file") as File;
@@ -91,7 +94,20 @@ test("web defaults to original audio, shows the picture and submits the same rec
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Mở bài thi" }).click();
+  const startExam = page.getByRole("button", {
+    name: "Bắt đầu thi",
+    exact: true,
+  });
+  await expect(startExam).toBeDisabled();
   await page.getByRole("button", { name: "Cho phép camera & mic" }).click();
+  await expect(
+    page.getByRole("slider", { name: "Gain microphone", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Kiểm tra độ ồn", exact: true }),
+  ).toBeVisible();
+  // Browser users retain the pre-exam test/skip gate.
+  await expect(startExam).toBeDisabled();
   await page
     .getByRole("button", { name: "Bỏ qua kiểm tra độ ồn", exact: true })
     .click();
@@ -100,7 +116,8 @@ test("web defaults to original audio, shows the picture and submits the same rec
       name: "Lọc nhiễu RNNoise khi nhận dạng câu trả lời",
     }),
   ).not.toBeChecked();
-  await page.getByRole("button", { name: "Bắt đầu thi", exact: true }).click();
+  await expect(startExam).toBeEnabled();
+  await startExam.click();
   const picture = page.getByRole("img", {
     name: "Tranh minh họa cho câu hỏi mô tả bằng tiếng Anh",
   });

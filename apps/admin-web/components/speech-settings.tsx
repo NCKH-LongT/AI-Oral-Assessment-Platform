@@ -31,8 +31,9 @@ export default function SpeechSettings() {
       <h1>Cấu hình giọng nói</h1>
       <p>
         Desktop chọn PhoWhisper-small hoặc Whisper-small và ngôn ngữ ngay trong
-        màn hình làm bài, nhận dạng cục bộ. Người dùng bật/tắt RNNoise và nghe
-        thử mic trước khi thi. Server nhận media gốc và transcript để chấm.
+        màn hình làm bài, nhận dạng cục bộ từ bản ghi gốc. Thu thử, chỉnh gain
+        và RNNoise chỉ có trên trình duyệt web. Server nhận media gốc và
+        transcript để chấm.
       </p>
       <Form
         label="Lưu cấu hình STT"

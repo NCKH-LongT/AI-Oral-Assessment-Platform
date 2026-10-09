@@ -1,6 +1,8 @@
-# CRUD và kiểm tra tiếng ồn trước thi — 13/09/2026
+# CRUD và luồng âm thanh desktop/web
 
 [README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
+
+**Cập nhật 09/10/2026:** Electron dùng chung giao diện Next.js nhưng được phân biệt qua bridge `oralDesktop`. Desktop đã bỏ gain phần mềm, RNNoise và thu thử/kiểm tra độ ồn trước thi; các chức năng này vẫn hoạt động trên trình duyệt web. Không đổi schema, luồng ghi minh chứng, nhận dạng lại, thi hoặc nộp bài.
 
 ## Quản lý môn học, rubric, đề thi
 
@@ -18,11 +20,17 @@ Không thay đổi bảng/cột hay chạy migration mới. Foreign key vẫn l�
 
 ## Chọn microphone và camera
 
-Bước kết nối có hai danh sách thiết bị từ `enumerateDevices`, cập nhật qua `devicechange`. Cấp quyền để xem tên đầy đủ. Chọn thiết bị gọi `getUserMedia` với `deviceId.exact`, dừng stream/RNNoise cũ và hủy phép đo mic cũ. Luồng ghi minh chứng, RNNoise và phép kiểm tra 10 giây dùng microphone đã chọn. Không tự fallback nếu thiết bị đã chọn bị rút; báo lỗi và cho chọn lại. Khóa lựa chọn khi đang kết nối, bắt đầu ghi, ghi, STT hoặc nộp câu trả lời.
+Bước kết nối có hai danh sách thiết bị từ `enumerateDevices`, cập nhật qua `devicechange`. Cấp quyền để xem tên đầy đủ. Chọn thiết bị gọi `getUserMedia` với `deviceId.exact` và dừng stream cũ. Trên web, thao tác này còn dừng RNNoise và hủy phép đo mic cũ; các nhánh ghi minh chứng, RNNoise và phép kiểm tra 10 giây đều dùng microphone đã chọn. Không tự fallback nếu thiết bị đã chọn bị rút; báo lỗi và cho chọn lại. Khóa lựa chọn khi đang kết nối, bắt đầu ghi, ghi, STT hoặc nộp câu trả lời.
 
 Electron kiểm tra quyền media theo `new URL(value).origin`, không so chuỗi URL có/không có dấu `/` cuối. Chỉ renderer của cửa sổ chính ở origin đang chọn được cấp quyền. Đã đối chiếu tên mic/camera trên PC Linux với danh sách thiết bị hệ điều hành.
 
-## Kiểm tra mic — cập nhật 17/09/2026
+## Audio trên desktop — cập nhật 09/10/2026
+
+Khi có bridge `oralDesktop`, kết nối thiết bị giữ trực tiếp stream microphone/camera để preview và ghi câu trả lời; không tạo gain controller, RNNoise AudioWorklet hoặc phiên thu thử. Giao diện giữ thanh tín hiệu microphone và mức đỉnh dBFS để quan sát đầu vào, không có gain, kiểm tra độ ồn, checkbox RNNoise hay lựa chọn nguồn bản ghi STT. Nhánh đo tín hiệu không thay đổi audio ghi/STT. **Bắt đầu thi** không phụ thuộc kết quả kiểm tra độ ồn; vẫn cần thiết bị kết nối và các điều kiện phiên thi hợp lệ.
+
+Audio gốc dùng cho cả STT lần đầu và **Thử STT lại**, vẫn cho chọn PhoWhisper-small/Whisper-small và tiếng Việt/tiếng Anh. Audio/video gốc được ghi và upload làm minh chứng như trước; giảng viên mở bản đã upload để review. Màn hình trả lời của học viên hiện không có bộ phát audio. Helper chỉ đổi định dạng sang mono 16 kHz, không lọc FFmpeg lần hai. Không chỉnh lại các bản ghi hoặc bài đã nộp.
+
+## Kiểm tra mic trên trình duyệt web
 
 `lib/noise-check.ts` ghi thử khoảng **10 giây**: giữ im lặng 3 giây đầu để đánh giá nền, nói thử 7 giây sau để nghe giọng. Bỏ 500 ms khởi động trước lúc ghi. MediaRecorder thu đồng thời bản gốc và bản RNNoise, chỉ giữ Blob trong bộ nhớ máy học viên, không upload.
 
@@ -32,13 +40,13 @@ Sau khi ghi, dùng audio player và checkbox **Nghe bản đã lọc nhiễu RNN
 
 Sau cấp quyền thiết bị, nút bắt đầu thi chờ kết quả đạt hoặc người dùng bỏ qua. Có thể kiểm tra lại, bỏ qua khi đang thu và kết nối lại thiết bị. Bản thử không tính vào thời gian thi. Hệ thống không ghi quyết định bỏ qua lên server.
 
-## Lọc nhiễu câu trả lời
+## Gain và lọc nhiễu câu trả lời trên trình duyệt web
 
-**Cập nhật 23/09/2026 — gain đầu vào:** `lib/microphone-gain.ts` dùng Web Audio GainNode, −12 đến +18 dB, mặc định 0. Luồng mic → gain → audio/video gốc; nhánh gain → RNNoise tạo audio STT đã lọc. Bản gốc trong tài liệu này là bản chưa RNNoise, đã áp dụng gain chọn lúc ghi. Không chỉnh lại minh chứng đã nộp. Bản thu thử dùng cùng gain; đánh giá nền vẫn dùng tín hiệu trước gain để không thay kết luận tiếng ồn theo thanh gain. Theo dõi mức đỉnh và nhắc giảm gain khi gần/vượt −1 dBFS. Đổi gain hủy phép thử và giải phóng bản nghe thử cũ; khóa khi ghi/xử lý/nộp. Xem [hướng dẫn sử dụng](../microphone-desktop.md).
+**Cập nhật 23/09/2026 — gain đầu vào:** `lib/microphone-gain.ts` dùng Web Audio GainNode, −12 đến +18 dB, mặc định 0. Luồng mic → gain → audio/video gốc; nhánh gain → RNNoise tạo audio STT đã lọc. Trên web, bản gốc là bản chưa RNNoise, đã áp dụng gain chọn lúc ghi. Không chỉnh lại minh chứng đã nộp. Bản thu thử dùng cùng gain; đánh giá nền vẫn dùng tín hiệu trước gain để không thay kết luận tiếng ồn theo thanh gain. Theo dõi mức đỉnh và nhắc giảm gain khi gần/vượt −1 dBFS. Đổi gain hủy phép thử và giải phóng bản nghe thử cũ; khóa khi ghi/xử lý/nộp. Các điều khiển và xử lý gain này chỉ áp dụng trên trình duyệt web.
 
-`lib/noise-filter.ts` dùng `@sapphi-red/web-noise-suppressor` (RNNoise WASM/AudioWorklet) ở 48 kHz. Khi bộ lọc hoạt động, câu trả lời luôn ghi đồng thời audio gốc, audio RNNoise và video gốc. Checkbox trước thi chọn bản dùng cho lần STT đầu; dropdown sau ghi cho phép nhận dạng lại từ một trong hai Blob. Lỗi RNNoise giữa lúc ghi làm bản lọc không hợp lệ và khóa lựa chọn đó. Không nối microphone ra loa để tránh hú; nghe thử bằng bản thu phát lại. Audio/video minh chứng luôn lấy từ nhánh gốc.
+`lib/noise-filter.ts` dùng `@sapphi-red/web-noise-suppressor` (RNNoise WASM/AudioWorklet) ở 48 kHz. Khi bộ lọc hoạt động, câu trả lời luôn ghi đồng thời audio gốc, audio RNNoise và video gốc. Checkbox trước thi mặc định tắt, chọn bản dùng cho lần STT đầu; dropdown sau ghi cho phép nhận dạng lại từ một trong hai Blob. Lỗi RNNoise giữa lúc ghi làm bản lọc không hợp lệ và khóa lựa chọn đó. Không nối microphone ra loa để tránh hú; nghe thử bằng bản thu phát lại. Audio/video minh chứng luôn lấy từ nhánh gốc.
 
-Asset được copy từ dependency npm khi `predev`/`prebuild`, phục vụ tại `/audio` cùng origin, có trong Docker standalone. Không tải WASM từ CDN. Nếu bộ lọc lỗi, người dùng cần tắt lọc hoặc kết nối lại trước lần ghi tiếp theo. PhoWhisper chỉ đổi định dạng sang mono 16 kHz, không lọc FFmpeg lần hai. Client web mới gửi `preprocessing=off` đến `/stt` để tránh lọc lại; client cũ không gửi trường này vẫn theo policy lưu trên server.
+Asset được copy từ dependency npm khi `predev`/`prebuild`, phục vụ tại `/audio` cùng origin, có trong Docker standalone. Không tải WASM từ CDN. Nếu bộ lọc lỗi, người dùng cần tắt lọc hoặc kết nối lại trước lần ghi tiếp theo. Client web mới gửi `preprocessing=off` đến `/stt` để tránh lọc lại; client cũ không gửi trường này vẫn theo policy lưu trên server.
 
 RNNoise phù hợp thử với tiếng quạt/âm nền, không bảo đảm loại được người nói chồng. Chưa có benchmark WER/CER tiếng Việt hoặc đo thiết bị lớp học thực tế; không khẳng định chất lượng STT cải thiện trên mọi mẫu. Không tích hợp Spleeter vì đó là mô hình tách nhạc, không cần cho luồng hiện tại.
 

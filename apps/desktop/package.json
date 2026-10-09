@@ -78,7 +78,7 @@
       ],
       "category": "public.app-category.education",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "OralAI sử dụng microphone để kiểm tra tiếng ồn và ghi câu trả lời.",
+        "NSMicrophoneUsageDescription": "OralAI sử dụng microphone để ghi câu trả lời vấn đáp.",
         "NSCameraUsageDescription": "OralAI sử dụng camera để ghi hình câu trả lời vấn đáp."
       }
     },

@@ -7,7 +7,7 @@ Bắt đầu tại [hướng dẫn khảo thí → giảng viên → sinh viên]
 
 [README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu) · [Desktop](../readme-desktop.md) · [Cập nhật qua Jenkins](jenkins.md)
 
-Hướng dẫn theo chức năng hiện có ngày 23/09/2026. Admin và giảng viên quản lý trên web; học viên dùng desktop để nhận dạng giọng nói bằng PhoWhisper trên máy.
+Hướng dẫn luồng audio desktop cập nhật ngày 09/10/2026. Admin và giảng viên quản lý trên web; học viên dùng desktop để nhận dạng giọng nói bằng PhoWhisper-small hoặc Whisper-small trên máy.
 
 ## Chuẩn bị và đăng nhập
 
@@ -46,7 +46,7 @@ Sau khi công bố, ngay dưới đề xuất hiện **Câu hỏi & thuật ng�
 - Gợi ý được lưu cùng phiên bản đề và hiển thị trong trang quản lý. Học viên không nhận danh sách này qua màn hình câu hỏi.
 - Đề cũ, đề demo hoặc câu không có thuật ngữ phù hợp có thể hiển thị **Chưa có gợi ý thuật ngữ cho câu hỏi này**.
 - Hiện chưa có thao tác sửa trực tiếp danh sách thuật ngữ. Để sinh lại câu hỏi/gợi ý, chọn **Sao chép thành bản nháp**, điều chỉnh bản nháp và công bố lại; bản đề mới có thể có câu hỏi khác.
-- Hotword STT lưu riêng tại **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học**, áp dụng cho desktop/server khi làm bài của môn đó. Mỗi dòng một thuật ngữ; tối đa 500 mục, 100 ký tự/mục, tổng 10.000 ký tự sau khi bỏ dòng trống/mục trùng. Bấm **Lưu hotword môn học**, kiểm tra thông báo tên môn và số mục đã lưu. Không còn hotword chung trong Cấu hình giọng nói. Đề giữ hotword lúc sinh; sau khi sửa danh sách, cần sinh đề mới hoặc trả đề về nháp rồi sinh/duyệt lại để áp dụng. Danh sách thuật ngữ AI không tự trở thành hotword. Nghe lại và kiểm tra transcript trước khi nộp.
+- Hotword STT lưu riêng tại **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học**, áp dụng cho desktop/server khi làm bài của môn đó. Mỗi dòng một thuật ngữ; tối đa 500 mục, 100 ký tự/mục, tổng 10.000 ký tự sau khi bỏ dòng trống/mục trùng. Bấm **Lưu hotword môn học**, kiểm tra thông báo tên môn và số mục đã lưu. Không còn hotword chung trong Cấu hình giọng nói. Đề giữ hotword lúc sinh; sau khi sửa danh sách, cần sinh đề mới hoặc trả đề về nháp rồi sinh/duyệt lại để áp dụng. Danh sách thuật ngữ AI không tự trở thành hotword. Kiểm tra transcript trước khi nộp.
 
 Đề đã công bố giữ nguyên nội dung để đối chiếu kết quả. Kỳ thi mới bắt buộc giảng viên và khảo thí duyệt trước; chỉ sinh viên trong roster thấy kỳ thi và chỉ bắt đầu trong lịch được xếp.
 
@@ -65,13 +65,15 @@ Hai cách giao trong bảng trên chỉ áp dụng đề legacy. Kỳ thi mới 
 
 1. Mở OralAI, chọn máy chủ tại **OralAI → Cấu hình máy chủ…** rồi đăng nhập bằng email/mật khẩu được cấp hoặc Google đúng email trong danh sách Excel.
 2. Chọn bài thi, bấm **Mở bài thi → Cho phép camera & mic**. Chọn đúng microphone và camera.
-3. Để gain 0 dB, bấm **Kiểm tra độ ồn**: im lặng 3 giây, nói thử 7 giây. Phát lại bản gốc/bản lọc và chỉnh gain nếu cần. Hướng dẫn và chỉ số mức đỉnh được bố trí thành hai hàng cố định.
-4. Chọn có dùng RNNoise cho STT hay không, bấm **Bắt đầu thi**. Mỗi câu bấm **Bắt đầu trả lời**, nói xong bấm **Kết thúc trả lời**.
-5. Chờ PhoWhisper chuyển audio thành transcript. App hiện nhận dạng sau khi dừng ghi, chưa hiện chữ trực tiếp trong lúc nói.
-6. Nghe lại, sửa transcript bằng tay nếu cần. Có thể chọn **Bản ghi dùng cho STT → Bản gốc / Bản giảm nhiễu RNNoise → Thử STT lại**; nhận dạng lại thành công sẽ thay transcript đang sửa.
+3. Chọn ngôn ngữ/model trong **Nhận dạng giọng nói trên desktop**. Desktop không có thu thử trước thi, gain hoặc RNNoise; thiết bị kết nối thành công là có thể bắt đầu.
+4. Bấm **Bắt đầu thi**. Mỗi câu bấm **Bắt đầu trả lời**, nói xong bấm **Kết thúc trả lời**.
+5. Chờ model đã chọn chuyển audio gốc thành transcript. App hiện nhận dạng sau khi dừng ghi, chưa hiện chữ trực tiếp trong lúc nói.
+6. Kiểm tra và sửa transcript bằng tay nếu cần. Có thể đổi model/ngôn ngữ rồi bấm **Thử STT lại** từ audio gốc; nhận dạng lại thành công sẽ thay transcript đang sửa.
 7. Bấm **Nộp câu trả lời & tiếp tục**. Khi đủ câu và upload hoàn tất, bấm **Nộp bài thi** rồi chờ kết quả.
 
 Chức năng sửa chính tả bằng LLM đã được gỡ; không cần tải Qwen3. Transcript sửa tay được đánh dấu để giảng viên đối chiếu bản ghi. Xem [kiểm tra transcript](transcript-correction.md) và [hướng dẫn mic](microphone-desktop.md).
+
+Trình duyệt web vẫn giữ thu thử 10 giây, gain và tùy chọn RNNoise trước thi, cùng lựa chọn bản gốc/bản lọc khi thử STT lại. Xem [luồng âm thanh trên web](architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).
 
 ## Xem kết quả và làm lại
 

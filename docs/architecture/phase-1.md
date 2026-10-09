@@ -6,6 +6,8 @@ Phạm vi theo mục 21 trong [tài liệu gốc](../../AI_Oral_Assessment_PROJE
 
 **Cập nhật 11/09/2026:** giáo trình PDF cấp môn, chủ đề nhiều LO/chương/tài liệu, cấu hình STT và Google nhận dạng/chấm lại đã được bổ sung. Thiết kế chi tiết, migration và giới hạn tại [Mở rộng kiến thức và STT](knowledge-speech.md).
 
+**Cập nhật 09/10/2026:** Mô tả MVP bên dưới có phần lịch sử. Desktop hiện luôn nhận dạng local bằng PhoWhisper-small hoặc Whisper-small, với model/ngôn ngữ chọn trên thiết bị. Desktop đã bỏ gain, RNNoise và thu thử/kiểm tra độ ồn trước thi; STT lần đầu và thử lại dùng audio gốc. Trình duyệt web vẫn giữ các tính năng âm thanh này và theo cấu hình STT server. Xem [kiến trúc giọng nói hiện hành](knowledge-speech.md) và [phân biệt desktop/web](crud-noise-check.md).
+
 ## Hướng đi
 
 1. **Nền tảng:** monorepo, PostgreSQL/pgvector, MinIO, Redis, migration, JWT và phân quyền.

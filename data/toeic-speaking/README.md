@@ -35,7 +35,7 @@ Snapshot đóng băng rubric, tài liệu/chunk, cấu hình AI, ngôn ngữ `en
 
 ## Làm bài
 
-Đăng nhập sinh viên → mở **TOEIC Speaking — Bộ luyện 01**. Trên desktop chọn **English + Whisper-small**; lựa chọn ngôn ngữ/model của người dùng vẫn được giữ. Trên web, đề tự đặt ngôn ngữ STT là tiếng Anh, nhà cung cấp theo cấu hình máy chủ. Cả web và desktop mặc định dùng **bản ghi gốc**, có thể bật RNNoise khi cần. Kiểm tra transcript rồi nộp để server chấm rubric/RAG.
+Đăng nhập sinh viên → mở **TOEIC Speaking — Bộ luyện 01**. Trên desktop chọn **English + Whisper-small**; lựa chọn ngôn ngữ/model của người dùng vẫn được giữ. Trên web, đề tự đặt ngôn ngữ STT là tiếng Anh, nhà cung cấp theo cấu hình máy chủ. Desktop luôn dùng **bản ghi gốc**, không có thu thử trước thi, gain hoặc RNNoise. Trình duyệt web mặc định dùng bản gốc và vẫn có thể bật RNNoise khi cần. Kiểm tra transcript rồi nộp để server chấm rubric/RAG.
 
 ## Kiểm tra chấm
 

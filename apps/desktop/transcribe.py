@@ -61,7 +61,7 @@ def main():
         return
     with tempfile.TemporaryDirectory(prefix="oral-desktop-stt-") as folder:
         clean = Path(folder) / "speech.wav"
-        # RNNoise is applied by the renderer. Avoid filtering the same audio twice.
+        # Desktop uses the original recording; only convert format for STT.
         metadata = prepare_audio(Path(sys.argv[1]), clean, "off")
         segments, _ = model.transcribe(
             str(clean),

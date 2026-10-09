@@ -1,5 +1,9 @@
 # Biên bản kiểm thử giai đoạn 1
 
+## Phạm vi audio desktop hiện hành — 09/10/2026
+
+Desktop đã bỏ gain, RNNoise và thu thử/kiểm tra độ ồn trước thi; lần STT đầu và thử lại dùng audio gốc. Trình duyệt web giữ các tính năng này. Các biên bản theo ngày bên dưới ghi lại hành vi ở thời điểm kiểm thử, không xác nhận các điều khiển đó còn trên desktop hiện tại. Đây là ghi chú phạm vi, không phải kết quả kiểm thử mới. Xem [luồng audio hiện hành](architecture/crud-noise-check.md).
+
 ## Desktop chọn model/ngôn ngữ — 07/10/2026
 
 - Playwright: **8 ca desktop đạt** (4 tổ hợp PhoWhisper-small/Whisper-small × vi/en và 4 ca browser/runtime cũ/model thiếu/preference hỏng); **3 ca cloud STT đạt**. Kiểm tra lựa chọn được giữ sau reload, bị khóa khi ghi, đổi model/ngôn ngữ khi retry, hotword còn nguyên và giữ transcript nếu STT thất bại.

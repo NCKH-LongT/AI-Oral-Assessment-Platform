@@ -14,7 +14,8 @@ Hướng dẫn từng bước chạy lại source, cài đè và build trên Lin
 - Helper `resources/stt/oral-stt/`: Python đóng gói bằng PyInstaller, faster-whisper, CTranslate2, VAD và FFmpeg.
 - Model `resources/stt/model/`: PhoWhisper-small của VinAI, chuyển INT8 bằng CTranslate2; kèm tokenizer, preprocessing config, license và metadata revision.
 - Model `resources/stt/whisper-small/`: Whisper-small đa ngôn ngữ từ `Systran/faster-whisper-small`, trọng số FP16 và runtime CPU INT8; kèm config, tokenizer, vocabulary, license MIT và metadata revision.
-- RNNoise WASM/AudioWorklet được phục vụ cùng UI tại `/audio/`; xử lý âm thanh tại máy học viên, không gửi audio đến dịch vụ lọc nhiễu.
+
+Desktop không dùng RNNoise, gain phần mềm hoặc thu thử trước thi. RNNoise WASM/AudioWorklet vẫn được phục vụ cùng UI tại `/audio/` cho trình duyệt web; không phải thành phần xử lý âm thanh của desktop.
 
 Cả hai model được khóa revision trong `scripts/build_desktop_stt.py`. Model/binary sinh ra không đưa vào Git. Bộ cài lớn hơn vì chứa hai model STT. Không còn tùy chọn `bundle_stt=false`; `beforePack` từ chối tạo installer thiếu helper/model STT. Trên cùng OS, kiểm tra thêm `--capabilities` protocol 2, hai model và hỗ trợ hotword để phát hiện helper cũ ngay cả khi đủ file.
 
@@ -54,10 +55,10 @@ ORAL_STT_VARIANT=whisper-small STT_LANGUAGE=en HF_HUB_OFFLINE=1 apps/desktop/dis
 
 Kiểm thử Electron thực với một file giọng nói ngắn: `ORAL_STT_TEST_AUDIO=/path/to/sample.wav npm run test:desktop-stt`. Test dùng profile và trang local riêng, chạy đủ bốn tổ hợp qua IPC/helper, kiểm tra metadata và transcript không rỗng, không truy cập bài thi thật. Đây là kiểm tra đường chạy, không phải benchmark độ chính xác (đặc biệt nếu ngôn ngữ file mẫu khác lựa chọn).
 
-Thử thêm trên máy sạch không có Python: mở app, ghi mic 10 giây, phát bản gốc/bản lọc, làm một bài thi và xem kết quả. Mất mạng không ảnh hưởng STT cục bộ nhưng app vẫn cần server để lấy đề/nộp bài.
+Thử thêm trên máy sạch không có Python: mở app, cấp quyền/chọn mic và camera, bắt đầu thi ngay khi kết nối, ghi câu trả lời, kiểm tra transcript, thử STT lại rồi nộp và xem kết quả. Kiểm tra audio/video minh chứng đã upload ở giao diện review của giảng viên. Xác nhận desktop vẫn có thanh tín hiệu/mức đỉnh dBFS, không hiển thị gain, thu thử/kiểm tra độ ồn hoặc RNNoise. Mất mạng không ảnh hưởng STT cục bộ nhưng app vẫn cần server để lấy đề/nộp bài.
 
 ## Attribution
 
-Model: [VinAI PhoWhisper](https://github.com/VinAIResearch/PhoWhisper), BSD-3-Clause; license nằm trong resources. Engine: [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Noise suppression: [web-noise-suppressor](https://github.com/sapphi-red/web-noise-suppressor), RNNoise qua WebAssembly/AudioWorklet. Các dependency được đóng gói phải giữ license đi kèm.
+Model: [VinAI PhoWhisper](https://github.com/VinAIResearch/PhoWhisper), BSD-3-Clause; license nằm trong resources. Engine: [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Noise suppression dành cho trình duyệt web: [web-noise-suppressor](https://github.com/sapphi-red/web-noise-suppressor), RNNoise qua WebAssembly/AudioWorklet. Các dependency được đóng gói phải giữ license đi kèm.
 
 Whisper-small: [OpenAI Whisper](https://github.com/openai/whisper), MIT; bản CTranslate2 từ [SYSTRAN](https://huggingface.co/Systran/faster-whisper-small). License được lưu trong `WHISPER-LICENSE.txt` và sao chép vào thư mục model khi build.

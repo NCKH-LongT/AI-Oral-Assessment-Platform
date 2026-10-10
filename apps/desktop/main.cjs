@@ -288,7 +288,16 @@ app.whenReady().then(async () => {
         new URL(event.senderFrame.url).origin !== webURL.origin)
     )
       throw new Error("Forbidden");
-    await shell.openExternal(googleLoginURL(value, authOrigin));
+    let selectedAuthOrigin = authOrigin;
+    if (!app.isPackaged && process.env.ORAL_CLIENT_ENABLED === "1" &&
+        webURL.origin === process.env.ORAL_WEB_URL) {
+      const saved = await session.defaultSession.cookies.get({ url: webURL.origin, name: "oral_backend" });
+      const mode = saved[0]?.value || process.env.ORAL_BACKEND_MODE || "online";
+      selectedAuthOrigin = normalizeServerURL(mode === "local"
+        ? process.env.ORAL_LOCAL_BACKEND_URL || "http://localhost:3000"
+        : process.env.ORAL_ONLINE_BACKEND_URL || "https://oral-test.paperlens.uk");
+    }
+    await shell.openExternal(googleLoginURL(value, selectedAuthOrigin));
   });
   ipcMain.handle("oral:stt-models", async (event) => {
     if (

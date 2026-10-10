@@ -15,17 +15,27 @@ Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg, **PhoWhisper-sma
 
 ## Bắt đầu nhanh
 
+**Web/desktop local có nút Local / Online (Windows, Linux, macOS):** chạy `npm run desktop` tại thư mục gốc.
+Lệnh tự mở giao diện source tại `http://localhost:3001` nếu chưa có; có thể mở URL đó trên trình duyệt,
+hoặc chạy riêng `npm run dev`. Chọn backend ở thanh đầu trang: Online mặc định là
+`https://oral-test.paperlens.uk`, Local là server Docker `http://localhost:3000`.
+Đổi backend không cần chạy lại app; phiên đăng nhập riêng cho từng backend.
+Xem [cấu hình và cách chạy](README.md#chạy-web-và-desktop-local-chọn-backend-trên-giao-diện).
+
+**Lưu ý về các lệnh cũ bên dưới:** khi muốn mở trực tiếp UI trên server với `ORAL_WEB_URL`,
+dùng **`npm run desktop:server`** thay cho `npm run desktop`. Launcher Python/Bash cũ vẫn dùng một server cố định.
+
 | Tình huống | Cách mở |
 | --- | --- |
 | Học viên đã cài OralAI | Mở app, chọn server trong **OralAI → Cấu hình máy chủ…**, đăng nhập và làm bài |
-| Đã có source, dependency và bundle STT; muốn tải giao diện đang triển khai | Chạy `npm run desktop` với môi trường và URL như ví dụ bên dưới |
+| Đã có source, dependency và bundle STT; muốn tải giao diện đang triển khai | Chạy `npm run desktop:server` với môi trường và URL như ví dụ bên dưới |
 | Đang sửa giao diện trong repo trên Linux/macOS | Chạy `./run-desktop.sh --server http://localhost:3000` để mở UI dev tại cổng 3001 |
 | Chưa có dependency hoặc bundle STT | Hoàn tất mục [Chạy từ source](#chạy-từ-source) trước |
 
 Mở desktop từ source, dùng server local đã chạy, trên Linux/macOS:
 
 ```bash
-env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop:server
 ```
 
 Windows PowerShell:
@@ -33,10 +43,10 @@ Windows PowerShell:
 ```powershell
 Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
 $env:ORAL_WEB_URL = "http://localhost:3000"
-npm run desktop
+npm run desktop:server
 ```
 
-Chạy lệnh tại thư mục gốc repository. Thay URL bằng địa chỉ server thực tế nếu dùng máy chủ khác. `npm run desktop` chỉ mở Electron, không chạy backend hoặc build giao diện. `./run-desktop.sh` cũng cần backend đã chạy sẵn.
+Chạy lệnh tại thư mục gốc repository. Thay URL bằng địa chỉ server thực tế nếu dùng máy chủ khác. `npm run desktop:server` chỉ mở Electron, không chạy backend hoặc build giao diện. `./run-desktop.sh` cũng cần backend đã chạy sẵn.
 
 Nếu dùng Docker local và server chưa chạy:
 
@@ -70,7 +80,7 @@ Desktop cần **URL web gốc**, nơi có cả giao diện và `/api`, ví dụ 
 Linux/macOS, chạy tại thư mục repository:
 
 ```bash
-env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu npm run desktop
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu npm run desktop:server
 ```
 
 Windows PowerShell:
@@ -78,7 +88,7 @@ Windows PowerShell:
 ```powershell
 Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
 $env:ORAL_WEB_URL = "https://oral.example.edu"
-npm run desktop
+npm run desktop:server
 ```
 
 Cách này tải giao diện đã triển khai trên server; sửa source UI trên máy chưa làm giao diện server thay đổi. `ORAL_WEB_URL` được đọc từ môi trường tiến trình lúc chạy, không tự đọc từ file `.env` của backend. Biến này ưu tiên URL đã lưu trong app. Để lần khởi động sau dùng URL đã lưu, bỏ biến bằng `unset ORAL_WEB_URL` (Bash) hoặc `Remove-Item Env:ORAL_WEB_URL -ErrorAction SilentlyContinue` (PowerShell).
@@ -138,7 +148,7 @@ Docker mặc định dùng cổng **3000**: `./run-desktop.sh --server http://lo
 
 Đăng nhập Google dùng domain của **server**, không dùng cổng UI dev. Launcher tự truyền `ORAL_AUTH_ORIGIN` bằng giá trị `--server` cho Electron chạy từ source. Với cấu hình mặc định, giữ domain gốc của backend là `http://localhost:3000` và callback Google là `http://localhost:3000/api/auth/google/callback`; không đổi sang 3001. Địa chỉ `--server` cần khớp domain gốc đã cấu hình trong admin. Bộ cài desktop dùng domain máy chủ đã chọn trong app và không nhận override đăng nhập dành cho dev này.
 
-Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev server đang chạy để tránh mở nhầm bản cũ. Đóng Electron hoặc Ctrl+C sẽ dừng dev server của phiên đó; server đang dùng không bị thay đổi. Lệnh `npm run desktop` đơn thuần chỉ mở Electron, không build hoặc cập nhật giao diện ở địa chỉ server.
+Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev server đang chạy để tránh mở nhầm bản cũ. Đóng Electron hoặc Ctrl+C sẽ dừng dev server của phiên đó; server đang dùng không bị thay đổi. Lệnh `npm run desktop:server` đơn thuần chỉ mở Electron, không build hoặc cập nhật giao diện ở địa chỉ server.
 
 Có thể chạy lại ngay sau khi đóng app; kết nối TCP cũ ở trạng thái `TIME_WAIT` không bị tính là chiếm cổng. Nếu vẫn báo cổng 3001 bận, kiểm tra bằng `ss -ltnp 'sport = :3001'` trên Linux và đóng phiên đang dùng cổng. Khởi động lại Docker không giải phóng cổng của UI dev trên máy.
 
@@ -208,7 +218,7 @@ npm ci
 python3.12 -m venv .venv-stt
 .venv-stt/bin/pip install -r scripts/requirements-desktop-stt.txt
 .venv-stt/bin/python scripts/build_desktop_stt.py
-env -u ELECTRON_RUN_AS_NODE npm run desktop
+env -u ELECTRON_RUN_AS_NODE npm run desktop:server
 ```
 
 Windows PowerShell:
@@ -219,7 +229,7 @@ py -3.12 -m venv .venv-stt
 .\.venv-stt\Scripts\pip install -r scripts/requirements-desktop-stt.txt
 .\.venv-stt\Scripts\python scripts/build_desktop_stt.py
 Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-npm run desktop
+npm run desktop:server
 ```
 
 Bước build cần mạng để tải PhoWhisper, Whisper-small và thư viện; bước chạy helper không cần mạng. Source desktop tự dùng helper đã build. `ORAL_PYTHON` chỉ dùng để debug bằng Python ngoài; `ORAL_STT_MODEL` trỏ thư mục PhoWhisper; `ORAL_WHISPER_MODEL` trỏ thư mục Whisper-small nếu cần đường dẫn tùy chỉnh. Khi chạy helper trực tiếp, `ORAL_STT_VARIANT=phowhisper-small|whisper-small` chọn model, `STT_LANGUAGE=vi|en` chọn ngôn ngữ; `ORAL_STT_MODEL` của helper trực tiếp là đường dẫn model đang chọn. `STT_MODEL` trên server không thay model kèm desktop.
@@ -272,10 +282,10 @@ chmod +x apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
 **Chạy lại từ source khi đã có bundle:** chỉ cần `npm ci` khi dependency thay đổi, rồi:
 
 ```bash
-env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop:server
 ```
 
-PowerShell: đặt `$env:ORAL_WEB_URL="http://localhost:3000"`, xóa `ELECTRON_RUN_AS_NODE` như hướng dẫn trên rồi `npm run desktop`. Thay URL bằng server của bạn; nếu không đặt biến, app dùng địa chỉ đã lưu trong menu.
+PowerShell: đặt `$env:ORAL_WEB_URL="http://localhost:3000"`, xóa `ELECTRON_RUN_AS_NODE` như hướng dẫn trên rồi `npm run desktop:server`. Thay URL bằng server của bạn; nếu không đặt biến, app dùng địa chỉ đã lưu trong menu.
 
 **Khi cập nhật code:**
 
@@ -298,11 +308,11 @@ Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEM
 
 | Lỗi | Kiểm tra |
 | --- | --- |
-| `npm run desktop` vẫn thấy giao diện cũ | Lệnh này tải UI từ server đang cấu hình. Cập nhật server hoặc dùng `./run-desktop.sh` để xem UI source mới |
+| `npm run desktop:server` vẫn thấy giao diện cũ | Lệnh này tải UI từ server đang cấu hình. Cập nhật server hoặc dùng `./run-desktop.sh` để xem UI source mới |
 | Launcher báo server chưa sẵn sàng | Khởi động backend hoặc sửa `--server` về đúng URL web gốc; launcher không tự chạy Docker |
 | Cổng UI dev 3001 đang bận | Đóng phiên dev cũ hoặc dùng `--port 3002`, đồng thời cho phép origin tương ứng trên backend |
 | Bộ cài thiếu STT/model | Cài bản đầy đủ mới; bước đóng gói đã chặn thiếu helper/model |
-| Source chưa có model | Chạy `scripts/build_desktop_stt.py` trước `npm run desktop` |
+| Source chưa có model | Chạy `scripts/build_desktop_stt.py` trước `npm run desktop:server` |
 | Windows báo STT thất bại sau khi dừng ghi âm, log có `UnicodeEncodeError` / `cp1252` | Cập nhật bộ cài đã sửa xuất JSON tiếng Việt. Nếu chạy source, build lại bundle STT; chỉ sửa `transcribe.py` không cập nhật `oral-stt.exe` đã đóng gói. |
 | STT quá thời gian | Thử câu ngắn hơn, đóng tác vụ nặng; mặc định giới hạn xử lý 7 phút |
 | Không có tiếng | Quan sát thanh tín hiệu/mức đỉnh; kiểm tra thiết bị đã chọn, quyền và mức đầu vào của hệ điều hành |

@@ -217,6 +217,18 @@ export type ExamSession = {
   } | null;
 };
 
+export let clientBackend: {
+  mode: "local" | "online";
+  urls: { local: string; online: string };
+} | null = null;
+export function configureClientBackend(
+  value: NonNullable<typeof clientBackend>,
+) {
+  clientBackend = value;
+}
+function backendHeaders(): Record<string, string> {
+  return clientBackend ? { "X-Oral-Backend": clientBackend.mode } : {};
+}
 let refreshing: Promise<Response> | null = null;
 export async function api<T>(
   path: string,
@@ -231,12 +243,14 @@ export async function api<T>(
         ? { "Content-Type": "application/json" }
         : {}),
       ...init.headers,
+      ...backendHeaders(),
     },
   });
   if (response.status === 401 && retry && !path.startsWith("/auth/")) {
     refreshing ||= fetch("/api/auth/refresh", {
       method: "POST",
       credentials: "include",
+      headers: backendHeaders(),
     }).finally(() => {
       refreshing = null;
     });

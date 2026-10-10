@@ -7,11 +7,13 @@
     "apps/desktop"
   ],
   "scripts": {
-    "dev": "npm run dev -w apps/admin-web",
+    "dev": "node scripts/run-client.cjs",
     "build": "npm run build -w apps/admin-web",
     "typecheck": "npm run typecheck -w apps/admin-web",
     "lint": "npm run lint -w apps/admin-web",
-    "desktop": "npm run start -w apps/desktop",
+    "desktop": "node scripts/run-client.cjs --desktop",
+    "desktop:server": "npm run start -w apps/desktop",
+    "test:backend": "node --test tests/client-backend.test.mjs",
     "test:e2e": "playwright test",
     "test:audio": "node --experimental-strip-types --test tests/noise-check.test.mjs",
     "test:desktop": "node --test tests/desktop-config.test.cjs tests/desktop-close.test.cjs",

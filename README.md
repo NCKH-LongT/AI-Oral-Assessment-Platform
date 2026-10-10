@@ -53,6 +53,36 @@ Desktop ghi audio/video và nhận dạng bản gốc bằng **PhoWhisper-small 
 
 ## Chạy server
 
+### Chạy web và desktop local, chọn backend trên giao diện
+
+Tại thư mục gốc, chạy `npm run dev` để mở giao diện local tại **http://localhost:3001**.
+Chạy `npm run desktop` để mở Electron dùng cùng giao diện; nếu web local chưa chạy, lệnh này tự khởi động web.
+Trên Windows, Linux và macOS, chọn **Local / Online** ở thanh **Backend** đầu trang:
+
+- **Online:** `https://oral-test.paperlens.uk` (mặc định), dùng dữ liệu/tài khoản trên máy chủ này; không cần chạy Docker local.
+- **Local:** `http://localhost:3000`, dùng server Docker trên máy này. Khởi động bằng `docker compose up -d --build --wait` nếu cần.
+
+Lựa chọn được nhớ riêng trong trình duyệt và profile desktop. Đổi backend kiểm tra kết nối rồi tải lại giao diện;
+cookie đăng nhập được tách riêng cho mỗi backend. Hãy hoàn tất bản ghi/nộp bài trước khi đổi.
+Tab cũ sẽ yêu cầu tải lại nếu backend đã đổi ở tab khác. Không có thao tác đồng bộ dữ liệu giữa hai server.
+
+Các giá trị mặc định có thể chỉnh trong `.env`, sau đó khởi động lại web/desktop local:
+
+```dotenv
+ORAL_BACKEND_MODE=online
+ORAL_LOCAL_BACKEND_URL=http://localhost:3000
+ORAL_ONLINE_BACKEND_URL=https://oral-test.paperlens.uk
+ORAL_CLIENT_PORT=3001
+```
+
+`ORAL_BACKEND_MODE` chỉ dùng khi profile chưa lưu lựa chọn. Đây là lựa chọn **máy chủ ứng dụng**,
+khác với `AI_PROVIDER=local` (Ollama chạy tại backend). Desktop vẫn nhận dạng giọng nói trên máy người dùng.
+Launcher dùng `.venv-stt` nếu có; model Whisper-small phải được cài riêng nếu bundle hiện tại chỉ có PhoWhisper.
+Đăng nhập Google trên web local mở cửa sổ đăng nhập của backend và hoàn tất bằng luồng polling.
+
+`npm run desktop:server` giữ cách mở Electron trực tiếp tới `ORAL_WEB_URL`/server đã lưu,
+không chạy giao diện local và không có bộ chọn backend local này. Bộ cài desktop vẫn chọn server qua menu OralAI.
+
 Cần Docker Compose và Python 3. Tại thư mục gốc:
 
 ```bash

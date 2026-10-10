@@ -153,7 +153,7 @@ export default function Student() {
         if (!left && recordingRef.current) stopRef.current();
       }
     }, 500);
-    const before = (e: BeforeUnloadEvent) => {
+    const before = (e: Event) => {
       if (
         recordingRef.current ||
         answer ||
@@ -162,9 +162,11 @@ export default function Student() {
         e.preventDefault();
     };
     window.addEventListener("beforeunload", before);
+    window.addEventListener("oral:backend-switch", before);
     return () => {
       clearInterval(timer);
       window.removeEventListener("beforeunload", before);
+      window.removeEventListener("oral:backend-switch", before);
     };
   }, [answer, jobs]);
   useEffect(

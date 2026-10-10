@@ -1,6 +1,6 @@
 # Quy trình khảo thí, duyệt đề, lịch thi và điểm chính thức
 
-Cập nhật 05/10/2026. Hướng dẫn này mô tả luồng hiện hành cho kỳ thi được tạo trong **Điều phối kỳ thi**. Một kỳ thi ứng với một đề thuộc một môn; mỗi môn có một giảng viên phụ trách theo `Course.owner_id`. Phân công lại môn chuyển quyền quản lý toàn bộ đề và bài chấm của môn đó.
+Hướng dẫn này mô tả kỳ thi được tạo trong **Điều phối kỳ thi**. Một kỳ thi ứng với một đề thuộc một môn; mỗi môn có một giảng viên phụ trách theo `Course.owner_id`. Phân công lại môn chuyển quyền quản lý toàn bộ đề và bài chấm của môn đó.
 
 ## Phân quyền
 
@@ -10,7 +10,7 @@ Cập nhật 05/10/2026. Hướng dẫn này mô tả luồng hiện hành cho k
 | EXAM_OFFICER | Tạo kỳ thi, phân công giảng viên đã có role TEACHER, nhập Excel, xem đề đã duyệt, trả đề, xếp lịch, mở thi, xuất điểm |
 | TEACHER | Chỉ quản lý môn được phân công; cấu hình đề, sinh/sửa câu hỏi và rubric, duyệt gửi khảo thí; chấm lại bài thuộc môn |
 | STUDENT | Đăng nhập email/mật khẩu hoặc Google trên desktop, xem bài được giao, thi đúng lịch, xem điểm chính thức |
-| REVIEWER | Vai trò xem lại cũ; không được thay khảo thí mở kỳ thi hoặc ghi điểm chính thức |
+| REVIEWER | Xem môn học và kết quả để đối chiếu; quyền mở kỳ thi và ghi điểm chính thức thuộc các vai trò phụ trách |
 
 Tài khoản STUDENT có thể mở **Yêu cầu quyền khảo thí → Gửi yêu cầu làm khảo thí**. Admin mở **Người dùng**, kiểm tra yêu cầu và lưu role EXAM_OFFICER. Yêu cầu chưa duyệt không cấp quyền. Admin cũng có thể tạo trực tiếp tài khoản khảo thí hoặc phân role cho tài khoản có sẵn; mọi role được kiểm tra trên server ở mỗi request.
 
@@ -25,7 +25,7 @@ Tài khoản STUDENT có thể mở **Yêu cầu quyền khảo thí → Gửi y
 7. Khảo thí xem toàn bộ đề/rubric trong **Điều phối kỳ thi**. Nếu cần sửa, nhập lý do **Trả về bản nháp**; hệ thống hủy bản sinh và dấu duyệt, giảng viên cấu hình/sinh/review lại.
 8. Khảo thí chọn một, nhiều hoặc tất cả sinh viên, nhập giờ mở/đóng vào thi rồi **Lưu lịch thi**. Chỉ xếp lịch sau khi giảng viên duyệt. Mỗi sinh viên có thể có khung giờ riêng; thời gian nhập theo múi giờ máy, lưu dưới dạng Unix timestamp.
 9. Khi tất cả sinh viên có lịch hợp lệ, khảo thí bấm **Xác nhận đã kiểm tra đề & mở kỳ thi**. Trạng thái PUBLISHED, khóa đề, danh sách và lịch. Bản snapshot lưu câu hỏi, rubric, nguồn kiến thức, cấu hình AI, hotword môn học và dấu duyệt.
-10. Sinh viên mở desktop, đăng nhập bằng email trong Excel, vào **Bài thi của tôi**, chọn bài khi đến giờ. Server kiểm tra danh sách và lịch ở cả bước tạo phiên và bắt đầu thi. Đăng ký môn học không tự cấp quyền thi kỳ thi theo luồng mới.
+10. Sinh viên mở desktop, đăng nhập bằng email trong Excel, vào **Bài thi của tôi**, chọn bài khi đến giờ. Server kiểm tra danh sách và lịch ở cả bước tạo phiên và bắt đầu thi. Quyền thi kỳ thi dựa trên danh sách và lịch được khảo thí xác nhận.
 11. Sau khi nộp, worker server chấm AI. Bài có điểm AI trung bình **< 5/10**, thiếu điểm hoặc cần kiểm tra độ tin cậy chuyển REVIEW_REQUIRED; sinh viên chưa thấy điểm chính thức.
 12. Giảng viên mở **Kết quả & xem lại**. Bài dưới 5 có nền cảnh báo và điểm AI đề xuất. Xem transcript/audio/video, nhập điểm 0–10 cùng nhận xét ít nhất 10 ký tự, bấm **Lưu điểm chính thức**. Hệ thống lưu riêng điểm AI, người chấm lại, thời gian và lý do; giữ audit trước/sau.
 13. Khảo thí chọn **Xuất điểm Excel** trong kỳ thi. Mỗi lần thi không bị xóa là một dòng; sinh viên chưa thi vẫn có dòng NOT_STARTED. `final_score` chỉ có khi COMPLETED; điểm đang chờ duyệt không bị xuất nhầm thành điểm chính thức.
@@ -51,17 +51,15 @@ Export gồm `student_number`, `email`, `full_name`, `attempt`, `status`, `ai_sc
 
 ## Hotword STT
 
-**Cập nhật 06/10/2026:** Hotword chỉ lưu riêng theo môn, không còn cấu hình từ vựng chung. Admin hoặc giảng viên quản lý môn vào **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học**. API GET/PUT `/admin/courses/{id}/hotwords` kiểm tra quyền với đúng môn đó. Mỗi môn có danh sách độc lập; xóa danh sách một môn không ảnh hưởng môn khác.
+Hotword được lưu riêng theo môn. Admin hoặc giảng viên quản lý môn vào **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học**. API GET/PUT `/admin/courses/{id}/hotwords` kiểm tra quyền với đúng môn đó. Mỗi môn có danh sách độc lập; xóa danh sách một môn không ảnh hưởng môn khác.
 
-Tối đa **500 từ/cụm từ**, **100 ký tự mỗi mục**, **10.000 ký tự tổng cộng** (không tính dấu xuống dòng). Bỏ khoảng trắng đầu/cuối, dòng trống và mục trùng trước khi tính giới hạn. Web hiển thị bộ đếm và thông báo lỗi tiếng Việt trước khi gửi; API kiểm tra lại và từ chối toàn bộ nếu vượt giới hạn, không lưu một phần. Electron dùng cùng giới hạn, kể cả ký tự Unicode; server không âm thầm cắt danh sách còn 100 mục/2000 ký tự.
+Tối đa **500 từ/cụm từ**, **100 ký tự mỗi mục**, **10.000 ký tự tổng cộng** (không tính dấu xuống dòng). Bỏ khoảng trắng đầu/cuối, dòng trống và mục trùng trước khi tính giới hạn. Web hiển thị bộ đếm và thông báo lỗi tiếng Việt trước khi gửi; API kiểm tra lại và từ chối toàn bộ nếu vượt giới hạn, không lưu một phần. Electron dùng cùng giới hạn, kể cả ký tự Unicode.
 
-Từ vựng môn được cố định trong snapshot khi sinh đề hoặc publish đề legacy mới; muốn thay cần trả về nháp và sinh/duyệt lại. Với đề cũ chưa có trường hotword trong snapshot, dùng danh sách hiện tại của chính môn đó. Snapshot có danh sách rỗng vẫn giữ rỗng. `/stt/config` không có phiên thi không trả từ vựng môn nào.
+Từ vựng môn được cố định trong snapshot khi sinh hoặc công bố đề; muốn thay cần trả về nháp và sinh/duyệt lại. Snapshot có danh sách rỗng giữ nguyên danh sách rỗng. Nếu snapshot thiếu trường hotword, hệ thống dùng danh sách hiện tại của chính môn đó. `/stt/config` chỉ trả từ vựng khi có phiên thi hợp lệ.
 
-Hotword chung đã lưu ở phiên bản cũ được bỏ qua khi đọc cấu hình, không gộp vào phiên thi và không tự sao chép sang các môn. Nếu cần giữ thuật ngữ cũ, quản trị viên chọn các từ phù hợp rồi lưu vào từng môn. API cấu hình giọng nói chỉ lưu nhà cung cấp, ngôn ngữ và tiền xử lý; không nhận trường `hotwords` nữa.
+API cấu hình giọng nói lưu nhà cung cấp, ngôn ngữ và tiền xử lý. Từ vựng được quản lý qua API hotword của môn học.
 
 Desktop lấy `/stt/config?session_id=…`; server kiểm tra chủ sở hữu phiên rồi trả hotword, không trả đáp án hoặc expected concepts. Renderer truyền cấu hình qua IPC, main process kiểm tra giới hạn, rồi helper nhận `STT_HOTWORDS` JSON. PhoWhisper và Whisper server dùng tham số `hotwords`; Google Speech v1 dùng `speechContexts` với boost 10; Gemini nhận gợi ý từ vựng với chỉ dẫn không thêm từ không nghe thấy. Luồng chấm bài vẫn độc lập STT.
-
-Bản sửa 06/10 không thêm migration hoặc biến `.env`. Cập nhật API/worker/web bằng `docker compose up -d --build --wait`. Đóng/mở lại Electron đang chạy từ source để nạp giới hạn mới, hoặc đóng gói/cài lại desktop; không cần tải lại model hay build lại helper STT chỉ vì thay đổi này. Bộ cài cũ vẫn giới hạn 100 mục nên phải nâng cấp trước khi dùng danh sách lớn hơn.
 
 Hotword hỗ trợ nhận dạng, không tự sửa đáp án hoặc bảo đảm chính xác. Ưu tiên bảng từ vựng ngắn, sát môn; không nhập đáp án. Thuật ngữ tiếng Anh do AI sinh cho từng câu vẫn để giảng viên review, **không tự lấy expected concepts hoặc đáp án làm gợi ý STT**. Sinh viên vẫn cần kiểm tra transcript trước khi nộp; giảng viên có thể đối chiếu với audio/video minh chứng đã upload.
 
@@ -75,8 +73,6 @@ Tham khảo triển khai: [faster-whisper hotwords](https://github.com/SYSTRAN/f
 - `worker.finalize`: tính điểm AI, áp dụng ngưỡng dưới 5, giữ riêng điểm chấm lại.
 - `examination.tsx`, `exam-draft-review.tsx`, `course-hotwords.tsx`: UI điều phối và review tách khỏi component quản trị lớn.
 
-Migration `0005` thêm các cột vào bảng cũ, không xóa dữ liệu. Exam cũ giữ `workflow=false`; quyền xem qua đăng ký môn, endpoint publish/assign cũ vẫn phục vụ dữ liệu và tích hợp cũ. Publish trực tiếp chỉ còn dành cho ADMIN với đề legacy. Mọi đề tạo qua Điều phối hoặc chuyển qua **Sinh câu hỏi & rubric để review** có `workflow=true` và phải qua quy trình duyệt. Đề mới do TEACHER tạo cũng dùng workflow. Không thể dùng endpoint publish/assign cũ để bỏ qua quy trình của đề workflow.
+Mọi đề tạo qua Điều phối hoặc chuyển qua **Sinh câu hỏi & rubric để review** có `workflow=true` và phải qua quy trình duyệt. Đề do TEACHER tạo cũng dùng workflow. Với `workflow=false`, ADMIN có thể publish/giao đề trực tiếp và cấp quyền qua đăng ký môn. Server kiểm tra `workflow` tại các endpoint publish/assign để bảo đảm đề khảo thí đi qua đầy đủ bước duyệt.
 
-Cập nhật server bằng `docker compose up -d --build --wait`; service migrate chạy `alembic upgrade head`. Nếu chạy thủ công: cài lại dependency từ `services/api/requirements.lock`, chạy `alembic upgrade head` trong `services/api`, rồi khởi động lại API/worker/web. Build lại desktop để helper mới nhận hotword. Không cần sửa `.env` cho hotword hoặc role mới.
-
-Không tự chạy migration lên database đang vận hành trong phiên chỉnh sửa mã. Chạy backup/triển khai theo quy trình của môi trường trước khi đưa phiên bản này vào sử dụng.
+Khởi động server bằng `docker compose up -d --build --wait`; service migrate chạy `alembic upgrade head`. Nếu chạy thủ công: cài dependency từ `services/api/requirements.lock`, chạy `alembic upgrade head` trong `services/api`, rồi khởi động API/worker/web. Quy trình triển khai bao gồm sao lưu database và dữ liệu lưu trữ.

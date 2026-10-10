@@ -1,24 +1,24 @@
-# Tài khoản Google, giao môn học và desktop — 13/09/2026
+# Tài khoản, giao môn học và desktop
 
 [README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
 
 ## Đăng nhập và quyền
 
-- Đăng nhập mật khẩu hiện có vẫn hoạt động. Google OIDC dùng authorization code + PKCE, scope `openid email profile`; không đọc/gửi Gmail.
+- Hệ thống hỗ trợ đăng nhập bằng mật khẩu và Google. Google OIDC dùng authorization code + PKCE, scope `openid email profile`.
 - ADMIN nhập OAuth Client ID/Client Secret loại **Web application**, bật đăng nhập và đặt domain gốc trong **Cấu hình hệ thống → Đăng nhập Google**. Trong Google Cloud Console thêm redirect URI chính xác `https://DOMAIN/api/auth/google/callback`; localhost được dùng HTTP. Cấu hình màn hình đồng ý và test users nếu ứng dụng Google đang ở chế độ Testing.
-- Web đi qua redirect Google. Desktop mở trình duyệt hệ thống; không nhúng màn hình Google trong Electron. Desktop giữ poll token trong bộ nhớ, poll kết quả và nhận cookie từ backend; không chuyển access/refresh token qua URL.
-- Launcher source dùng UI dev riêng (mặc định 3001), truyền `ORAL_AUTH_ORIGIN` từ `--server` (mặc định 3000). Electron chỉ nhận origin đăng nhập riêng khi chạy source với `ORAL_WEB_URL`; bản đóng gói dùng cùng origin với máy chủ đã chọn. Đổi máy chủ trong app đặt lại origin đăng nhập. IPC vẫn kiểm tra renderer gửi yêu cầu và chỉ mở `/api/auth/google/start` có `flow_id` trên origin được cấu hình; callback Google giữ domain gốc của backend.
-- Backend xác minh chữ ký/audience/issuer/expiry ID token bằng `google-auth`, kiểm tra nonce và email đã xác minh, gắn danh tính theo Google `sub`. Tài khoản mới luôn là STUDENT. Không tự ghép vào tài khoản mật khẩu chỉ vì username giống email; điều này tránh cấp nhầm quyền admin. Nếu đã có tài khoản mật khẩu, đăng nhập Google tạo tài khoản riêng để admin giao lại môn/quyền khi cần.
+- Web trên server đi qua redirect Google. Web local mở cửa sổ đăng nhập của backend; desktop mở trình duyệt hệ thống. Hai client local giữ poll token trong bộ nhớ, poll kết quả và nhận cookie từ backend; access/refresh token được truyền qua cookie.
+- Electron kiểm tra renderer gửi yêu cầu và chỉ mở `/api/auth/google/start` có `flow_id` trên origin của backend đã chọn. Callback Google dùng domain gốc của backend. Bộ cài dùng origin máy chủ cấu hình trong app; launcher source có thể dùng UI local với origin đăng nhập riêng.
+- Backend xác minh chữ ký/audience/issuer/expiry ID token bằng `google-auth`, kiểm tra nonce và email đã xác minh, gắn danh tính theo Google `sub`. Email Google đã xác minh có thể liên kết với duy nhất tài khoản STUDENT/ACTIVE do nhập danh sách thi tạo (`sv-…`). Tài khoản quản trị, giảng viên và tài khoản tạo thủ công không được tự liên kết theo email. Khi cần tạo tài khoản Google, role mặc định là STUDENT.
 - OAuth state dùng cookie HttpOnly, SameSite=Lax và bản hash trong database; code/flow chỉ dùng một lần. Flow hết hạn sau 5 phút, được dọn khi tạo flow mới. Redis giới hạn tạo flow. Cookie ứng dụng dùng Secure khi domain gốc là HTTPS. Không ghi query OAuth vào access log API trong Docker.
-- **Người dùng → Vai trò → Lưu quyền** cho phép ADMIN đổi STUDENT/TEACHER/REVIEWER/ADMIN của bất kỳ tài khoản. Mỗi request đọc vai trò hiện tại từ database, nên quyền thay đổi ngay với phiên đang có. Không được bỏ admin ACTIVE cuối cùng. Audit lưu người đổi, đối tượng và vai trò trước/sau.
+- **Người dùng → Vai trò → Lưu quyền** cho phép ADMIN phân role STUDENT/TEACHER/REVIEWER/EXAM_OFFICER/ADMIN. Mỗi request đọc vai trò hiện tại từ database, nên quyền thay đổi ngay với phiên đang có. Hệ thống yêu cầu luôn có ít nhất một ADMIN/ACTIVE. Audit lưu người đổi, đối tượng và vai trò trước/sau.
 
 Tham khảo: [Google web-server OAuth](https://developers.google.com/identity/protocols/oauth2/web-server), [Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect).
 
 ## Môn mặc định và giao môn
 
-Bootstrap tạo idempotent môn **Luyện tập vấn đáp** và đề **Thi thử: Làm quen hệ thống** gồm hai câu hỏi có sẵn. Không gọi AI/Google khi tạo, không cần key để xem/thi thử. Desktop dùng PhoWhisper-small đã đóng gói. Trình duyệt dùng policy STT đã cấu hình; nếu chọn Whisper server thì server cần tải model lần đầu. Bài luyện tập lưu minh chứng và transcript nhưng không tính điểm chính thức. Mọi vai trò đều truy cập được từ **Bài thi của tôi** hoặc **Học & thi thử**; môn được nhận diện bằng ID cố định, không dựa vào tên/mã có thể sửa.
+Bootstrap tạo idempotent môn **Luyện tập vấn đáp** và đề **Thi thử: Làm quen hệ thống** gồm hai câu hỏi có sẵn. Không gọi AI/Google khi tạo, không cần key để xem/thi thử. Desktop dùng PhoWhisper-small hoặc Whisper-small theo lựa chọn trên thiết bị. Trình duyệt dùng policy STT đã cấu hình; nếu chọn Whisper server thì server cần tải model lần đầu. Bài luyện tập lưu minh chứng và transcript nhưng không tính điểm chính thức. Mọi vai trò đều truy cập được từ **Bài thi của tôi** hoặc **Học & thi thử**; môn được nhận diện bằng ID cố định, không dựa vào tên/mã có thể sửa.
 
-ADMIN vào môn → **04 · Học viên**, tìm tài khoản và **Thêm vào môn học**. Bảng `course_enrollments` lưu thành viên môn; danh sách bài thi truy vấn trực tiếp các đề PUBLISHED trong môn, nên cả đề công bố sau khi giao môn cũng xuất hiện. Học viên bấm **Làm mới bài thi** để cập nhật danh sách đang mở. Đề nháp bị ẩn và API cũng chặn truy cập. Giao riêng một đề vẫn được hỗ trợ trong mục thu gọn của đề đó. Gỡ khỏi môn không xóa kết quả/phiên thi đã tạo và không thu hồi các assignment riêng. Quyền vào một môn không cấp quyền chỉnh sửa hay xem bài của người khác.
+ADMIN vào môn → **04 · Học viên**, tìm tài khoản và **Thêm vào môn học**. Bảng `course_enrollments` lưu thành viên môn; đề PUBLISHED có `workflow=false` được hiển thị theo đăng ký môn hoặc giao bài riêng. Đề có `workflow=true` yêu cầu sinh viên thuộc danh sách kỳ thi và vào thi đúng lịch. Học viên bấm **Làm mới bài thi** để tải danh sách. Đề nháp bị ẩn và API chặn truy cập. Xóa thành viên khỏi môn giữ nguyên kết quả/phiên thi đã tạo và assignment riêng. Quyền vào một môn chỉ áp dụng cho dữ liệu học tập của chính học viên. Xem [quy trình khảo thí](examination-workflow.md).
 
 Số lượt do chính sách từng đề và lượt cấp thêm quyết định. Học viên có thể mở kết quả cũ hoặc tạo lượt mới khi còn quyền; hệ thống giữ lịch sử các lần thi. Xem [quản lý lượt thi](exam-retakes.md) và [hướng dẫn sử dụng](../user-guide.md#xem-kết-quả-và-làm-lại).
 
@@ -36,10 +36,25 @@ API và worker đọc cấu hình mới cho request/job tiếp theo, giữ một
 
 `public_origin` là domain truy cập từ bên ngoài, không phải địa chỉ API nội bộ Docker. DNS, reverse proxy và TLS cần cấu hình riêng; nhập domain trên web không tự tạo DNS/certificate. Các thiết lập hạ tầng như database, Redis, storage và bootstrap admin vẫn ở `.env`. Không đưa secrets vào Git, bộ cài hoặc frontend. Khi backup cần bảo vệ cả database và volume `app_data` chứa cấu hình/credentials.
 
-## Migration và desktop
+## Kết nối backend trên web local và desktop
 
-Migration `0003` thêm `users.email`, Google `sub` duy nhất, bảng OAuth flow và enrollment; giữ tài khoản, môn, đề và kết quả cũ. Bootstrap bổ sung môn luyện tập ở lần cập nhật tiếp theo. Dockerfile API tắt access log mặc định có query string; middleware vẫn ghi request ID/method/path/status.
+Chạy `npm run dev` để mở giao diện source tại `http://localhost:3001`. `npm run desktop` mở Electron và khởi động giao diện local nếu cần. Thanh **Backend** cho phép chọn:
 
-Bộ cài desktop bắt buộc kèm runtime và model PhoWhisper-small INT8; CI không còn tùy chọn bỏ bundle. Desktop gửi media gốc + transcript local để server chấm bằng Ollama/Gemini. Hướng dẫn build, cấu hình domain và STT local: [Desktop đa nền tảng](../desktop-build.md).
+| Chế độ | Máy chủ mặc định |
+| --- | --- |
+| Online | `https://oral-test.paperlens.uk` |
+| Local | `http://localhost:3000` |
 
-Chức năng sửa chính tả LLM đã được gỡ. Học viên vẫn kiểm tra và sửa transcript bằng tay trước khi nộp; giảng viên có thể xem/nghe minh chứng đã upload khi review bài. Xem [kiểm tra transcript](../transcript-correction.md).
+Các biến `.env` gồm `ORAL_BACKEND_MODE`, `ORAL_LOCAL_BACKEND_URL`, `ORAL_ONLINE_BACKEND_URL` và `ORAL_CLIENT_PORT`. Mặc định là Online khi profile chưa lưu lựa chọn. Bộ chọn kiểm tra kết nối trước khi tải lại giao diện; phiên đăng nhập tách riêng theo backend. Bản ghi chưa nộp chặn chuyển chế độ; tab đang dùng backend khác phải tải lại trước khi gửi yêu cầu API.
+
+Giao diện local chuyển tiếp `/api` tới backend đã chọn, kiểm tra origin của request và chỉ gửi cookie thuộc backend đó. STT desktop xử lý trên thiết bị; dữ liệu môn, lịch thi, bài nộp và chấm điểm thuộc server được chọn. `AI_PROVIDER` cấu hình LLM tại server, độc lập với lựa chọn Local/Online của client.
+
+`npm run desktop:server` mở trực tiếp UI tại `ORAL_WEB_URL` hoặc máy chủ đã lưu. Bộ cài desktop chọn domain tại **OralAI → Cấu hình máy chủ…**.
+
+## Dữ liệu tài khoản và tài nguyên desktop
+
+`users.email` lưu email, Google `sub` là định danh duy nhất; bảng OAuth flow quản lý phiên đăng nhập và `course_enrollments` quản lý thành viên môn. Middleware API ghi request ID/method/path/status, giữ query OAuth ngoài access log Docker.
+
+Bộ cài desktop chứa runtime STT, FFmpeg, PhoWhisper-small và Whisper-small CPU INT8. Desktop gửi media gốc và transcript local để server chấm bằng Ollama/Gemini. Hướng dẫn: [Desktop đa nền tảng](../desktop-build.md).
+
+Học viên kiểm tra và sửa transcript bằng tay trước khi nộp; giảng viên xem/nghe minh chứng đã upload khi review bài. Xem [kiểm tra transcript](../transcript-correction.md).

@@ -12,7 +12,7 @@ Mở **Môn học & đề thi → chọn môn → Bài thi & giao bài → Cấu
 | Giới hạn số lần làm lại: N | 1 lượt ban đầu + N lượt làm lại (N từ 1 đến 1000) |
 | Không giới hạn | Không giới hạn số lần làm |
 
-Có thể chọn ngay khi tạo đề hoặc chỉnh cả đề đã công bố. Chỉ ADMIN được thay đổi chính sách, cấp lượt và xóa lần thi. Đề cũ mặc định không cho làm lại, giữ hành vi trước đây. Đổi số lượt không thay câu hỏi/rubric/model trong snapshot, không xóa điểm và không dừng phiên đang làm.
+Có thể chọn ngay khi tạo đề hoặc chỉnh cả đề đã công bố. Chỉ ADMIN được thay đổi chính sách, cấp lượt và xóa lần thi. Chính sách mặc định là một lượt. Đổi số lượt giữ nguyên câu hỏi/rubric/model trong snapshot, kết quả và phiên đang làm.
 
 ## Xem kết quả, cấp lượt và xóa
 
@@ -47,16 +47,15 @@ Một lượt được tính từ khi mở phiên mới, kể cả chưa bắt �
 
 API danh sách bài thi và xem kết quả có `history`; mỗi phần tử chứa số lần, trạng thái, thời gian và điểm được xác nhận. Lịch sử của sinh viên chỉ thuộc chính tài khoản đó.
 
-## Cập nhật server và desktop
+## Vận hành
 
-Sao lưu database theo quy trình triển khai trước khi nâng cấp. Tại thư mục repository:
+Khởi động server tại thư mục repository:
 
 ```bash
-git pull --ff-only
 docker compose up -d --build --wait
 docker compose exec api alembic current
 ```
 
-Compose chạy dịch vụ `migrate` trước API/worker; phiên bản cần đạt là `0004 (head)`. Migration giữ các bài cũ ở lần 1 và giữ điểm/transcript. Không xóa volume và không thêm biến môi trường. Nếu chạy API native, chạy `alembic -c services/api/alembic.ini upgrade head` bằng môi trường Python của backend trước khi mở API/worker mới.
+Compose chạy dịch vụ `migrate` với `alembic upgrade head` trước API/worker. API xử lý chính sách lượt thi và quyền truy cập; worker xử lý chấm điểm và công việc xóa media.
 
-Đóng/mở lại desktop để tải UI mới từ server; chạy source bằng `./run-desktop.sh` sau khi backend được cập nhật. Không cần build lại PhoWhisper. Launcher không chạy Docker. Không hạ migration khi đã có nhiều lần thi, lần đã xóa hoặc công việc xóa media đang chờ.
+Chạy `npm run dev` cho web local hoặc `npm run desktop` cho desktop. Chọn backend Local/Online ở đầu giao diện. Hướng dẫn: [kết nối backend](accounts-courses-desktop.md#kết-nối-backend-trên-web-local-và-desktop).

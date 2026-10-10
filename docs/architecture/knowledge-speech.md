@@ -1,8 +1,8 @@
-# Mở rộng giáo trình, chủ đề và STT — 11/09/2026
+# Giáo trình, chủ đề và nhận dạng giọng nói
 
 [README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
 
-**Cập nhật 20/09/2026:** [Độ tin cậy và chấm lại theo phiên bản đề](grading-confidence.md) mô tả kiểm tra snapshot, confidence chưa có dữ liệu và luồng chấm transcript không gọi STT. Nhận dạng lại audio không tự khắc phục đề lệch provider/embedding.
+Tài liệu mô tả mô hình kiến thức, nhận dạng giọng nói và cấu hình AI. [Độ tin cậy và chấm lại theo phiên bản đề](grading-confidence.md) trình bày quy tắc kiểm tra snapshot và xử lý kết quả chấm.
 
 ## Mô hình kiến thức
 
@@ -20,14 +20,14 @@ erDiagram
 
 - `book_sections`: tên, cấp tiêu đề 1–6, trang đầu/cuối, nguồn BOOKMARK/HEADING/FALLBACK/MANUAL.
 - Ưu tiên bookmark PDF. Nếu thiếu, nhận dạng dòng `Chương`, `Chapter`, `Phần`, `Part`, hoặc đánh số `1.1`… Nếu không xác định được thì gợi ý toàn sách để giảng viên tự chia.
-- Số trang là thứ tự trong PDF từ 1. Có thể sửa/thêm/xóa mục; không xóa mục còn được chủ đề tham chiếu. PDF scan cần OCR trước; chưa có phân tích font/layout hay OCR tự động.
+- Số trang là thứ tự trong PDF từ 1. Có thể sửa/thêm/xóa mục; không xóa mục còn được chủ đề tham chiếu. PDF scan cần OCR trước khi nhập.
 - Chunk theo trang và ranh giới header nhận dạng được, tối đa 2400 ký tự; lưu trang, heading, document ID và embedding. Tối đa 2000 chunks/file. Liên kết chương dựa trên **phạm vi trang**, nên các mục bắt đầu chung trang có thể dùng chung nội dung trang đó.
 - `topic_outcomes`, `topic_sections`, `topic_documents` là các bảng liên kết nhiều–nhiều. Kiểm tra tất cả ID cùng môn trên server; các FK ngăn xóa đối tượng đang dùng.
-- UI tạo/sửa chủ đề yêu cầu ít nhất một LO và một chương/mục. Giáo trình qua chương đã chọn là một nguồn tài liệu; có thể gắn thêm nhiều tài liệu bổ sung. API vẫn nhận `learning_outcome_id` đơn cho client/seed MVP cũ; nên chuyển sang mảng ID khi tích hợp mới.
-- Mỗi bản công bố mới lưu `topic_chunk_ids`, các ánh xạ LO/chương/tài liệu và câu hỏi trong snapshot. Chấm thường/chấm lại dùng đúng tập chunk này. Chỉnh ánh xạ hoặc trang chương chỉ ảnh hưởng đề công bố sau. Đề MVP cũ dùng tập tài liệu snapshot và cột topic cũ để giữ phạm vi ban đầu.
-- Giáo trình READY được giữ bất biến. Nếu upload lỗi, có thể thay PDF tại mục **Thay PDF bị lỗi**; version tăng và worker xử lý lại. Cơ chế nhiều phiên bản giáo trình đang sử dụng chưa triển khai.
+- UI tạo/sửa chủ đề yêu cầu ít nhất một LO và một chương/mục. Giáo trình qua chương đã chọn là một nguồn tài liệu; có thể gắn thêm nhiều tài liệu bổ sung. API hỗ trợ các mảng ID ánh xạ và trường `learning_outcome_id` đơn.
+- Mỗi bản công bố lưu `topic_chunk_ids`, các ánh xạ LO/chương/tài liệu và câu hỏi trong snapshot. Chấm thường/chấm lại dùng đúng tập chunk này. Chỉnh ánh xạ hoặc trang chương chỉ ảnh hưởng đề công bố sau.
+- Giáo trình READY được giữ bất biến. Nếu upload lỗi, có thể thay PDF tại mục **Thay PDF bị lỗi**; version tăng và worker xử lý lại.
 
-## Pipeline giọng nói desktop — cập nhật 09/10/2026
+## Pipeline giọng nói desktop
 
 ```mermaid
 flowchart LR
@@ -38,25 +38,25 @@ flowchart LR
   Text --> Server
   Server --> Grade[LLM chấm theo rubric và RAG]
   Grade --> Result[Kết quả trả về desktop]
-  Server --> Review[Admin yêu cầu Gemini nhận dạng lại]
+  Server --> Review[Admin yêu cầu Gemini hoặc Google nhận dạng lại]
   Review --> Grade
 ```
 
-Desktop luôn dùng helper local, kể cả khi cấu hình STT cũ trên server là Google. Bộ cài chứa runtime, FFmpeg, PhoWhisper-small và Whisper-small đa ngôn ngữ; không tải model lúc thi, không cần Python trên máy học viên. Desktop không tạo nhánh RNNoise hoặc gain phần mềm, không có thu thử/kiểm tra độ ồn trước thi. Helper chuyển audio gốc thành mono 16 kHz và nhận dạng với model/ngôn ngữ đã chọn. `STT_MODEL` chỉ điều khiển Whisper server, không thay model đóng gói trong desktop.
+Desktop dùng helper local với model và ngôn ngữ chọn trên thiết bị. Bộ cài chứa runtime, FFmpeg, PhoWhisper-small và Whisper-small đa ngôn ngữ, chạy CPU INT8. Helper chuyển audio gốc thành mono 16 kHz rồi nhận dạng. `STT_MODEL` điều khiển Whisper trên server; model desktop lấy từ tài nguyên đóng gói.
 
 STT lần đầu và **Thử STT lại** trên desktop đều dùng audio gốc. Khi nộp, desktop upload audio/video gốc và transcript; worker chấm bất đồng bộ. Transcript nhập tay hoặc độ tin cậy thấp cần giảng viên kiểm tra. Lỗi AI, bài demo hoặc đang chờ chấm không được hiển thị thành điểm 0/10.
 
 ### Transcript và thuật ngữ
 
-Chức năng sửa chính tả bằng LLM đã được gỡ. Người dùng có thể sửa transcript bằng tay; mọi bản sửa được đánh dấu để giảng viên đối chiếu với audio.
+Người dùng kiểm tra và sửa transcript bằng tay trước khi nộp; mọi bản sửa được đánh dấu để giảng viên đối chiếu với audio.
 
 AI gợi ý thuật ngữ tiếng Anh và nghĩa tiếng Việt cùng lúc sinh câu hỏi, lưu trong snapshot đề và hiển thị ở workspace giảng viên. Không tự sửa transcript hoặc tự truyền gợi ý vào STT.
 
 ### LLM và cấu hình
 
-`AI_CONFIG_SOURCE=env` là mặc định: `AI_PROVIDER`, `LLM_MODEL`, `EMBEDDING_MODEL`, `GEMINI_API_KEY` lấy từ môi trường API/worker, bỏ qua giá trị AI cũ trong `platform.json`. `AI_PROVIDER=local` dùng Ollama qua `LOCAL_LLM_URL`, JSON schema cho câu hỏi/chấm và embedding 768 chiều. `gemini` dùng Gemini API; `demo` chỉ thử quy trình, không tạo điểm chính thức. `AI_CONFIG_SOURCE=admin` giữ chế độ quản trị AI cũ trên web. Adapter thêm prefix truy vấn/tài liệu khi dùng `nomic-embed-text` theo [model card](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5); cần đánh giá retrieval trên giáo trình tiếng Việt trước khi chọn model embedding triển khai.
+`AI_CONFIG_SOURCE=env` là mặc định: `AI_PROVIDER`, `LLM_MODEL`, `EMBEDDING_MODEL`, `GEMINI_API_KEY` lấy từ môi trường API/worker. `AI_PROVIDER=local` dùng Ollama qua `LOCAL_LLM_URL`, JSON schema cho câu hỏi/chấm và embedding 768 chiều. `gemini` dùng Gemini API; `demo` chỉ thử quy trình, không tạo điểm chính thức. `AI_CONFIG_SOURCE=admin` cho phép quản trị AI trên web và lưu cấu hình trong `platform.json`. Adapter thêm prefix truy vấn/tài liệu khi dùng `nomic-embed-text` theo [model card](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5); cần đánh giá retrieval trên giáo trình tiếng Việt trước khi chọn model embedding triển khai.
 
-Đổi AI provider/model cần xử lý lại tài liệu và công bố đề mới, vì snapshot đề và embedding có phiên bản. Gemini chỉ nhận dạng lại audio khi admin yêu cầu; bật Gemini LLM không bật Google STT.
+Đổi AI provider/model cần xử lý lại tài liệu và công bố đề mới, vì snapshot đề và embedding có phiên bản. Provider STT được chọn độc lập với LLM chấm bài: Gemini có thể nhận dạng trên web theo policy hoặc nhận dạng lại audio khi admin yêu cầu.
 
 ### Nhận dạng lại có lịch sử — Gemini hoặc Google Cloud STT
 

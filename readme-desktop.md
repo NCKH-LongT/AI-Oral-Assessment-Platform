@@ -338,6 +338,8 @@ Nếu cài trên server mới, nhập bộ dữ liệu theo [hướng dẫn tri�
 
 ## Truy cập và ghi màn hình bắt buộc
 
+Nếu báo còn hai màn hình dù đã tắt màn hình phụ: nút nguồn không nhất thiết ngắt đầu ra của hệ điều hành. Trong Ubuntu mở **Settings → Displays**, chọn màn hình phụ, tắt màn hình đó và áp dụng cấu hình; hoặc rút cáp màn hình phụ. Trên Windows chọn chế độ chỉ một màn hình bằng **Win+P**. Sau đó bấm lại **Bắt đầu thi** hoặc **Khôi phục chế độ thi**, không cần khởi động lại app. App kiểm tra lại cấu hình hiện tại mỗi lần bấm và hiển thị tên/số màn hình mà hệ điều hành còn nhận diện. Khi khôi phục bị chặn vì nhiều màn hình, app thoát kiosk để bạn sửa cài đặt; bài đang thi vẫn tiếp tục tính giờ.
+
 Web dành cho **ADMIN, EXAM_OFFICER (khảo thí), TEACHER**. Sinh viên đăng nhập và làm bài bằng **OralAI Desktop**. App không còn menu hệ điều hành hoặc thanh điều hướng quản trị. Đổi server tại nút **Cấu hình máy chủ** trước khi đăng nhập. Tài khoản `REVIEWER` cũ cần admin đổi sang vai trò phù hợp trên web.
 
 Với mỗi lần thi mới (trừ bài thử thiết bị), sinh viên phải đồng ý ghi toàn màn hình rồi cấp quyền chia sẻ trước khi bắt đầu. Đóng thông tin riêng tư, dùng một màn hình và cấp quyền ghi màn hình trong hệ điều hành nếu được yêu cầu. App ghi màn hình từ lúc bắt đầu đến khi bấm nộp, hiện trạng thái ghi rõ ràng, không thu âm hệ thống; microphone/camera câu trả lời vẫn được lưu riêng. Giao diện chia bản ghi thành các đoạn khoảng 60 giây, tải lên server khi thi và tải đoạn cuối trước khi hoàn tất nộp bài. Giữ app mở đến khi báo đã nộp; lỗi upload có nút thử lại.

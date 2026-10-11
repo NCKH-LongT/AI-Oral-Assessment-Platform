@@ -86,6 +86,20 @@ test(
       // Keep this test independent of the developer's physical monitor count.
       // Multi-display rejection is covered by desktop-exam-lock.test.cjs.
       await desktop.evaluate(({ screen }) => {
+        screen.getAllDisplays = () => [
+          { ...screen.getPrimaryDisplay(), label: "HDMI-1" },
+          { ...screen.getPrimaryDisplay(), label: "HDMI-2" },
+        ];
+      });
+      const displayError = await page.evaluate(() =>
+        window.oralDesktop.beginExam().then(
+          () => null,
+          (e) => e.message,
+        ),
+      );
+      assert.match(displayError, /Hệ điều hành vẫn bật 2 màn hình/);
+      assert.doesNotMatch(displayError, /Error invoking remote method/);
+      await desktop.evaluate(({ screen }) => {
         screen.getAllDisplays = () => [screen.getPrimaryDisplay()];
       });
       await page.evaluate(() => window.oralDesktop.beginExam());

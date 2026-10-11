@@ -60,10 +60,23 @@ function installExamLock(win, { screen }) {
       return active;
     },
     async begin() {
-      if (screen.getAllDisplays().length !== 1)
+      // Read the current OS configuration on every attempt. A monitor's power
+      // button can leave its output enabled, so it must still count here.
+      const monitors = screen.getAllDisplays();
+      if (monitors.length !== 1) {
+        // A failed resume must leave the user able to open display settings.
+        active = false;
+        win.setKiosk(false);
+        win.setMinimizable(true);
+        const names = monitors
+          .map((display, index) => display.label || `Màn hình ${index + 1}`)
+          .join(", ");
         throw new Error(
-          "Chỉ sử dụng một màn hình trong khi thi. Ngắt màn hình phụ để tiếp tục.",
+          monitors.length
+            ? `Hệ điều hành vẫn bật ${monitors.length} màn hình (${names}). Chỉ sử dụng một màn hình trong khi thi. Tắt bằng nút nguồn chưa ngắt màn hình khỏi máy tính. Hãy tắt màn hình phụ trong Cài đặt màn hình của hệ điều hành hoặc rút cáp, rồi bấm lại Bắt đầu thi / Khôi phục chế độ thi. Không cần mở lại ứng dụng.`
+            : "Chưa nhận diện được màn hình. Kiểm tra Cài đặt màn hình của hệ điều hành rồi thử lại.",
         );
+      }
       // Consent is presented next to the exam start button. Avoid an additional
       // modal here so getDisplayMedia retains the user's transient activation.
       active = true;

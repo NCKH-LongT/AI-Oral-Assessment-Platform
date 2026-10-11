@@ -1030,7 +1030,10 @@ export default function Student() {
                 {desktopSpeech.desktop && (
                   <p className="muted">
                     STT dùng bản ghi gốc từ microphone. Audio/video gốc được giữ
-                    để đối chiếu.
+                    để đối chiếu. Trước khi thi, chỉ bật một màn hình trong cài
+                    đặt hệ điều hành; tắt nút nguồn màn hình phụ có thể vẫn bị
+                    tính là hai màn hình. Sau khi tắt trong cài đặt hoặc rút
+                    cáp, bấm lại Bắt đầu thi.
                   </p>
                 )}
                 {session.screen_required && (

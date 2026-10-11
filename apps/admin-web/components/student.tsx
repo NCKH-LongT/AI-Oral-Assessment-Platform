@@ -28,6 +28,9 @@ import DesktopSpeechSettings, {
   type DesktopModel,
 } from "./desktop-speech-settings";
 import { createNoiseFilter, type NoiseFilter } from "../lib/noise-filter";
+import DesktopDisplaySettings, {
+  type DesktopDisplayStatus,
+} from "./desktop-display-settings";
 import {
   createMicrophoneGain,
   peakDbfs,
@@ -43,6 +46,9 @@ declare global {
       settings?: () => Promise<void>;
       beginExam?: () => Promise<void>;
       endExam?: () => Promise<void>;
+      displayStatus?: () => Promise<DesktopDisplayStatus>;
+      useSingleDisplay?: (keep: string) => Promise<DesktopDisplayStatus>;
+      restoreDisplays?: () => Promise<DesktopDisplayStatus>;
       onExamEvent?: (callback: (type: string) => void) => () => void;
       quit?: () => Promise<void>;
       sttModels?: () => Promise<DesktopModel[]>;
@@ -85,6 +91,7 @@ const mime = (kind: "audio" | "video") =>
   ).find((t) => MediaRecorder.isTypeSupported(t));
 
 export default function Student() {
+  const [displayBusy, setDisplayBusy] = useState(false);
   const [screenConsent, setScreenConsent] = useState(false);
   const screenJobs = useRef(
     new Map<Blob, { job: UploadJob; task: Promise<boolean> }>(),
@@ -962,9 +969,18 @@ export default function Student() {
                   Bài thi bị gián đoạn hoặc chưa bật ghi màn hình. Kết nối lại
                   để tiếp tục; thời gian thi vẫn chạy.
                 </p>
-                <Action action={guard.prepare}>Khôi phục chế độ thi</Action>
+                <Action disabled={displayBusy} action={guard.prepare}>
+                  Khôi phục chế độ thi
+                </Action>
               </div>
             )}
+            {desktopSpeech.desktop &&
+              (session.status === "DEVICE_CHECK" || guard.blocked) && (
+                <DesktopDisplaySettings
+                  inExam={session.status === "IN_PROGRESS"}
+                  onBusy={setDisplayBusy}
+                />
+              )}
             <DesktopSpeechSettings
               settings={desktopSpeech}
               disabled={
@@ -1030,10 +1046,9 @@ export default function Student() {
                 {desktopSpeech.desktop && (
                   <p className="muted">
                     STT dùng bản ghi gốc từ microphone. Audio/video gốc được giữ
-                    để đối chiếu. Trước khi thi, chỉ bật một màn hình trong cài
-                    đặt hệ điều hành; tắt nút nguồn màn hình phụ có thể vẫn bị
-                    tính là hai màn hình. Sau khi tắt trong cài đặt hoặc rút
-                    cáp, bấm lại Bắt đầu thi.
+                    để đối chiếu. Nếu vẫn nhận nhiều màn hình dù đã tắt nguồn,
+                    dùng nút Tắt màn hình phụ trong mục Chuẩn bị màn hình, rồi
+                    bấm Bắt đầu thi.
                   </p>
                 )}
                 {session.screen_required && (
@@ -1055,6 +1070,7 @@ export default function Student() {
                     !!deviceError ||
                     (!desktopSpeech.desktop && !noiseReady) ||
                     connecting ||
+                    displayBusy ||
                     processing ||
                     (session.screen_required && !screenConsent)
                   }

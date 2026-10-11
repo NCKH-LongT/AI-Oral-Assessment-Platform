@@ -89,6 +89,12 @@ export function useExamGuard(
       ) {
         stop.current();
         setInterrupted(true);
+        if (type === "DISPLAY_CHANGED") {
+          // A retained track may still be live but refer to a disabled output.
+          // Preserve its segment, then require a fresh capture on resume.
+          setRecording(false);
+          void capture.current?.stop();
+        }
       }
     });
     return () => {

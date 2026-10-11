@@ -73,7 +73,7 @@ function installExamLock(win, { screen }) {
           .join(", ");
         throw new Error(
           monitors.length
-            ? `Hệ điều hành vẫn bật ${monitors.length} màn hình (${names}). Chỉ sử dụng một màn hình trong khi thi. Tắt bằng nút nguồn chưa ngắt màn hình khỏi máy tính. Hãy tắt màn hình phụ trong Cài đặt màn hình của hệ điều hành hoặc rút cáp, rồi bấm lại Bắt đầu thi / Khôi phục chế độ thi. Không cần mở lại ứng dụng.`
+            ? `Hệ điều hành vẫn bật ${monitors.length} màn hình (${names}). Chỉ sử dụng một màn hình trong khi thi. Tắt bằng nút nguồn chưa ngắt màn hình khỏi máy tính. Trong mục Chuẩn bị màn hình, chọn màn hình cần giữ rồi bấm Tắt màn hình phụ. Sau đó bấm lại Bắt đầu thi / Khôi phục chế độ thi. Nếu hệ điều hành không hỗ trợ, dùng Cài đặt màn hình hoặc rút cáp.`
             : "Chưa nhận diện được màn hình. Kiểm tra Cài đặt màn hình của hệ điều hành rồi thử lại.",
         );
       }

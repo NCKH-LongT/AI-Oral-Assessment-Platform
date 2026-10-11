@@ -24,6 +24,7 @@ const { pathToFileURL } = require("node:url");
 const path = require("node:path");
 const { installUnloadGuard } = require("./unload-guard.cjs");
 const { installExamLock } = require("./exam-lock.cjs");
+const { createDisplayManager } = require("./display-manager.cjs");
 const { validHotwords, validModel, STT_MODELS } = require("./stt-policy.cjs");
 const runFile = promisify(execFile);
 
@@ -102,6 +103,28 @@ let webURL = new URL(DEFAULT_URL),
   configWindow;
 let sttChild;
 let examLock;
+let displayManager;
+let quitRestoreStarted = false;
+let restoreWarning = "";
+
+async function restoreDisplays() {
+  try {
+    await displayManager?.restore();
+    restoreWarning = "";
+  } catch (error) {
+    if (restoreWarning !== error.message) {
+      restoreWarning = error.message;
+      await dialog.showMessageBox({
+        type: "warning",
+        title: "Khôi phục màn hình",
+        message: "Chưa khôi phục được cấu hình màn hình trước khi thi.",
+        detail:
+          error.message +
+          " Cấu hình cũ vẫn được lưu; bạn có thể thử lại trong OralAI hoặc mở Cài đặt màn hình.",
+      });
+    }
+  }
+}
 const configPage = pathToFileURL(path.join(__dirname, "server.html")).href;
 function trustedConfig(event) {
   if (
@@ -212,6 +235,7 @@ app.whenReady().then(async () => {
   });
   installUnloadGuard(win, dialog);
   examLock = installExamLock(win, { screen });
+  displayManager = createDisplayManager({ directory: app.getPath("userData") });
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     const headers = { ...details.requestHeaders };
     if (
@@ -273,11 +297,42 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("oral:exam-begin", async (event) => {
     trustedStudent(event);
+    await displayManager.idle();
     await examLock.begin();
   });
-  ipcMain.handle("oral:exam-end", (event) => {
+  ipcMain.handle("oral:exam-end", async (event) => {
     trustedStudent(event);
     examLock.end();
+    await restoreDisplays();
+  });
+  ipcMain.handle("oral:displays-status", (event) => {
+    trustedStudent(event);
+    return displayManager.status();
+  });
+  ipcMain.handle("oral:displays-single", async (event, keep) => {
+    trustedStudent(event);
+    if (examLock.active)
+      win.webContents.send("oral:exam-event", "DISPLAY_CHANGED");
+    examLock.end();
+    const result = await displayManager.single(keep);
+    // Mutter can return before Electron receives its display-change event.
+    const deadline = Date.now() + 3000;
+    while (screen.getAllDisplays().length !== 1 && Date.now() < deadline)
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    if (screen.getAllDisplays().length !== 1)
+      throw new Error(
+        "Hệ điều hành đã đổi cấu hình nhưng ứng dụng chưa nhận đủ cập nhật. Bấm Kiểm tra lại màn hình rồi thử lại.",
+      );
+    win.show();
+    win.focus();
+    return result;
+  });
+  ipcMain.handle("oral:displays-restore", async (event) => {
+    trustedStudent(event);
+    if (examLock.active)
+      throw new Error("Kết thúc bài thi trước khi khôi phục các màn hình.");
+    await displayManager.restore();
+    return displayManager.status();
   });
   Menu.setApplicationMenu(null);
   win.setMenu(null);
@@ -475,6 +530,12 @@ app.whenReady().then(async () => {
   }
 });
 app.on("window-all-closed", () => app.quit());
-app.on("will-quit", () => {
+app.on("will-quit", (event) => {
   sttChild?.kill();
+  // will-quit runs only after the window's leave/stay guard has accepted exit.
+  if (displayManager && !quitRestoreStarted) {
+    event.preventDefault();
+    quitRestoreStarted = true;
+    void restoreDisplays().finally(() => app.quit());
+  }
 });

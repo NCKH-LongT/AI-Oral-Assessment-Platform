@@ -17,6 +17,7 @@ import Admin from "../components/admin";
 import Student from "../components/student";
 import GoogleLogin from "../components/google-login";
 import Examination from "../components/examination";
+import StorageManager from "../components/storage-manager";
 import DesktopExit from "../components/desktop-exit";
 
 export default function Home() {
@@ -192,7 +193,14 @@ export default function Home() {
         { id: "results", label: "Kết quả & xem lại", icon: ClipboardCheck },
         { id: "student", label: "Học & thi thử", icon: GraduationCap },
         ...(user.role === "ADMIN"
-          ? [{ id: "settings", label: "Cấu hình hệ thống", icon: AudioLines }]
+          ? [
+              {
+                id: "storage",
+                label: "Lần thi & dung lượng",
+                icon: ShieldCheck,
+              },
+              { id: "settings", label: "Cấu hình hệ thống", icon: AudioLines },
+            ]
           : []),
       ];
   return (
@@ -275,7 +283,9 @@ export default function Home() {
               </Action>
             </details>
           )}
-          {page === "examination" && !isStudent ? (
+          {page === "storage" && user.role === "ADMIN" ? (
+            <StorageManager />
+          ) : page === "examination" && !isStudent ? (
             <Examination user={user} navigate={setPage} />
           ) : isStudent || page === "student" ? (
             <Student />

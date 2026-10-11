@@ -2,7 +2,18 @@ import time
 import uuid
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -130,6 +141,7 @@ class Rubric(Entity, Base):
 class Exam(Entity, Base):
     __tablename__ = "exams"
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
+    imported_questions: Mapped[list | None] = mapped_column(JSON(none_as_null=True))
     workflow: Mapped[bool] = mapped_column(default=False, server_default="false")
     rubric_id: Mapped[str] = mapped_column(ForeignKey("rubrics.id"))
     name: Mapped[str] = mapped_column(String(200))
@@ -169,6 +181,7 @@ class ExamSession(Entity, Base):
     final_score: Mapped[float | None] = mapped_column(Float)
     screen_required: Mapped[bool] = mapped_column(default=False, server_default="false")
     screen_consent_at: Mapped[float | None] = mapped_column(Float)
+    media_removed_at: Mapped[float | None] = mapped_column(Float)
     attempt_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     deleted_at: Mapped[float | None] = mapped_column(Float)
 
@@ -176,6 +189,7 @@ class ExamSession(Entity, Base):
 class MediaCleanup(Entity, Base):
     __tablename__ = "media_cleanup"
     upload_id: Mapped[str] = mapped_column(String(36), unique=True)
+    byte_size: Mapped[int | None] = mapped_column(BigInteger)
     storage_key: Mapped[str | None] = mapped_column(Text)
     retries: Mapped[int] = mapped_column(Integer, default=0)
     next_attempt_at: Mapped[float] = mapped_column(Float, default=0)

@@ -42,6 +42,7 @@ export type Rubric = {
 };
 export type Blueprint = { topic_id: string; difficulty: string; count: number };
 export type Exam = {
+  imported?: boolean;
   workflow?: boolean;
   max_attempts: number | null;
   id: string;
@@ -147,7 +148,12 @@ export type ScoreSummary = {
   question_scores: { sequence: number; score: number | null }[];
 };
 export type Review = Result & {
-  proctoring_events?: { id: string; created_at: number; details: { type: string } }[];
+  media_removed_at?: number | null;
+  proctoring_events?: {
+    id: string;
+    created_at: number;
+    details: { type: string };
+  }[];
   score_summary?: ScoreSummary | null;
   history: Sitting[];
   snapshot: {

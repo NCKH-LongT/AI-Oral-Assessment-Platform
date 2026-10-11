@@ -2,9 +2,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, send, errorText, Course, User } from "./api";
 import { Action, Badge, Empty, Field, Form } from "./shared";
+import ExcelImport from "./excel-import";
 import ExamDraftReview from "./exam-draft-review";
 
 type ExamRow = {
+  imported?: boolean;
   id: string;
   name: string;
   status: string;
@@ -87,6 +89,7 @@ export default function Examination({
         </>
       ) : (
         <>
+          <ExcelImport kind="exams" saved={load} />
           {officer && (
             <section className="panel">
               <h2>Tạo kỳ thi & giao giảng viên</h2>
@@ -214,8 +217,9 @@ function ExamOperations({
         {editable && exam.status === "DRAFT" && (
           <>
             <p>
-              Mở môn học để sửa bản nháp: chủ đề, số câu hỏi và độ khó cho từng
-              nhóm câu. Đặt số lượng = 1 để cấu hình từng câu.
+              {exam.imported
+                ? "Đề dùng nguyên câu hỏi và rubric đã nhập. Cần tài liệu READY cho từng chủ đề trước khi tạo bản nháp để gắn nguồn và duyệt."
+                : "Mở môn học để sửa bản nháp: chủ đề, số câu hỏi và độ khó cho từng nhóm câu. Đặt số lượng = 1 để cấu hình từng câu."}
             </p>
             <button
               className="button secondary"
@@ -229,7 +233,9 @@ function ExamOperations({
                 await refresh();
               }}
             >
-              Sinh câu hỏi & rubric
+              {exam.imported
+                ? "Tạo bản nháp từ câu hỏi đã nhập"
+                : "Sinh câu hỏi & rubric"}
             </Action>
           </>
         )}

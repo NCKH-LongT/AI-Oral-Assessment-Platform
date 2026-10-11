@@ -27,7 +27,6 @@ from .models import (
     Exam,
     ExamSession,
     LearningOutcome,
-    MediaCleanup,
     ReviewJob,
     Rubric,
     Topic,
@@ -40,6 +39,7 @@ from .retakes import allowance, history_row, sessions_for
 from .runtime_settings import settings
 from .security import admin, by_id, course_access, editor, exam_officer, fail, hasher, public_user, staff
 from .speech import exam_policy, google_ready
+from .storage_management import enqueue_media
 
 router = APIRouter()
 
@@ -228,9 +228,9 @@ def workspace(course_id: str, db: Session = Depends(get_db), user=Depends(staff)
         "rubrics": rows(Rubric, "name", "version", "criteria"),
         "exams": [
             data(exam, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts", "workflow")
-            | {"questions": [
+            | {"imported": bool(exam.imported_questions), "questions": [
                 {"text": q["text"], "english_terms": q.get("english_terms", [])}
-                for q in (exam.snapshot or {}).get("questions", [])
+                for q in (exam.snapshot or {}).get("questions", exam.imported_questions or [])
             ]}
             for exam in db.scalars(select(Exam).where(Exam.course_id == course_id).order_by(Exam.created_at))
         ],
@@ -506,6 +506,8 @@ def update_exam(key: str, body: s.ExamIn, db: Session = Depends(get_db), user=De
     validate_exam(db, body, user)
     if user.role != "ADMIN" and body.max_attempts != row.max_attempts:
         fail(403, "FORBIDDEN", "Chỉ admin được cấu hình số lượt làm bài")
+    if row.imported_questions and body.model_dump()["blueprint"] != row.blueprint:
+        fail(422, "IMPORTED_QUESTIONS", "Đề có câu hỏi nhập sẵn. Sửa nội dung trong bản nháp hoặc nhập một đề mới để đổi cấu trúc.")
     for field, value in body.model_dump().items():
         setattr(row, field, value)
     row.snapshot = None
@@ -537,7 +539,7 @@ def copy_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
         max_attempts=source.max_attempts,
     )
     validate_exam(db, body, user)
-    row = Exam(**body.model_dump(), workflow=user.role != "ADMIN")
+    row = Exam(**body.model_dump(), workflow=user.role != "ADMIN", imported_questions=deepcopy(source.imported_questions))
     db.add(row)
     db.commit()
     return data(row, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts")
@@ -611,6 +613,7 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
         "score_summary": score_summary(attempts, len((exam.snapshot or {}).get("questions", [])))
         if not (exam.snapshot or {}).get("practice") else None,
         "ai_score": session.ai_score, "manual_review": session.manual_review,
+        "media_removed_at": session.media_removed_at,
         "exam_id": exam.id, "student_id": session.student_id,
         **allowance(db, exam, session.student_id),
         "history": [history_row(row) for row in sessions_for(db, exam.id, session.student_id)],
@@ -915,7 +918,7 @@ def delete_result(key: str, db: Session = Depends(get_db), user=Depends(admin)):
     if session.deleted_at is not None:
         return {"ok": True}
     for upload in uploads:
-        db.add(MediaCleanup(upload_id=upload.id, storage_key=upload.storage_key))
+        enqueue_media(db, upload)
     db.execute(delete(ReviewJob).where(ReviewJob.attempt_id.in_(ids)))
     db.execute(delete(Upload).where(Upload.attempt_id.in_(ids)))
     db.execute(delete(Attempt).where(Attempt.id.in_(ids)))

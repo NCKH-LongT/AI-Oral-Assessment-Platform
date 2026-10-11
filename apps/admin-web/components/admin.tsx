@@ -1,4 +1,5 @@
 "use client";
+import ExcelImport from "./excel-import";
 import ExamScore from "./exam-score";
 import StudentCourses from "./student-courses";
 import {
@@ -274,6 +275,7 @@ export default function Admin({
       )}
       {page === "courses" && (
         <>
+          <ExcelImport kind="courses" saved={load} />
           <div className="page-heading">
             <div>
               <span className="eyebrow">THIẾT KẾ VIỆC ĐÁNH GIÁ</span>
@@ -375,6 +377,12 @@ export default function Admin({
       ) : (
         page === "users" && (
           <>
+            {user.role === "ADMIN" && (
+              <>
+                <ExcelImport kind="teachers" saved={load} />
+                <ExcelImport kind="officers" saved={load} />
+              </>
+            )}
             <div className="page-heading">
               <div>
                 <span className="eyebrow">CON NGƯỜI & VAI TRÒ</span>
@@ -871,6 +879,9 @@ function CourseWorkspace({
       )}
       {tab === "rubric" && (
         <>
+          {editable && (
+            <ExcelImport kind="rubrics" courseId={course.id} saved={load} />
+          )}
           <div className="notice">
             <strong>Thang điểm quy đổi về 10</strong>
             <span>
@@ -993,6 +1004,9 @@ function CourseWorkspace({
       {tab === "exams" && (
         <>
           {editable && (
+            <ExcelImport kind="exams" courseId={course.id} saved={load} />
+          )}
+          {editable && (
             <button
               className="button"
               disabled={
@@ -1065,7 +1079,9 @@ function CourseWorkspace({
                   <Action
                     action={() => mutate(`/admin/exams/${e.id}/generate`)}
                   >
-                    Sinh câu hỏi & rubric để review
+                    {e.imported
+                      ? "Tạo bản nháp từ câu hỏi đã nhập"
+                      : "Sinh câu hỏi & rubric để review"}
                   </Action>
                   <button
                     className="button secondary"
@@ -1709,6 +1725,12 @@ function ReviewPage({
         </span>
       </div>
       <ExamScore summary={review.score_summary} status={review.status} />
+      {review.media_removed_at && (
+        <p className="notice">
+          Bản ghi của lần thi đã được admin dọn để giải phóng dung lượng.
+          Transcript, điểm và lịch sử chấm vẫn được giữ.
+        </p>
+      )}
       {!!review.proctoring_events?.length && (
         <section className="panel">
           <h2>Sự kiện giám sát bài thi</h2>

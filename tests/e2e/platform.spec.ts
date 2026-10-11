@@ -367,11 +367,19 @@ test("login, responsive layout and admin course form", async ({ page }) => {
   ).toBeTruthy();
 });
 
-test("student records only during answer, submits media, admin plays real WebM", async ({
+test("teacher practice records only during answer, submits media, admin plays real WebM", async ({
   page,
   request,
 }) => {
   const { student, exam } = await setup(request);
+  // Browser assessment tools are restricted to staff; student coverage uses Desktop.
+  expect(
+    (
+      await request.put(`/api/admin/users/${student.id}/role`, {
+        data: { role: "TEACHER" },
+      })
+    ).ok(),
+  ).toBeTruthy();
   await page.addInitScript(() => {
     const Recorder = window.MediaRecorder;
     (window as unknown as { recordingStarts: number }).recordingStarts = 0;
@@ -412,6 +420,9 @@ test("student records only during answer, submits media, admin plays real WebM",
     .fill(student.username);
   await page.getByLabel("Mật khẩu", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Vào không gian làm việc" }).click();
+  await page
+    .getByRole("button", { name: "Học & thi thử", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Bài thi của tôi" }),
   ).toBeVisible();

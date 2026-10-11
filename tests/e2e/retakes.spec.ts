@@ -171,6 +171,11 @@ test("admin sets limits, reviews sittings, grants extra attempts and deletes onl
 test("student sees history and only requests a new sitting when allowed", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    window.oralDesktop = {
+      transcribe: async () => ({ transcript: "", stt_confidence: 1 }),
+    };
+  });
   const history = rows();
   const requests: unknown[] = [];
   let allowed = false;

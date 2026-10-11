@@ -1,3 +1,4 @@
+import { openWebPractice } from "./helpers/web-practice";
 import { test, expect } from "@playwright/test";
 
 for (const mode of [
@@ -41,7 +42,11 @@ for (const mode of [
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith("/auth/me"))
         return route.fulfill({
-          json: { id: "student", name: "Student", role: "STUDENT" },
+          json: {
+            id: "student",
+            name: "Student",
+            role: mode === "browser" ? "TEACHER" : "STUDENT",
+          },
         });
       if (path.endsWith("/exams/available"))
         return route.fulfill({
@@ -69,7 +74,8 @@ for (const mode of [
         });
       return route.fulfill({ json: {} });
     });
-    await page.goto("/");
+    if (mode === "browser") await openWebPractice(page);
+    else await page.goto("/");
     await page.getByRole("button", { name: "Mở bài thi" }).click();
     const model = page.getByRole("combobox", {
       name: "Model nhận dạng",

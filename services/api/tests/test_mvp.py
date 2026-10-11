@@ -84,7 +84,7 @@ def upload(client, attempt_id, kind, corrupt=False):
     data = {
         "attempt_id": attempt_id,
         "kind": kind,
-        "mime_type": f"{kind.lower()}/webm",
+        "mime_type": f"{'video' if kind == 'SCREEN' else kind.lower()}/webm",
         "size": len(blob),
         "sha256": checksum,
     }

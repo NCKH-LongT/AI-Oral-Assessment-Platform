@@ -140,7 +140,15 @@ export type Assessment = {
   criteria?: { name: string; score: number; comment: string }[];
   retrieved_chunks?: Chunk[];
 };
+export type ScoreSummary = {
+  total_score: number | null;
+  question_count: number;
+  graded_question_count: number;
+  question_scores: { sequence: number; score: number | null }[];
+};
 export type Review = Result & {
+  proctoring_events?: { id: string; created_at: number; details: { type: string } }[];
+  score_summary?: ScoreSummary | null;
   history: Sitting[];
   snapshot: {
     rubric_version: number;
@@ -196,6 +204,9 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  screen_required?: boolean;
+  screen_attempt_id?: string | null;
+  score_summary?: ScoreSummary | null;
   attempt_number: number;
   practice?: boolean;
   grading_message?: string | null;

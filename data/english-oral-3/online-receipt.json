@@ -1,0 +1,245 @@
+{
+  "server": "https://oral-test.paperlens.uk",
+  "course_id": "973610ab-47a6-49a8-807b-2b0d83905ae6",
+  "course_code": "ENGLISH-ORAL-03",
+  "exam_id": "8da84e79-e7a6-43bb-8956-363c44dd7141",
+  "hotwords_runtime_enabled": false,
+  "status": "PUBLISHED",
+  "question_count": 3,
+  "questions": [
+    {
+      "text": "Describe your usual study day. Explain when and how you practise English, describe one difficulty you have, and say what you do to improve. Give at least one specific example. Suggested speaking time: 60–90 seconds.",
+      "english_terms": [
+        {
+          "term": "study day",
+          "meaning": "ngày học"
+        },
+        {
+          "term": "practise English",
+          "meaning": "luyện tiếng Anh"
+        },
+        {
+          "term": "difficulty",
+          "meaning": "khó khăn"
+        },
+        {
+          "term": "improve",
+          "meaning": "cải thiện"
+        },
+        {
+          "term": "specific example",
+          "meaning": "ví dụ cụ thể"
+        },
+        {
+          "term": "daily routine",
+          "meaning": "thói quen hàng ngày"
+        },
+        {
+          "term": "attend classes",
+          "meaning": "tham gia lớp học"
+        },
+        {
+          "term": "review notes",
+          "meaning": "ôn tập ghi chú"
+        },
+        {
+          "term": "podcast",
+          "meaning": "chương trình âm thanh"
+        },
+        {
+          "term": "vocabulary",
+          "meaning": "từ vựng"
+        },
+        {
+          "term": "flashcards",
+          "meaning": "thẻ ghi nhớ"
+        },
+        {
+          "term": "make sentences",
+          "meaning": "đặt câu"
+        },
+        {
+          "term": "deadline",
+          "meaning": "hạn chót"
+        },
+        {
+          "term": "homework",
+          "meaning": "bài tập về nhà"
+        },
+        {
+          "term": "pronunciation",
+          "meaning": "phát âm"
+        },
+        {
+          "term": "listening practice",
+          "meaning": "luyện nghe"
+        },
+        {
+          "term": "study schedule",
+          "meaning": "lịch học"
+        }
+      ]
+    },
+    {
+      "text": "Tell us about a memorable trip, school event, or group activity. Say when and where it happened and who was with you. Describe a problem, explain how you dealt with it, and say what you learned. Suggested speaking time: 90–120 seconds.",
+      "english_terms": [
+        {
+          "term": "memorable experience",
+          "meaning": "trải nghiệm đáng nhớ"
+        },
+        {
+          "term": "trip",
+          "meaning": "chuyến đi"
+        },
+        {
+          "term": "school event",
+          "meaning": "sự kiện trường học"
+        },
+        {
+          "term": "group activity",
+          "meaning": "hoạt động nhóm"
+        },
+        {
+          "term": "problem",
+          "meaning": "vấn đề"
+        },
+        {
+          "term": "deal with",
+          "meaning": "giải quyết"
+        },
+        {
+          "term": "learned",
+          "meaning": "đã học được"
+        },
+        {
+          "term": "charity event",
+          "meaning": "sự kiện từ thiện"
+        },
+        {
+          "term": "heavy rain",
+          "meaning": "mưa lớn"
+        },
+        {
+          "term": "permission",
+          "meaning": "sự cho phép"
+        },
+        {
+          "term": "backup plan",
+          "meaning": "kế hoạch dự phòng"
+        },
+        {
+          "term": "clear communication",
+          "meaning": "giao tiếp rõ ràng"
+        },
+        {
+          "term": "team",
+          "meaning": "đội/nhóm"
+        },
+        {
+          "term": "solve",
+          "meaning": "giải quyết"
+        },
+        {
+          "term": "unexpected problems",
+          "meaning": "những vấn đề bất ngờ"
+        },
+        {
+          "term": "teamwork",
+          "meaning": "làm việc nhóm"
+        },
+        {
+          "term": "take responsibility",
+          "meaning": "chịu trách nhiệm"
+        },
+        {
+          "term": "lesson learned",
+          "meaning": "bài học rút ra"
+        }
+      ]
+    },
+    {
+      "text": "Some students prefer online learning, while others prefer learning in a classroom. Which do you prefer? Give two reasons and one specific example. Mention one disadvantage of your preferred option and suggest a way to manage it. Suggested speaking time: 90–120 seconds.",
+      "english_terms": [
+        {
+          "term": "online learning",
+          "meaning": "học trực tuyến"
+        },
+        {
+          "term": "classroom learning",
+          "meaning": "học tại lớp"
+        },
+        {
+          "term": "prefer",
+          "meaning": "ưa thích/thích hơn"
+        },
+        {
+          "term": "reason",
+          "meaning": "lý do"
+        },
+        {
+          "term": "example",
+          "meaning": "ví dụ"
+        },
+        {
+          "term": "disadvantage",
+          "meaning": "nhược điểm/bất lợi"
+        },
+        {
+          "term": "manage",
+          "meaning": "quản lý/khắc phục"
+        },
+        {
+          "term": "option",
+          "meaning": "lựa chọn/phương án"
+        },
+        {
+          "term": "face-to-face",
+          "meaning": "trực tiếp"
+        },
+        {
+          "term": "flexible schedule",
+          "meaning": "lịch trình linh hoạt"
+        },
+        {
+          "term": "internet connection",
+          "meaning": "kết nối internet"
+        },
+        {
+          "term": "self-discipline",
+          "meaning": "tính tự giác"
+        },
+        {
+          "term": "interaction",
+          "meaning": "tương tác"
+        },
+        {
+          "term": "distraction",
+          "meaning": "sự xao nhãng"
+        },
+        {
+          "term": "motivated",
+          "meaning": "có động lực"
+        },
+        {
+          "term": "traveling",
+          "meaning": "di chuyển/đi lại"
+        },
+        {
+          "term": "reviewing vocabulary",
+          "meaning": "ôn tập từ vựng"
+        }
+      ]
+    }
+  ],
+  "rubric_count": 4,
+  "documents_ready": 3,
+  "verified": true,
+  "verified_fields": [
+    "exact_question_texts",
+    "individual_rubrics",
+    "combined_rubric",
+    "document_contents",
+    "hotwords_in_topics_and_documents",
+    "duration"
+  ]
+}

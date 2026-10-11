@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     max_media_mb: int = 200
     bootstrap_admin: str = "admin"
     bootstrap_password: str = ""
+    exam_screen_required: bool = True
 
     @model_validator(mode="after")
     def validate_provider(self):

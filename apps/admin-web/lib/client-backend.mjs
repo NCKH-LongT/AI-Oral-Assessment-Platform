@@ -132,6 +132,7 @@ export async function proxyBackend(request, config = backendConfig()) {
     "if-range",
     "idempotency-key",
     "x-chunk-sha256",
+    "x-oral-client",
   ])
     if (request.headers.has(name)) headers.set(name, request.headers.get(name));
   const scopedCookies = cookies(request)

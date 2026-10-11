@@ -77,6 +77,17 @@ Trình duyệt web vẫn giữ thu thử 10 giây, gain và tùy chọn RNNoise 
 
 ## Xem kết quả và làm lại
 
+Trong kết quả từng lần thi, **Điểm tổng** là trung bình cộng điểm tất cả câu hỏi,
+làm tròn đến 2 chữ số thập phân trên thang 10. Ví dụ: `(6 + 8 + 10) / 3 = 8/10`.
+Bảng bên dưới hiển thị điểm từng câu và phép tính. Điểm 0 vẫn được tính; câu chưa
+chấm hoặc chấm lỗi không được thay bằng 0 và bài chưa có điểm tổng cho đến khi đủ
+điểm các câu. Chấm lại câu hỏi sẽ cập nhật điểm tổng theo kết quả mới.
+
+Với bài đang chờ duyệt, điểm tổng được ghi là tạm tính. **Điểm chính thức** vẫn theo
+quy trình duyệt; nếu giảng viên đã chấm lại toàn bài, điểm chính thức có thể khác
+trung bình do AI đề xuất. Bài luyện tập không tính điểm không hiển thị điểm tổng.
+Tính năng cần cập nhật cả API/worker và giao diện trên server sử dụng.
+
 - Admin/giảng viên mở **Kết quả & xem lại**, chọn lần thi để xem transcript, audio/video, đánh giá và tài liệu dẫn chứng.
 - **Chưa có độ tin cậy AI** có thể xuất hiện khi chưa chấm, chấm lỗi hoặc dùng demo. Confidence do AI tự báo không phải bảo đảm độ chính xác.
 - Admin dùng **Quản lý lượt thi → Cấp thêm lượt** khi cần cho một học viên thi lại. Học viên làm mới danh sách rồi chọn **Làm lại bài thi** nếu còn lượt; **Xem lần N** mở kết quả cũ.
@@ -99,3 +110,18 @@ Giảng viên chỉ xóa được môn trống mình phụ trách. Xóa riêng m
 ## Khi chưa thấy chức năng mới
 
 Giao diện quản lý và API cần cùng được cập nhật. Với server Docker local, xem [cập nhật server](../README.md#build-cập-nhật-và-tài-liệu). Với server Jenkins, xem [hướng dẫn cập nhật](jenkins.md). Sau khi server cập nhật thành công, mở lại desktop. Thay đổi Electron/preload cần chạy source mới hoặc cài bộ desktop mới.
+
+
+## Quyền truy cập và môn học của sinh viên
+
+Web chỉ cho **ADMIN, EXAM_OFFICER và TEACHER** truy cập. Sinh viên dùng OralAI Desktop. Admin có thể đổi role `REVIEWER` cũ sang vai trò phù hợp trong **Người dùng**; không cấp mới role này.
+
+Trong **Người dùng**, bấm tên sinh viên để mở chi tiết và danh sách môn. Admin/khảo thí chọn môn rồi bấm **Thêm môn**, hoặc **Gỡ môn** để thu hồi cả đăng ký môn và các đề/lịch thi đã giao trong môn. Thao tác gỡ giữ nguyên bài làm, điểm và minh chứng; bị chặn khi sinh viên còn phiên đang mở hoặc đang làm. Với kỳ thi theo lịch, thêm môn không thay cho bước đưa sinh viên vào roster và xếp lịch. Giáo viên chỉ xem các môn mình phụ trách tại màn hình này.
+
+## Xem bản ghi màn hình và sự kiện giám sát
+
+Lần thi mới trên Desktop bắt buộc ghi toàn màn hình sau khi sinh viên đồng ý (bài thử thiết bị và phiên cũ trước migration không áp dụng). App chỉ hoàn tất nộp khi tải xong bằng chứng. Trong **Kết quả & xem lại → Xem bài**, mở các video có nhãn **Bản ghi màn hình bài thi** ở câu đầu tiên; các đoạn được sắp theo thứ tự tạo. Camera và âm thanh câu trả lời có nhãn riêng. Giáo viên chỉ xem bằng chứng môn mình phụ trách; admin/khảo thí xem theo quyền quản lý.
+
+Mục **Sự kiện giám sát bài thi** ghi thời điểm server nhận các sự kiện như rời cửa sổ, thay màn hình, ngắt ghi hoặc khởi động lại. Bài có sự kiện cần giảng viên xem lại trước khi công bố điểm. Đối chiếu bản ghi và hoàn cảnh thực tế trước khi chấm lại, không coi một sự kiện là bằng chứng chắc chắn của gian lận. Độ trễ mạng có thể làm thời điểm nhận sự kiện khác thời điểm xảy ra.
+
+Bản ghi dùng cơ chế lưu trữ, phân quyền và xóa cùng bài thi hiện có; bản này chưa bổ sung tự động xóa theo thời hạn. Hạn chế kỹ thuật và yêu cầu cập nhật server/desktop được ghi trong [hướng dẫn desktop](../readme-desktop.md#truy-cập-và-ghi-màn-hình-bắt-buộc).

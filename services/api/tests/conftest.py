@@ -10,6 +10,7 @@ os.environ["STT_PROVIDER"] = "local_server"
 os.environ["REDIS_URL"] = ""
 os.environ["STORAGE_BACKEND"] = "local"
 os.environ["GOOGLE_STT_CREDENTIALS_FILE"] = ""
+os.environ["EXAM_SCREEN_REQUIRED"] = "false"  # Media-gate cases explicitly enable it.
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -51,12 +52,13 @@ def env(monkeypatch):
     app.dependency_overrides[get_db] = db_override
     monkeypatch.setattr(worker, "SessionLocal", factory)
     with factory() as db:
+        # Keep the historical fixture name; review is now an exam-officer task.
         for role in ("ADMIN", "TEACHER", "STUDENT", "REVIEWER"):
             db.add(
                 User(
                     username=role.lower(),
                     name=role,
-                    role=role,
+                    role="EXAM_OFFICER" if role == "REVIEWER" else role,
                     password_hash=hasher.hash("test-password-123"),
                 )
             )
@@ -72,6 +74,8 @@ def env(monkeypatch):
     clients = {}
     for name in ("admin", "teacher", "student", "reviewer", "outsider"):
         client = TestClient(app)
+        if name in {"student", "outsider"}:
+            client.headers["X-Oral-Client"] = "desktop"
         response = client.post("/auth/login", json={"username": name, "password": "test-password-123"})
         assert response.status_code == 200
         clients[name] = client

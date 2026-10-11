@@ -14,7 +14,7 @@ from . import schemas as s
 from .course_deletion import delete_course_tree
 from .db import get_db
 from .exam_generation import build_snapshot
-from .grading import GradingError, assessment_view, check_config, review_question
+from .grading import GradingError, assessment_view, check_config, review_question, score_summary
 from .knowledge import set_mappings, topic_data
 from .models import (
     Assignment,
@@ -38,7 +38,7 @@ from .models import (
 )
 from .retakes import allowance, history_row, sessions_for
 from .runtime_settings import settings
-from .security import admin, by_id, course_access, editor, fail, hasher, public_user, staff
+from .security import admin, by_id, course_access, editor, exam_officer, fail, hasher, public_user, staff
 from .speech import exam_policy, google_ready
 
 router = APIRouter()
@@ -88,6 +88,53 @@ def create_user(body: s.UserIn, db: Session = Depends(get_db), user=Depends(admi
     db.add(Audit(user_id=user.id, event="USER_CREATED", details={"username": row.username}))
     db.commit()
     return public_user(row)
+
+
+@router.get("/users/{key}/courses")
+def student_courses(key: str, db: Session = Depends(get_db), user=Depends(staff)):
+    learner = by_id(db, User, key)
+    if learner.role != "STUDENT":
+        fail(422, "NOT_STUDENT", "Chọn tài khoản sinh viên")
+    enrolled = set(db.scalars(select(CourseEnrollment.course_id).where(CourseEnrollment.student_id == key)))
+    assigned = set(db.scalars(select(Exam.course_id).join(Assignment).where(Assignment.student_id == key)))
+    return {"student": public_user(learner), "courses": [
+        data(c, "code", "name", "status") | {"enrolled": c.id in enrolled, "assigned": c.id in assigned}
+        for c in course_list(db, user) if c.id != "00000000-0000-4000-8000-000000000001"
+    ]}
+
+
+@router.put("/users/{key}/courses/{course_id}")
+def add_student_course(key: str, course_id: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    learner = by_id(db, User, key, lock=True)
+    course = course_access(db, course_id, user)
+    if learner.role != "STUDENT" or learner.status != "ACTIVE" or course.status != "ACTIVE":
+        fail(422, "INVALID_ENROLLMENT", "Cần sinh viên và môn học đang hoạt động")
+    if not db.scalar(select(CourseEnrollment.id).where(CourseEnrollment.student_id == key, CourseEnrollment.course_id == course_id)):
+        db.add(CourseEnrollment(student_id=key, course_id=course_id))
+    db.add(Audit(user_id=user.id, event="STUDENT_COURSE_ADDED", details={"student_id": key, "course_id": course_id}))
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/users/{key}/courses/{course_id}")
+def remove_student_course(key: str, course_id: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    learner = by_id(db, User, key, lock=True)
+    course_access(db, course_id, user)
+    if learner.role != "STUDENT":
+        fail(422, "NOT_STUDENT", "Chọn tài khoản sinh viên")
+    if course_id == "00000000-0000-4000-8000-000000000001":
+        fail(409, "PRACTICE_COURSE", "Môn thử thiết bị luôn có sẵn")
+    # Lock exams in the same order as session creation before revoking access.
+    exams = db.scalars(select(Exam).where(Exam.course_id == course_id).order_by(Exam.id).with_for_update()).all()
+    exam_ids = [e.id for e in exams]
+    if db.scalar(select(ExamSession.id).where(ExamSession.student_id == key, ExamSession.exam_id.in_(exam_ids),
+            ExamSession.deleted_at.is_(None), ExamSession.status.in_(["DEVICE_CHECK", "IN_PROGRESS"]))):
+        fail(409, "ACTIVE_EXAM", "Sinh viên đang mở hoặc làm bài thi của môn này. Chờ kết thúc trước khi gỡ môn.")
+    db.execute(delete(CourseEnrollment).where(CourseEnrollment.student_id == key, CourseEnrollment.course_id == course_id))
+    db.execute(delete(Assignment).where(Assignment.student_id == key, Assignment.exam_id.in_(exam_ids)))
+    db.add(Audit(user_id=user.id, event="STUDENT_COURSE_REMOVED", details={"student_id": key, "course_id": course_id}))
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/courses")
@@ -559,6 +606,10 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
     course_access(db, exam.course_id, user)
     attempts = db.scalars(select(Attempt).where(Attempt.session_id == key).order_by(Attempt.sequence)).all()
     return history_row(session) | {
+        "proctoring_events": [data(e, "created_at", "details") for e in db.scalars(select(Audit).where(
+            Audit.event == "PROCTORING_EVENT", Audit.details["session_id"].as_string() == key).order_by(Audit.created_at))],
+        "score_summary": score_summary(attempts, len((exam.snapshot or {}).get("questions", [])))
+        if not (exam.snapshot or {}).get("practice") else None,
         "ai_score": session.ai_score, "manual_review": session.manual_review,
         "exam_id": exam.id, "student_id": session.student_id,
         **allowance(db, exam, session.student_id),
@@ -574,7 +625,7 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
                 "evidence": [
                     data(e, "kind", "status", "sha256", "size")
                     for e in db.scalars(
-                        select(Upload).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED")
+                        select(Upload).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED").order_by(Upload.created_at, Upload.id)
                     )
                 ],
                 "reviews": [

@@ -86,7 +86,11 @@ test("proxy isolates logins, validates browser origin and keeps uploads intact",
       },
     });
   let response = await proxyBackend(
-    request("/api/login", { method: "POST", body: "{}" }),
+    request("/api/login", {
+      method: "POST",
+      body: "{}",
+      headers: { "X-Oral-Client": "desktop" },
+    }),
     config,
   );
   assert.equal(response.status, 200);
@@ -103,6 +107,7 @@ test("proxy isolates logins, validates browser origin and keeps uploads intact",
   assert.equal(calls.at(-1).headers.cookie, "access_token=online-secret");
   assert.equal(calls.at(-1).headers.origin, config.urls.online);
   assert.equal(calls.at(-1).headers["x-oral-backend"], undefined);
+  assert.equal(calls.at(-1).headers["x-oral-client"], "desktop");
 
   response = await proxyBackend(
     request("/api/logout", { method: "POST" }),

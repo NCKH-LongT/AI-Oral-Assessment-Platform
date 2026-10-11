@@ -17,7 +17,17 @@ from . import google_login, routes_admin, routes_exam, runtime_settings, schemas
 from .config import settings
 from .db import get_db
 from .models import Audit, AuthSession, User
-from .security import cookies, current_user, digest, fail, hasher, issue_tokens, public_user, verify_password
+from .security import (
+    check_client_access,
+    cookies,
+    current_user,
+    digest,
+    fail,
+    hasher,
+    issue_tokens,
+    public_user,
+    verify_password,
+)
 
 cfg = settings()
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +48,7 @@ app.add_middleware(
     allow_origins=cfg.allowed_origins.split(","),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Content-Type", "Authorization", "Idempotency-Key", "X-Chunk-Sha256"],
+    allow_headers=["Content-Type", "Authorization", "Idempotency-Key", "X-Chunk-Sha256", "X-Oral-Client"],
 )
 
 
@@ -153,6 +163,7 @@ def login(body: schemas.Login, request: Request, response: Response, db: Session
     verified = verify_password(body.password, user.password_hash if user else dummy_hash)
     if not user or not verified or user.status != "ACTIVE":
         fail(401, "INVALID_CREDENTIALS", "Tên đăng nhập hoặc mật khẩu không đúng")
+    check_client_access(user, request)
     access, refresh = issue_tokens(db, user)
     db.add(Audit(user_id=user.id, event="LOGIN", details={}))
     db.commit()
@@ -174,6 +185,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
     user = db.get(User, row.user_id)
     if not user or user.status != "ACTIVE":
         fail(401, "INVALID_REFRESH", "Tài khoản không hoạt động")
+    check_client_access(user, request)
     row.revoked = True
     access, new_refresh = issue_tokens(db, user)
     db.commit()

@@ -81,6 +81,15 @@ export default function Home() {
         </section>
         <section className="login-form">
           <DesktopExit />
+          <button
+            className="text-button"
+            onClick={() => void window.oralDesktop?.settings?.()}
+            hidden={
+              typeof window === "undefined" || !window.oralDesktop?.settings
+            }
+          >
+            Cấu hình máy chủ
+          </button>
           <span className="eyebrow">CHÀO MỪNG TRỞ LẠI</span>
           <h2>Đăng nhập</h2>
           <p className="muted">
@@ -105,7 +114,8 @@ export default function Home() {
           </Form>
           <GoogleLogin onLogin={setUser} />
           <p className="login-note">
-            Sử dụng tài khoản do quản trị viên cung cấp.
+            Web dành cho admin, khảo thí và giáo viên. Sinh viên sử dụng OralAI
+            Desktop.
             <br />
             Liên hệ giảng viên nếu bạn cần hỗ trợ truy cập.
           </p>
@@ -116,6 +126,54 @@ export default function Home() {
       </main>
     );
   const isStudent = user.role === "STUDENT";
+  const desktop = !!window.oralDesktop;
+  const logout = async () => {
+    await send("/auth/logout");
+    setUser(null);
+  };
+  if (!desktop && !["ADMIN", "EXAM_OFFICER", "TEACHER"].includes(user.role))
+    return (
+      <main className="main">
+        <h1>Vui lòng sử dụng OralAI Desktop</h1>
+        <p>Web chỉ dành cho admin, khảo thí và giáo viên.</p>
+        <button className="button" onClick={() => void logout()}>
+          Đăng xuất
+        </button>
+      </main>
+    );
+  if (desktop)
+    return (
+      <main className="main desktop-main">
+        <header className="topbar">
+          <strong>OralAI · {user.name}</strong>
+          <DesktopExit />
+          <button
+            className="text-button"
+            onClick={() => {
+              if (
+                window.dispatchEvent(
+                  new Event("oral:backend-switch", { cancelable: true }),
+                )
+              )
+                void logout();
+            }}
+          >
+            Đăng xuất
+          </button>
+        </header>
+        {isStudent ? (
+          <Student />
+        ) : (
+          <section className="panel">
+            <h1>Quản trị trên web</h1>
+            <p>
+              Đăng nhập website OralAI bằng tài khoản này để quản lý môn học,
+              sinh viên và kỳ thi. Desktop dành cho sinh viên làm bài.
+            </p>
+          </section>
+        )}
+      </main>
+    );
   const links = isStudent
     ? [{ id: "student", label: "Bài thi của tôi", icon: GraduationCap }]
     : [

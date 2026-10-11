@@ -167,6 +167,8 @@ class ExamSession(Entity, Base):
     ai_score: Mapped[float | None] = mapped_column(Float)
     manual_review: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
     final_score: Mapped[float | None] = mapped_column(Float)
+    screen_required: Mapped[bool] = mapped_column(default=False, server_default="false")
+    screen_consent_at: Mapped[float | None] = mapped_column(Float)
     attempt_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     deleted_at: Mapped[float | None] = mapped_column(Float)
 

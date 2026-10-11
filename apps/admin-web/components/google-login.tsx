@@ -23,7 +23,12 @@ export default function GoogleLogin({
       .catch(() => {});
     if (new URLSearchParams(location.search).has("login_error")) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Read the OAuth callback error from the browser URL after hydration.
-      setError("Đăng nhập Google chưa thành công. Vui lòng thử lại.");
+      setError(
+        new URLSearchParams(location.search).get("login_error") ===
+          "desktop_required"
+          ? "Web chỉ dành cho admin, khảo thí và giáo viên. Sinh viên vui lòng dùng OralAI Desktop."
+          : "Đăng nhập Google chưa thành công. Vui lòng thử lại.",
+      );
       history.replaceState({}, "", location.pathname);
     }
     return () => run.current?.abort();
@@ -43,7 +48,7 @@ export default function GoogleLogin({
     // Local browser clients use the existing polling flow so the HTTPS OAuth
     // callback stays on the selected backend, while login completes locally.
     const popup = !window.oralDesktop?.openGoogle
-      ? window.open("about:blank", "_blank")
+      ? window.open("about:blank", "_blank", "popup,width=520,height=720")
       : null;
     try {
       if (!window.oralDesktop?.openGoogle && !popup)
@@ -67,7 +72,9 @@ export default function GoogleLogin({
           target.hash
         )
           throw new Error("Domain đăng nhập chưa khớp backend đã chọn.");
-        popup.opener = null;
+        // Keep the opener relationship so the app can close this cross-origin
+        // window after polling succeeds. Only the validated backend URL above
+        // may be opened; popup messages never establish an authenticated user.
         popup.location.href = target.href;
       }
       const deadline = Date.now() + 300000;
@@ -84,6 +91,14 @@ export default function GoogleLogin({
           },
         );
         if (result.user && !current.signal.aborted) {
+          // Authentication already succeeded; a window-manager refusal must
+          // never turn it into a login error or prevent entering the app.
+          try {
+            popup?.close();
+            if (window.oralDesktop?.focus) await window.oralDesktop.focus();
+            else window.focus();
+          } catch {}
+          if (current.signal.aborted) return;
           onLogin(result.user);
           return;
         }

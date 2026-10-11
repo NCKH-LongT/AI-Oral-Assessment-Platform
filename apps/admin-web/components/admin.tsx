@@ -1,4 +1,6 @@
 "use client";
+import ExamScore from "./exam-score";
+import StudentCourses from "./student-courses";
 import {
   AttemptLimitFields,
   AttemptPolicy,
@@ -39,6 +41,20 @@ import ExamDraftReview from "./exam-draft-review";
 import CourseHotwords from "./course-hotwords";
 import { TranscriptionReview } from "./transcription-review";
 
+const proctoringLabels: Record<string, string> = {
+  WINDOW_BLUR: "Rời cửa sổ thi",
+  WINDOW_MINIMIZED: "Thu nhỏ cửa sổ thi",
+  FULLSCREEN_LEFT: "Thoát toàn màn hình",
+  DISPLAY_CHANGED: "Thay đổi màn hình kết nối",
+  BLOCKED_SHORTCUT: "Phím tắt bị chặn",
+  BLOCKED_NAVIGATION: "Chuyển trang bị chặn",
+  SCREEN_STOPPED: "Ngắt ghi màn hình",
+  SCREEN_RESUMED: "Khôi phục chế độ thi",
+  SCREEN_ERROR: "Lỗi ghi màn hình",
+  CLIENT_RESTARTED: "Mở lại phiên thi, cần khôi phục ghi màn hình",
+  CLIPBOARD_BLOCKED: "Sao chép, dán hoặc menu chuột phải bị chặn",
+};
+
 export default function Admin({
   user,
   page,
@@ -65,6 +81,7 @@ export default function Admin({
     [query, setQuery] = useState(""),
     [showCreate, setShowCreate] = useState(false);
   const editable = user.role === "ADMIN" || user.role === "TEACHER";
+  const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
   const load = useCallback(async () => {
     try {
       const [c, u, r, s] = await Promise.all([
@@ -349,113 +366,129 @@ export default function Admin({
           )}
         </>
       )}
-      {page === "users" && (
-        <>
-          <div className="page-heading">
-            <div>
-              <span className="eyebrow">CON NGƯỜI & VAI TRÒ</span>
-              <h1>Người dùng</h1>
-              <p className="muted">
-                Tài khoản được quản trị viên cấp trước khi giao bài thi.
-              </p>
+      {page === "users" && selectedStudent ? (
+        <StudentCourses
+          student={selectedStudent}
+          editable={["ADMIN", "EXAM_OFFICER"].includes(user.role)}
+          back={() => setSelectedStudent(null)}
+        />
+      ) : (
+        page === "users" && (
+          <>
+            <div className="page-heading">
+              <div>
+                <span className="eyebrow">CON NGƯỜI & VAI TRÒ</span>
+                <h1>Người dùng</h1>
+                <p className="muted">
+                  Tài khoản được quản trị viên cấp trước khi giao bài thi.
+                </p>
+              </div>
+              {user.role === "ADMIN" && (
+                <button
+                  className="button"
+                  onClick={() => setShowCreate(!showCreate)}
+                >
+                  <Plus size={17} />
+                  Tạo tài khoản
+                </button>
+              )}
             </div>
-            {user.role === "ADMIN" && (
-              <button
-                className="button"
-                onClick={() => setShowCreate(!showCreate)}
-              >
-                <Plus size={17} />
-                Tạo tài khoản
-              </button>
-            )}
-          </div>
-          {showCreate && (
-            <section className="panel">
-              <Form
-                label="Tạo tài khoản"
-                onSubmit={async (d) => {
-                  await send("/admin/users", {
-                    username: d.get("username"),
-                    email: d.get("email") || null,
-                    name: d.get("name"),
-                    password: d.get("password"),
-                    role: d.get("role"),
-                  });
-                  setShowCreate(false);
-                  await load();
-                }}
-              >
-                <div className="form-grid">
-                  <Field label="Họ và tên" name="name" />
-                  <Field label="Tên đăng nhập" name="username" />
-                  <Field
-                    label="Email"
-                    name="email"
-                    type="email"
-                    required={false}
-                  />
-                  <label>
-                    Mật khẩu (tối thiểu 12 ký tự)
-                    <input
-                      name="password"
-                      type="password"
-                      minLength={12}
-                      required
+            {showCreate && (
+              <section className="panel">
+                <Form
+                  label="Tạo tài khoản"
+                  onSubmit={async (d) => {
+                    await send("/admin/users", {
+                      username: d.get("username"),
+                      email: d.get("email") || null,
+                      name: d.get("name"),
+                      password: d.get("password"),
+                      role: d.get("role"),
+                    });
+                    setShowCreate(false);
+                    await load();
+                  }}
+                >
+                  <div className="form-grid">
+                    <Field label="Họ và tên" name="name" />
+                    <Field label="Tên đăng nhập" name="username" />
+                    <Field
+                      label="Email"
+                      name="email"
+                      type="email"
+                      required={false}
                     />
-                  </label>
-                  <label>
-                    Vai trò
-                    <select name="role" defaultValue="STUDENT">
-                      <option value="EXAM_OFFICER">Khảo thí</option>
-                      <option value="STUDENT">Sinh viên</option>
-                      <option value="TEACHER">Giảng viên</option>
-                      <option value="REVIEWER">Người duyệt</option>
-                      <option value="ADMIN">Quản trị viên</option>
-                    </select>
-                  </label>
-                </div>
-              </Form>
-            </section>
-          )}
-          <section className="panel table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Người dùng</th>
-                  <th>Email / Tên đăng nhập</th>
-                  <th>Vai trò</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <span className="user-cell">
-                        <span className="avatar">
-                          <Users size={16} />
-                        </span>
-                        {u.name}
-                      </span>
-                    </td>
-                    <td>{u.email || u.username}</td>
-                    <td>
-                      <span className="pill">{u.role}</span>
-                      {user.role === "ADMIN" && (
-                        <RoleEditor
-                          user={u}
-                          saved={async () => {
-                            await load();
-                            if (u.id === user.id) window.location.reload();
-                          }}
-                        />
-                      )}
-                    </td>
+                    <label>
+                      Mật khẩu (tối thiểu 12 ký tự)
+                      <input
+                        name="password"
+                        type="password"
+                        minLength={12}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Vai trò
+                      <select name="role" defaultValue="STUDENT">
+                        <option value="EXAM_OFFICER">Khảo thí</option>
+                        <option value="STUDENT">Sinh viên</option>
+                        <option value="TEACHER">Giảng viên</option>
+                        <option value="ADMIN">Quản trị viên</option>
+                      </select>
+                    </label>
+                  </div>
+                </Form>
+              </section>
+            )}
+            <section className="panel table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Người dùng</th>
+                    <th>Email / Tên đăng nhập</th>
+                    <th>Vai trò</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        </>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <span className="user-cell">
+                          <span className="avatar">
+                            <Users size={16} />
+                          </span>
+                          {u.role === "STUDENT" ? (
+                            <button
+                              className="text-button"
+                              onClick={() => setSelectedStudent(u)}
+                            >
+                              {u.name}
+                            </button>
+                          ) : (
+                            u.name
+                          )}
+                        </span>
+                      </td>
+                      <td>{u.email || u.username}</td>
+                      <td>
+                        <span className="pill">{u.role}</span>
+                        {user.role === "ADMIN" && (
+                          <RoleEditor
+                            user={u}
+                            saved={async () => {
+                              await load();
+                              if (u.id === user.id) window.location.reload();
+                            }}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          </>
+        )
       )}
       {page === "results" && (
         <>
@@ -951,7 +984,11 @@ function CourseWorkspace({
         </>
       )}
       {tab === "exams" && editable && (
-        <CourseHotwords key={course.id} courseId={course.id} courseName={course.name} />
+        <CourseHotwords
+          key={course.id}
+          courseId={course.id}
+          courseName={course.name}
+        />
       )}
       {tab === "exams" && (
         <>
@@ -1671,6 +1708,19 @@ function ReviewPage({
           Điểm từng câu do AI đề xuất. Bài cần xem lại chưa có điểm chính thức.
         </span>
       </div>
+      <ExamScore summary={review.score_summary} status={review.status} />
+      {!!review.proctoring_events?.length && (
+        <section className="panel">
+          <h2>Sự kiện giám sát bài thi</h2>
+          <p>Các sự kiện cần đối chiếu bản ghi; không tự kết luận gian lận.</p>
+          {review.proctoring_events.map((e) => (
+            <p key={e.id}>
+              {new Date(e.created_at * 1000).toLocaleString("vi-VN")} ·{" "}
+              {proctoringLabels[e.details.type] || e.details.type}
+            </p>
+          ))}
+        </section>
+      )}
       {review.ai_score != null && (
         <p className={review.ai_score < 5 ? "error" : "muted"}>
           Điểm AI đề xuất: {review.ai_score}/10
@@ -1738,23 +1788,31 @@ function ReviewPage({
                   : `${Math.round(a.stt_confidence * 100)}%`}
               </small>
               <div className="media-grid">
-                {a.evidence.map((e) =>
-                  e.kind === "VIDEO" ? (
-                    <video
-                      key={e.id}
-                      controls
-                      preload="metadata"
-                      src={`/api/evidence/${e.id}/content`}
-                    />
-                  ) : (
-                    <audio
-                      key={e.id}
-                      controls
-                      preload="metadata"
-                      src={`/api/evidence/${e.id}/content`}
-                    />
-                  ),
-                )}
+                {a.evidence.map((e, index) => (
+                  <div key={e.id}>
+                    <p className="muted">
+                      {e.kind === "SCREEN"
+                        ? "Bản ghi màn hình bài thi"
+                        : e.kind === "VIDEO"
+                          ? "Camera câu trả lời"
+                          : "Âm thanh câu trả lời"}{" "}
+                      · {index + 1}
+                    </p>
+                    {e.kind !== "AUDIO" ? (
+                      <video
+                        controls
+                        preload="metadata"
+                        src={`/api/evidence/${e.id}/content`}
+                      />
+                    ) : (
+                      <audio
+                        controls
+                        preload="metadata"
+                        src={`/api/evidence/${e.id}/content`}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
             <div className="assessment">
@@ -1849,11 +1907,9 @@ function RoleEditor({
         value={role}
         onChange={(e) => setRole(e.target.value as User["role"])}
       >
-        {["STUDENT", "TEACHER", "EXAM_OFFICER", "REVIEWER", "ADMIN"].map(
-          (r) => (
-            <option key={r}>{r}</option>
-          ),
-        )}
+        {["STUDENT", "TEACHER", "EXAM_OFFICER", "ADMIN"].map((r) => (
+          <option key={r}>{r}</option>
+        ))}
       </select>
       <Action
         className="text-button"

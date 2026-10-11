@@ -63,7 +63,8 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
             "original-key",
         )
         assert db.execute("SELECT content FROM document_chunks").fetchone() == ("Original knowledge",)
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0005",)
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0006",)
+        assert db.execute("SELECT screen_required,screen_consent_at FROM exam_sessions WHERE id='s'").fetchone() == (0, None)
 
         assert db.execute(
             "SELECT attempt_number,deleted_at,final_score FROM exam_sessions WHERE id='s'"

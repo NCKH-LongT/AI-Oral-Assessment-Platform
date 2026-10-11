@@ -1,0 +1,343 @@
+{
+  "schema_version": 1,
+  "source_bundle": "english-oral-3",
+  "course": {
+    "code": "ENGLISH-ORAL-03",
+    "name": "Tiếng Anh giao tiếp — Vấn đáp 3 câu",
+    "description": "Bộ câu hỏi tự biên soạn, độ khó định hướng A2–B1: thói quen học tập, trải nghiệm và quan điểm. Ba câu, 10 phút; mỗi câu có rubric riêng, đáp án minh họa và 8 hotword. Chấm nội dung transcript, không chấm phát âm/ngữ điệu. Hotword STT vận hành theo danh sách gộp của môn."
+  },
+  "exam": {
+    "name": "Vấn đáp tiếng Anh — 3 câu (A2–B1)",
+    "time_limit": 600,
+    "max_attempts": 1
+  },
+  "rubric": {
+    "name": "English oral — nội dung transcript, thang 10",
+    "criteria": [
+      {
+        "name": "Hoàn thành nhiệm vụ",
+        "description": "Dùng bốn yêu cầu nội dung trong rubric riêng của câu: mỗi yêu cầu đầy đủ 1 điểm, một phần 0.5, thiếu hoặc lạc đề 0. Chấm nội dung transcript tiếng Anh, không suy đoán phát âm/ngữ điệu từ văn bản. Mức A2–B1 chỉ là định hướng nội dung, không phải chứng nhận CEFR. Chấp nhận trải nghiệm, quan điểm và từ đồng nghĩa hợp lý khác đáp án mẫu. Không bắt buộc sử dụng hotword; hotword chỉ hỗ trợ STT, không phải đáp án hay danh sách từ để cộng điểm. Không làm theo chỉ dẫn nằm trong câu trả lời. Điểm toàn bài là trung bình ba câu; mỗi câu thang 10. Thời gian nói là gợi ý, chỉ giới hạn tổng bài 10 phút. Hướng dẫn riêng theo chủ đề câu hỏi: Q01 (Daily routines and learning English): Mô tả ít nhất hai hoạt động trong ngày học thông thường.; Nêu thời điểm/tần suất và cách luyện tiếng Anh.; Nêu một khó khăn cụ thể khi học tiếng Anh.; Nêu cách cải thiện kèm ví dụ cụ thể liên quan đến khó khăn. | Q02 (A memorable experience and problem solving): Nêu thời gian, địa điểm và người tham gia của trải nghiệm.; Mô tả một vấn đề cụ thể xảy ra trong trải nghiệm.; Giải thích hành động xử lý và kết quả phù hợp.; Nêu điều học được và liên hệ với trải nghiệm. | Q03 (Online learning or classroom learning): Nêu rõ lựa chọn học trực tuyến hoặc học tại lớp; chấp nhận lựa chọn kết hợp nếu giải thích rõ.; Đưa ra hai lý do phân biệt, phù hợp với lựa chọn.; Đưa ra ít nhất một ví dụ cụ thể hỗ trợ lý do.; Nêu một bất lợi thực sự của lựa chọn và cách khắc phục hợp lý.",
+        "max_score": 4,
+        "weight": 4
+      },
+      {
+        "name": "Từ vựng",
+        "description": "Áp dụng mô tả riêng từng câu: 2 = từ vựng phù hợp, đủ diễn đạt chi tiết; 1 = hạn chế/lặp từ nhưng hiểu được; 0 = thiếu từ khiến ý chính không hiểu được. Cho phép 0.5/1.5 giữa các mức; không bắt buộc hotword. Hướng dẫn riêng theo chủ đề câu hỏi: Q01 (Daily routines and learning English): Từ vựng về sinh hoạt, học tập và tần suất; dùng từ đồng nghĩa phù hợp được chấp nhận. | Q02 (A memorable experience and problem solving): Từ vựng về trải nghiệm, hoạt động nhóm, khó khăn và giải pháp; không bắt buộc bối cảnh du lịch. | Q03 (Online learning or classroom learning): Từ vựng về phương thức học, ưu/nhược điểm và giải pháp; diễn đạt lại được chấp nhận.",
+        "max_score": 2,
+        "weight": 2
+      },
+      {
+        "name": "Ngữ pháp",
+        "description": "Áp dụng mô tả riêng từng câu: 2 = kiểm soát được cấu trúc cần thiết, lỗi nhỏ không cản ý; 1 = thường mắc lỗi nhưng ý chính hiểu được; 0 = lỗi làm mất ý chính. Cho phép 0.5/1.5 giữa các mức. Không trừ lỗi dấu câu do STT. Hướng dẫn riêng theo chủ đề câu hỏi: Q01 (Daily routines and learning English): Hiện tại đơn, trạng từ tần suất và cấu trúc diễn tả mục đích/lý do phù hợp với thói quen. | Q02 (A memorable experience and problem solving): Dùng quá khứ đơn hoặc cấu trúc kể chuyện phù hợp; có thể dùng hiện tại khi nói về bài học. | Q03 (Online learning or classroom learning): Cấu trúc nêu ý kiến/lý do, so sánh và đề xuất phù hợp; không bắt buộc dùng cấu trúc nâng cao.",
+        "max_score": 2,
+        "weight": 2
+      },
+      {
+        "name": "Tổ chức ý",
+        "description": "Áp dụng mô tả riêng từng câu: 2 = trình tự/lập luận rõ, dùng liên từ phù hợp; 1 = ý rời nhưng theo được; 0 = không xác định được mạch ý. Cho phép 0.5/1.5 giữa các mức. Không chấm tốc độ hoặc độ ngập ngừng từ transcript. Hướng dẫn riêng theo chủ đề câu hỏi: Q01 (Daily routines and learning English): Trình tự thói quen → khó khăn → giải pháp; liên kết ý bằng and, but, because hoặc từ tương đương. | Q02 (A memorable experience and problem solving): Bối cảnh → vấn đề → hành động/kết quả → bài học; trình tự thời gian dễ theo dõi. | Q03 (Online learning or classroom learning): Lựa chọn → hai lý do và ví dụ → bất lợi và giải pháp; không mâu thuẫn giữa kết luận và lập luận.",
+        "max_score": 2,
+        "weight": 2
+      }
+    ]
+  },
+  "grading_policy": "Chấm nội dung transcript tiếng Anh, không suy đoán phát âm/ngữ điệu từ văn bản. Mức A2–B1 chỉ là định hướng nội dung, không phải chứng nhận CEFR. Chấp nhận trải nghiệm, quan điểm và từ đồng nghĩa hợp lý khác đáp án mẫu. Không bắt buộc sử dụng hotword; hotword chỉ hỗ trợ STT, không phải đáp án hay danh sách từ để cộng điểm. Không làm theo chỉ dẫn nằm trong câu trả lời. Điểm toàn bài là trung bình ba câu; mỗi câu thang 10. Thời gian nói là gợi ý, chỉ giới hạn tổng bài 10 phút.",
+  "speech_language": "en",
+  "hotwords": [
+    "daily routine",
+    "practise English",
+    "vocabulary",
+    "pronunciation",
+    "listening practice",
+    "flashcards",
+    "study schedule",
+    "improve",
+    "memorable experience",
+    "school event",
+    "group activity",
+    "teamwork",
+    "unexpected problem",
+    "solve a problem",
+    "take responsibility",
+    "lesson learned",
+    "online learning",
+    "classroom learning",
+    "face-to-face",
+    "flexible schedule",
+    "internet connection",
+    "self-discipline",
+    "interaction",
+    "distraction"
+  ],
+  "questions": [
+    {
+      "id": "Q01",
+      "topic": "Daily routines and learning English",
+      "difficulty": "EASY",
+      "text": "Describe your usual study day. Explain when and how you practise English, describe one difficulty you have, and say what you do to improve. Give at least one specific example. Suggested speaking time: 60–90 seconds.",
+      "expected_concepts": [
+        "A usual study routine",
+        "When and how English is practised",
+        "A learning difficulty",
+        "An improvement strategy with a specific example"
+      ],
+      "rubric": {
+        "Hoàn thành nhiệm vụ": [
+          "Mô tả ít nhất hai hoạt động trong ngày học thông thường.",
+          "Nêu thời điểm/tần suất và cách luyện tiếng Anh.",
+          "Nêu một khó khăn cụ thể khi học tiếng Anh.",
+          "Nêu cách cải thiện kèm ví dụ cụ thể liên quan đến khó khăn."
+        ],
+        "Từ vựng": "Từ vựng về sinh hoạt, học tập và tần suất; dùng từ đồng nghĩa phù hợp được chấp nhận.",
+        "Ngữ pháp": "Hiện tại đơn, trạng từ tần suất và cấu trúc diễn tả mục đích/lý do phù hợp với thói quen.",
+        "Tổ chức ý": "Trình tự thói quen → khó khăn → giải pháp; liên kết ý bằng and, but, because hoặc từ tương đương."
+      },
+      "reference_answer": "On weekdays, I attend classes in the morning and review my notes in the afternoon. I practise English for twenty minutes after dinner. I listen to a short podcast and write down new words. My main difficulty is remembering vocabulary. To improve, I use flashcards and make my own sentences. For example, yesterday I learned the word deadline and used it in a sentence about my homework.",
+      "english_terms": [
+        {
+          "term": "daily routine",
+          "meaning": "thói quen hằng ngày"
+        },
+        {
+          "term": "practise English",
+          "meaning": "luyện tiếng Anh"
+        },
+        {
+          "term": "vocabulary",
+          "meaning": "từ vựng"
+        },
+        {
+          "term": "pronunciation",
+          "meaning": "phát âm"
+        },
+        {
+          "term": "listening practice",
+          "meaning": "luyện nghe"
+        },
+        {
+          "term": "flashcards",
+          "meaning": "thẻ ghi nhớ"
+        },
+        {
+          "term": "study schedule",
+          "meaning": "lịch học"
+        },
+        {
+          "term": "improve",
+          "meaning": "cải thiện"
+        }
+      ],
+      "hotwords": [
+        "daily routine",
+        "practise English",
+        "vocabulary",
+        "pronunciation",
+        "listening practice",
+        "flashcards",
+        "study schedule",
+        "improve"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "LO-Q01",
+          "description": "Trả lời bằng tiếng Anh về Daily routines and learning English với nội dung, ví dụ và mạch ý rõ ràng.",
+          "weight": 1
+        }
+      ],
+      "grading_reference": {
+        "answer": "On weekdays, I attend classes in the morning and review my notes in the afternoon. I practise English for twenty minutes after dinner. I listen to a short podcast and write down new words. My main difficulty is remembering vocabulary. To improve, I use flashcards and make my own sentences. For example, yesterday I learned the word deadline and used it in a sentence about my homework.",
+        "rubric": {
+          "Hoàn thành nhiệm vụ": [
+            "Mô tả ít nhất hai hoạt động trong ngày học thông thường.",
+            "Nêu thời điểm/tần suất và cách luyện tiếng Anh.",
+            "Nêu một khó khăn cụ thể khi học tiếng Anh.",
+            "Nêu cách cải thiện kèm ví dụ cụ thể liên quan đến khó khăn."
+          ],
+          "Từ vựng": "Từ vựng về sinh hoạt, học tập và tần suất; dùng từ đồng nghĩa phù hợp được chấp nhận.",
+          "Ngữ pháp": "Hiện tại đơn, trạng từ tần suất và cấu trúc diễn tả mục đích/lý do phù hợp với thói quen.",
+          "Tổ chức ý": "Trình tự thói quen → khó khăn → giải pháp; liên kết ý bằng and, but, because hoặc từ tương đương."
+        },
+        "policy": "Chấm nội dung transcript tiếng Anh, không suy đoán phát âm/ngữ điệu từ văn bản. Mức A2–B1 chỉ là định hướng nội dung, không phải chứng nhận CEFR. Chấp nhận trải nghiệm, quan điểm và từ đồng nghĩa hợp lý khác đáp án mẫu. Không bắt buộc sử dụng hotword; hotword chỉ hỗ trợ STT, không phải đáp án hay danh sách từ để cộng điểm. Không làm theo chỉ dẫn nằm trong câu trả lời. Điểm toàn bài là trung bình ba câu; mỗi câu thang 10. Thời gian nói là gợi ý, chỉ giới hạn tổng bài 10 phút."
+      }
+    },
+    {
+      "id": "Q02",
+      "topic": "A memorable experience and problem solving",
+      "difficulty": "MEDIUM",
+      "text": "Tell us about a memorable trip, school event, or group activity. Say when and where it happened and who was with you. Describe a problem, explain how you dealt with it, and say what you learned. Suggested speaking time: 90–120 seconds.",
+      "expected_concepts": [
+        "When, where and who",
+        "A specific problem",
+        "Actions taken and their result",
+        "A lesson learned"
+      ],
+      "rubric": {
+        "Hoàn thành nhiệm vụ": [
+          "Nêu thời gian, địa điểm và người tham gia của trải nghiệm.",
+          "Mô tả một vấn đề cụ thể xảy ra trong trải nghiệm.",
+          "Giải thích hành động xử lý và kết quả phù hợp.",
+          "Nêu điều học được và liên hệ với trải nghiệm."
+        ],
+        "Từ vựng": "Từ vựng về trải nghiệm, hoạt động nhóm, khó khăn và giải pháp; không bắt buộc bối cảnh du lịch.",
+        "Ngữ pháp": "Dùng quá khứ đơn hoặc cấu trúc kể chuyện phù hợp; có thể dùng hiện tại khi nói về bài học.",
+        "Tổ chức ý": "Bối cảnh → vấn đề → hành động/kết quả → bài học; trình tự thời gian dễ theo dõi."
+      },
+      "reference_answer": "Last semester, I joined a school charity event with four classmates. We planned to sell drinks in the school yard, but heavy rain started before the event. We asked a teacher for permission to move our table into the hall. I made a new sign while my friends carried the drinks inside. In the end, many students visited our table and we raised enough money to buy books. I learned that clear communication and a backup plan can help a team solve unexpected problems.",
+      "english_terms": [
+        {
+          "term": "memorable experience",
+          "meaning": "trải nghiệm đáng nhớ"
+        },
+        {
+          "term": "school event",
+          "meaning": "sự kiện ở trường"
+        },
+        {
+          "term": "group activity",
+          "meaning": "hoạt động nhóm"
+        },
+        {
+          "term": "teamwork",
+          "meaning": "làm việc nhóm"
+        },
+        {
+          "term": "unexpected problem",
+          "meaning": "vấn đề bất ngờ"
+        },
+        {
+          "term": "solve a problem",
+          "meaning": "giải quyết vấn đề"
+        },
+        {
+          "term": "take responsibility",
+          "meaning": "chịu trách nhiệm"
+        },
+        {
+          "term": "lesson learned",
+          "meaning": "bài học rút ra"
+        }
+      ],
+      "hotwords": [
+        "memorable experience",
+        "school event",
+        "group activity",
+        "teamwork",
+        "unexpected problem",
+        "solve a problem",
+        "take responsibility",
+        "lesson learned"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "LO-Q02",
+          "description": "Trả lời bằng tiếng Anh về A memorable experience and problem solving với nội dung, ví dụ và mạch ý rõ ràng.",
+          "weight": 1
+        }
+      ],
+      "grading_reference": {
+        "answer": "Last semester, I joined a school charity event with four classmates. We planned to sell drinks in the school yard, but heavy rain started before the event. We asked a teacher for permission to move our table into the hall. I made a new sign while my friends carried the drinks inside. In the end, many students visited our table and we raised enough money to buy books. I learned that clear communication and a backup plan can help a team solve unexpected problems.",
+        "rubric": {
+          "Hoàn thành nhiệm vụ": [
+            "Nêu thời gian, địa điểm và người tham gia của trải nghiệm.",
+            "Mô tả một vấn đề cụ thể xảy ra trong trải nghiệm.",
+            "Giải thích hành động xử lý và kết quả phù hợp.",
+            "Nêu điều học được và liên hệ với trải nghiệm."
+          ],
+          "Từ vựng": "Từ vựng về trải nghiệm, hoạt động nhóm, khó khăn và giải pháp; không bắt buộc bối cảnh du lịch.",
+          "Ngữ pháp": "Dùng quá khứ đơn hoặc cấu trúc kể chuyện phù hợp; có thể dùng hiện tại khi nói về bài học.",
+          "Tổ chức ý": "Bối cảnh → vấn đề → hành động/kết quả → bài học; trình tự thời gian dễ theo dõi."
+        },
+        "policy": "Chấm nội dung transcript tiếng Anh, không suy đoán phát âm/ngữ điệu từ văn bản. Mức A2–B1 chỉ là định hướng nội dung, không phải chứng nhận CEFR. Chấp nhận trải nghiệm, quan điểm và từ đồng nghĩa hợp lý khác đáp án mẫu. Không bắt buộc sử dụng hotword; hotword chỉ hỗ trợ STT, không phải đáp án hay danh sách từ để cộng điểm. Không làm theo chỉ dẫn nằm trong câu trả lời. Điểm toàn bài là trung bình ba câu; mỗi câu thang 10. Thời gian nói là gợi ý, chỉ giới hạn tổng bài 10 phút."
+      }
+    },
+    {
+      "id": "Q03",
+      "topic": "Online learning or classroom learning",
+      "difficulty": "MEDIUM",
+      "text": "Some students prefer online learning, while others prefer learning in a classroom. Which do you prefer? Give two reasons and one specific example. Mention one disadvantage of your preferred option and suggest a way to manage it. Suggested speaking time: 90–120 seconds.",
+      "expected_concepts": [
+        "A clear preference",
+        "Two relevant reasons",
+        "One specific supporting example",
+        "A disadvantage and a practical response"
+      ],
+      "rubric": {
+        "Hoàn thành nhiệm vụ": [
+          "Nêu rõ lựa chọn học trực tuyến hoặc học tại lớp; chấp nhận lựa chọn kết hợp nếu giải thích rõ.",
+          "Đưa ra hai lý do phân biệt, phù hợp với lựa chọn.",
+          "Đưa ra ít nhất một ví dụ cụ thể hỗ trợ lý do.",
+          "Nêu một bất lợi thực sự của lựa chọn và cách khắc phục hợp lý."
+        ],
+        "Từ vựng": "Từ vựng về phương thức học, ưu/nhược điểm và giải pháp; diễn đạt lại được chấp nhận.",
+        "Ngữ pháp": "Cấu trúc nêu ý kiến/lý do, so sánh và đề xuất phù hợp; không bắt buộc dùng cấu trúc nâng cao.",
+        "Tổ chức ý": "Lựa chọn → hai lý do và ví dụ → bất lợi và giải pháp; không mâu thuẫn giữa kết luận và lập luận."
+      },
+      "reference_answer": "I prefer learning in a classroom for two reasons. First, I can ask my teacher questions immediately. Second, working with classmates helps me stay motivated. For example, in my English class we practise conversations in pairs, and my partner helps me find words when I am stuck. One disadvantage is the time I spend travelling to school. I manage this by taking the bus with a friend and reviewing vocabulary during the journey. Online lessons can also be useful, but classroom learning suits me better.",
+      "english_terms": [
+        {
+          "term": "online learning",
+          "meaning": "học trực tuyến"
+        },
+        {
+          "term": "classroom learning",
+          "meaning": "học tại lớp"
+        },
+        {
+          "term": "face-to-face",
+          "meaning": "trực tiếp"
+        },
+        {
+          "term": "flexible schedule",
+          "meaning": "lịch linh hoạt"
+        },
+        {
+          "term": "internet connection",
+          "meaning": "kết nối Internet"
+        },
+        {
+          "term": "self-discipline",
+          "meaning": "tính tự giác"
+        },
+        {
+          "term": "interaction",
+          "meaning": "sự tương tác"
+        },
+        {
+          "term": "distraction",
+          "meaning": "sự xao nhãng"
+        }
+      ],
+      "hotwords": [
+        "online learning",
+        "classroom learning",
+        "face-to-face",
+        "flexible schedule",
+        "internet connection",
+        "self-discipline",
+        "interaction",
+        "distraction"
+      ],
+      "learning_outcomes": [
+        {
+          "code": "LO-Q03",
+          "description": "Trả lời bằng tiếng Anh về Online learning or classroom learning với nội dung, ví dụ và mạch ý rõ ràng.",
+          "weight": 1
+        }
+      ],
+      "grading_reference": {
+        "answer": "I prefer learning in a classroom for two reasons. First, I can ask my teacher questions immediately. Second, working with classmates helps me stay motivated. For example, in my English class we practise conversations in pairs, and my partner helps me find words when I am stuck. One disadvantage is the time I spend travelling to school. I manage this by taking the bus with a friend and reviewing vocabulary during the journey. Online lessons can also be useful, but classroom learning suits me better.",
+        "rubric": {
+          "Hoàn thành nhiệm vụ": [
+            "Nêu rõ lựa chọn học trực tuyến hoặc học tại lớp; chấp nhận lựa chọn kết hợp nếu giải thích rõ.",
+            "Đưa ra hai lý do phân biệt, phù hợp với lựa chọn.",
+            "Đưa ra ít nhất một ví dụ cụ thể hỗ trợ lý do.",
+            "Nêu một bất lợi thực sự của lựa chọn và cách khắc phục hợp lý."
+          ],
+          "Từ vựng": "Từ vựng về phương thức học, ưu/nhược điểm và giải pháp; diễn đạt lại được chấp nhận.",
+          "Ngữ pháp": "Cấu trúc nêu ý kiến/lý do, so sánh và đề xuất phù hợp; không bắt buộc dùng cấu trúc nâng cao.",
+          "Tổ chức ý": "Lựa chọn → hai lý do và ví dụ → bất lợi và giải pháp; không mâu thuẫn giữa kết luận và lập luận."
+        },
+        "policy": "Chấm nội dung transcript tiếng Anh, không suy đoán phát âm/ngữ điệu từ văn bản. Mức A2–B1 chỉ là định hướng nội dung, không phải chứng nhận CEFR. Chấp nhận trải nghiệm, quan điểm và từ đồng nghĩa hợp lý khác đáp án mẫu. Không bắt buộc sử dụng hotword; hotword chỉ hỗ trợ STT, không phải đáp án hay danh sách từ để cộng điểm. Không làm theo chỉ dẫn nằm trong câu trả lời. Điểm toàn bài là trung bình ba câu; mỗi câu thang 10. Thời gian nói là gợi ý, chỉ giới hạn tổng bài 10 phút."
+      }
+    }
+  ]
+}

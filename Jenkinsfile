@@ -20,6 +20,7 @@ pipeline {
                     env.ORAL_WEB_IMAGE = "oral-assessment-web:${env.ORAL_TAG}"
                     env.ORAL_WEB_CHECK_IMAGE = "oral-assessment-web-check:${env.ORAL_TAG}"
                     env.ORAL_TEST_CONTAINER = "${env.ORAL_TAG}-tests"
+                    env.ORAL_BUILDER = "oral-assessment-web-jenkins"
                 }
             }
         }
@@ -28,6 +29,8 @@ pipeline {
                 sh '''set -eu
 python3 --version
 docker compose version
+docker buildx version
+python3 -m unittest discover -s tests -p test_docker_cleanup.py -v
 docker info --format '{{.ServerVersion}}'
 docker network inspect nginx-network --format '{{.Name}}'
 test -f docker-compose.yml
@@ -38,15 +41,28 @@ test ! -f services/api/.env
 '''
             }
         }
+        stage('Prepare Docker builder') {
+            steps {
+                sh '''set -eu
+if ! docker buildx inspect "$ORAL_BUILDER" >/dev/null 2>&1; then
+    docker buildx create --name "$ORAL_BUILDER" --driver docker-container
+fi
+# The default/shared Docker builder must never be used for project cache cleanup.
+driver=$(docker buildx inspect "$ORAL_BUILDER" | awk '$1 == "Driver:" {print $2}')
+[ "$driver" = "docker-container" ] || { echo 'OralAI builder must use docker-container driver'; exit 1; }
+docker buildx inspect "$ORAL_BUILDER" --bootstrap
+'''
+            }
+        }
         stage('Build API') {
             steps {
-                sh 'docker build -t "$ORAL_API_IMAGE" services/api'
+                sh 'docker buildx build --builder "$ORAL_BUILDER" --load --label uk.paperlens.oral.project=oral-assessment-web -t "$ORAL_API_IMAGE" services/api'
             }
         }
         stage('Test API - isolated SQLite') {
             steps {
                 sh '''set -eu
-docker create --name "$ORAL_TEST_CONTAINER" --network none -e PYTHONPATH=/app "$ORAL_API_IMAGE" python -m pytest tests -q -p no:cacheprovider --junitxml=/tmp/oral-results.xml
+docker create --label uk.paperlens.oral.project=oral-assessment-web --name "$ORAL_TEST_CONTAINER" --network none -e PYTHONPATH=/app "$ORAL_API_IMAGE" python -m pytest tests -q -p no:cacheprovider --junitxml=/tmp/oral-results.xml
 docker cp services/api/tests "$ORAL_TEST_CONTAINER:/app/tests"
 '''
                 script {
@@ -59,14 +75,15 @@ docker cp services/api/tests "$ORAL_TEST_CONTAINER:/app/tests"
         stage('Build and check web') {
             steps {
                 sh '''set -eu
-docker build --target build -t "$ORAL_WEB_CHECK_IMAGE" -f apps/admin-web/Dockerfile .
-docker run --rm --network none "$ORAL_WEB_CHECK_IMAGE" sh -c 'npm run lint --workspace apps/admin-web && npm run typecheck --workspace apps/admin-web'
-docker build -t "$ORAL_WEB_IMAGE" -f apps/admin-web/Dockerfile .
+docker buildx build --builder "$ORAL_BUILDER" --load --label uk.paperlens.oral.project=oral-assessment-web --target build -t "$ORAL_WEB_CHECK_IMAGE" -f apps/admin-web/Dockerfile .
+docker run --rm --label uk.paperlens.oral.project=oral-assessment-web --network none "$ORAL_WEB_CHECK_IMAGE" sh -c 'npm run lint --workspace apps/admin-web && npm run typecheck --workspace apps/admin-web'
+docker buildx build --builder "$ORAL_BUILDER" --load --label uk.paperlens.oral.project=oral-assessment-web -t "$ORAL_WEB_IMAGE" -f apps/admin-web/Dockerfile .
 '''
             }
         }
         stage('Deploy Oral web') {
             steps {
+                sh 'python3 scripts/docker_cleanup.py snapshot'
                 withCredentials([file(credentialsId: 'oral-ai-env', variable: 'ORAL_ENV_FILE')]) {
                     sh '''
     cp "$ORAL_ENV_FILE" /var/jenkins_home/oral-ai-env.backup
@@ -259,6 +276,13 @@ if __name__ == \'__main__\':
 
 ORAL_DEPLOY_PY
 '''
+                }
+            }
+        }
+        stage('Clean old Docker releases') {
+            steps {
+                catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                    sh 'python3 scripts/docker_cleanup.py clean'
                 }
             }
         }

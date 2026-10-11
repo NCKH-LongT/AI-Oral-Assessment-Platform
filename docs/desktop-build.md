@@ -8,7 +8,7 @@ Bộ cài chứa Electron, helper Python được đóng gói bằng PyInstaller
 
 - `resources/stt/oral-stt/`: helper native của OS/architecture đích.
 - `resources/stt/whisper-small/`: model CTranslate2 từ `Systran/faster-whisper-small`, config, tokenizer, vocabulary, license và metadata.
-- `scripts/build_desktop_stt.py` ghim revision model, giữ trọng số FP16 và chạy CPU INT8. Model/binary sinh ra được Git bỏ qua.
+- `scripts/build_desktop_stt.py` ghim revision model, giữ trọng số FP16 và chạy CPU INT8. Model/binary sinh ra được Git bỏ qua. File trung gian PyInstaller nằm trong thư mục tạm của hệ điều hành, tự dọn khi build kết thúc hoặc báo lỗi.
 - `check-stt-bundle.cjs` kiểm tra file bắt buộc trước khi đóng gói; trên cùng OS còn kiểm tra protocol 2, Whisper-small và hotword của helper.
 
 ## Build trên OS đích

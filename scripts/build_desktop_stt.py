@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 WHISPER_ID = "Systran/faster-whisper-small"
@@ -58,42 +59,43 @@ def prepare_whisper():
 
 def build():
     prepare_whisper()
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "PyInstaller",
-            "--noconfirm",
-            "--clean",
-            "--onedir",
-            "--name",
-            "oral-stt",
-            "--paths",
-            str(ROOT / "services/api"),
-            "--distpath",
-            str(RESOURCES),
-            "--workpath",
-            str(ROOT / ".data/desktop-stt-build"),
-            "--specpath",
-            str(ROOT / ".data/desktop-stt-build"),
-            "--collect-all",
-            "faster_whisper",
-            "--collect-all",
-            "ctranslate2",
-            "--collect-all",
-            "tokenizers",
-            "--collect-all",
-            "av",
-            "--collect-all",
-            "imageio_ffmpeg",
-            "--exclude-module",
-            "torch",
-            "--exclude-module",
-            "transformers",
-            str(ROOT / "apps/desktop/transcribe.py"),
-        ],
-        check=True,
-    )
+    with tempfile.TemporaryDirectory(prefix="oral-stt-build-") as workdir:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "PyInstaller",
+                "--noconfirm",
+                "--clean",
+                "--onedir",
+                "--name",
+                "oral-stt",
+                "--paths",
+                str(ROOT / "services/api"),
+                "--distpath",
+                str(RESOURCES),
+                "--workpath",
+                workdir,
+                "--specpath",
+                workdir,
+                "--collect-all",
+                "faster_whisper",
+                "--collect-all",
+                "ctranslate2",
+                "--collect-all",
+                "tokenizers",
+                "--collect-all",
+                "av",
+                "--collect-all",
+                "imageio_ffmpeg",
+                "--exclude-module",
+                "torch",
+                "--exclude-module",
+                "transformers",
+                str(ROOT / "apps/desktop/transcribe.py"),
+            ],
+            check=True,
+        )
     executable = (
         RESOURCES
         / "oral-stt"

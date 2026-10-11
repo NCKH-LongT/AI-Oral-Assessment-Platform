@@ -22,12 +22,17 @@ hoặc chạy riêng `npm run dev`. Chọn backend ở thanh đầu trang: Onlin
 Đổi backend không cần chạy lại app; phiên đăng nhập riêng cho từng backend.
 Xem [cấu hình và cách chạy](README.md#chạy-web-và-desktop-local-chọn-backend-trên-giao-diện).
 
+Sau khi đăng nhập Google thành công, desktop tự khôi phục cửa sổ OralAI nếu đang thu nhỏ
+và đưa ứng dụng lên trước. Web local đóng cửa sổ đăng nhập và yêu cầu trình duyệt quay
+về tab ứng dụng (tùy quyền chuyển tiêu điểm của trình duyệt/hệ điều hành).
+Sau khi cập nhật source, đóng/mở lại desktop để áp dụng.
+
 **Lưu ý về các lệnh cũ bên dưới:** khi muốn mở trực tiếp UI trên server với `ORAL_WEB_URL`,
 dùng **`npm run desktop:server`** thay cho `npm run desktop`. Launcher Python/Bash cũ vẫn dùng một server cố định.
 
 | Tình huống | Cách mở |
 | --- | --- |
-| Học viên đã cài OralAI | Mở app, chọn server trong **OralAI → Cấu hình máy chủ…**, đăng nhập và làm bài |
+| Học viên đã cài OralAI | Mở app, chọn server trong **Cấu hình máy chủ** tại màn hình đăng nhập, đăng nhập và làm bài |
 | Đã có source, dependency và bundle STT; muốn tải giao diện đang triển khai | Chạy `npm run desktop:server` với môi trường và URL như ví dụ bên dưới |
 | Đang sửa giao diện trong repo trên Linux/macOS | Chạy `./run-desktop.sh --server http://localhost:3000` để mở UI dev tại cổng 3001 |
 | Chưa có dependency hoặc bundle STT | Hoàn tất mục [Chạy từ source](#chạy-từ-source) trước |
@@ -95,7 +100,7 @@ Cách này tải giao diện đã triển khai trên server; sửa source UI tr�
 
 ### Build bộ cài để dùng với server khác
 
-**Hiện bộ cài không nhúng URL riêng lúc build.** Build một bộ cài, sau đó chọn server khi mở app lần đầu hoặc tại **OralAI → Cấu hình máy chủ…**. Địa chỉ được lưu riêng trên từng máy và dùng lại ở lần mở sau. Đặt `ORAL_WEB_URL` trước `npm run dist` không ghi biến này vào bộ cài.
+**Hiện bộ cài không nhúng URL riêng lúc build.** Build một bộ cài, sau đó chọn server khi mở app lần đầu hoặc tại **Cấu hình máy chủ** tại màn hình đăng nhập. Địa chỉ được lưu riêng trên từng máy và dùng lại ở lần mở sau. Đặt `ORAL_WEB_URL` trước `npm run dist` không ghi biến này vào bộ cài.
 
 Sau khi chuẩn bị bundle STT theo mục [Build bộ cài và chạy lại](#build-bộ-cài-và-chạy-lại):
 
@@ -158,7 +163,7 @@ Sau **Cho phép camera & mic**, chọn đúng thiết bị và ngôn ngữ/model
 
 Tải artifact từ GitHub Actions → **Desktop installers**. Windows dùng `.exe`, Ubuntu dùng `.deb` hoặc AppImage, macOS dùng `.dmg`. Bộ cài chưa ký số/notarize. Chọn đúng OS/kiến trúc máy.
 
-Mở **OralAI → Cấu hình máy chủ…**, nhập domain HTTPS hoặc `http://localhost:3000` nếu server trên cùng máy. Không thêm `/api`. `ORAL_WEB_URL` nếu có sẽ ưu tiên domain đã lưu.
+Mở **Cấu hình máy chủ** tại màn hình đăng nhập, nhập domain HTTPS hoặc `http://localhost:3000` nếu server trên cùng máy. Không thêm `/api`. `ORAL_WEB_URL` nếu có sẽ ưu tiên domain đã lưu.
 
 ## Kết nối mic và camera trước khi thi
 
@@ -285,7 +290,7 @@ chmod +x apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
 env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop:server
 ```
 
-PowerShell: đặt `$env:ORAL_WEB_URL="http://localhost:3000"`, xóa `ELECTRON_RUN_AS_NODE` như hướng dẫn trên rồi `npm run desktop:server`. Thay URL bằng server của bạn; nếu không đặt biến, app dùng địa chỉ đã lưu trong menu.
+PowerShell: đặt `$env:ORAL_WEB_URL="http://localhost:3000"`, xóa `ELECTRON_RUN_AS_NODE` như hướng dẫn trên rồi `npm run desktop:server`. Thay URL bằng server của bạn; nếu không đặt biến, app dùng địa chỉ đã lưu trong cấu hình.
 
 **Khi cập nhật code:**
 
@@ -304,7 +309,7 @@ Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEM
 
 ## Xử lý lỗi
 
-**Đóng desktop:** bấm **Thoát ứng dụng**, menu **OralAI → Thoát ứng dụng**, X hoặc Alt+F4. Nếu còn dữ liệu chưa nộp, chọn **Ở lại** để hoàn tất hoặc **Rời trang / thoát** để xác nhận mất phần chưa nộp. Bản desktop cũ có thể bị `beforeunload` chặn X; cần cập nhật bộ cài/Electron source, không chỉ cập nhật web. Xem [hướng dẫn thoát](docs/microphone-desktop.md#đóng-ứng-dụng-desktop).
+**Đóng desktop:** bấm **Thoát ứng dụng** hoặc X (Alt+F4 bị chặn trong lúc thi). Nếu còn dữ liệu chưa nộp, chọn **Ở lại** để hoàn tất hoặc **Rời trang / thoát** để xác nhận mất phần chưa nộp. Bản desktop cũ có thể bị `beforeunload` chặn X; cần cập nhật bộ cài/Electron source, không chỉ cập nhật web. Xem [hướng dẫn thoát](docs/microphone-desktop.md#đóng-ứng-dụng-desktop).
 
 | Lỗi | Kiểm tra |
 | --- | --- |
@@ -329,3 +334,16 @@ Desktop luôn dùng **bản ghi gốc** cho STT và **Thử STT lại**. Trên w
 Để bắt đầu: đăng nhập sinh viên → **Mở bài thi** của bộ TOEIC → kết nối mic/camera → chọn **Tiếng Anh + Whisper-small** → bắt đầu thi. Ngôn ngữ/model trên desktop không tự đổi theo môn; kiểm tra hai lựa chọn này trước khi ghi.
 
 Nếu cài trên server mới, nhập bộ dữ liệu theo [hướng dẫn triển khai TOEIC](README.md#cài-bộ-luyện-toeic-trên-server-khác). Tài khoản sinh viên và danh sách giao bài thuộc database của từng server, không tự xuất hiện khi tải source từ Git. Riêng thay đổi audio mặc định và tranh TOEIC cần cập nhật web/API; không cần build lại helper nếu máy đã có bundle đủ hai model.
+
+
+## Truy cập và ghi màn hình bắt buộc
+
+Web dành cho **ADMIN, EXAM_OFFICER (khảo thí), TEACHER**. Sinh viên đăng nhập và làm bài bằng **OralAI Desktop**. App không còn menu hệ điều hành hoặc thanh điều hướng quản trị. Đổi server tại nút **Cấu hình máy chủ** trước khi đăng nhập. Tài khoản `REVIEWER` cũ cần admin đổi sang vai trò phù hợp trên web.
+
+Với mỗi lần thi mới (trừ bài thử thiết bị), sinh viên phải đồng ý ghi toàn màn hình rồi cấp quyền chia sẻ trước khi bắt đầu. Đóng thông tin riêng tư, dùng một màn hình và cấp quyền ghi màn hình trong hệ điều hành nếu được yêu cầu. App ghi màn hình từ lúc bắt đầu đến khi bấm nộp, hiện trạng thái ghi rõ ràng, không thu âm hệ thống; microphone/camera câu trả lời vẫn được lưu riêng. Giao diện chia bản ghi thành các đoạn khoảng 60 giây, tải lên server khi thi và tải đoạn cuối trước khi hoàn tất nộp bài. Giữ app mở đến khi báo đã nộp; lỗi upload có nút thử lại.
+
+Trong lúc thi, app bật kiosk toàn màn hình, chặn menu chuột phải, DevTools, tải file, sao chép/dán, reload và một số phím tắt điều hướng. Không đổi server hoặc đăng xuất được khi đang thi. Khi rời cửa sổ, thu nhỏ, thoát toàn màn hình, đổi màn hình hoặc ngắt ghi, app dừng câu trả lời đang ghi và yêu cầu **Khôi phục chế độ thi**. Đồng hồ thi vẫn chạy. Sự kiện giám sát được lưu và bài chuyển sang cần giảng viên xem lại; sự kiện không phải kết luận gian lận.
+
+Đây là hạn chế ở cấp ứng dụng, không khóa hoàn toàn hệ điều hành và không ngăn được thiết bị phụ hay client đã sửa. Header `X-Oral-Client: desktop` phân biệt kênh truy cập được hỗ trợ, không phải chứng thực bộ cài; một client tự viết có thể giả mạo header. Server kiểm tra quyền, đồng ý ghi và có bản ghi hoàn tất, nhưng không thể chứng minh video bao phủ toàn bộ thời gian thi. Nếu triển khai kỳ thi cần bảo đảm cao, cần máy được quản lý bằng chính sách kiosk của hệ điều hành và giám thị. Nút thoát khẩn cấp vẫn xác nhận rời ứng dụng; đoạn chưa tải lên có thể mất khi đóng cưỡng bức. Khi mở lại phiên đang thi, sự kiện khởi động lại được ghi nhận và phải khôi phục ghi màn hình.
+
+Bản này cần **migration `0006`**, cập nhật đồng bộ API/worker/web và Electron. `EXAM_SCREEN_REQUIRED` mặc định `true`; giữ giá trị này trên server thi. Những phiên đã tồn tại trước migration giữ chính sách cũ để không chặn nộp bài đang làm. Người dùng bộ cài phải cài bản Desktop mới, người chạy source đóng rồi mở lại Electron. Không cần build lại model STT vì thay đổi này không sửa helper/model.

@@ -237,15 +237,18 @@ def test_imported_student_google_login_preserves_roster(env, monkeypatch):
     with factory() as db:
         learner = db.scalar(select(User).where(User.email == "google@example.edu.vn"))
         learner_id = learner.id
-        db.add(OAuthFlow(state_hash=digest(state), nonce="nonce", verifier="verifier", expires_at=time.time() + 300))
+        flow = OAuthFlow(state_hash=digest(state), poll_hash=digest("test-poll-token-long-enough-123456789"), nonce="nonce", verifier="verifier", expires_at=time.time() + 300)
+        db.add(flow)
         db.commit()
+        flow_id = flow.id
     monkeypatch.setattr(google_login, "config", lambda: SimpleNamespace(public_origin="http://localhost:3000"))
     monkeypatch.setattr(google_login, "verify_identity", lambda *args: {
         "sub": "google-import-sub", "email": "Google@example.edu.vn", "email_verified": True,
     })
     response = browser.get("/auth/google/callback", params={"state": state, "code": "test"},
                            headers={"Cookie": f"google_oauth_state={state}"}, follow_redirects=False)
-    assert response.status_code == 303
+    assert response.status_code == 200
+    ok(browser.post("/auth/google/poll", json={"flow_id": flow_id, "poll_token": "test-poll-token-long-enough-123456789"}))
     assert ok(browser.get("/auth/me"))["id"] == learner_id
     with factory() as db:
         assert db.get(User, learner_id).google_sub == "google-import-sub"

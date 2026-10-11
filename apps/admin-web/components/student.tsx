@@ -21,6 +21,8 @@ import {
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
 import NoiseCheck from "./noise-check";
+import ExamScore from "./exam-score";
+import { useExamGuard } from "./use-exam-guard";
 import DesktopSpeechSettings, {
   useDesktopSpeech,
   type DesktopModel,
@@ -37,6 +39,11 @@ declare global {
   interface Window {
     oralDesktop?: {
       openGoogle?: (url: string) => Promise<void>;
+      focus?: () => Promise<void>;
+      settings?: () => Promise<void>;
+      beginExam?: () => Promise<void>;
+      endExam?: () => Promise<void>;
+      onExamEvent?: (callback: (type: string) => void) => () => void;
       quit?: () => Promise<void>;
       sttModels?: () => Promise<DesktopModel[]>;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
@@ -57,7 +64,7 @@ type PendingAnswer = {
 type UploadJob = {
   id: string;
   attemptId: string;
-  kind: "AUDIO" | "VIDEO";
+  kind: "AUDIO" | "VIDEO" | "SCREEN";
   blob: Blob;
   progress: number;
   status: "pending" | "uploading" | "done" | "failed";
@@ -78,6 +85,10 @@ const mime = (kind: "audio" | "video") =>
   ).find((t) => MediaRecorder.isTypeSupported(t));
 
 export default function Student() {
+  const [screenConsent, setScreenConsent] = useState(false);
+  const screenJobs = useRef(
+    new Map<Blob, { job: UploadJob; task: Promise<boolean> }>(),
+  );
   const desktopSpeech = useDesktopSpeech();
   const [courseFilter, setCourseFilter] = useState("");
   const [exams, setExams] = useState<StudentExam[]>([]),
@@ -129,6 +140,8 @@ export default function Student() {
     setSession(s);
     return s;
   }, []);
+  const guard = useExamGuard(session, () => stopRef.current());
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- State updates follow an asynchronous API response.
     loadExams().catch((e) => setError(errorText(e)));
@@ -444,6 +457,10 @@ export default function Student() {
     return api<STT>("/stt", { method: "POST", body: form });
   }
   async function start() {
+    if (guard.blocked || guard.finishing)
+      throw new Error(
+        "Khôi phục chế độ thi và ghi màn hình trước khi trả lời.",
+      );
     if (!session?.current_attempt || !stream || deviceError || connecting)
       throw new Error("Kiểm tra camera và microphone trước.");
     const am = mime("audio"),
@@ -570,10 +587,14 @@ export default function Student() {
     setError("");
   }
   async function runUpload(job: UploadJob) {
-    const update = (patch: Partial<UploadJob>) =>
+    const update = (patch: Partial<UploadJob>) => {
+      Object.assign(job, patch);
+      for (const item of screenJobs.current.values())
+        if (item.job.id === job.id) Object.assign(item.job, patch);
       setJobs((all) =>
         all.map((j) => (j.id === job.id ? { ...j, ...patch } : j)),
       );
+    };
     update({ status: "uploading", error: undefined });
     try {
       const init = await send<{
@@ -621,12 +642,16 @@ export default function Student() {
         await send(`/uploads/${init.id}/complete`);
       }
       update({ status: "done", progress: 100 });
+      return true;
     } catch (e) {
       update({ status: "failed", error: errorText(e) });
+      return false;
     }
   }
   async function submit() {
     if (!answer || !session || submitting || processing) return;
+    if (guard.blocked)
+      throw new Error("Khôi phục chế độ thi trước khi nộp câu trả lời.");
     if (!answer.audio.size || !answer.video.size)
       throw new Error("Media rỗng. Vui lòng ghi âm lại.");
     setSubmitting(true);
@@ -658,11 +683,37 @@ export default function Student() {
       setSubmitting(false);
     }
   }
+  function queueScreen(blob: Blob, attemptId: string) {
+    const existing = screenJobs.current.get(blob);
+    if (existing) return existing;
+    const job: UploadJob = {
+      id: crypto.randomUUID(),
+      attemptId,
+      kind: "SCREEN",
+      blob,
+      progress: 0,
+      status: "pending",
+    };
+    setJobs((all) => [...all, job]);
+    const item = { job, task: runUpload(job) };
+    screenJobs.current.set(blob, item);
+    return item;
+  }
+  useEffect(() => {
+    if (session?.status !== "IN_PROGRESS" || !session.screen_attempt_id) return;
+    for (const blob of guard.files())
+      queueScreen(blob, session.screen_attempt_id);
+    // A completed media segment triggers an upload, not each UI render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guard.segmentVersion, session?.id, session?.status]);
   async function openExam(
     examId: string,
     newAttempt = false,
     sessionId?: string,
   ) {
+    await guard.release();
+    screenJobs.current.clear();
+    setScreenConsent(false);
     const next = sessionId
       ? await api<ExamSession>(`/exam-sessions/${sessionId}`)
       : await send<ExamSession>("/exam-sessions", {
@@ -858,6 +909,12 @@ export default function Student() {
           </h2>
           <p>Transcript và minh chứng đã được lưu.</p>
           {!session.practice && <Badge status={session.status} />}
+          {!session.practice && (
+            <ExamScore
+              summary={session.score_summary}
+              status={session.status}
+            />
+          )}
           {session.practice ? (
             <p>
               Bài luyện tập không tính điểm. Bạn đã thử xong quy trình thi vấn
@@ -892,6 +949,22 @@ export default function Student() {
       ) : (
         <div className="exam-grid">
           <section className="panel question-panel">
+            {session.screen_required && (
+              <p role="status">
+                {guard.recording
+                  ? "● Đang ghi toàn màn hình"
+                  : "Bài thi yêu cầu ghi toàn màn hình"}
+              </p>
+            )}
+            {guard.blocked && (
+              <div className="notice" role="alert">
+                <p>
+                  Bài thi bị gián đoạn hoặc chưa bật ghi màn hình. Kết nối lại
+                  để tiếp tục; thời gian thi vẫn chạy.
+                </p>
+                <Action action={guard.prepare}>Khôi phục chế độ thi</Action>
+              </div>
+            )}
             <DesktopSpeechSettings
               settings={desktopSpeech}
               disabled={
@@ -960,21 +1033,46 @@ export default function Student() {
                     để đối chiếu.
                   </p>
                 )}
+                {session.screen_required && (
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={screenConsent}
+                      onChange={(e) => setScreenConsent(e.target.checked)}
+                    />
+                    Tôi đồng ý ghi toàn màn hình trong thời gian làm bài và lưu
+                    trên server để giảng viên xem lại. Tôi đã đóng thông tin
+                    riêng tư. Các lần chuyển cửa sổ hoặc ngắt ghi sẽ được ghi
+                    nhận.
+                  </label>
+                )}
                 <Action
                   disabled={
                     !stream ||
                     !!deviceError ||
                     (!desktopSpeech.desktop && !noiseReady) ||
                     connecting ||
-                    processing
+                    processing ||
+                    (session.screen_required && !screenConsent)
                   }
-                  action={async () =>
-                    setSession(
-                      await send<ExamSession>(
-                        `/exam-sessions/${session.id}/start`,
-                      ),
+                  action={async () => {
+                    if (
+                      window.oralDesktop?.beginExam ||
+                      session.screen_required
                     )
-                  }
+                      await guard.prepare();
+                    try {
+                      setSession(
+                        await send<ExamSession>(
+                          `/exam-sessions/${session.id}/start`,
+                          { screen_consent: screenConsent },
+                        ),
+                      );
+                    } catch (e) {
+                      await guard.release();
+                      throw e;
+                    }
+                  }}
                 >
                   Bắt đầu thi
                 </Action>
@@ -1166,13 +1264,41 @@ export default function Student() {
               !answer && (
                 <Action
                   disabled={jobs.some((j) => j.status !== "done")}
-                  action={async () =>
-                    setSession(
-                      await send<ExamSession>(
-                        `/exam-sessions/${session.id}/finish`,
-                      ),
-                    )
-                  }
+                  action={async () => {
+                    try {
+                      const screens = await guard.stopRecording();
+                      if (
+                        session.screen_required &&
+                        !screens.length &&
+                        !jobs.some(
+                          (j) => j.kind === "SCREEN" && j.status === "done",
+                        )
+                      )
+                        throw new Error(
+                          "Chưa có bản ghi màn hình để nộp. Liên hệ giảng viên.",
+                        );
+                      for (const blob of screens) {
+                        const item = queueScreen(
+                          blob,
+                          session.screen_attempt_id!,
+                        );
+                        await item.task;
+                        if (item.job.status !== "done")
+                          throw new Error(
+                            "Chưa tải xong màn hình. Bấm thử lại ở bản ghi lỗi, sau đó nộp bài.",
+                          );
+                      }
+                      setSession(
+                        await send<ExamSession>(
+                          `/exam-sessions/${session.id}/finish`,
+                        ),
+                      );
+                      await guard.release();
+                    } catch (e) {
+                      guard.finishFailed();
+                      throw e;
+                    }
+                  }}
                 >
                   Nộp bài thi
                 </Action>
@@ -1352,7 +1478,13 @@ export default function Student() {
                 jobs.map((j) => (
                   <div className="upload-job" key={j.id}>
                     <div>
-                      <span>{j.kind === "AUDIO" ? "Âm thanh" : "Video"}</span>
+                      <span>
+                        {j.kind === "AUDIO"
+                          ? "Âm thanh"
+                          : j.kind === "SCREEN"
+                            ? "Màn hình bài thi"
+                            : "Camera câu trả lời"}
+                      </span>
                       <small>
                         {j.status === "done" ? "Đã lưu" : `${j.progress}%`}
                       </small>

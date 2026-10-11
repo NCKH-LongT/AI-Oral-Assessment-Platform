@@ -1,3 +1,4 @@
+import { openWebPractice } from "./helpers/web-practice";
 import { test, expect } from "@playwright/test";
 import { createHash } from "node:crypto";
 import type { ExamSession } from "../../apps/admin-web/components/api";
@@ -27,7 +28,7 @@ test("web defaults to original audio, shows the picture and submits the same rec
     const path = new URL(request.url()).pathname;
     if (path === "/api/auth/me")
       return route.fulfill({
-        json: { id: "student", name: "Student", role: "STUDENT" },
+        json: { id: "student", name: "Student", role: "TEACHER" },
       });
     if (path === "/api/exams/available")
       return route.fulfill({
@@ -92,7 +93,7 @@ test("web defaults to original audio, shows the picture and submits the same rec
       return route.fulfill({ json: session });
     return route.fulfill({ json: { status: "STARTED" } });
   });
-  await page.goto("/");
+  await openWebPractice(page);
   await page.getByRole("button", { name: "Mở bài thi" }).click();
   const startExam = page.getByRole("button", {
     name: "Bắt đầu thi",

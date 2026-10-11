@@ -191,7 +191,9 @@ Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn deskto
 
 Xem [các bước cập nhật và chẩn đoán lỗi Jenkins](docs/jenkins.md). Lỗi 4 test Gemini/Ollama thiếu `english_terms` đã được sửa ở `b546e84`; job cần checkout commit này hoặc mới hơn, không cần đổi `.env` cho lỗi đó.
 
-Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0005` để lưu nhiều lần thi và quy trình khảo thí; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0007` để lưu câu hỏi nhập Excel và theo dõi dọn bản ghi, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+
+Admin có trang **Lần thi & dung lượng** để lọc theo môn/người, xuất báo cáo Excel, chọn dọn bản ghi giữ điểm hoặc xóa toàn bộ dữ liệu lần thi. Có mẫu Excel và kiểm tra trước khi nhập môn, rubric, câu hỏi có sẵn, giảng viên và khảo thí. Cần cập nhật đồng bộ web, API và worker; xem [quản lý dung lượng và nhập Excel](docs/user-guide.md#quản-lý-lần-thi-và-dung-lượng).
 
 ```bash
 .venv/bin/python -m pytest services/api/tests -q

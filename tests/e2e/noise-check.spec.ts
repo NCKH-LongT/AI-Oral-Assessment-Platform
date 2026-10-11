@@ -1,3 +1,4 @@
+import { openWebPractice } from "./helpers/web-practice";
 import { test, expect, type Page } from "@playwright/test";
 
 async function preflight(page: Page, amplitude: number, recordingTone = false) {
@@ -60,7 +61,7 @@ async function preflight(page: Page, amplitude: number, recordingTone = false) {
         id: "student",
         name: "Noise test",
         username: "noise",
-        role: "STUDENT",
+        role: "TEACHER",
       },
     }),
   );
@@ -93,7 +94,7 @@ async function preflight(page: Page, amplitude: number, recordingTone = false) {
       },
     }),
   );
-  await page.goto("/");
+  await openWebPractice(page);
   await page.getByRole("button", { name: "Mở bài thi" }).click();
   await expect(
     page.getByRole("button", { name: "Bắt đầu thi", exact: true }),

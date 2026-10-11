@@ -14,7 +14,7 @@ from . import schemas as s
 from .course_deletion import delete_course_tree
 from .db import get_db
 from .exam_generation import build_snapshot
-from .grading import GradingError, assessment_view, check_config, review_question
+from .grading import GradingError, assessment_view, check_config, review_question, score_summary
 from .knowledge import set_mappings, topic_data
 from .models import (
     Assignment,
@@ -27,7 +27,6 @@ from .models import (
     Exam,
     ExamSession,
     LearningOutcome,
-    MediaCleanup,
     ReviewJob,
     Rubric,
     Topic,
@@ -38,8 +37,9 @@ from .models import (
 )
 from .retakes import allowance, history_row, sessions_for
 from .runtime_settings import settings
-from .security import admin, by_id, course_access, editor, fail, hasher, public_user, staff
+from .security import admin, by_id, course_access, editor, exam_officer, fail, hasher, public_user, staff
 from .speech import exam_policy, google_ready
+from .storage_management import enqueue_media
 
 router = APIRouter()
 
@@ -88,6 +88,53 @@ def create_user(body: s.UserIn, db: Session = Depends(get_db), user=Depends(admi
     db.add(Audit(user_id=user.id, event="USER_CREATED", details={"username": row.username}))
     db.commit()
     return public_user(row)
+
+
+@router.get("/users/{key}/courses")
+def student_courses(key: str, db: Session = Depends(get_db), user=Depends(staff)):
+    learner = by_id(db, User, key)
+    if learner.role != "STUDENT":
+        fail(422, "NOT_STUDENT", "Chọn tài khoản sinh viên")
+    enrolled = set(db.scalars(select(CourseEnrollment.course_id).where(CourseEnrollment.student_id == key)))
+    assigned = set(db.scalars(select(Exam.course_id).join(Assignment).where(Assignment.student_id == key)))
+    return {"student": public_user(learner), "courses": [
+        data(c, "code", "name", "status") | {"enrolled": c.id in enrolled, "assigned": c.id in assigned}
+        for c in course_list(db, user) if c.id != "00000000-0000-4000-8000-000000000001"
+    ]}
+
+
+@router.put("/users/{key}/courses/{course_id}")
+def add_student_course(key: str, course_id: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    learner = by_id(db, User, key, lock=True)
+    course = course_access(db, course_id, user)
+    if learner.role != "STUDENT" or learner.status != "ACTIVE" or course.status != "ACTIVE":
+        fail(422, "INVALID_ENROLLMENT", "Cần sinh viên và môn học đang hoạt động")
+    if not db.scalar(select(CourseEnrollment.id).where(CourseEnrollment.student_id == key, CourseEnrollment.course_id == course_id)):
+        db.add(CourseEnrollment(student_id=key, course_id=course_id))
+    db.add(Audit(user_id=user.id, event="STUDENT_COURSE_ADDED", details={"student_id": key, "course_id": course_id}))
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/users/{key}/courses/{course_id}")
+def remove_student_course(key: str, course_id: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    learner = by_id(db, User, key, lock=True)
+    course_access(db, course_id, user)
+    if learner.role != "STUDENT":
+        fail(422, "NOT_STUDENT", "Chọn tài khoản sinh viên")
+    if course_id == "00000000-0000-4000-8000-000000000001":
+        fail(409, "PRACTICE_COURSE", "Môn thử thiết bị luôn có sẵn")
+    # Lock exams in the same order as session creation before revoking access.
+    exams = db.scalars(select(Exam).where(Exam.course_id == course_id).order_by(Exam.id).with_for_update()).all()
+    exam_ids = [e.id for e in exams]
+    if db.scalar(select(ExamSession.id).where(ExamSession.student_id == key, ExamSession.exam_id.in_(exam_ids),
+            ExamSession.deleted_at.is_(None), ExamSession.status.in_(["DEVICE_CHECK", "IN_PROGRESS"]))):
+        fail(409, "ACTIVE_EXAM", "Sinh viên đang mở hoặc làm bài thi của môn này. Chờ kết thúc trước khi gỡ môn.")
+    db.execute(delete(CourseEnrollment).where(CourseEnrollment.student_id == key, CourseEnrollment.course_id == course_id))
+    db.execute(delete(Assignment).where(Assignment.student_id == key, Assignment.exam_id.in_(exam_ids)))
+    db.add(Audit(user_id=user.id, event="STUDENT_COURSE_REMOVED", details={"student_id": key, "course_id": course_id}))
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/courses")
@@ -181,9 +228,9 @@ def workspace(course_id: str, db: Session = Depends(get_db), user=Depends(staff)
         "rubrics": rows(Rubric, "name", "version", "criteria"),
         "exams": [
             data(exam, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts", "workflow")
-            | {"questions": [
+            | {"imported": bool(exam.imported_questions), "questions": [
                 {"text": q["text"], "english_terms": q.get("english_terms", [])}
-                for q in (exam.snapshot or {}).get("questions", [])
+                for q in (exam.snapshot or {}).get("questions", exam.imported_questions or [])
             ]}
             for exam in db.scalars(select(Exam).where(Exam.course_id == course_id).order_by(Exam.created_at))
         ],
@@ -459,6 +506,8 @@ def update_exam(key: str, body: s.ExamIn, db: Session = Depends(get_db), user=De
     validate_exam(db, body, user)
     if user.role != "ADMIN" and body.max_attempts != row.max_attempts:
         fail(403, "FORBIDDEN", "Chỉ admin được cấu hình số lượt làm bài")
+    if row.imported_questions and body.model_dump()["blueprint"] != row.blueprint:
+        fail(422, "IMPORTED_QUESTIONS", "Đề có câu hỏi nhập sẵn. Sửa nội dung trong bản nháp hoặc nhập một đề mới để đổi cấu trúc.")
     for field, value in body.model_dump().items():
         setattr(row, field, value)
     row.snapshot = None
@@ -490,7 +539,7 @@ def copy_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
         max_attempts=source.max_attempts,
     )
     validate_exam(db, body, user)
-    row = Exam(**body.model_dump(), workflow=user.role != "ADMIN")
+    row = Exam(**body.model_dump(), workflow=user.role != "ADMIN", imported_questions=deepcopy(source.imported_questions))
     db.add(row)
     db.commit()
     return data(row, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts")
@@ -559,7 +608,12 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
     course_access(db, exam.course_id, user)
     attempts = db.scalars(select(Attempt).where(Attempt.session_id == key).order_by(Attempt.sequence)).all()
     return history_row(session) | {
+        "proctoring_events": [data(e, "created_at", "details") for e in db.scalars(select(Audit).where(
+            Audit.event == "PROCTORING_EVENT", Audit.details["session_id"].as_string() == key).order_by(Audit.created_at))],
+        "score_summary": score_summary(attempts, len((exam.snapshot or {}).get("questions", [])))
+        if not (exam.snapshot or {}).get("practice") else None,
         "ai_score": session.ai_score, "manual_review": session.manual_review,
+        "media_removed_at": session.media_removed_at,
         "exam_id": exam.id, "student_id": session.student_id,
         **allowance(db, exam, session.student_id),
         "history": [history_row(row) for row in sessions_for(db, exam.id, session.student_id)],
@@ -574,7 +628,7 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
                 "evidence": [
                     data(e, "kind", "status", "sha256", "size")
                     for e in db.scalars(
-                        select(Upload).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED")
+                        select(Upload).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED").order_by(Upload.created_at, Upload.id)
                     )
                 ],
                 "reviews": [
@@ -864,7 +918,7 @@ def delete_result(key: str, db: Session = Depends(get_db), user=Depends(admin)):
     if session.deleted_at is not None:
         return {"ok": True}
     for upload in uploads:
-        db.add(MediaCleanup(upload_id=upload.id, storage_key=upload.storage_key))
+        enqueue_media(db, upload)
     db.execute(delete(ReviewJob).where(ReviewJob.attempt_id.in_(ids)))
     db.execute(delete(Upload).where(Upload.attempt_id.in_(ids)))
     db.execute(delete(Attempt).where(Attempt.id.in_(ids)))

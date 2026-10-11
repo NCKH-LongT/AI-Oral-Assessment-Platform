@@ -15,7 +15,7 @@ from . import storage
 from .config import settings
 from .db import get_db
 from .examination import check_schedule, schedule_for
-from .grading import GradingError, check_config
+from .grading import GradingError, check_config, score_summary
 from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, Upload
 from .practice import COURSE_ID
 from .retakes import ACTIVE, allowance, history_row, sessions_for
@@ -77,9 +77,14 @@ def public_session(db, session):
         "practice": bool(exam.snapshot.get("practice")),
         "status": session.status,
         "started_at": session.started_at,
+        "screen_required": session.screen_required,
+        "screen_attempt_id": attempts[0].id if attempts else None,
         "time_limit": exam.time_limit,
         "server_time": time.time(),
         "final_score": session.final_score if session.status == "COMPLETED" else None,
+        "score_summary": score_summary(attempts, len(exam.snapshot.get("questions", [])))
+        if session.status in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"}
+        and not exam.snapshot.get("practice") else None,
         "grading_message": grading_message,
         "question_count": len(attempts),
         "answered_count": sum(a.status in {"SUBMITTED", "GRADED"} for a in attempts),
@@ -181,6 +186,7 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
     session = ExamSession(exam_id=exam.id, student_id=user.id, attempt_number=last_number + 1)
     db.add(session)
     db.flush()
+    session.screen_required = user.role == "STUDENT" and settings().exam_screen_required and not exam.snapshot.get("practice", False)
     for index, question in enumerate(exam.snapshot["questions"]):
         db.add(Attempt(session_id=session.id, sequence=index + 1, question=question))
     db.commit()
@@ -193,9 +199,13 @@ def get_session(key: str, db: Session = Depends(get_db), user=Depends(current_us
 
 
 @router.post("/exam-sessions/{key}/start")
-def start_session(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
+def start_session(key: str, body: s.ExamStartIn | None = None, db: Session = Depends(get_db), user=Depends(current_user)):
     session = owned_session(db, key, user, lock=True)
     if session.status == "DEVICE_CHECK":
+        if session.screen_required:
+            if not body or not body.screen_consent:
+                fail(409, "SCREEN_CONSENT_REQUIRED", "Đồng ý và bật ghi toàn màn hình trước khi bắt đầu thi")
+            session.screen_consent_at = time.time()
         check_schedule(db, by_id(db, Exam, session.exam_id), user)
         try:
             check_config(by_id(db, Exam, session.exam_id))
@@ -207,6 +217,19 @@ def start_session(key: str, db: Session = Depends(get_db), user=Depends(current_
     elif session.status != "IN_PROGRESS":
         fail(409, "INVALID_STATE", "Không thể bắt đầu lại bài đã nộp")
     return public_session(db, session)
+
+
+@router.post("/exam-sessions/{key}/proctoring-events", status_code=201)
+def proctoring_event(key: str, body: s.ProctoringEventIn, db: Session = Depends(get_db), user=Depends(current_user)):
+    session = owned_session(db, key, user, lock=True)
+    if session.status != "IN_PROGRESS":
+        fail(409, "INVALID_STATE", "Chỉ ghi nhận giám sát khi đang thi")
+    # A bounded append-only record. Repeated events do not grow without limit.
+    count = db.scalar(select(func.count()).select_from(Audit).where(Audit.event == "PROCTORING_EVENT", Audit.details["session_id"].as_string() == key))
+    if count < 500:
+        db.add(Audit(user_id=user.id, event="PROCTORING_EVENT", details={"session_id": key, "type": body.type}))
+        db.commit()
+    return {"ok": True}
 
 
 @router.post("/question-attempts/{key}/start")
@@ -282,6 +305,9 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
                     "reasoning_summary": "Hết giờ, chưa có câu trả lời.",
                 }
     # Evidence is required for each submitted voice answer.
+    if session.screen_required and not db.scalar(select(Upload.id).join(Attempt).where(
+            Attempt.session_id == key, Upload.kind == "SCREEN", Upload.status == "COMPLETED")):
+        fail(409, "SCREEN_EVIDENCE_PENDING", "Chờ tải bản ghi màn hình trước khi nộp bài")
     for a in attempts:
         if a.transcript:
             kinds = set(
@@ -300,9 +326,10 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
 @router.post("/uploads/init")
 def init_upload(body: s.UploadIn, db: Session = Depends(get_db), user=Depends(current_user)):
     attempt, session = owned_attempt(db, body.attempt_id, user)
-    if attempt.status == "READY" or session.status != "IN_PROGRESS":
+    if (attempt.status == "READY" and body.kind != "SCREEN") or session.status != "IN_PROGRESS":
         fail(409, "INVALID_STATE", "Chỉ upload khi câu trả lời đã bắt đầu và bài chưa nộp")
-    if not body.mime_type.startswith(body.kind.lower() + "/"):
+    media_kind = "video" if body.kind == "SCREEN" else body.kind.lower()
+    if not body.mime_type.startswith(media_kind + "/"):
         fail(422, "MIME_MISMATCH", "Loại file không khớp evidence")
     if body.size > settings().max_media_mb * 1024 * 1024:
         fail(413, "MEDIA_TOO_LARGE", "Media quá lớn")

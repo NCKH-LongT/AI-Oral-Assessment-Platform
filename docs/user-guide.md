@@ -77,6 +77,17 @@ Trình duyệt web vẫn giữ thu thử 10 giây, gain và tùy chọn RNNoise 
 
 ## Xem kết quả và làm lại
 
+Trong kết quả từng lần thi, **Điểm tổng** là trung bình cộng điểm tất cả câu hỏi,
+làm tròn đến 2 chữ số thập phân trên thang 10. Ví dụ: `(6 + 8 + 10) / 3 = 8/10`.
+Bảng bên dưới hiển thị điểm từng câu và phép tính. Điểm 0 vẫn được tính; câu chưa
+chấm hoặc chấm lỗi không được thay bằng 0 và bài chưa có điểm tổng cho đến khi đủ
+điểm các câu. Chấm lại câu hỏi sẽ cập nhật điểm tổng theo kết quả mới.
+
+Với bài đang chờ duyệt, điểm tổng được ghi là tạm tính. **Điểm chính thức** vẫn theo
+quy trình duyệt; nếu giảng viên đã chấm lại toàn bài, điểm chính thức có thể khác
+trung bình do AI đề xuất. Bài luyện tập không tính điểm không hiển thị điểm tổng.
+Tính năng cần cập nhật cả API/worker và giao diện trên server sử dụng.
+
 - Admin/giảng viên mở **Kết quả & xem lại**, chọn lần thi để xem transcript, audio/video, đánh giá và tài liệu dẫn chứng.
 - **Chưa có độ tin cậy AI** có thể xuất hiện khi chưa chấm, chấm lỗi hoặc dùng demo. Confidence do AI tự báo không phải bảo đảm độ chính xác.
 - Admin dùng **Quản lý lượt thi → Cấp thêm lượt** khi cần cho một học viên thi lại. Học viên làm mới danh sách rồi chọn **Làm lại bài thi** nếu còn lượt; **Xem lần N** mở kết quả cũ.
@@ -96,6 +107,54 @@ Thao tác không hoàn tác được: xóa tài liệu, chủ đề, LO, rubric,
 
 Giảng viên chỉ xóa được môn trống mình phụ trách. Xóa riêng một lần thi tại **Kết quả & xem lại** khác với xóa toàn bộ môn học.
 
+## Quản lý lần thi và dung lượng
+
+Admin mở **Lần thi & dung lượng** để xem dung lượng từng lần thi, tổng theo môn/người làm bài, file đang tải và file chờ worker xóa. Lọc theo môn, người làm bài hoặc ngày tạo trước mốc đã chọn; **Xuất báo cáo dung lượng Excel** xuất đúng bộ lọc, tối đa 10.000 lần thi. Bảng theo người hiển thị tối đa 100 người; chọn một người trong bộ lọc để xem riêng.
+
+1. Chọn các lần thi đã kết thúc, từng dòng hoặc cả trang. Có thể chọn qua nhiều trang, tối đa 500 lần/lượt; đổi bộ lọc sẽ xóa lựa chọn cũ.
+2. Mặc định **Chỉ xóa bản ghi, giữ điểm và lịch sử**: xóa audio, camera, màn hình; giữ transcript, điểm, lịch sử chấm và số lượt đã sử dụng. Sau đó không thể phát hoặc nhận dạng lại những file này.
+3. Nếu cần, chọn **Xóa toàn bộ dữ liệu lần thi đã chọn**: xóa cả câu trả lời, điểm và lịch sử chấm. Giữ môn, đề, tài khoản và dấu vết kiểm toán tối thiểu. Lần thi bị xóa không còn tính vào số lượt đã dùng.
+4. Bấm **Xem trước dữ liệu sẽ xóa**, kiểm tra số lần thi/file/dung lượng, nhập lý do và chuỗi xác nhận, rồi xác nhận xóa. Không thể hoàn tác.
+
+Server chặn bài đang thi/đang chấm lại, kiểm tra lại phạm vi khi xác nhận và yêu cầu xem trước lại nếu dữ liệu thay đổi. Bản xem trước hết hạn sau 10 phút. Việc xóa file chạy qua worker, có tự thử lại khi kho lưu trữ lỗi; bấm **Làm mới dung lượng** để xem số file chờ xóa.
+
+Dung lượng báo cáo là kích thước bản ghi được hệ thống quản lý, không phải tổng dung lượng database, tài liệu học, bản sao lưu hoặc hóa đơn S3. Số liệu file tạm, kho local và ổ đĩa là toàn hệ thống, không theo bộ lọc. Với S3, dung lượng trống hiển thị là ổ đĩa API. Nếu bucket bật versioning/retention, các phiên bản cũ vẫn có thể chiếm dung lượng sau khi xóa đối tượng; cần quản lý vòng đời các phiên bản tại kho lưu trữ.
+
+## Nhập Excel môn học, rubric, bài thi và nhân sự
+
+Mỗi khu vực có mục **Nhập … từ Excel**, nút **Tải mẫu Excel**, chọn file, **Kiểm tra file** và nút nhập sau khi kiểm tra thành công:
+
+| Dữ liệu | Nơi tải mẫu và nhập | Quy tắc |
+| --- | --- | --- |
+| Môn học | Môn học & đề thi | Một dòng/môn; có thể chỉ định email giảng viên phụ trách đã tồn tại. Giáo viên chỉ tạo môn của mình. |
+| Rubric | Chọn môn → Rubric | Một dòng/tiêu chí; nhóm theo mã môn và tên rubric. `max_score` và `weight` là số dương. |
+| Bài thi | Chọn môn → Bài thi & giao bài, hoặc Điều phối kỳ thi | Một dòng/câu hỏi có sẵn, nhóm theo mã môn và tên đề. |
+| Giảng viên | Người dùng (admin) | Tài khoản mới có vai trò TEACHER. |
+| Khảo thí | Người dùng (admin) | Tài khoản mới có vai trò EXAM_OFFICER. |
+
+Nhập theo thứ tự giảng viên → môn → chuẩn bị chủ đề/tài liệu → rubric → bài thi. Với mẫu tải trong một môn, mã môn và danh mục rubric/chủ đề được điền theo môn đó. Sửa sheet **Data**, giữ nguyên tên/thứ tự cột; sheet **Huong dan** giải thích định dạng. Thay hoặc xóa các dòng mẫu vì chúng được coi là dữ liệu cần nhập.
+
+Mẫu bài thi **chỉ nhập câu hỏi đã soạn**. `question_number` liên tiếp từ 1 (tối đa 20); `topic_name` và `rubric_name` phải tồn tại duy nhất trong môn; `difficulty` là EASY/MEDIUM/HARD; `time_minutes` là số nguyên 1–180. Các dòng cùng đề phải cùng rubric và thời lượng. `expected_concepts` ngăn cách bằng dấu `;`; `english_terms` tùy chọn theo dạng `term=meaning;term=meaning`. Đây là thuật ngữ của câu hỏi; bảng hotword STT vẫn quản lý riêng trong môn.
+
+Đề nhập được lưu **DRAFT**, chưa mở thi. Chuẩn bị tài liệu READY đúng chủ đề, bấm **Tạo bản nháp từ câu hỏi đã nhập** để gắn nguồn tài liệu, rồi review/duyệt qua Điều phối kỳ thi. Hệ thống giữ nguyên câu hỏi và rubric đã nhập, không gọi AI sinh lại chúng. Có thể sửa nội dung trong bản nháp review; muốn đổi phân bổ chủ đề/số câu, nhập đề mới.
+
+File tối đa 2 MB, 1.000 dòng (nhân sự: 200), không có công thức. Lỗi được báo theo dòng; có lỗi thì không nhập dòng nào. Môn/rubric/tài khoản giống dữ liệu đã có được bỏ qua; trùng khóa nhưng khác nội dung báo lỗi. Tên đề đã tồn tại cũng báo lỗi, cần đổi tên để tạo đề mới. Import không đổi vai trò hoặc mật khẩu tài khoản đã có. Tài khoản nhân sự mới cần mật khẩu ban đầu riêng 12–128 ký tự; phân phối qua kênh của đơn vị.
+
 ## Khi chưa thấy chức năng mới
 
 Giao diện quản lý và API cần cùng được cập nhật. Với server Docker local, xem [cập nhật server](../README.md#build-cập-nhật-và-tài-liệu). Với server Jenkins, xem [hướng dẫn cập nhật](jenkins.md). Sau khi server cập nhật thành công, mở lại desktop. Thay đổi Electron/preload cần chạy source mới hoặc cài bộ desktop mới.
+
+
+## Quyền truy cập và môn học của sinh viên
+
+Web chỉ cho **ADMIN, EXAM_OFFICER và TEACHER** truy cập. Sinh viên dùng OralAI Desktop. Admin có thể đổi role `REVIEWER` cũ sang vai trò phù hợp trong **Người dùng**; không cấp mới role này.
+
+Trong **Người dùng**, bấm tên sinh viên để mở chi tiết và danh sách môn. Admin/khảo thí chọn môn rồi bấm **Thêm môn**, hoặc **Gỡ môn** để thu hồi cả đăng ký môn và các đề/lịch thi đã giao trong môn. Thao tác gỡ giữ nguyên bài làm, điểm và minh chứng; bị chặn khi sinh viên còn phiên đang mở hoặc đang làm. Với kỳ thi theo lịch, thêm môn không thay cho bước đưa sinh viên vào roster và xếp lịch. Giáo viên chỉ xem các môn mình phụ trách tại màn hình này.
+
+## Xem bản ghi màn hình và sự kiện giám sát
+
+Lần thi mới trên Desktop bắt buộc ghi toàn màn hình sau khi sinh viên đồng ý (bài thử thiết bị và phiên cũ trước migration không áp dụng). App chỉ hoàn tất nộp khi tải xong bằng chứng. Trong **Kết quả & xem lại → Xem bài**, mở các video có nhãn **Bản ghi màn hình bài thi** ở câu đầu tiên; các đoạn được sắp theo thứ tự tạo. Camera và âm thanh câu trả lời có nhãn riêng. Giáo viên chỉ xem bằng chứng môn mình phụ trách; admin/khảo thí xem theo quyền quản lý.
+
+Mục **Sự kiện giám sát bài thi** ghi thời điểm server nhận các sự kiện như rời cửa sổ, thay màn hình, ngắt ghi hoặc khởi động lại. Bài có sự kiện cần giảng viên xem lại trước khi công bố điểm. Đối chiếu bản ghi và hoàn cảnh thực tế trước khi chấm lại, không coi một sự kiện là bằng chứng chắc chắn của gian lận. Độ trễ mạng có thể làm thời điểm nhận sự kiện khác thời điểm xảy ra.
+
+Bản ghi dùng cơ chế lưu trữ, phân quyền và xóa cùng bài thi hiện có; bản này chưa bổ sung tự động xóa theo thời hạn. Hạn chế kỹ thuật và yêu cầu cập nhật server/desktop được ghi trong [hướng dẫn desktop](../readme-desktop.md#truy-cập-và-ghi-màn-hình-bắt-buộc).

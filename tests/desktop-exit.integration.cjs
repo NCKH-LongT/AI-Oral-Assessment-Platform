@@ -6,13 +6,19 @@ const http = require("node:http");
 const path = require("node:path");
 const { mkdtemp, rm } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
-const { _electron: electron } = require("@playwright/test");
+const { _electron: electron, expect } = require("@playwright/test");
 
 test(
   "Electron X and quit IPC respect stay/leave, then actually exit",
   { timeout: 60000 },
   async () => {
-    const server = http.createServer((_req, res) => {
+    const server = http.createServer((req, res) => {
+      if (req.url === "/api/client") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({ client: req.headers["x-oral-client"] }),
+        );
+      }
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(
         '<html><body><button id="quit" onclick="window.oralDesktop.quit()">Exit</button></body></html>',
@@ -40,6 +46,64 @@ test(
       // Electron's native unload guard owns this prompt, not Chromium's dialog.
       page.on("dialog", () => {});
       await page.waitForSelector("#quit");
+      assert.equal(
+        await desktop.evaluate(({ Menu }) => Menu.getApplicationMenu()),
+        null,
+      );
+      assert.equal(
+        await desktop.evaluate(({ BrowserWindow }) => {
+          const contents = BrowserWindow.getAllWindows()[0].webContents;
+          contents.openDevTools();
+          return contents.isDevToolsOpened();
+        }),
+        false,
+      );
+      assert.deepEqual(
+        await page.evaluate(() => fetch("/api/client").then((r) => r.json())),
+        { client: "desktop" },
+      );
+      // OAuth finishes while the user is in the system browser. Restore the
+      // real native window through the same isolated bridge used after login.
+      await desktop.evaluate(({ BrowserWindow }) => {
+        BrowserWindow.getAllWindows()[0].hide();
+      });
+      await expect
+        .poll(() =>
+          desktop.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows()[0].isVisible(),
+          ),
+        )
+        .toBe(false);
+      await page.evaluate(() => window.oralDesktop.focus());
+      await expect
+        .poll(() =>
+          desktop.evaluate(({ BrowserWindow }) => {
+            const win = BrowserWindow.getAllWindows()[0];
+            return win.isVisible() && !win.isMinimized() && win.isFocused();
+          }),
+        )
+        .toBe(true);
+      // Keep this test independent of the developer's physical monitor count.
+      // Multi-display rejection is covered by desktop-exam-lock.test.cjs.
+      await desktop.evaluate(({ screen }) => {
+        screen.getAllDisplays = () => [screen.getPrimaryDisplay()];
+      });
+      await page.evaluate(() => window.oralDesktop.beginExam());
+      await expect
+        .poll(() =>
+          desktop.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows()[0].isKiosk(),
+          ),
+        )
+        .toBe(true);
+      await page.evaluate(() => window.oralDesktop.endExam());
+      await expect
+        .poll(() =>
+          desktop.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows()[0].isKiosk(),
+          ),
+        )
+        .toBe(false);
       await page.evaluate(() => {
         window.addEventListener("beforeunload", (event) => {
           event.preventDefault();

@@ -26,6 +26,9 @@ def build_snapshot(db, exam):
     ).all()
     if not docs:
         fail(409, "KNOWLEDGE_NOT_READY", "Cần tài liệu READY với cấu hình embedding hiện tại")
+    supplied = exam.imported_questions or []
+    if supplied and len(supplied) != sum(r["count"] for r in exam.blueprint):
+        fail(422, "IMPORTED_QUESTIONS", "Cấu trúc đề không khớp câu hỏi đã nhập")
     questions = []
     topic_scopes = {}
     mappings = {}
@@ -47,13 +50,16 @@ def build_snapshot(db, exam):
         if not chunks:
             fail(409, "NO_EVIDENCE", f"Chủ đề {topic.name} chưa có tài liệu READY")
         for _ in range(row["count"]):
-            question = ai.generate_question(
-                topic,
-                row["difficulty"],
-                chunks,
-                [q["text"] for q in questions],
-                outcomes=mappings[topic.id]["outcomes"],
-            )
+            if supplied:
+                question = dict(supplied[len(questions)])
+                if question["topic_id"] != topic.id or question["difficulty"] != row["difficulty"]:
+                    fail(422, "IMPORTED_QUESTIONS", "Chủ đề/độ khó không khớp câu hỏi đã nhập")
+                question["reference_chunk_ids"] = [c["id"] for c in chunks][:20]
+            else:
+                question = ai.generate_question(
+                    topic, row["difficulty"], chunks, [q["text"] for q in questions],
+                    outcomes=mappings[topic.id]["outcomes"],
+                )
             questions.append(
                 question
                 | {

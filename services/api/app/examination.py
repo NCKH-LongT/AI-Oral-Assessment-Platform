@@ -100,7 +100,7 @@ def exam_list(db: Session = Depends(get_db), user=Depends(staff)):
     if user.role == "TEACHER":
         query = query.where(Course.owner_id == user.id)
     return [{"id": e.id, "name": e.name, "status": e.status, "course_id": c.id,
-             "course_name": c.name, "teacher_id": c.owner_id, "time_limit": e.time_limit}
+             "course_name": c.name, "teacher_id": c.owner_id, "imported": bool(e.imported_questions), "time_limit": e.time_limit}
             for e, c in db.execute(query.order_by(Exam.created_at.desc()))]
 
 
@@ -189,7 +189,9 @@ def generate(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     if not exam.blueprint:
         fail(422, "BLUEPRINT_REQUIRED", "Cấu hình chủ đề, số câu và độ khó trong Môn học & đề thi")
     snapshot = build_snapshot(db, exam)
-    if settings().ai_provider == "demo":
+    if exam.imported_questions:
+        criteria = snapshot["criteria"]
+    elif settings().ai_provider == "demo":
         criteria = [
             {"name": "Kiến thức chính xác", "description": "Giải thích đúng các khái niệm và bám tài liệu môn học", "max_score": 10, "weight": 6},
             {"name": "Lập luận và ví dụ", "description": "Lập luận rõ ràng, ví dụ phù hợp với câu hỏi", "max_score": 10, "weight": 4},

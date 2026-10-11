@@ -25,6 +25,7 @@ from .models import (
     Upload,
 )
 from .security import fail
+from .storage_management import enqueue_media
 
 
 def delete_course_tree(db, course_id, confirm_code, user):
@@ -58,7 +59,7 @@ def delete_course_tree(db, course_id, confirm_code, user):
         fail(409, "COURSE_BUSY", "Môn học đang được xử lý. Đợi hoàn tất rồi xóa lại.")
 
     for upload in uploads:
-        db.add(MediaCleanup(upload_id=upload.id, storage_key=upload.storage_key))
+        enqueue_media(db, upload)
     for document in documents:
         # Documents have UUIDs too. No upload staging directory exists for them;
         # the existing cleanup queue can safely delete their stored objects.

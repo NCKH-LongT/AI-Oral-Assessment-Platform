@@ -6,6 +6,8 @@ const {
   Menu,
   dialog,
   shell,
+  screen,
+  desktopCapturer,
 } = require("electron");
 const { spawn, execFile } = require("node:child_process");
 const { promisify } = require("node:util");
@@ -21,6 +23,7 @@ const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
 const { installUnloadGuard } = require("./unload-guard.cjs");
+const { installExamLock } = require("./exam-lock.cjs");
 const { validHotwords, validModel, STT_MODELS } = require("./stt-policy.cjs");
 const runFile = promisify(execFile);
 
@@ -98,6 +101,7 @@ let webURL = new URL(DEFAULT_URL),
   win,
   configWindow;
 let sttChild;
+let examLock;
 const configPage = pathToFileURL(path.join(__dirname, "server.html")).href;
 function trustedConfig(event) {
   if (
@@ -108,6 +112,7 @@ function trustedConfig(event) {
     throw new Error("Forbidden");
 }
 function showSettings() {
+  if (examLock?.active) return;
   if (configWindow) return configWindow.focus();
   configWindow = new BrowserWindow({
     width: 720,
@@ -119,6 +124,7 @@ function showSettings() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      devTools: false,
     },
   });
   configWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
@@ -172,7 +178,8 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler(
     (contents, permission, callback, details) => {
       callback(
-        permission === "media" &&
+        (permission === "media" ||
+          (permission === "display-capture" && examLock?.active)) &&
           contents === win?.webContents &&
           hasSameOrigin(
             details.requestingUrl || contents?.getURL(),
@@ -183,7 +190,8 @@ app.whenReady().then(async () => {
   );
   session.defaultSession.setPermissionCheckHandler(
     (contents, permission, origin) =>
-      permission === "media" &&
+      (permission === "media" ||
+        (permission === "display-capture" && examLock?.active)) &&
       contents === win?.webContents &&
       hasSameOrigin(origin, webURL.origin),
   );
@@ -198,9 +206,44 @@ app.whenReady().then(async () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      devTools: false,
+      spellcheck: false,
     },
   });
   installUnloadGuard(win, dialog);
+  examLock = installExamLock(win, { screen });
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    const headers = { ...details.requestHeaders };
+    if (
+      hasSameOrigin(details.url, webURL.origin) &&
+      new URL(details.url).pathname.startsWith("/api/")
+    )
+      headers["X-Oral-Client"] = "desktop";
+    callback({ requestHeaders: headers });
+  });
+  session.defaultSession.on("will-download", (event) => {
+    if (examLock.active) event.preventDefault();
+  });
+  session.defaultSession.setDisplayMediaRequestHandler(
+    async (request, callback) => {
+      if (
+        !examLock.active ||
+        request.frame !== win.webContents.mainFrame ||
+        !hasSameOrigin(request.securityOrigin, webURL.origin)
+      )
+        return callback({});
+      try {
+        const sources = await desktopCapturer.getSources({
+          types: ["screen"],
+          thumbnailSize: { width: 0, height: 0 },
+        });
+        if (sources.length !== 1) return callback({});
+        callback({ video: sources[0] });
+      } catch {
+        callback({});
+      }
+    },
+  );
   win.on("closed", () => {
     sttChild?.kill();
     configWindow?.destroy();
@@ -208,6 +251,7 @@ app.whenReady().then(async () => {
   function trustedStudent(event) {
     if (
       event.sender !== win.webContents ||
+      event.senderFrame !== win.webContents.mainFrame ||
       !hasSameOrigin(event.senderFrame?.url, webURL.origin)
     )
       throw new Error("Forbidden");
@@ -217,19 +261,26 @@ app.whenReady().then(async () => {
     // Let the IPC response finish; app.quit still respects the unload guard.
     setImmediate(() => app.quit());
   });
-  Menu.setApplicationMenu(
-    Menu.buildFromTemplate([
-      {
-        label: "OralAI",
-        submenu: [
-          { label: "Cấu hình máy chủ…", click: showSettings },
-          { label: "Thoát ứng dụng", role: "quit" },
-        ],
-      },
-      { role: "editMenu" },
-      { role: "viewMenu" },
-    ]),
-  );
+  ipcMain.handle("oral:focus", (event) => {
+    trustedStudent(event);
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  });
+  ipcMain.handle("oral:settings", (event) => {
+    trustedStudent(event);
+    showSettings();
+  });
+  ipcMain.handle("oral:exam-begin", async (event) => {
+    trustedStudent(event);
+    await examLock.begin();
+  });
+  ipcMain.handle("oral:exam-end", (event) => {
+    trustedStudent(event);
+    examLock.end();
+  });
+  Menu.setApplicationMenu(null);
+  win.setMenu(null);
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.webContents.on("will-navigate", (event, url) => {
     if (new URL(url).origin !== webURL.origin) event.preventDefault();
@@ -281,6 +332,7 @@ app.whenReady().then(async () => {
     return { message: "Đã lưu máy chủ." };
   });
   ipcMain.handle("oral:google", async (event, value) => {
+    if (examLock.active) throw new Error("Không mở đăng nhập trong khi thi.");
     if (
       event.sender !== win.webContents ||
       !event.senderFrame ||
@@ -289,13 +341,22 @@ app.whenReady().then(async () => {
     )
       throw new Error("Forbidden");
     let selectedAuthOrigin = authOrigin;
-    if (!app.isPackaged && process.env.ORAL_CLIENT_ENABLED === "1" &&
-        webURL.origin === process.env.ORAL_WEB_URL) {
-      const saved = await session.defaultSession.cookies.get({ url: webURL.origin, name: "oral_backend" });
+    if (
+      !app.isPackaged &&
+      process.env.ORAL_CLIENT_ENABLED === "1" &&
+      webURL.origin === process.env.ORAL_WEB_URL
+    ) {
+      const saved = await session.defaultSession.cookies.get({
+        url: webURL.origin,
+        name: "oral_backend",
+      });
       const mode = saved[0]?.value || process.env.ORAL_BACKEND_MODE || "online";
-      selectedAuthOrigin = normalizeServerURL(mode === "local"
-        ? process.env.ORAL_LOCAL_BACKEND_URL || "http://localhost:3000"
-        : process.env.ORAL_ONLINE_BACKEND_URL || "https://oral-test.paperlens.uk");
+      selectedAuthOrigin = normalizeServerURL(
+        mode === "local"
+          ? process.env.ORAL_LOCAL_BACKEND_URL || "http://localhost:3000"
+          : process.env.ORAL_ONLINE_BACKEND_URL ||
+              "https://oral-test.paperlens.uk",
+      );
     }
     await shell.openExternal(googleLoginURL(value, selectedAuthOrigin));
   });

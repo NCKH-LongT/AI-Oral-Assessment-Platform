@@ -1,9 +1,33 @@
 """Grading availability, safe failure messages and compatible review versions."""
 
+import math
+
 import httpx
 from pydantic import ValidationError
 
 from . import ai
+
+
+def score_summary(attempts, question_count):
+    """Equal-weight mean of every question; missing/failed scores are not zeros."""
+    questions = []
+    for attempt in sorted(attempts, key=lambda a: a.sequence):
+        assessment = attempt.assessment or {}
+        score = assessment.get("score")
+        if (type(score) not in (int, float) or not math.isfinite(score)
+                or not 0 <= score <= 10 or assessment.get("error")
+                or assessment.get("status") in {"FAILED", "NOT_GRADED"}):
+            score = None
+        questions.append({"sequence": attempt.sequence, "score": score})
+    complete = (question_count > 0 and len(questions) == question_count
+                and [q["sequence"] for q in questions] == list(range(1, question_count + 1))
+                and all(q["score"] is not None for q in questions))
+    return {
+        "total_score": round(sum(q["score"] for q in questions) / question_count, 2) if complete else None,
+        "question_count": question_count,
+        "graded_question_count": sum(q["score"] is not None for q in questions),
+        "question_scores": questions,
+    }
 
 
 class GradingError(ValueError):

@@ -17,7 +17,7 @@ class UserIn(Login):
     email: str | None = Field(default=None, max_length=320)
     password: str = Field(min_length=12, max_length=128)
     name: str = Field(min_length=1, max_length=150)
-    role: Literal["ADMIN", "TEACHER", "STUDENT", "REVIEWER", "EXAM_OFFICER"] = "STUDENT"
+    role: Literal["ADMIN", "TEACHER", "STUDENT", "EXAM_OFFICER"] = "STUDENT"
 
 
 class CourseIn(Input):
@@ -130,6 +130,16 @@ class SessionIn(Input):
     new_attempt: bool = False
 
 
+class ExamStartIn(Input):
+    screen_consent: bool = False
+
+
+class ProctoringEventIn(Input):
+    type: Literal["WINDOW_BLUR", "WINDOW_MINIMIZED", "FULLSCREEN_LEFT", "DISPLAY_CHANGED",
+                  "BLOCKED_SHORTCUT", "BLOCKED_NAVIGATION", "SCREEN_STOPPED", "SCREEN_RESUMED",
+                  "SCREEN_ERROR", "CLIENT_RESTARTED", "CLIPBOARD_BLOCKED"]
+
+
 class AttemptPolicyIn(Input):
     max_attempts: int | None = Field(ge=1, le=1001)
 
@@ -145,7 +155,7 @@ class TranscriptIn(Input):
 
 class UploadIn(Input):
     attempt_id: str
-    kind: Literal["AUDIO", "VIDEO"]
+    kind: Literal["AUDIO", "VIDEO", "SCREEN"]
     mime_type: Literal["audio/webm", "video/webm", "audio/mp4", "video/mp4", "audio/ogg"]
     size: int = Field(gt=0)
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -190,4 +200,4 @@ class GradeOutput(Input):
 
 
 class RoleIn(Input):
-    role: Literal["ADMIN", "TEACHER", "STUDENT", "REVIEWER", "EXAM_OFFICER"]
+    role: Literal["ADMIN", "TEACHER", "STUDENT", "EXAM_OFFICER"]

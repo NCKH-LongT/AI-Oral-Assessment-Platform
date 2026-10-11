@@ -2,11 +2,12 @@
 import { useEffect, useState } from "react";
 import { errorText } from "./api";
 
-type ModelId = "phowhisper-small" | "whisper-small";
-type Preferences = { model: ModelId; language: "vi" | "en" };
+export const DESKTOP_STT_MODEL = "whisper-small";
+type ModelId = typeof DESKTOP_STT_MODEL;
+type Preferences = { language: "vi" | "en" };
 export type DesktopModel = { id: ModelId; label: string; available: boolean };
 const storageKey = "oral-desktop-speech-v1";
-const defaults: Preferences = { model: "phowhisper-small", language: "vi" };
+const defaults: Preferences = { language: "vi" };
 
 export function useDesktopSpeech() {
   const [desktop, setDesktop] = useState(false);
@@ -24,19 +25,15 @@ export function useDesktopSpeech() {
       setDesktop(true);
       try {
         const stored = JSON.parse(localStorage.getItem(storageKey) || "null");
-        if (
-          stored &&
-          ["phowhisper-small", "whisper-small"].includes(stored.model) &&
-          ["vi", "en"].includes(stored.language)
-        )
-          setPreferences({ model: stored.model, language: stored.language });
+        if (stored && ["vi", "en"].includes(stored.language))
+          setPreferences({ language: stored.language });
       } catch {
-        /* Invalid saved preferences fall back to Vietnamese/PhoWhisper. */
+        /* Invalid saved preferences fall back to Vietnamese. */
       }
       try {
         if (!bridge.sttModels)
           throw new Error(
-            "Đóng/mở lại desktop phiên bản mới để chọn model và ngôn ngữ.",
+            "Đóng/mở lại desktop phiên bản mới để sử dụng nhận dạng giọng nói.",
           );
         const available = await bridge.sttModels();
         if (active) {
@@ -92,40 +89,12 @@ export default function DesktopSpeechSettings({
           <option value="en">Tiếng Anh</option>
         </select>
       </label>
-      <label>
-        Model nhận dạng
-        <select
-          value={preferences.model}
-          onChange={(event) =>
-            update({ ...preferences, model: event.target.value as ModelId })
-          }
-        >
-          {(
-            [
-              ["phowhisper-small", "PhoWhisper-small"],
-              ["whisper-small", "Whisper-small (đa ngôn ngữ)"],
-            ] as const
-          ).map(([id, label]) => {
-            const available = models.some(
-              (model) => model.id === id && model.available,
-            );
-            return (
-              <option key={id} value={id} disabled={!available}>
-                {label}
-                {ready && !available ? " — chưa cài" : ""}
-              </option>
-            );
-          })}
-        </select>
-      </label>
       <p>
-        PhoWhisper ưu tiên tiếng Việt; Whisper-small hỗ trợ nhiều ngôn ngữ. Chọn
-        ngôn ngữ chính của câu trả lời. Lựa chọn được nhớ trên thiết bị này cho
-        máy chủ hiện tại.
+        Chọn ngôn ngữ chính của câu trả lời. Lựa chọn được nhớ trên thiết bị này
+        cho máy chủ hiện tại.
       </p>
       <p>
-        Đổi lựa chọn rồi bấm Thử STT lại để áp dụng cho bản ghi đã thu;
-        transcript hiện tại được giữ đến khi nhận dạng lại thành công.
+        Có thể đổi ngôn ngữ rồi bấm Thử STT lại để nhận dạng lại bản ghi đã thu.
       </p>
       {!ready && !error && <p role="status">Đang kiểm tra model trên máy…</p>}
       {error && (
@@ -135,11 +104,11 @@ export default function DesktopSpeechSettings({
       )}
       {ready &&
         !models.some(
-          (model) => model.id === preferences.model && model.available,
+          (model) => model.id === DESKTOP_STT_MODEL && model.available,
         ) && (
           <p role="alert">
-            Model đã chọn chưa có trên máy. Chọn model đã cài hoặc cập nhật bộ
-            OralAI đầy đủ.
+            Chưa có bộ nhận dạng Whisper-small trên máy. Cập nhật bộ OralAI đầy
+            đủ.
           </p>
         )}
       {settings.storageError && <p role="status">{settings.storageError}</p>}

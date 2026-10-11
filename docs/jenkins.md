@@ -31,23 +31,7 @@ Jenkinsfile này dành cho địa chỉ triển khai trên. Nếu đổi domain,
 
 Test API lỗi sẽ chặn các bước build web và deploy tiếp theo. Không coi việc push thành công hoặc bước build image thành công là đã triển khai xong.
 
-## Lỗi kiểm thử thiếu thuật ngữ tiếng Anh
-
-Commit `1932aab` thêm trường bắt buộc `english_terms` nhưng hai bộ dữ liệu kiểm thử Gemini/Ollama còn thiếu trường này. Dấu hiệu trong log:
-
-```text
-test_enable_gemini_preserves_whisper_policy_and_grades_text
-test_local_ollama_grades_submitted_text_without_cloud
-POST /admin/exams/.../publish -> 500
-type=ValidationError
-ERROR: API tests failed; deployment skipped
-```
-
-Đã sửa tại commit `b546e84`. Chạy build mới lấy commit này hoặc commit sau đó. Không cần đổi API key hay credential `oral-ai-env` để sửa lỗi fixture này.
-
-Bản sửa đã chạy đầy đủ test API trong container cô lập mạng: **62 passed, 5 skipped**. Các ca bỏ qua cần PostgreSQL; stage này chủ động dùng SQLite. Kết quả này là kiểm tra bản sửa, không thay cho trạng thái job Jenkins bạn đang chạy.
-
-## Chẩn đoán lỗi khác
+## Chẩn đoán lỗi
 
 | Bước lỗi | Cách kiểm tra |
 | --- | --- |
@@ -57,14 +41,14 @@ Bản sửa đã chạy đầy đủ test API trong container cô lập mạng: 
 | Test API | Tên ca `FAILED`, lỗi trước HTTP 500 và báo cáo JUnit; đối chiếu commit đã checkout |
 | Deploy | Thông báo kiểm tra domain, cổng, credential, migration hoặc trạng thái dịch vụ |
 
-Các dòng `DeprecationWarning` và `No suitable checks publisher found` trong log lỗi vừa gặp không phải nguyên nhân làm 4 test thất bại. Tìm lỗi đầu tiên và phần tổng kết `FAILED` trước khi chỉnh cấu hình.
+Đối chiếu lỗi đầu tiên và phần tổng kết `FAILED` trước khi chỉnh cấu hình.
 
 Pipeline không tự downgrade database hoặc rollback khi deploy thất bại. Giữ volume dữ liệu để kiểm tra và khắc phục. Không xóa volume để xử lý lỗi test.
 
 ## Cập nhật desktop sau server
 
 - **Chỉ đổi web/API:** triển khai server rồi mở lại desktop.
-- **Đổi Electron/preload hoặc gỡ chức năng local:** người chạy source cập nhật repo, chạy `npm ci` khi dependency đổi rồi mở lại app. Người dùng bộ cài cần bản desktop mới.
+- **Đổi Electron/preload:** người chạy source cập nhật repo, chạy `npm ci` khi dependency đổi rồi mở lại app. Người dùng bộ cài cần bản desktop mới.
 - **Đổi helper/model STT:** build lại bundle và bộ cài theo [hướng dẫn đóng gói](desktop-build.md).
 
 Push lên `main` không tự tạo bộ cài: vào GitHub Actions → **Desktop installers → Run workflow**, chọn nhánh cần build rồi tải artifact đúng hệ điều hành.

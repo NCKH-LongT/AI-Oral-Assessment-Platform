@@ -2,7 +2,7 @@
 
 > **Mục đích:** chọn đề tài có thể kiểm chứng, thiết kế baseline và thí nghiệm, rồi viết bài từng bước. Đây là kế hoạch nghiên cứu, **không phải bài báo đã có kết quả**.
 >
-> **Mốc rà soát:** 09/10/2026, mã nguồn `main` tại [`80c17fde39f6c99ee1036db19e7fc3c9f5c87090`](https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform/tree/80c17fde39f6c99ee1036db19e7fc3c9f5c87090), sau khi PR #8 được merge. Thay đổi trong tài liệu này chỉ là hướng dẫn; không bổ sung runner, huấn luyện mô hình hay chạy thí nghiệm.
+> **Mốc đối chiếu triển khai:** 11/10/2026. STT desktop hiện dùng Whisper-small. Các model đối chứng trong kế hoạch thí nghiệm cần runner và tài nguyên riêng; hướng dẫn này chưa cung cấp kết quả thực nghiệm.
 
 **Đọc nhanh:**
 
@@ -64,12 +64,12 @@ Dự kiến ba đóng góp, chỉ giữ những gì thực sự làm được:
 
 ## 3. Source hiện có gì, và chưa chứng minh được gì?
 
-Các đường dẫn dưới đây tương đối với repository; để audit ổn định dùng commit đã ghi ở đầu tài liệu. Một tính năng có trong code không đồng nghĩa đã được thử với người học hoặc có chất lượng đạt yêu cầu.
+Các đường dẫn dưới đây tương đối với repository; khi thực nghiệm cần lưu commit cụ thể trong manifest của runner. Một tính năng có trong code không đồng nghĩa đã được thử với người học hoặc có chất lượng đạt yêu cầu.
 
 | Thành phần            | Bằng chứng trong source                                                                                                                                                     | Có thể mô tả trong Method/System                                                                                  | Chưa được phép kết luận                                                               |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| STT desktop           | [`apps/desktop/transcribe.py`](../../apps/desktop/transcribe.py), [`stt-policy.cjs`](../../apps/desktop/stt-policy.cjs)                                                     | PhoWhisper-small/Whisper-small, CPU INT8, `vi`/`en`, VAD, beam 5, hotword môn                                     | Model nào tốt hơn trên người học; hỗ trợ code-switching vượt trội                     |
-| Audio hiện hành       | [`student.tsx`](../../apps/admin-web/components/student.tsx), [`audio_processing.py`](../../services/api/app/audio_processing.py)                                           | Desktop dùng audio gốc, đổi định dạng cho STT; không có RNNoise/gain/thu thử desktop. Web còn tùy chọn riêng      | Hiệu quả khử nhiễu desktop; chất lượng mic thật chỉ từ test mock                      |
+| STT desktop           | [`apps/desktop/transcribe.py`](../../apps/desktop/transcribe.py), [`stt-policy.cjs`](../../apps/desktop/stt-policy.cjs)                                                     | Whisper-small, CPU INT8, `vi`/`en`, VAD, beam 5, hotword môn                                     | Model nào tốt hơn trên người học; hỗ trợ code-switching vượt trội                     |
+| Audio hiện hành       | [`student.tsx`](../../apps/admin-web/components/student.tsx), [`audio_processing.py`](../../services/api/app/audio_processing.py)                                           | Desktop dùng audio gốc, đổi định dạng cho STT; web có gain, RNNoise và thu thử      | Hiệu quả khử nhiễu desktop; chất lượng mic thật chỉ từ test mock                      |
 | Chấm rubric           | [`ai.py`](../../services/api/app/ai.py): `grade`, `grading_schema`, `structured`                                                                                            | Điểm mỗi tiêu chí có ràng buộc, tổng có trọng số thang 10; prompt `rubric-bounded-v2`, nhiệt độ 0.2 trong adapter | Đúng điểm, unbiased, hoặc deterministic chỉ vì JSON hợp lệ                            |
 | RAG                   | [`ai.py`](../../services/api/app/ai.py): `retrieve`; [`knowledge.py`](../../services/api/app/knowledge.py); [`worker.py`](../../services/api/app/worker.py): `grade_answer` | Vector 768 chiều; truy vấn bằng câu hỏi + transcript; giới hạn tài liệu/chunk theo snapshot; top-k cấu hình       | Citation đúng về mặt ngữ nghĩa chỉ vì ID nằm trong danh sách; RAG luôn tốt hơn no-RAG |
 | Phiên bản và phục hồi | [`grading.py`](../../services/api/app/grading.py), [`worker.py`](../../services/api/app/worker.py), [`models.py`](../../services/api/app/models.py)                         | Snapshot, trạng thái FAILED/NOT_GRADED/COMPLETED, review giữ lịch sử                                              | Tái lập tuyệt đối nếu provider/model alias thay đổi từ xa                             |
@@ -83,8 +83,8 @@ Các đường dẫn dưới đây tương đối với repository; để audit 
 - Confidence LLM là giá trị mô hình tự sinh. Mặc định threshold trong config là `0.85`; đây là một quy tắc vận hành, không phải kết quả tối ưu thực nghiệm.
 - `ai.grade` yêu cầu review khi confidence LLM thấp, confidence STT thấp, hoặc điểm câu nằm trong khoảng cách `0.25` quanh mốc 5. `worker.finalize` còn buộc review khi thiếu điểm hoặc điểm AI trung bình phiên **< 5**. Kết quả thực tế phụ thuộc cấu hình và các trạng thái khác; phải tái hiện đúng toàn bộ quy tắc khi dùng làm baseline.
 - Gemini STT trả `confidence_source="unavailable"` và giá trị STT 0 theo quy ước. **Không diễn giải 0 này là âm thanh cực kém**; trong runner cần biến “missing confidence” riêng.
-- Người học có thể sửa transcript trước khi gửi; UI đặt STT confidence về 0 khi nội dung khác bản STT. `Attempt.transcript` là bản đã nộp. Code hiện tại không phải một bộ lưu đầy đủ cặp raw-ASR/human-corrected cho nghiên cứu. Phải thu riêng các phiên bản và provenance trước khi chạy benchmark.
-- Chấm tay đã có ở endpoint `/admin/results/{key}/manual-grade`. Một số ghi chú lịch sử nói “chưa có manual override”; dùng source và [quy trình mới](../architecture/examination-workflow.md) làm mốc, không chép lại mô tả lịch sử.
+- Desktop gửi transcript STT tự động; giao diện sinh viên hiển thị trạng thái nhận dạng. Bài luyện tập trên web cho nhân sự có sửa transcript và đặt confidence về 0 khi nội dung khác bản STT. `Attempt.transcript` là bản đã nộp. Để nghiên cứu, cần thu riêng raw-ASR và transcript người đối chiếu cùng provenance.
+- Chấm tay ở endpoint `/admin/results/{key}/manual-grade`; xem [quy trình khảo thí](../architecture/examination-workflow.md).
 - Local STT không có nghĩa toàn hệ thống offline/private: ứng dụng vẫn cần server; media được upload và LLM/embedding có thể gọi cloud. Chỉ mô tả đúng cấu hình thực nghiệm đã dùng.
 - Bộ Software Testing hiện có 2 câu và 8 câu trả lời mẫu tự soạn. Bộ TOEIC có 11 câu và script kiểm tra khoảng điểm. Chúng không thay thế tập test sinh viên độc lập. Không dùng các mẫu công khai này để ước lượng khả năng tổng quát hóa.
 

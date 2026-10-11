@@ -36,9 +36,7 @@ function sttRoot() {
 }
 function sttModelPath(model) {
   return (
-    (model === "phowhisper-small"
-      ? process.env.ORAL_STT_MODEL
-      : process.env.ORAL_WHISPER_MODEL) ||
+    process.env.ORAL_WHISPER_MODEL ||
     path.join(sttRoot(), STT_MODELS[model].folder)
   );
 }
@@ -449,7 +447,7 @@ app.whenReady().then(async () => {
     sttBusy = true;
     let folder;
     try {
-      const selected = policy.desktop_model || "phowhisper-small";
+      const selected = policy.desktop_model || "whisper-small";
       const modelPath = sttModelPath(selected);
       if (!existsSync(path.join(modelPath, "model.bin")))
         throw new Error(

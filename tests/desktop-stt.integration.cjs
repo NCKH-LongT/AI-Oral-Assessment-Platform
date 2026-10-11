@@ -9,7 +9,7 @@ const { tmpdir } = require("node:os");
 const { _electron: electron } = require("@playwright/test");
 
 test(
-  "real Electron forwards both language/model choices to the bundled helper",
+  "real Electron defaults to Whisper-small and forwards the spoken language",
   {
     timeout: 240000,
     skip: !process.env.ORAL_STT_TEST_AUDIO,
@@ -51,13 +51,11 @@ test(
       const models = await page.evaluate(() => window.oralDesktop.sttModels());
       assert.deepEqual(
         models.map((model) => [model.id, model.available]),
-        [
-          ["phowhisper-small", true],
-          ["whisper-small", true],
-        ],
+        [["whisper-small", true]],
       );
       for (const invalid of [
         { desktop_model: "../arbitrary", language: "en" },
+        { desktop_model: "phowhisper-small", language: "vi" },
         { desktop_model: "whisper-small", language: "xx" },
       ]) {
         await assert.rejects(
@@ -81,7 +79,7 @@ test(
               return window.oralDesktop.transcribe(audio, {
                 provider: "local",
                 preprocessing: "off",
-                desktop_model: model,
+                ...(language === "en" ? { desktop_model: model } : {}),
                 language,
                 hotwords: ["country"],
               });

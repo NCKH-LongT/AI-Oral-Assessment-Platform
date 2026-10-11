@@ -2,14 +2,14 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { validHotwords, validModel } = require("../apps/desktop/stt-policy.cjs");
 
-test("desktop permits only the two bundled STT model ids", () => {
-  for (const id of ["phowhisper-small", "whisper-small"])
-    assert.equal(validModel(id), true);
+test("desktop permits only Whisper-small", () => {
+  assert.equal(validModel("whisper-small"), true);
   for (const id of [
     undefined,
     null,
     {},
     "small.en",
+    "phowhisper-small",
     "../../model",
     "toString",
     "__proto__",

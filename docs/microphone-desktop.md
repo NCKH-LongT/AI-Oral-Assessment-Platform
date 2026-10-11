@@ -1,44 +1,28 @@
-# Microphone, dấu câu và thoát desktop
+# Microphone và thoát desktop
 
-[README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu) · [Hướng dẫn desktop](../readme-desktop.md) · [Kiểm tra transcript](transcript-correction.md)
+[README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Hướng dẫn desktop](../readme-desktop.md)
 
-## Kết nối thiết bị và kiểm tra transcript
+## Kết nối thiết bị
 
-**Cập nhật 09/10/2026:** Desktop đã bỏ thu thử/kiểm tra độ ồn trước thi, gain microphone và RNNoise. Trình duyệt web vẫn giữ những chức năng này; xem [kiến trúc âm thanh trên web](architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).
+1. Mở bài thi, bấm **Cho phép camera & mic**.
+2. Chọn đúng **Microphone** và **Camera** trong phần **Chọn thiết bị**.
+3. Chọn **Ngôn ngữ nói** trong **Nhận dạng giọng nói trên desktop**.
+4. Kiểm tra camera, thanh tín hiệu và mức đỉnh dBFS. Khi đủ điều kiện thi, bấm **Bắt đầu thi** và cấp quyền ghi toàn màn hình.
 
-1. Mở một bài thi hoặc bài luyện tập, bấm **Cho phép camera & mic**. Chọn đúng **Microphone** và **Camera** trong phần **Chọn thiết bị**.
-2. Chọn ngôn ngữ và model tại **Nhận dạng giọng nói trên desktop**.
-3. Khi thiết bị đã kết nối, bấm **Bắt đầu thi**. Desktop không yêu cầu thu thử hoặc chọn bỏ qua.
-4. Ghi câu trả lời rồi bấm **Kết thúc trả lời**. Kiểm tra transcript trước khi nộp.
+Nếu âm nhỏ hoặc rè, điều chỉnh vị trí microphone và mức đầu vào trong cài đặt hệ điều hành. Cảnh báo gần/vượt −1 dBFS giúp nhận biết tín hiệu có thể quá lớn. Thanh đo không thay đổi âm thanh ghi. Khi rút thiết bị, app chặn ghi tiếp và cho chọn thiết bị khác hoặc kết nối lại.
 
-Nếu âm nhỏ hoặc rè, kiểm tra vị trí microphone và mức đầu vào trong cài đặt âm thanh của hệ điều hành. Desktop vẫn có thanh tín hiệu microphone và mức đỉnh dBFS để quan sát đầu vào, kèm cảnh báo khi gần/vượt −1 dBFS. Những chỉ số này không thay đổi âm thanh; desktop không có thanh gain và không tự khuếch đại qua gain phần mềm của ứng dụng. Không phát mic trực tiếp ra loa.
+## Ghi câu trả lời và nhận dạng
 
-## Bản ghi dùng cho STT
+Bấm **Bắt đầu trả lời**, nói xong bấm **Kết thúc trả lời**. Whisper-small nhận dạng audio gốc sau khi helper đổi định dạng về mono 16 kHz. Chờ trạng thái sẵn sàng rồi nộp câu trả lời.
 
-Desktop luôn dùng **audio gốc** cho lần nhận dạng đầu và **Thử STT lại**, không tạo bản RNNoise. Có thể đổi ngôn ngữ/model trước khi thử lại; lựa chọn bị khóa khi đang ghi, nhận dạng hoặc nộp. Nhận dạng lại thành công thay transcript đang sửa, còn lỗi STT giữ transcript hiện tại.
+Khi có lỗi, dùng **Thử STT lại** hoặc **Ghi lại**. Có thể đổi ngôn ngữ trước khi thử lại; lựa chọn bị khóa trong lúc ghi, nhận dạng hoặc nộp. App giữ kết quả thành công gần nhất nếu lần nhận dạng lại bị lỗi.
 
-Audio/video minh chứng vẫn được ghi và upload theo từng câu trả lời. Màn hình trả lời hiện không có bộ phát lại audio; giảng viên có thể mở minh chứng đã upload khi review bài. Helper STT chỉ đổi định dạng về mono 16 kHz trước khi nhận dạng; không thêm bước lọc nhiễu. Bản đã ghi hoặc nộp không bị chỉnh lại.
+Audio/video và transcript được gửi lên server. Giảng viên mở minh chứng trong **Kết quả & xem lại** để kiểm tra nội dung nhận dạng. [Transcript và review](transcript-correction.md).
 
-## Vì sao transcript thiếu dấu câu?
+## Đóng ứng dụng
 
-Desktop giữ kết quả của PhoWhisper-small hoặc Whisper-small đã chọn; model có thể trả đoạn văn thiếu dấu chấm/phẩy. Các đoạn nhận dạng được ghép bằng khoảng trắng, không tự coi mỗi đoạn hoặc khoảng nghỉ là một câu. Chất lượng dấu câu không được bảo đảm, kể cả khi nội dung từ đã đúng.
+Dùng **Thoát ứng dụng**, nút X hoặc phím đóng cửa sổ của hệ điều hành khi khả dụng. Khi đang thi, xem [chế độ thi và thoát khẩn cấp](../readme-desktop.md#truy-cập-và-ghi-màn-hình-bắt-buộc).
 
-Trước khi nộp, có thể tự thêm dấu câu trong ô **Transcript**.
+Nếu còn bản ghi hoặc dữ liệu chưa nộp, hộp thoại có **Ở lại** (mặc định) và **Rời trang / thoát**. Rời ứng dụng có thể mất phần chưa tải lên; thời gian thi trên server vẫn chạy. Để hoàn tất bài, chờ upload rồi bấm **Nộp bài thi** trước khi đóng.
 
-Transcript có chỉnh sửa sẽ cần giảng viên đối chiếu khi nộp. Xem [kiểm tra transcript](transcript-correction.md).
-
-## Đóng ứng dụng desktop
-
-Dùng nút **Thoát ứng dụng** trên giao diện, menu **OralAI → Thoát ứng dụng**, nút **X** của cửa sổ hoặc **Alt+F4** trên Windows.
-
-Nếu còn bản ghi/chưa nộp xong, app hiện hộp thoại:
-
-- **Ở lại**: tiếp tục ghi/xử lý/nộp; đây là lựa chọn mặc định.
-- **Rời trang / thoát**: đóng app và mất phần chưa nộp. Đây không phải thao tác nộp bài; thời gian thi trên server vẫn tiếp tục.
-
-Khi thực sự đóng, app hủy tác vụ local đang chạy. Hủy hộp thoại đóng không hủy tác vụ. Nếu dùng bản cũ bấm X không có tác dụng, cập nhật Electron/bộ cài rồi mở lại; lỗi cũ do trang chặn `beforeunload` nhưng Electron chưa xử lý lựa chọn rời trang. Hộp thoại cũng áp dụng khi tải lại trang có dữ liệu chưa nộp.
-
-## Nhận bản cập nhật
-
-- Bỏ gain/thu thử/RNNoise trên desktop, nhãn dấu câu và nút thoát trên giao diện: triển khai lại web đang phục vụ desktop, rồi mở lại app. Riêng thay đổi luồng audio này không cần build lại helper hoặc model STT.
-- Xử lý đóng cửa sổ và IPC thoát: chạy Electron source mới hoặc cài bộ desktop mới. Chỉ cập nhật server sẽ không sửa được việc nút X bị chặn trong desktop cũ.
+Khi đóng thật, app hủy tác vụ local đang chạy và thử khôi phục cấu hình màn hình đã lưu. Thay đổi Electron/helper cần mở lại source mới hoặc cài bộ desktop mới; hướng dẫn tại [Build và cập nhật](../readme-desktop.md#build-bộ-cài-và-chạy-lại).

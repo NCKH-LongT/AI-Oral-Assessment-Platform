@@ -6,13 +6,12 @@ Hướng dẫn này mô tả kỳ thi được tạo trong **Điều phối kỳ
 
 | Role | Quyền |
 | --- | --- |
-| ADMIN | Cấp/thu hồi role, duyệt yêu cầu khảo thí; quản trị hệ thống và hỗ trợ mọi bước |
+| ADMIN | Cấp/thu hồi role; quản trị hệ thống và hỗ trợ mọi bước |
 | EXAM_OFFICER | Tạo kỳ thi, phân công giảng viên đã có role TEACHER, nhập Excel, xem đề đã duyệt, trả đề, xếp lịch, mở thi, xuất điểm |
 | TEACHER | Chỉ quản lý môn được phân công; cấu hình đề, sinh/sửa câu hỏi và rubric, duyệt gửi khảo thí; chấm lại bài thuộc môn |
 | STUDENT | Đăng nhập email/mật khẩu hoặc Google trên desktop, xem bài được giao, thi đúng lịch, xem điểm chính thức |
-| REVIEWER | Xem môn học và kết quả để đối chiếu; quyền mở kỳ thi và ghi điểm chính thức thuộc các vai trò phụ trách |
 
-Tài khoản STUDENT có thể mở **Yêu cầu quyền khảo thí → Gửi yêu cầu làm khảo thí**. Admin mở **Người dùng**, kiểm tra yêu cầu và lưu role EXAM_OFFICER. Yêu cầu chưa duyệt không cấp quyền. Admin cũng có thể tạo trực tiếp tài khoản khảo thí hoặc phân role cho tài khoản có sẵn; mọi role được kiểm tra trên server ở mỗi request.
+Admin mở **Người dùng** để tạo tài khoản hoặc phân role EXAM_OFFICER cho nhân sự khảo thí. Mọi role được kiểm tra trên server ở mỗi request. Có mẫu Excel nhập giảng viên/khảo thí tại trang quản lý người dùng.
 
 ## Tổ chức một kỳ thi
 
@@ -59,9 +58,9 @@ Từ vựng môn được cố định trong snapshot khi sinh hoặc công bố
 
 API cấu hình giọng nói lưu nhà cung cấp, ngôn ngữ và tiền xử lý. Từ vựng được quản lý qua API hotword của môn học.
 
-Desktop lấy `/stt/config?session_id=…`; server kiểm tra chủ sở hữu phiên rồi trả hotword, không trả đáp án hoặc expected concepts. Renderer truyền cấu hình qua IPC, main process kiểm tra giới hạn, rồi helper nhận `STT_HOTWORDS` JSON. PhoWhisper và Whisper server dùng tham số `hotwords`; Google Speech v1 dùng `speechContexts` với boost 10; Gemini nhận gợi ý từ vựng với chỉ dẫn không thêm từ không nghe thấy. Luồng chấm bài vẫn độc lập STT.
+Desktop lấy `/stt/config?session_id=…`; server kiểm tra chủ sở hữu phiên rồi trả hotword, không trả đáp án hoặc expected concepts. Renderer truyền cấu hình qua IPC, main process kiểm tra giới hạn, rồi helper nhận `STT_HOTWORDS` JSON. Whisper-small desktop và Whisper server dùng tham số `hotwords`; Google Speech v1 dùng `speechContexts` với boost 10; Gemini nhận gợi ý từ vựng với chỉ dẫn không thêm từ không nghe thấy. Luồng chấm bài vẫn độc lập STT.
 
-Hotword hỗ trợ nhận dạng, không tự sửa đáp án hoặc bảo đảm chính xác. Ưu tiên bảng từ vựng ngắn, sát môn; không nhập đáp án. Thuật ngữ tiếng Anh do AI sinh cho từng câu vẫn để giảng viên review, **không tự lấy expected concepts hoặc đáp án làm gợi ý STT**. Sinh viên vẫn cần kiểm tra transcript trước khi nộp; giảng viên có thể đối chiếu với audio/video minh chứng đã upload.
+Hotword hỗ trợ nhận dạng, không tự sửa đáp án hoặc bảo đảm chính xác. Ưu tiên bảng từ vựng ngắn, sát môn; không nhập đáp án. Thuật ngữ tiếng Anh do AI sinh cho từng câu vẫn để giảng viên review, **không tự lấy expected concepts hoặc đáp án làm gợi ý STT**. Giảng viên đối chiếu transcript với audio/video minh chứng đã upload.
 
 Tham khảo triển khai: [faster-whisper hotwords](https://github.com/SYSTRAN/faster-whisper/blob/master/faster_whisper/transcribe.py), [Google SpeechContext](https://github.com/googleapis/googleapis/blob/master/google/cloud/speech/v1/cloud_speech.proto).
 

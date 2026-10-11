@@ -1,4 +1,4 @@
-"""Offline Vietnamese/English STT with bundled PhoWhisper-small or Whisper-small."""
+"""Offline Vietnamese/English STT with bundled Whisper-small."""
 
 import json
 import math
@@ -17,13 +17,12 @@ except ModuleNotFoundError:
 
 
 MODELS = {
-    "phowhisper-small": ("PhoWhisper-small", "model"),
     "whisper-small": ("Whisper-small", "whisper-small"),
 }
 
 
 def selected_model():
-    key = os.getenv("ORAL_STT_VARIANT", "phowhisper-small")
+    key = os.getenv("ORAL_STT_VARIANT", "whisper-small")
     if key not in MODELS:
         raise ValueError("Unsupported desktop STT model")
     return key
@@ -46,7 +45,16 @@ def model_path():
 
 def main():
     if sys.argv[1:] == ["--capabilities"]:
-        print(json.dumps({"protocol": 2, "models": list(MODELS), "languages": ["vi", "en"], "hotwords": True}))
+        print(
+            json.dumps(
+                {
+                    "protocol": 2,
+                    "models": list(MODELS),
+                    "languages": ["vi", "en"],
+                    "hotwords": True,
+                }
+            )
+        )
         return
     label = MODELS[selected_model()][0]
     language = os.getenv("STT_LANGUAGE", "vi")
@@ -57,7 +65,11 @@ def main():
         str(path), device="cpu", compute_type="int8", local_files_only=True
     )
     if sys.argv[1:] == ["--check"]:
-        print(json.dumps({"ready": True, "model": label, "language": language, "offline": True}))
+        print(
+            json.dumps(
+                {"ready": True, "model": label, "language": language, "offline": True}
+            )
+        )
         return
     with tempfile.TemporaryDirectory(prefix="oral-desktop-stt-") as folder:
         clean = Path(folder) / "speech.wav"

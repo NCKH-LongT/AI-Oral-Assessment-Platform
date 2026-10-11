@@ -14,7 +14,7 @@ Electron và trình duyệt dùng chung giao diện Next.js. Bridge `oralDesktop
 
 `POST /admin/courses/{id}/archive` và `/restore` chuyển trạng thái môn; lưu trữ chặn tạo đề và sao chép đề.
 
-`POST /admin/exams/{id}/copy` tạo bản nháp mới có tên thêm “(bản sao)”, giữ rubric ID, thời gian và blueprint, không có snapshot, assignment, session hoặc kết quả. Bản sao dùng rubric và nguồn kiến thức hiện tại khi công bố lại, không phải bản chụp kiến thức của đề gốc. Giảng viên khác môn và STUDENT/REVIEWER không được thực hiện thao tác ghi. Giao diện có hủy sửa, reset form sau lưu, xóa có xác nhận; lỗi dependency hiện tại vị trí thao tác.
+`POST /admin/exams/{id}/copy` tạo bản nháp mới có tên thêm “(bản sao)”, giữ rubric ID, thời gian và blueprint, không có snapshot, assignment, session hoặc kết quả. Bản sao dùng rubric và nguồn kiến thức hiện tại khi công bố lại, không phải bản chụp kiến thức của đề gốc. Giảng viên khác môn và STUDENT không được thực hiện thao tác ghi. Giao diện có hủy sửa, reset form sau lưu, xóa có xác nhận; lỗi dependency hiện tại vị trí thao tác.
 
 Foreign key bảo vệ tính toàn vẹn dữ liệu khi có thao tác đồng thời.
 
@@ -28,7 +28,7 @@ Electron kiểm tra quyền media theo `new URL(value).origin`. Chỉ renderer c
 
 Khi có bridge `oralDesktop`, kết nối thiết bị giữ trực tiếp stream microphone/camera để preview và ghi câu trả lời. Giao diện hiển thị thanh tín hiệu microphone và mức đỉnh dBFS để quan sát đầu vào. Nhánh đo tín hiệu giữ nguyên audio ghi/STT. **Bắt đầu thi** yêu cầu thiết bị đã kết nối và các điều kiện phiên thi hợp lệ.
 
-Audio gốc dùng cho cả STT lần đầu và **Thử STT lại**, với lựa chọn PhoWhisper-small/Whisper-small và tiếng Việt/tiếng Anh. Helper chuyển định dạng sang mono 16 kHz trước khi nhận dạng. Audio/video gốc được upload làm minh chứng; giảng viên mở bản đã upload để review. Học viên kiểm tra và sửa transcript trước khi nộp.
+Audio gốc dùng cho cả STT lần đầu và **Thử STT lại**, bằng Whisper-small với ngôn ngữ tiếng Việt/tiếng Anh. Helper chuyển định dạng sang mono 16 kHz trước khi nhận dạng. Audio/video gốc được upload làm minh chứng; giảng viên mở bản đã upload để review. Desktop hiển thị trạng thái nhận dạng; transcript tự động gửi lên server để chấm và cho giảng viên review.
 
 ## Kiểm tra mic trên trình duyệt web
 

@@ -1,24 +1,21 @@
-# Kiểm tra transcript sau STT
+# Transcript và đối chiếu bản ghi
 
-[README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Hướng dẫn làm bài](user-guide.md#học-viên-làm-bài-trên-desktop)
+[README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Làm bài trên desktop](user-guide.md#học-viên-làm-bài-trên-desktop)
 
-Chức năng sửa chính tả bằng LLM đã được gỡ. Desktop không còn tải Qwen3, chạy node-llama-cpp hoặc cung cấp IPC sửa chính tả.
+## Nhận dạng trên desktop
 
-## Kiểm tra trước khi nộp
+Sau **Kết thúc trả lời**, Whisper-small nhận dạng audio gốc theo ngôn ngữ đã chọn. Desktop hiển thị trạng thái xử lý và cho nộp khi nhận dạng thành công. Transcript và độ tin cậy được gửi tự động lên server; nội dung nhận dạng dành cho giảng viên xem lại.
 
-1. Bấm **Kết thúc trả lời** và chờ STT hoàn tất.
-2. Kiểm tra ô **Transcript**, đặc biệt tên riêng, số liệu và thuật ngữ tiếng Anh.
-3. Nếu muốn nhận dạng lại trên desktop, bấm **Thử STT lại**; app luôn dùng audio gốc với model/ngôn ngữ đang chọn. Trên trình duyệt web, có thể chọn **Bản ghi dùng cho STT → Bản gốc / Bản giảm nhiễu RNNoise** trước khi thử lại. Upload minh chứng vẫn giữ bản gốc.
-4. Sửa lỗi hoặc dấu câu trực tiếp trong ô **Transcript**. Bấm **Nộp câu trả lời & tiếp tục** khi đã kiểm tra xong.
+Sinh viên có thể bấm **Thử STT lại** hoặc **Ghi lại**. Đổi ngôn ngữ rồi nhận dạng lại áp dụng cho cùng bản ghi. Nhận dạng lại thành công thay kết quả trước; lỗi giữ kết quả thành công gần nhất. Audio/video minh chứng giữ nguyên khi thử STT lại.
 
-Nhận dạng lại thành công sẽ thay nội dung transcript đang sửa; hãy thực hiện trước khi chỉnh tay. Nếu STT lỗi, transcript hiện tại được giữ lại. Trên web, bản giảm nhiễu chỉ chọn được khi lần ghi có bản lọc hợp lệ. Desktop không hiển thị lựa chọn nguồn audio và không tạo bản lọc.
+## Giảng viên đối chiếu
 
-Khi transcript thay đổi so với kết quả STT gần nhất, hệ thống đánh dấu để giảng viên đối chiếu với bản ghi. App không tự bổ sung đáp án vào nội dung đã nói.
+Mở **Kết quả & xem lại → Xem bài**, đọc transcript và nghe audio/video tương ứng. Kiểm tra đặc biệt tên riêng, thuật ngữ, số liệu và từ phủ định vì chúng có thể ảnh hưởng điểm nội dung. Dấu câu và độ tin cậy STT không bảo đảm transcript đúng.
 
-## Câu có cả tiếng Việt và tiếng Anh
+Admin có thể yêu cầu **Nhận dạng lại & chấm lại** bằng Gemini hoặc Google, hoặc **Chấm lại transcript đã nộp** với phiên bản tương thích. Hệ thống giữ bản nộp, kết quả trước/sau và lý do review. Xem [độ tin cậy và chấm lại](architecture/grading-confidence.md).
 
-Gợi ý thuật ngữ tiếng Anh được sinh cùng câu hỏi và hiển thị cho giảng viên ở màn hình đề thi. Các gợi ý chưa tự động sửa transcript hoặc được truyền vào STT; không bảo đảm PhoWhisper nhận đúng từ xen tiếng Anh. Người dùng cần kiểm tra cách viết trong transcript. Admin xem [hướng dẫn thuật ngữ](user-guide.md#3-xem-câu-hỏi-và-thuật-ngữ-tiếng-anh).
+Hotword được cấu hình theo môn và lưu trong snapshot đề. Thuật ngữ AI gợi ý khi sinh câu hỏi dành cho giảng viên review; xem [hướng dẫn thuật ngữ](user-guide.md#3-xem-câu-hỏi-và-thuật-ngữ-tiếng-anh).
 
-## Nếu vẫn thấy nút tải model sửa chính tả
+## Bài luyện tập trên web
 
-Giao diện hoặc bộ desktop đang dùng là bản cũ. Cập nhật server, sau đó mở lại app; phần Electron/preload cần source hoặc bộ cài mới. File Qwen3 đã tải ở bản cũ không còn được sử dụng. Cách dọn file tùy chọn nằm trong [hướng dẫn desktop](../readme-desktop.md#kiểm-tra-transcript).
+Nhân sự có quyền truy cập web có thể kiểm tra và sửa ô **Transcript** trong bài luyện tập. Bản sửa khác kết quả STT được gửi với confidence 0 để yêu cầu đối chiếu. Khi thử STT lại, chọn bản gốc hoặc bản RNNoise hợp lệ của lần ghi; kết quả mới thay nội dung đang sửa. [Luồng audio web](architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).

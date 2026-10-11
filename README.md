@@ -1,32 +1,8 @@
 # OralAI — Thi vấn đáp
 
-> **09/10/2026:** Desktop dùng audio gốc cho STT, không còn lọc nhiễu RNNoise, thu thử trước thi hoặc gain microphone. Trình duyệt web vẫn giữ các tùy chọn này và mặc định nhận dạng bản gốc. Đã có bộ luyện TOEIC Speaking gồm 11 câu, tranh minh họa, đáp án và rubric chấm nội dung. Xem [cách nhập môn và giao bài](#môn-luyện-nói-toeic).
+Web dành cho **ADMIN, EXAM_OFFICER và TEACHER** quản lý môn, đề, lịch thi, kết quả và dung lượng. Sinh viên làm bài qua **OralAI Desktop**: ghi audio/camera, ghi toàn màn hình theo chính sách thi và nhận dạng bản ghi gốc bằng **Whisper-small** cục bộ. Server lưu minh chứng, chấm transcript theo rubric/RAG bằng Ollama hoặc Gemini và trả kết quả.
 
-## Desktop chọn ngôn ngữ và model — 07/10/2026
-
-Mở bài thi trên desktop, tại **Nhận dạng giọng nói trên desktop** chọn **Tiếng Việt / Tiếng Anh** và **PhoWhisper-small / Whisper-small (đa ngôn ngữ)**. Lựa chọn được nhớ trên thiết bị cho máy chủ hiện tại, áp dụng cả khi ghi mới và **Thử STT lại**. Không đổi giữa lúc ghi/nhận dạng/nộp bài. Hotword vẫn lấy từ đúng môn/phiên thi; lựa chọn trên desktop không thay cấu hình STT của trình duyệt web.
-
-Cần build lại runtime và bổ sung model Whisper-small bằng `python scripts/build_desktop_stt.py`, rồi mở lại Electron hoặc đóng gói lại bộ cài. Launcher/bộ cài kiểm tra đủ hai model và khả năng của helper; runtime cũ không được âm thầm bỏ qua lựa chọn. Máy học viên dùng bộ cài đầy đủ không phải tự tải model. Xem [hướng dẫn desktop](readme-desktop.md#chọn-ngôn-ngữ-và-model-nhận-dạng).
-
-## Hotword riêng theo môn — 06/10/2026
-
-Vào **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học** để lưu từ vựng riêng cho môn đó. Hỗ trợ tối đa **500 thuật ngữ**, **100 ký tự/mục**, **10.000 ký tự tổng cộng**; danh sách 200 mục không còn bị giới hạn 100 mục. Dòng trống và mục trùng được loại trước khi tính giới hạn. Web hiển thị số mục/ký tự và báo lỗi trước khi lưu.
-
-Đã bỏ hotword chung trong Cấu hình giọng nói; dữ liệu chung cũ không còn áp dụng hoặc tự sao chép sang các môn. STT chỉ nhận hotword của môn thuộc phiên thi, không cắt về 100 mục. Đề mới giữ bản sao hotword tại lúc sinh đề; sửa danh sách môn không đổi đề đã sinh. Xem [hướng dẫn hotword và cập nhật](docs/architecture/examination-workflow.md#hotword-stt).
-
-Áp dụng: `docker compose up -d --build --wait`, sau đó đóng/mở lại desktop từ source; bộ cài desktop cần đóng gói lại. Bản sửa này không thêm migration hoặc biến `.env`.
-
-## Quy trình khảo thí và hotword STT — 05/10/2026
-
-Đã bổ sung role **EXAM_OFFICER** do admin duyệt, giao giảng viên theo môn, nhập sinh viên Excel, sinh/review/duyệt câu hỏi và rubric, xếp lịch theo sinh viên, chấm lại bài AI dưới 5 và xuất điểm Excel. Module sinh snapshot và Excel được tách khỏi router quản trị.
-
-- [Hướng dẫn đầy đủ và thiết kế luồng thi](docs/architecture/examination-workflow.md).
-- [Tải Excel mẫu danh sách sinh viên](docs/templates/danh-sach-sinh-vien.xlsx).
-- Hotword riêng theo môn áp dụng cho PhoWhisper desktop, Whisper server, Google STT và Gemini STT (cập nhật 06/10/2026).
-- Cần migration **0005**, dependency Excel mới và build lại desktop để nhận hotword. Xem hướng dẫn triển khai trong tài liệu trên.
-
-
-Desktop ghi audio/video và nhận dạng bản gốc bằng **PhoWhisper-small hoặc Whisper-small cục bộ**, không qua RNNoise hoặc gain phần mềm của ứng dụng. Server nhận media gốc + transcript, chấm theo rubric/RAG bằng **Ollama local hoặc Gemini**, rồi trả kết quả cho app.
+Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, giảng viên, khảo thí và danh sách sinh viên; đề được review/duyệt trước khi mở thi. Admin quản lý dung lượng từng lần thi, dọn bản ghi giữ điểm hoặc xóa toàn bộ lần thi được chọn.
 
 ## Hướng dẫn theo nhu cầu
 
@@ -36,8 +12,8 @@ Desktop ghi audio/video và nhận dạng bản gốc bằng **PhoWhisper-small 
 | Cài desktop, chọn server, kết nối thiết bị và làm bài | [Hướng dẫn OralAI Desktop](readme-desktop.md) |
 | Chọn đúng lệnh mở desktop từ source hoặc server | [Bắt đầu nhanh](readme-desktop.md#bắt-đầu-nhanh) |
 | Cập nhật server và xử lý lỗi pipeline | [Hướng dẫn Jenkins](docs/jenkins.md) |
-| Chọn mic, kiểm tra transcript, thêm dấu câu hoặc thoát app | [Mic, dấu câu và thoát desktop](docs/microphone-desktop.md) |
-| Kiểm tra và sửa transcript trước khi nộp | [Kiểm tra transcript](docs/transcript-correction.md) |
+| Chọn mic, nhận dạng câu trả lời hoặc thoát app | [Microphone và thoát desktop](docs/microphone-desktop.md) |
+| Đối chiếu transcript và bản ghi | [Transcript và review](docs/transcript-correction.md) |
 | Build, đóng gói và kiểm tra bộ cài Windows/Linux/macOS | [Build desktop](docs/desktop-build.md) |
 | Chuẩn bị tài nguyên STT bắt buộc trong bộ cài | [STT resources](apps/desktop/resources/stt/README.md) |
 | Hiểu luồng nhận dạng, tài liệu kiến thức và LLM chấm bài | [Kiến trúc STT/LLM](docs/architecture/knowledge-speech.md) |
@@ -46,10 +22,10 @@ Desktop ghi audio/video và nhận dạng bản gốc bằng **PhoWhisper-small 
 | Cấu hình số lần thi, cấp thêm lượt và xem lịch sử | [Làm lại bài thi](docs/architecture/exam-retakes.md) |
 | Hiểu độ tin cậy AI và thao tác chấm lại | [Độ tin cậy và chấm lại](docs/architecture/grading-confidence.md) |
 | Nạp bộ câu hỏi mẫu môn Kiểm thử phần mềm | [Bộ dữ liệu Software Testing](data/software-testing-istqb/README.md) |
-| Xem kiến trúc ban đầu và kế hoạch phát triển | [Giai đoạn 1](docs/architecture/phase-1.md), [Project Guide](AI_Oral_Assessment_PROJECT_GUIDE.md) |
+| Hiểu kiến trúc và quy tắc phát triển | [Tổng quan kiến trúc](docs/architecture/phase-1.md), [Project Guide](AI_Oral_Assessment_PROJECT_GUIDE.md) |
 | Xem những gì đã kiểm thử và giới hạn còn lại | [Biên bản kiểm thử](docs/validation.md) |
 
-Để bắt đầu: chạy server theo mục bên dưới, sau đó làm theo hướng dẫn desktop. Project Guide và biên bản kiểm thử có các phần lịch sử; đọc ghi chú cập nhật trước khi áp dụng.
+Để bắt đầu: chạy server theo mục bên dưới, sau đó làm theo hướng dẫn desktop. Các tài liệu mô tả luồng hiện hành và phạm vi kiểm thử tương ứng.
 
 ## Chạy server
 
@@ -77,11 +53,11 @@ ORAL_CLIENT_PORT=3001
 
 `ORAL_BACKEND_MODE` chỉ dùng khi profile chưa lưu lựa chọn. Đây là lựa chọn **máy chủ ứng dụng**,
 khác với `AI_PROVIDER=local` (Ollama chạy tại backend). Desktop vẫn nhận dạng giọng nói trên máy người dùng.
-Launcher dùng `.venv-stt` nếu có; model Whisper-small phải được cài riêng nếu bundle hiện tại chỉ có PhoWhisper.
+Launcher dùng `.venv-stt` nếu có; chuẩn bị bundle Whisper-small theo [hướng dẫn desktop](readme-desktop.md#chạy-từ-source).
 Đăng nhập Google trên web local mở cửa sổ đăng nhập của backend và hoàn tất bằng luồng polling.
 
 `npm run desktop:server` giữ cách mở Electron trực tiếp tới `ORAL_WEB_URL`/server đã lưu,
-không chạy giao diện local và không có bộ chọn backend local này. Bộ cài desktop vẫn chọn server qua menu OralAI.
+không chạy giao diện local và không có bộ chọn backend local này. Bộ cài desktop chọn server tại **Cấu hình máy chủ** trên màn hình đăng nhập.
 
 Cần Docker Compose và Python 3. Tại thư mục gốc:
 
@@ -133,22 +109,17 @@ docker compose up -d --no-deps --force-recreate api worker
 
 ## Desktop và thiết bị ghi âm
 
-Đang sửa source trên Linux/macOS: chạy **`./run-desktop.sh`**. Script chỉ mở UI dev cổng 3001 và Electron, dùng server bạn đã chạy tại localhost:3000; không gọi Docker. Sửa giao diện tự cập nhật. Cần bundle STT đã build; xem [hướng dẫn](readme-desktop.md).
+Chạy `npm run desktop` để dùng giao diện source. Bộ cài từ workflow **Desktop installers** chứa Whisper-small đa ngôn ngữ, runtime STT và FFmpeg; nhận dạng CPU INT8. Máy sinh viên vẫn cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận điểm.
 
-Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small, Whisper-small đa ngôn ngữ, runtime STT và FFmpeg**; cả hai chạy CPU INT8. Máy học viên không cần Python hoặc tải thêm model để nhận dạng. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
+1. Chọn server tại **Cấu hình máy chủ** trước khi đăng nhập.
+2. Mở bài, cấp quyền và chọn microphone/camera.
+3. Chọn **Ngôn ngữ nói**, chuẩn bị một màn hình và đồng ý ghi toàn màn hình.
+4. Bấm **Bắt đầu thi**, ghi từng câu, chờ nhận dạng rồi **Nộp câu trả lời & tiếp tục**. Có thể thử STT lại hoặc ghi lại.
+5. Chờ minh chứng tải xong và bấm **Nộp bài thi**.
 
-1. Chọn server tại **OralAI → Cấu hình máy chủ…**.
-2. Mở bài, cấp quyền và chọn microphone/camera trong danh sách **Chọn thiết bị**.
-3. Chọn ngôn ngữ và model STT, rồi bấm **Bắt đầu thi** khi thiết bị đã kết nối. Desktop không yêu cầu thu thử hoặc kiểm tra độ ồn trước thi.
-4. Ghi từng câu trả lời và kiểm tra transcript. Bấm **Thử STT lại** nếu cần; desktop luôn nhận dạng từ bản gốc.
+Desktop hiển thị câu hỏi, hướng dẫn và trạng thái nhận dạng. Transcript tự động được gửi lên server để chấm và cho giảng viên review. Ngôn ngữ được nhớ theo profile; Whisper-small là model cố định. [Hướng dẫn desktop](readme-desktop.md), [microphone](docs/microphone-desktop.md), [transcript và review](docs/transcript-correction.md).
 
-Desktop giữ thanh tín hiệu microphone và mức đỉnh dBFS để quan sát âm đầu vào; không hiển thị gain, lựa chọn RNNoise hoặc nguồn bản ghi STT. Nếu âm nhỏ hoặc rè, kiểm tra vị trí mic và mức đầu vào của hệ điều hành. Bấm **Thoát ứng dụng** hoặc X để đóng; nếu còn bản chưa nộp, chọn **Ở lại** hoặc xác nhận **Rời trang / thoát**. Xem [hướng dẫn mic và thoát app](docs/microphone-desktop.md).
-
-Trình duyệt web vẫn giữ thu thử 10 giây, gain và RNNoise; xem [luồng âm thanh trên web](docs/architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).
-
-Người dùng kiểm tra và sửa transcript bằng tay trước khi nộp. Giảng viên có thể xem/nghe minh chứng đã upload khi review bài. Chức năng sửa chính tả bằng LLM đã được gỡ. Xem [kiểm tra transcript](docs/transcript-correction.md).
-
-Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khiển đường nhận dạng của trình duyệt web. Media gốc được lưu riêng, không thay bằng bản đã lọc. Worker xử lý bất đồng bộ; app tự cập nhật điểm hoặc trạng thái cần xem lại.
+Bài luyện tập của nhân sự trên web có thu thử 10 giây, gain và RNNoise theo [luồng âm thanh web](docs/architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web). STT web dùng cấu hình server. Media gốc được lưu riêng; worker chấm bất đồng bộ, trả điểm hoặc trạng thái cần xem lại.
 
 ## Thuật ngữ tiếng Anh và xóa môn học
 
@@ -189,7 +160,7 @@ Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn deskto
 
 `Jenkinsfile` build/kiểm tra/deploy web và API; bộ cài desktop dùng workflow riêng. Nếu deploy bằng Jenkins, đồng bộ các biến mới trong credential `oral-ai-env`.
 
-Xem [các bước cập nhật và chẩn đoán lỗi Jenkins](docs/jenkins.md). Lỗi 4 test Gemini/Ollama thiếu `english_terms` đã được sửa ở `b546e84`; job cần checkout commit này hoặc mới hơn, không cần đổi `.env` cho lỗi đó.
+Xem [các bước cập nhật và chẩn đoán lỗi Jenkins](docs/jenkins.md).
 
 Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0007` để lưu câu hỏi nhập Excel và theo dõi dọn bản ghi, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
 
@@ -208,9 +179,9 @@ Tra cứu thêm trong [Hướng dẫn theo nhu cầu](#hướng-dẫn-theo-nhu-c
 
 ## Môn luyện nói TOEIC
 
-Đã bổ sung bộ dữ liệu `TOEIC-SPEAKING-01`: 11 câu, 2 tranh minh họa, tài liệu RAG, đáp án và rubric chấm nội dung transcript thang 10; 30 phút/lượt, làm lại không giới hạn. Script nhập môn và giao đề cho toàn bộ sinh viên đang hoạt động: [hướng dẫn và dữ liệu](data/toeic-speaking/README.md). Điểm này chưa đánh giá phát âm/ngữ điệu và không quy đổi thành điểm TOEIC chính thức.
+Bộ dữ liệu `TOEIC-SPEAKING-01`: 11 câu, 2 tranh minh họa, tài liệu RAG, đáp án và rubric chấm nội dung transcript thang 10; 30 phút/lượt, làm lại không giới hạn. Script nhập môn và giao đề cho toàn bộ sinh viên đang hoạt động: [hướng dẫn và dữ liệu](data/toeic-speaking/README.md). Điểm này chưa đánh giá phát âm/ngữ điệu và không quy đổi thành điểm TOEIC chính thức.
 
-Desktop luôn dùng **bản ghi gốc** cho STT và **Thử STT lại**. Trên web, checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt; có thể bật khi cần hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **English + Whisper-small**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.
+Desktop luôn dùng **bản ghi gốc** cho STT và **Thử STT lại**. Trên web, checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt; có thể bật khi cần hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **Tiếng Anh**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.
 
 ### Cài bộ luyện TOEIC trên server khác
 

@@ -1,340 +1,165 @@
 # OralAI Desktop
 
-> **09/10/2026 — audio desktop:** STT và nhận dạng lại luôn dùng bản ghi gốc; desktop đã bỏ RNNoise, thu thử trước thi và gain microphone. Trình duyệt web giữ nguyên các tính năng này, mặc định STT dùng bản gốc. Môn `TOEIC-SPEAKING-01` có 11 câu và rubric chấm nội dung transcript. Xem [cách làm bài](#môn-luyện-nói-toeic).
-
-> **07/10/2026:** Desktop chọn trực tiếp tiếng Việt/tiếng Anh và PhoWhisper-small/Whisper-small đa ngôn ngữ. Cần build lại runtime, bổ sung model Whisper-small rồi đóng/mở lại app; không chỉ reload trang. Xem [cách chọn](#chọn-ngôn-ngữ-và-model-nhận-dạng).
-
-> **06/10/2026:** Desktop chỉ nhận hotword của môn thuộc phiên thi, truyền vào PhoWhisper qua `STT_HOTWORDS`; không gộp từ vựng chung. Hỗ trợ tối đa 500 mục, 100 ký tự/mục và 10.000 ký tự tổng cộng. Sau cập nhật cần đóng/mở lại app từ source hoặc đóng gói/cài lại desktop để thay giới hạn cũ 100 mục. Không cần tải lại model STT cho bản sửa này. Sinh viên đăng nhập bằng email trong danh sách Excel và mở **Bài thi của tôi** theo lịch khảo thí. Xem [quy trình mới](docs/architecture/examination-workflow.md).
-
-
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
 
-Bộ cài desktop bao gồm runtime Python đóng gói, FFmpeg, **PhoWhisper-small** và **Whisper-small đa ngôn ngữ**. Cả hai nhận dạng cục bộ bằng CPU INT8; không cần cài Python riêng hoặc tải thêm model STT trên máy học viên. LLM chấm bài chạy trên server.
-
-Đi nhanh: [chọn server](#đổi-url-máy-chủ-khi-chạy-hoặc-build) · [kết nối thiết bị](#kết-nối-mic-và-camera-trước-khi-thi) · [làm bài](#khi-làm-bài) · [kiểm tra transcript](docs/transcript-correction.md) · [build và cập nhật](#build-bộ-cài-và-chạy-lại) · [xử lý lỗi](#xử-lý-lỗi).
+OralAI Desktop dành cho sinh viên làm bài vấn đáp. App nhận dạng audio gốc bằng **Whisper-small** trên máy, dùng CPU INT8. Sinh viên chọn tiếng Việt hoặc tiếng Anh; câu hỏi và hướng dẫn hiển thị trong suốt lượt trả lời. Transcript được gửi lên server để chấm và cho giảng viên đối chiếu bản ghi.
 
 ## Bắt đầu nhanh
 
-**Web/desktop local có nút Local / Online (Windows, Linux, macOS):** chạy `npm run desktop` tại thư mục gốc.
-Lệnh tự mở giao diện source tại `http://localhost:3001` nếu chưa có; có thể mở URL đó trên trình duyệt,
-hoặc chạy riêng `npm run dev`. Chọn backend ở thanh đầu trang: Online mặc định là
-`https://oral-test.paperlens.uk`, Local là server Docker `http://localhost:3000`.
-Đổi backend không cần chạy lại app; phiên đăng nhập riêng cho từng backend.
-Xem [cấu hình và cách chạy](README.md#chạy-web-và-desktop-local-chọn-backend-trên-giao-diện).
+Từ thư mục gốc repository:
 
-Sau khi đăng nhập Google thành công, desktop tự khôi phục cửa sổ OralAI nếu đang thu nhỏ
-và đưa ứng dụng lên trước. Web local đóng cửa sổ đăng nhập và yêu cầu trình duyệt quay
-về tab ứng dụng (tùy quyền chuyển tiêu điểm của trình duyệt/hệ điều hành).
-Sau khi cập nhật source, đóng/mở lại desktop để áp dụng.
+```bash
+npm ci
+npm run desktop
+```
 
-**Lưu ý về các lệnh cũ bên dưới:** khi muốn mở trực tiếp UI trên server với `ORAL_WEB_URL`,
-dùng **`npm run desktop:server`** thay cho `npm run desktop`. Launcher Python/Bash cũ vẫn dùng một server cố định.
+Lệnh mở Electron và giao diện source tại `http://localhost:3001`. Chạy riêng `npm run dev` để mở giao diện trong trình duyệt. Cần chuẩn bị STT theo [Chạy từ source](#chạy-từ-source) trước khi nhận dạng câu trả lời.
 
-| Tình huống | Cách mở |
+Thanh **Backend** có hai lựa chọn:
+
+| Chế độ | Máy chủ mặc định |
 | --- | --- |
-| Học viên đã cài OralAI | Mở app, chọn server trong **Cấu hình máy chủ** tại màn hình đăng nhập, đăng nhập và làm bài |
-| Đã có source, dependency và bundle STT; muốn tải giao diện đang triển khai | Chạy `npm run desktop:server` với môi trường và URL như ví dụ bên dưới |
-| Đang sửa giao diện trong repo trên Linux/macOS | Chạy `./run-desktop.sh --server http://localhost:3000` để mở UI dev tại cổng 3001 |
-| Chưa có dependency hoặc bundle STT | Hoàn tất mục [Chạy từ source](#chạy-từ-source) trước |
+| Online | `https://oral-test.paperlens.uk` |
+| Local | `http://localhost:3000` |
 
-Mở desktop từ source, dùng server local đã chạy, trên Linux/macOS:
+Online dùng dữ liệu của máy chủ đã triển khai. Local cần backend hoạt động, ví dụ `docker compose up -d --build --wait`. Lựa chọn được nhớ theo profile, phiên đăng nhập tách riêng cho từng backend. Hoàn tất nộp bài trước khi đổi máy chủ.
 
-```bash
-env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop:server
-```
-
-Windows PowerShell:
-
-```powershell
-Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-$env:ORAL_WEB_URL = "http://localhost:3000"
-npm run desktop:server
-```
-
-Chạy lệnh tại thư mục gốc repository. Thay URL bằng địa chỉ server thực tế nếu dùng máy chủ khác. `npm run desktop:server` chỉ mở Electron, không chạy backend hoặc build giao diện. `./run-desktop.sh` cũng cần backend đã chạy sẵn.
-
-Nếu dùng Docker local và server chưa chạy:
-
-```bash
-docker compose up -d --build --wait
-```
-
-Lần đầu cần chuẩn bị `.env` theo [hướng dẫn server](README.md#chạy-server). Server triển khai qua Jenkins được cập nhật theo [hướng dẫn Jenkins](docs/jenkins.md). Admin xem [hướng dẫn tạo môn và giao bài](docs/user-guide.md).
+Đăng nhập Google trên desktop mở trình duyệt hệ thống; khi thành công app tự khôi phục cửa sổ và đưa lên trước. Web local dùng cửa sổ đăng nhập và quay về tab ứng dụng theo quyền của trình duyệt.
 
 ## Đổi URL máy chủ khi chạy hoặc build
 
-Desktop cần **URL web gốc**, nơi có cả giao diện và `/api`, ví dụ `https://oral.example.edu` hoặc `http://localhost:3000`. Không nhập `/api` phía sau, không trỏ trực tiếp tới FastAPI cổng 8000. Thay domain ví dụ bên dưới bằng server thật của bạn. Máy chủ ở máy khác cần HTTPS với chứng chỉ được máy học viên tin cậy; HTTP chỉ hỗ trợ localhost. Trên PC học viên, `localhost` là chính PC đó.
+Các giá trị của launcher source có thể đặt trong `.env` rồi khởi động lại:
 
-### Chạy UI mới từ source — Linux/macOS
-
-```bash
-# Backend Docker trên cùng máy
-./run-desktop.sh --server http://localhost:3000
-
-# Backend ở máy chủ khác
-./run-desktop.sh --server https://oral.example.edu
-
-# Đổi cả cổng UI dev nếu 3001 đang bận
-./run-desktop.sh --server https://oral.example.edu --port 3002
+```dotenv
+ORAL_BACKEND_MODE=online
+ORAL_LOCAL_BACKEND_URL=http://localhost:3000
+ORAL_ONLINE_BACKEND_URL=https://oral-test.paperlens.uk
+ORAL_CLIENT_PORT=3001
 ```
 
-`--server` là backend mà UI dev gọi tới; UI mới vẫn chạy trên localhost. Script tự đặt `API_INTERNAL_URL=<server>/api` và origin đăng nhập Google. Backend cần cho phép origin UI dev trong `ALLOWED_ORIGINS`, ví dụ `http://localhost:3001` hoặc `http://localhost:3002`. Script không chạy Docker và không cập nhật backend.
+`ORAL_BACKEND_MODE` áp dụng khi profile chưa lưu lựa chọn. `AI_PROVIDER` cấu hình LLM trên backend, độc lập với bộ chọn máy chủ này.
 
-### Mở trực tiếp giao diện từ server
-
-Linux/macOS, chạy tại thư mục repository:
+Để mở trực tiếp giao diện do server phục vụ:
 
 ```bash
-env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu npm run desktop:server
+env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral-test.paperlens.uk npm run desktop:server
 ```
 
 Windows PowerShell:
 
 ```powershell
 Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-$env:ORAL_WEB_URL = "https://oral.example.edu"
+$env:ORAL_WEB_URL = "https://oral-test.paperlens.uk"
 npm run desktop:server
 ```
 
-Cách này tải giao diện đã triển khai trên server; sửa source UI trên máy chưa làm giao diện server thay đổi. `ORAL_WEB_URL` được đọc từ môi trường tiến trình lúc chạy, không tự đọc từ file `.env` của backend. Biến này ưu tiên URL đã lưu trong app. Để lần khởi động sau dùng URL đã lưu, bỏ biến bằng `unset ORAL_WEB_URL` (Bash) hoặc `Remove-Item Env:ORAL_WEB_URL -ErrorAction SilentlyContinue` (PowerShell).
-
-### Build bộ cài để dùng với server khác
-
-**Hiện bộ cài không nhúng URL riêng lúc build.** Build một bộ cài, sau đó chọn server khi mở app lần đầu hoặc tại **Cấu hình máy chủ** tại màn hình đăng nhập. Địa chỉ được lưu riêng trên từng máy và dùng lại ở lần mở sau. Đặt `ORAL_WEB_URL` trước `npm run dist` không ghi biến này vào bộ cài.
-
-Sau khi chuẩn bị bundle STT theo mục [Build bộ cài và chạy lại](#build-bộ-cài-và-chạy-lại):
-
-```bash
-# Linux/macOS: build trên đúng hệ điều hành đích
-npm run dist -w apps/desktop
-```
-
-```powershell
-# Windows PowerShell
-npm run dist:win -w apps/desktop
-```
-
-Cài artifact trong `apps/desktop/dist/`, mở app và nhập `https://oral.example.edu` vào màn hình cấu hình. Không cần build lại để đổi server. Nếu dùng Google login, domain gốc trong admin và callback OAuth phải cùng server đã chọn, ví dụ `https://oral.example.edu/api/auth/google/callback`.
-
-Cũng có thể truyền URL khi **chạy app đã cài**, sau khi đóng phiên app cũ:
-
-```bash
-# Linux: bản .deb
-env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu oralai
-
-# macOS: bộ cài đặt trong /Applications
-env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=https://oral.example.edu /Applications/OralAI.app/Contents/MacOS/OralAI
-```
-
-```powershell
-# Windows: thay đường dẫn bằng vị trí OralAI.exe đã cài thực tế
-Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-$env:ORAL_WEB_URL = "https://oral.example.edu"
-& "C:\duong-dan-cai-dat\OralAI.exe"
-```
-
-`API_INTERNAL_URL` là cấu hình proxy của **web Next.js**, không phải biến đổi server cho bộ cài Electron. Chỉ cần tự đặt biến này khi chạy/build web riêng; launcher đã đặt giúp bạn khi dùng `--server`.
+URL phải là web gốc có `/api`, dùng HTTPS hoặc HTTP localhost; ví dụ `http://localhost:3000`. Trên máy sinh viên, localhost trỏ về chính máy đó. Bộ cài chọn URL qua **Cấu hình máy chủ** tại màn hình đăng nhập. URL không nhúng vào bộ cài lúc build; `ORAL_WEB_URL` có thể dùng khi chạy để chỉ định máy chủ.
 
 ## Một lệnh mở app từ code mới — Linux/macOS
 
-Trong thư mục repository, chạy:
+Launcher Python/Bash hỗ trợ giao diện source với một backend cố định:
 
 ```bash
-./run-desktop.sh
+./run-desktop.sh --server http://localhost:3000
 ```
 
-Script chỉ mở giao diện **dev tại http://localhost:3001** và Electron, kết nối server có sẵn tại `http://localhost:3000`. Không chạy lệnh Docker, build server, cài dependency hay sửa cấu hình server. Sửa giao diện sẽ tự cập nhật; sửa Electron thì đóng app và chạy lại script. Backend do bạn chạy/cập nhật riêng. Script dùng profile dev riêng nên cần đăng nhập lại lần đầu; bỏ qua `ORAL_WEB_URL` cũ và gỡ `ELECTRON_RUN_AS_NODE` khỏi tiến trình con.
-
-Cần server đang chạy, Node 22.12+, Python 3, dependency đã cài bằng `npm ci` và bundle đủ PhoWhisper-small và Whisper-small đã build theo hướng dẫn bên dưới. Sửa helper STT/model thì build lại bundle trước khi chạy script. Script không đọc/sửa `.env` hoặc tự tải code từ Git.
-
-Docker mặc định dùng cổng **3000**: `./run-desktop.sh --server http://localhost:3000` (tương đương lệnh không tham số). Chỉ đổi `--server` nếu server thực sự chạy ở địa chỉ/cổng khác; tham số này không đổi cổng Docker. Dùng URL web gốc, không thêm `/api`. Nếu server chưa chạy, script báo rõ rồi dừng.
-
-Để đăng nhập/nộp bài từ UI dev, thêm `http://localhost:3001` vào `ALLOWED_ORIGINS` của API (giữ các origin đang có). Nếu đổi `--port`, thêm origin tương ứng. Bạn tự áp dụng cấu hình này khi chạy server; script không thay cấu hình hoặc khởi động lại Docker.
-
-Đăng nhập Google dùng domain của **server**, không dùng cổng UI dev. Launcher tự truyền `ORAL_AUTH_ORIGIN` bằng giá trị `--server` cho Electron chạy từ source. Với cấu hình mặc định, giữ domain gốc của backend là `http://localhost:3000` và callback Google là `http://localhost:3000/api/auth/google/callback`; không đổi sang 3001. Địa chỉ `--server` cần khớp domain gốc đã cấu hình trong admin. Bộ cài desktop dùng domain máy chủ đã chọn trong app và không nhận override đăng nhập dành cho dev này.
-
-Cổng bận: `./run-desktop.sh --port 3002`. Script từ chối dùng một dev server đang chạy để tránh mở nhầm bản cũ. Đóng Electron hoặc Ctrl+C sẽ dừng dev server của phiên đó; server đang dùng không bị thay đổi. Lệnh `npm run desktop:server` đơn thuần chỉ mở Electron, không build hoặc cập nhật giao diện ở địa chỉ server.
-
-Có thể chạy lại ngay sau khi đóng app; kết nối TCP cũ ở trạng thái `TIME_WAIT` không bị tính là chiếm cổng. Nếu vẫn báo cổng 3001 bận, kiểm tra bằng `ss -ltnp 'sport = :3001'` trên Linux và đóng phiên đang dùng cổng. Khởi động lại Docker không giải phóng cổng của UI dev trên máy.
-
-Sau **Cho phép camera & mic**, chọn đúng thiết bị và ngôn ngữ/model STT rồi bấm **Bắt đầu thi**. Desktop không có bước thu thử hoặc kiểm tra độ ồn; thanh tín hiệu và mức đỉnh dBFS vẫn cho biết microphone đang nhận âm. Kiểm tra transcript sau khi ghi câu trả lời.
+Backend cần chạy sẵn. Script mở UI dev và Electron, dùng bundle STT đã chuẩn bị. Xem `./run-desktop.sh --help` để chọn cổng. Với bộ chọn Local/Online trên giao diện, dùng `npm run desktop`.
 
 ## Cài và kết nối
 
-Tải artifact từ GitHub Actions → **Desktop installers**. Windows dùng `.exe`, Ubuntu dùng `.deb` hoặc AppImage, macOS dùng `.dmg`. Bộ cài chưa ký số/notarize. Chọn đúng OS/kiến trúc máy.
+1. Tải bộ OralAI đúng hệ điều hành từ artifact **Desktop installers**, cài đặt và mở app.
+2. Chọn **Cấu hình máy chủ**, lưu URL web do đơn vị cung cấp.
+3. Đăng nhập bằng tài khoản được cấp hoặc Google đúng email trong danh sách thi.
+4. Mở **Bài thi của tôi**, chọn bài được giao theo lịch.
 
-Mở **Cấu hình máy chủ** tại màn hình đăng nhập, nhập domain HTTPS hoặc `http://localhost:3000` nếu server trên cùng máy. Không thêm `/api`. `ORAL_WEB_URL` nếu có sẽ ưu tiên domain đã lưu.
+Bộ cài gồm helper STT, FFmpeg và Whisper-small. Máy sinh viên cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận điểm; nhận dạng giọng nói chạy cục bộ.
 
 ## Kết nối mic và camera trước khi thi
 
-1. Cấp quyền camera và microphone. Trong mục **Chọn thiết bị**, chọn **Microphone** và **Camera** từ danh sách; app kết nối ngay. Tên đầy đủ xuất hiện sau khi cấp quyền.
-2. Chọn ngôn ngữ/model tại **Nhận dạng giọng nói trên desktop**.
-3. Khi thiết bị kết nối thành công, bấm **Bắt đầu thi**. Không cần thu thử, đo độ ồn hoặc chọn bỏ qua.
+1. Bấm **Cho phép camera & mic**, chọn đúng **Microphone** và **Camera**.
+2. Trong **Nhận dạng giọng nói trên desktop**, chọn **Ngôn ngữ nói: Tiếng Việt / Tiếng Anh**.
+3. Kiểm tra preview camera, thanh tín hiệu microphone và mức đỉnh dBFS. Nếu âm nhỏ hoặc rè, điều chỉnh vị trí mic và mức đầu vào của hệ điều hành.
+4. Chuẩn bị một màn hình, đồng ý ghi màn hình và cấp quyền chia sẻ khi bắt đầu bài thi.
 
-Danh sách cập nhật khi cắm/rút thiết bị. Không đổi thiết bị khi đang ghi hoặc xử lý/nộp câu trả lời. Thiết bị bị rút sẽ báo lỗi để bạn chọn lại, không âm thầm dùng thiết bị khác.
-
-Desktop giữ thanh tín hiệu microphone và mức đỉnh dBFS; không có gain microphone, RNNoise hoặc lựa chọn bản gốc/bản lọc. Audio từ thiết bị được dùng để ghi âm, ghi video và STT mà không qua gain/RNNoise của ứng dụng. Kiểm tra transcript sau khi dừng ghi; không phát mic trực tiếp ra loa. Nếu âm nhỏ hoặc rè, kiểm tra vị trí mic, quyền và mức đầu vào của hệ điều hành. Xem [hướng dẫn mic và transcript](docs/microphone-desktop.md).
-
-Trình duyệt web vẫn giữ thu thử trước thi, gain và RNNoise. Xem [luồng âm thanh trên web](docs/architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).
+Rút thiết bị đang dùng sẽ chặn ghi tiếp; chọn lại thiết bị rồi bấm **Kết nối lại thiết bị**. Lựa chọn bị khóa trong lúc ghi, nhận dạng hoặc nộp câu trả lời. Chi tiết: [microphone và thoát app](docs/microphone-desktop.md).
 
 ## Khi làm bài
 
-- App ghi audio/video gốc, không tạo nhánh audio RNNoise hoặc gain phần mềm. Helper chuyển audio gốc về WAV mono 16 kHz cho model STT đã chọn, không lọc FFmpeg lần nữa.
-- Khi dừng ghi, model và ngôn ngữ bạn chọn nhận dạng local. Bạn xem lại transcript, sau đó gửi transcript và media gốc lên server.
-- Muốn nhận dạng lại: bấm **Thử STT lại**. Có thể đổi model/ngôn ngữ trước khi thử lại; desktop luôn dùng audio gốc. Nhận dạng lại không đổi media minh chứng. Lỗi STT giữ transcript hiện tại.
-- Worker chấm text bằng Gemini hoặc Ollama theo cấu hình đề; app cập nhật kết quả định kỳ. Đừng đóng app trước khi upload và nộp bài hoàn tất.
-- Lựa chọn `STT_PROVIDER` của server không đổi desktop sang Google/server STT. Nó chỉ áp dụng cho trình duyệt web. Desktop dùng ngôn ngữ đã chọn trong màn hình làm bài; web dùng cấu hình server, với ngôn ngữ của phiên bản đề nếu đề có thiết lập riêng (bộ TOEIC đặt tiếng Anh).
-- PhoWhisper-small được tinh chỉnh cho tiếng Việt. Có thể chọn tiếng Anh trên desktop; chưa benchmark chất lượng tiếng Anh/câu xen ngôn ngữ.
+1. Bấm **Bắt đầu thi** khi thiết bị và điều kiện phiên thi đã sẵn sàng.
+2. Đọc câu hỏi và hướng dẫn, bấm **Bắt đầu trả lời**. App ghi audio và camera của câu trả lời.
+3. Bấm **Kết thúc trả lời**, chờ Whisper-small nhận dạng bản ghi gốc. App hiển thị trạng thái xử lý và trạng thái sẵn sàng để nộp.
+4. Bấm **Nộp câu trả lời & tiếp tục**, hoặc **Thử STT lại** / **Ghi lại** nếu cần. Khi nhận dạng chưa thành công, nút nộp câu trả lời chưa bật.
+5. Sau câu cuối, chờ minh chứng tải xong rồi bấm **Nộp bài thi**.
 
-App chưa hiện transcript trực tiếp khi đang nói. Với câu Việt xen tiếng Anh, kiểm tra thuật ngữ trong transcript trước khi nộp. Gợi ý tiếng Anh do admin thấy khi sinh câu hỏi không tự trở thành hotword; STT chỉ dùng bảng từ vựng môn đã cấu hình.
+Transcript tự động cùng độ tin cậy được gửi lên server; giảng viên xem trong **Kết quả & xem lại**. Desktop chỉ hiển thị trạng thái nhận dạng cho sinh viên. Audio/video gốc luôn được giữ làm minh chứng. Server chấm bất đồng bộ theo rubric và RAG, trả điểm hoặc trạng thái cần xem lại.
 
-## Chọn ngôn ngữ và model nhận dạng
+## Ngôn ngữ nhận dạng
 
-Mở bài thi trên desktop. Phía trên phần kiểm tra thiết bị/câu hỏi có **Nhận dạng giọng nói trên desktop**:
+Whisper-small là model cố định của desktop. Chọn ngôn ngữ chính của câu trả lời, mặc định **Tiếng Việt**. Lựa chọn được nhớ trên thiết bị cho origin máy chủ hiện tại. Có thể đổi ngôn ngữ trước khi bấm **Thử STT lại**; bản ghi vẫn giữ nguyên. Lỗi nhận dạng lại giữ kết quả thành công gần nhất.
 
-1. Chọn **Ngôn ngữ nói: Tiếng Việt hoặc Tiếng Anh**. Đây là ngôn ngữ âm thanh, không phải ngôn ngữ muốn dịch sang.
-2. Chọn **Model nhận dạng: PhoWhisper-small hoặc Whisper-small (đa ngôn ngữ)**. PhoWhisper được tinh chỉnh cho tiếng Việt; Whisper-small là bản đa ngôn ngữ, không phải `small.en`. Có thể thử cả hai với tiếng Việt hoặc tiếng Anh; chất lượng cần đối chiếu với bản ghi thực tế.
-3. Thu câu trả lời như bình thường. Muốn đổi cho bản ghi đã thu, chọn lại rồi bấm **Thử STT lại**. Bản ghi và transcript hiện tại được giữ khi đổi lựa chọn; transcript chỉ đổi khi nhận dạng lại thành công.
-
-App nhớ lựa chọn bằng bộ nhớ trình duyệt của profile desktop, riêng theo origin máy chủ (profile dev cổng 3001 cũng riêng). Mặc định là **Tiếng Việt + PhoWhisper-small**. Hai ô bị khóa khi đang ghi, nhận dạng hoặc nộp; lựa chọn không sửa cấu hình STT chung trên server và không đổi hotword môn/phiên thi. Trình duyệt web không hiển thị hai ô này.
-
-Nếu model ghi **chưa cài**, chọn model còn sẵn hoặc cài lại bộ OralAI đầy đủ. Nếu báo runtime cũ/không hỗ trợ lựa chọn, build lại `scripts/build_desktop_stt.py` và đóng/mở lại desktop; với bộ cài phải đóng gói/cài bản mới. Model chạy offline, không tải trong lúc thi. Hotword vẫn bị giới hạn ngữ cảnh gợi ý của Whisper; chọn model không đảm bảo mọi thuật ngữ sẽ đúng.
+Hotword lấy từ đúng môn/phiên thi: tối đa 500 mục, 100 ký tự/mục và 10.000 ký tự tổng cộng. Hotword gợi ý thuật ngữ cho STT, không bảo đảm mọi từ đều nhận đúng. Chất lượng nhận dạng cần đối chiếu bằng audio thực tế.
 
 ## Làm lại bài thi
 
-Danh sách bài thi hiển thị số lượt còn lại và **Lịch sử làm bài**. Bấm **Xem lần N** để mở kết quả cũ; bấm **Làm lại bài thi** để tạo lần mới khi còn lượt. Phiên đang làm luôn được tiếp tục, không tạo thêm phiên khi bấm lặp hoặc mở lại app. Mỗi lần mới cần kết nối thiết bị; desktop không có bước kiểm tra mic trước thi.
+Sinh viên xem **Xem lần N** để mở kết quả cũ, hoặc **Làm lại bài thi** khi còn lượt. Số lượt do chính sách đề và lượt cấp thêm quyết định. [Hướng dẫn lượt thi](docs/architecture/exam-retakes.md).
 
-Admin cấu hình không cho làm lại, cho làm lại N lần hoặc không giới hạn ở đề thi; có thể cấp thêm lượt riêng cho sinh viên trong **Kết quả & xem lại → Quản lý lượt thi**. Hết lượt thì liên hệ admin; không cần xóa bài cũ để cấp thêm lượt. Sau khi admin thay đổi, bấm làm mới danh sách bài thi.
+## Transcript và đối chiếu bản ghi
 
-Bản này cần backend đã chạy migration `0004`: cập nhật server bằng `docker compose up -d --build --wait`, rồi mở lại desktop. `./run-desktop.sh` vẫn chỉ chạy UI dev và Electron. Xem [hướng dẫn quản lý lượt thi](docs/architecture/exam-retakes.md).
-
-## Kiểm tra transcript
-
-Sau STT, kiểm tra và sửa transcript bằng tay nếu cần. Giảng viên có thể mở audio/video minh chứng đã upload khi review bài. Bản chỉnh sửa được đánh dấu để giảng viên đối chiếu. Chức năng gợi ý sửa chính tả bằng LLM và tải model Qwen3 đã được gỡ khỏi desktop.
-
-Nếu đã tải model sửa chính tả ở phiên bản cũ, file đó không còn được sử dụng. Có thể đóng app và xóa thư mục `models/correction` trong profile Electron để giải phóng dung lượng; profile dev mặc định nằm tại `.data/desktop-dev-profile`.
+Giảng viên mở **Kết quả & xem lại → Xem bài** để đối chiếu transcript với audio/video. Admin có thể yêu cầu nhận dạng lại hoặc chấm lại, có lý do và lịch sử. [Chi tiết review](docs/transcript-correction.md).
 
 ## Chạy từ source
 
-Cần Node.js 22.12+, Python 3.12 và giao diện đồ họa. Tại thư mục gốc:
+Cần Node 22.12+, Python 3.12 và backend hoạt động. Tạo môi trường build STT riêng:
 
 ```bash
 npm ci
 python3.12 -m venv .venv-stt
 .venv-stt/bin/pip install -r scripts/requirements-desktop-stt.txt
 .venv-stt/bin/python scripts/build_desktop_stt.py
-env -u ELECTRON_RUN_AS_NODE npm run desktop:server
+npm run desktop
 ```
 
-Windows PowerShell:
+Windows dùng `py -3.12 -m venv .venv-stt`, sau đó `.venv-stt\Scripts\pip` và `.venv-stt\Scripts\python`. Build cần mạng để tải dependency/model; helper chạy nhận dạng offline. Model được ghim revision và dùng lại nếu tài nguyên đã đầy đủ.
 
-```powershell
-npm ci
-py -3.12 -m venv .venv-stt
-.\.venv-stt\Scripts\pip install -r scripts/requirements-desktop-stt.txt
-.\.venv-stt\Scripts\python scripts/build_desktop_stt.py
-Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-npm run desktop:server
-```
-
-Bước build cần mạng để tải PhoWhisper, Whisper-small và thư viện; bước chạy helper không cần mạng. Source desktop tự dùng helper đã build. `ORAL_PYTHON` chỉ dùng để debug bằng Python ngoài; `ORAL_STT_MODEL` trỏ thư mục PhoWhisper; `ORAL_WHISPER_MODEL` trỏ thư mục Whisper-small nếu cần đường dẫn tùy chỉnh. Khi chạy helper trực tiếp, `ORAL_STT_VARIANT=phowhisper-small|whisper-small` chọn model, `STT_LANGUAGE=vi|en` chọn ngôn ngữ; `ORAL_STT_MODEL` của helper trực tiếp là đường dẫn model đang chọn. `STT_MODEL` trên server không thay model kèm desktop.
-
-Để dùng giao diện đang phát triển trên Linux/macOS, giữ server đang chạy rồi dùng `./run-desktop.sh --server http://localhost:3000`. Script tự mở giao diện tại cổng 3001 và cấu hình kết nối API; xem [một lệnh mở app từ code mới](#một-lệnh-mở-app-từ-code-mới--linuxmacos).
+`ORAL_PYTHON` chỉ định Python ngoài khi debug; launcher tự dùng `.venv-stt` nếu có. `ORAL_WHISPER_MODEL` có thể chỉ định thư mục Whisper-small cho Electron. Khi chạy helper trực tiếp, dùng `ORAL_STT_MODEL` cho đường dẫn model và `STT_LANGUAGE=vi|en` cho ngôn ngữ. `STT_MODEL` trên server cấu hình riêng cho Whisper server.
 
 ## Build bộ cài và chạy lại
 
-Các lệnh chạy tại thư mục gốc repository. Đóng app trước khi thay bộ cài.
-
-**Linux / macOS — lần đầu chuẩn bị bundle:**
+Sau khi chuẩn bị bundle STT trên đúng OS/architecture:
 
 ```bash
-git pull --ff-only
-npm ci
-python3.12 -m venv .venv-stt
-.venv-stt/bin/python -m pip install -r scripts/requirements-desktop-stt.txt
-.venv-stt/bin/python scripts/build_desktop_stt.py
+npm run check -w apps/desktop
+npm run test:desktop
 npm run dist -w apps/desktop
 ```
 
-Linux có thể cài Torch CPU trước requirements để giảm dung lượng tải:
-`.venv-stt/bin/python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu`.
+Output tại `apps/desktop/dist`: Windows `.exe`, Linux `.deb`/AppImage, macOS `.dmg`/`.zip`. `npm run pack -w apps/desktop` tạo thư mục unpacked để kiểm tra. Có thể chạy workflow GitHub Actions **Desktop installers** và tải artifact đúng máy đích.
 
-**Windows PowerShell:**
+- UI/API/worker: triển khai server theo [Jenkins](docs/jenkins.md) hoặc Docker Compose rồi mở lại app.
+- Electron/preload: chạy source mới hoặc cài bộ desktop mới.
+- Helper STT: chạy script build, đóng gói lại rồi cài bản mới.
 
-```powershell
-git pull --ff-only
-npm ci
-py -3.12 -m venv .venv-stt
-.\.venv-stt\Scripts\python -m pip install -r scripts/requirements-desktop-stt.txt
-.\.venv-stt\Scripts\python scripts/build_desktop_stt.py
-npm run dist:win -w apps/desktop
-```
-
-Kết quả nằm ở `apps/desktop/dist/`: mở `.exe` trên Windows, `.dmg` trên macOS; Linux cài `.deb` hoặc chạy AppImage. Build trên đúng hệ điều hành đích. Ví dụ Ubuntu với bản hiện tại:
-
-```bash
-sudo apt install ./apps/desktop/dist/OralAI-0.1.0-linux-amd64.deb
-oralai
-```
-
-Hoặc chạy không cài đặt:
-
-```bash
-chmod +x apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
-./apps/desktop/dist/OralAI-0.1.0-linux-x86_64.AppImage
-```
-
-**Chạy lại từ source khi đã có bundle:** chỉ cần `npm ci` khi dependency thay đổi, rồi:
-
-```bash
-env -u ELECTRON_RUN_AS_NODE ORAL_WEB_URL=http://localhost:3000 npm run desktop:server
-```
-
-PowerShell: đặt `$env:ORAL_WEB_URL="http://localhost:3000"`, xóa `ELECTRON_RUN_AS_NODE` như hướng dẫn trên rồi `npm run desktop:server`. Thay URL bằng server của bạn; nếu không đặt biến, app dùng địa chỉ đã lưu trong cấu hình.
-
-**Khi cập nhật code:**
-
-- Đổi giao diện/cấu hình admin/backend: rebuild server bằng `docker compose up -d --build --wait`, đóng rồi mở lại desktop để tải UI mới. Không cần build lại model.
-- Đổi Electron/preload: người chạy source cập nhật dependency nếu cần rồi mở lại app; người dùng bộ cài cần chạy `npm run dist -w apps/desktop` và cài bản mới. Có thể dùng bundle STT hiện có nếu helper/model không đổi.
-- Đổi helper/model hoặc bộ cài cũ chưa có PhoWhisper: build lại bundle bằng script, chạy `npm run dist -w apps/desktop`, rồi cài bộ mới. Script dùng lại model đúng revision đã có.
-- Chỉ đổi biến AI/STT của API/worker trong `.env`: `docker compose up -d --no-deps --force-recreate api worker`. Nếu đổi cấu hình dịch vụ khác, áp dụng lại Compose cho dịch vụ tương ứng. Nếu deploy qua Jenkins, sửa credential `oral-ai-env` và chạy pipeline.
-
-Chức năng thuật ngữ/xóa môn cần backend mới cùng giao diện mới; không cần migration riêng ngoài các migration hiện có. Bỏ chức năng sửa chính tả LLM còn thay Electron/preload và dependency: người chạy source cần cập nhật code, chạy `npm ci`, đóng rồi mở lại desktop; người dùng bộ cài cần bộ mới để gỡ runtime cũ. Chỉ bỏ LLM sửa chính tả không yêu cầu build lại PhoWhisper.
-
-Không cần build thủ công nếu dùng GitHub: Actions → **Desktop installers** → **Run workflow** → chọn nhánh `main`; đợi build rồi tải artifact đúng OS. Workflow này chạy thủ công, push code không tự tạo bộ cài.
+Bộ cài chưa có auto-update, code signing hoặc notarization. Chi tiết build, license và kiểm thử: [desktop-build.md](docs/desktop-build.md).
 
 ## STT trên server do admin chọn
 
-Trong **Cấu hình hệ thống → STT & giọng nói**, Gemini STT dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google Cloud STT dùng JSON service account upload ở mục riêng. Lựa chọn STT web không đổi model local đã chọn trên desktop. Khi xem bài đã nộp, mở **Nhận dạng lại & chấm lại**, chọn Gemini hoặc Google, nhập lý do rồi gửi yêu cầu.
+**Cấu hình hệ thống → STT & giọng nói** điều khiển STT cho bài thử trên web. Khi review bài, admin có thể chọn Gemini hoặc Google để nhận dạng lại audio gốc. Gemini dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google dùng JSON service account lưu trên server. Model nhận dạng trên desktop vẫn là Whisper-small.
 
 ## Xử lý lỗi
 
-**Đóng desktop:** bấm **Thoát ứng dụng** hoặc X (Alt+F4 bị chặn trong lúc thi). Nếu còn dữ liệu chưa nộp, chọn **Ở lại** để hoàn tất hoặc **Rời trang / thoát** để xác nhận mất phần chưa nộp. Bản desktop cũ có thể bị `beforeunload` chặn X; cần cập nhật bộ cài/Electron source, không chỉ cập nhật web. Xem [hướng dẫn thoát](docs/microphone-desktop.md#đóng-ứng-dụng-desktop).
-
-| Lỗi | Kiểm tra |
+| Hiện tượng | Cách xử lý |
 | --- | --- |
-| `npm run desktop:server` vẫn thấy giao diện cũ | Lệnh này tải UI từ server đang cấu hình. Cập nhật server hoặc dùng `./run-desktop.sh` để xem UI source mới |
-| Launcher báo server chưa sẵn sàng | Khởi động backend hoặc sửa `--server` về đúng URL web gốc; launcher không tự chạy Docker |
-| Cổng UI dev 3001 đang bận | Đóng phiên dev cũ hoặc dùng `--port 3002`, đồng thời cho phép origin tương ứng trên backend |
-| Bộ cài thiếu STT/model | Cài bản đầy đủ mới; bước đóng gói đã chặn thiếu helper/model |
-| Source chưa có model | Chạy `scripts/build_desktop_stt.py` trước `npm run desktop:server` |
-| Windows báo STT thất bại sau khi dừng ghi âm, log có `UnicodeEncodeError` / `cp1252` | Cập nhật bộ cài đã sửa xuất JSON tiếng Việt. Nếu chạy source, build lại bundle STT; chỉ sửa `transcribe.py` không cập nhật `oral-stt.exe` đã đóng gói. |
-| STT quá thời gian | Thử câu ngắn hơn, đóng tác vụ nặng; mặc định giới hạn xử lý 7 phút |
-| Không có tiếng | Quan sát thanh tín hiệu/mức đỉnh; kiểm tra thiết bị đã chọn, quyền và mức đầu vào của hệ điều hành |
-| Chưa có điểm | Kiểm tra worker, chế độ demo/luyện tập hoặc trạng thái cần xem lại |
-
-Chi tiết bộ cài và kiểm tra offline: [docs/desktop-build.md](docs/desktop-build.md).
+| Chưa có bộ nhận dạng Whisper-small | Build tài nguyên STT hoặc cài bộ OralAI đầy đủ |
+| Không nhận được camera/mic | Kiểm tra quyền hệ điều hành, chọn thiết bị và kết nối lại |
+| STT lỗi hoặc không có tiếng nói | Kiểm tra mic, thử STT lại hoặc ghi lại câu trả lời |
+| STT quá thời gian | Đóng tác vụ đang dùng nhiều CPU, thử câu trả lời ngắn hơn |
+| Có nhiều màn hình | Dùng Chuẩn bị màn hình hoặc Settings → Displays như hướng dẫn bên dưới |
+| Upload chưa xong | Giữ app mở, kiểm tra mạng và thử tải lại minh chứng |
+| Đề không xuất hiện | Kiểm tra backend, email, danh sách được giao và lịch thi |
 
 ## Môn luyện nói TOEIC
 
-Đã bổ sung bộ dữ liệu `TOEIC-SPEAKING-01`: 11 câu, 2 tranh minh họa, tài liệu RAG, đáp án và rubric chấm nội dung transcript thang 10; 30 phút/lượt, làm lại không giới hạn. Script nhập môn và giao đề cho toàn bộ sinh viên đang hoạt động: [hướng dẫn và dữ liệu](data/toeic-speaking/README.md). Điểm này chưa đánh giá phát âm/ngữ điệu và không quy đổi thành điểm TOEIC chính thức.
-
-Desktop luôn dùng **bản ghi gốc** cho STT và **Thử STT lại**. Trên web, checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt; có thể bật khi cần hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **English + Whisper-small**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.
-
-Để bắt đầu: đăng nhập sinh viên → **Mở bài thi** của bộ TOEIC → kết nối mic/camera → chọn **Tiếng Anh + Whisper-small** → bắt đầu thi. Ngôn ngữ/model trên desktop không tự đổi theo môn; kiểm tra hai lựa chọn này trước khi ghi.
-
-Nếu cài trên server mới, nhập bộ dữ liệu theo [hướng dẫn triển khai TOEIC](README.md#cài-bộ-luyện-toeic-trên-server-khác). Tài khoản sinh viên và danh sách giao bài thuộc database của từng server, không tự xuất hiện khi tải source từ Git. Riêng thay đổi audio mặc định và tranh TOEIC cần cập nhật web/API; không cần build lại helper nếu máy đã có bundle đủ hai model.
-
+Bộ `TOEIC-SPEAKING-01` có 11 câu, 2 tranh minh họa, tài liệu RAG và rubric chấm nội dung thang 10. Chọn **Tiếng Anh** trước khi ghi. Điểm chưa đánh giá phát âm/ngữ điệu hoặc quy đổi thành TOEIC chính thức. [Nhập dữ liệu và giao bài](data/toeic-speaking/README.md).
 
 ## Truy cập và ghi màn hình bắt buộc
 
@@ -344,7 +169,7 @@ App lưu cấu hình cũ trước khi thay đổi và tự khôi phục sau khi 
 
 Tính năng tự tắt hiện cần GNOME cùng `/usr/bin/python3` và `python3-gi` (Ubuntu Desktop thông thường đã có); bản đóng gói có kèm helper nhưng dùng thư viện hệ thống này. Windows/macOS và Linux không có dịch vụ GNOME DisplayConfig vẫn hướng dẫn tắt trong cài đặt hệ điều hành hoặc rút cáp; không tự động tắt trên các hệ đó. Trên Windows chọn chế độ chỉ một màn hình bằng **Win+P**. Cần đóng/mở desktop sau khi cập nhật source để nạp IPC/helper mới. Khi khôi phục bị chặn vì nhiều màn hình, app thoát kiosk để bạn sửa cài đặt; bài đang thi vẫn tiếp tục tính giờ.
 
-Web dành cho **ADMIN, EXAM_OFFICER (khảo thí), TEACHER**. Sinh viên đăng nhập và làm bài bằng **OralAI Desktop**. App không còn menu hệ điều hành hoặc thanh điều hướng quản trị. Đổi server tại nút **Cấu hình máy chủ** trước khi đăng nhập. Tài khoản `REVIEWER` cũ cần admin đổi sang vai trò phù hợp trên web.
+Web dành cho **ADMIN, EXAM_OFFICER (khảo thí), TEACHER**. Sinh viên đăng nhập và làm bài bằng **OralAI Desktop**. Đổi server tại nút **Cấu hình máy chủ** trước khi đăng nhập.
 
 Với mỗi lần thi mới (trừ bài thử thiết bị), sinh viên phải đồng ý ghi toàn màn hình rồi cấp quyền chia sẻ trước khi bắt đầu. Đóng thông tin riêng tư, dùng một màn hình và cấp quyền ghi màn hình trong hệ điều hành nếu được yêu cầu. App ghi màn hình từ lúc bắt đầu đến khi bấm nộp, hiện trạng thái ghi rõ ràng, không thu âm hệ thống; microphone/camera câu trả lời vẫn được lưu riêng. Giao diện chia bản ghi thành các đoạn khoảng 60 giây, tải lên server khi thi và tải đoạn cuối trước khi hoàn tất nộp bài. Giữ app mở đến khi báo đã nộp; lỗi upload có nút thử lại.
 
@@ -352,4 +177,4 @@ Trong lúc thi, app bật kiosk toàn màn hình, chặn menu chuột phải, De
 
 Đây là hạn chế ở cấp ứng dụng, không khóa hoàn toàn hệ điều hành và không ngăn được thiết bị phụ hay client đã sửa. Header `X-Oral-Client: desktop` phân biệt kênh truy cập được hỗ trợ, không phải chứng thực bộ cài; một client tự viết có thể giả mạo header. Server kiểm tra quyền, đồng ý ghi và có bản ghi hoàn tất, nhưng không thể chứng minh video bao phủ toàn bộ thời gian thi. Nếu triển khai kỳ thi cần bảo đảm cao, cần máy được quản lý bằng chính sách kiosk của hệ điều hành và giám thị. Nút thoát khẩn cấp vẫn xác nhận rời ứng dụng; đoạn chưa tải lên có thể mất khi đóng cưỡng bức. Khi mở lại phiên đang thi, sự kiện khởi động lại được ghi nhận và phải khôi phục ghi màn hình.
 
-Bản này cần **migration `0006`**, cập nhật đồng bộ API/worker/web và Electron. `EXAM_SCREEN_REQUIRED` mặc định `true`; giữ giá trị này trên server thi. Những phiên đã tồn tại trước migration giữ chính sách cũ để không chặn nộp bài đang làm. Người dùng bộ cài phải cài bản Desktop mới, người chạy source đóng rồi mở lại Electron. Không cần build lại model STT vì thay đổi này không sửa helper/model.
+Server cần chạy đầy đủ migration đến `0007`, cập nhật đồng bộ API/worker/web. `EXAM_SCREEN_REQUIRED` mặc định `true`. Chính sách ghi màn hình được lưu theo phiên thi. Người dùng bộ cài cần phiên bản Electron tương ứng; người chạy source đóng rồi mở lại app sau khi cập nhật.

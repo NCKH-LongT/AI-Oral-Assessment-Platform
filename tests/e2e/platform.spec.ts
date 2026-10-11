@@ -348,7 +348,7 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     page.getByRole("heading", { name: "Cấu hình giọng nói", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText(/Desktop luôn dùng PhoWhisper-small/),
+    page.getByText(/Desktop nhận dạng bản ghi gốc bằng Whisper-small/),
   ).toBeVisible();
   await expect(
     page.getByLabel("File JSON service account Google (tối đa 64 KB)"),

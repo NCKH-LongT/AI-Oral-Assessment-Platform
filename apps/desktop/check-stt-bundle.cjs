@@ -7,11 +7,6 @@ module.exports = async function (context) {
     context.electronPlatformName === "win32" ? "oral-stt.exe" : "oral-stt";
   for (const file of [
     path.join("oral-stt", binary),
-    "model/model.bin",
-    "model/tokenizer.json",
-    "model/preprocessor_config.json",
-    "model/oral-model.json",
-    "model/LICENSE.txt",
     "whisper-small/model.bin",
     "whisper-small/config.json",
     "whisper-small/tokenizer.json",
@@ -37,9 +32,7 @@ module.exports = async function (context) {
       if (
         result.protocol !== 2 ||
         !result.hotwords ||
-        !["phowhisper-small", "whisper-small"].every((id) =>
-          result.models?.includes(id),
-        )
+        !result.models?.includes("whisper-small")
       )
         throw new Error("Missing capabilities");
     } catch {

@@ -1,9 +1,10 @@
-# Tài nguyên STT offline bắt buộc
+# Tài nguyên STT offline
 
-[README / danh mục tài liệu](../../../../README.md#hướng-dẫn-theo-nhu-cầu)
+Chạy `python scripts/build_desktop_stt.py` từ gốc repository trên đúng OS/architecture để tạo:
 
-Chạy `python scripts/build_desktop_stt.py` từ gốc repository trên đúng OS/architecture đích trước khi đóng gói. Script tạo helper native trong `oral-stt/`, PhoWhisper-small INT8 trong `model/` và Whisper-small đa ngôn ngữ trong `whisper-small/`, kèm license và revision cố định. Whisper-small lưu trọng số FP16, chạy CPU INT8. Ba thư mục sinh ra được Git bỏ qua; build bộ cài sẽ dừng nếu thiếu helper/model hoặc helper cũ không hỗ trợ protocol chọn model/ngôn ngữ và hotword.
+- `oral-stt/`: helper native cùng runtime, VAD và FFmpeg.
+- `whisper-small/`: Whisper-small đa ngôn ngữ, trọng số FP16, runtime CPU INT8, license MIT và revision cố định.
 
-Hai model nhận dạng giọng nói đi kèm bộ cài đầy đủ. Không tải model trong lúc thi. Desktop chọn tiếng Việt/tiếng Anh và model ngay trong màn hình làm bài.
+Bộ cài kiểm tra đầy đủ tài nguyên và khả năng của helper trước khi đóng gói. Desktop cố định Whisper-small, hỗ trợ chọn tiếng Việt/tiếng Anh. Các thư mục sinh ra được Git bỏ qua; model đi kèm bộ cài đầy đủ.
 
-Xem [build desktop](../../../../docs/desktop-build.md).
+[Hướng dẫn build](../../../../docs/desktop-build.md) · [Chạy desktop](../../../../readme-desktop.md)

@@ -7,13 +7,13 @@ import {
   type DesktopAudioProbe,
 } from "./helpers/desktop-audio";
 
-for (const [model, language, failure] of [
+for (const [savedModel, language, failure] of [
   ["phowhisper-small", "vi", "none"],
   ["whisper-small", "en", "retry"],
   ["whisper-small", "vi", "initial"],
   ["phowhisper-small", "en", "none"],
 ] as const)
-  test(`desktop ${model}/${language} records and retries raw audio (${failure} failure)`, async ({
+  test(`desktop saved ${savedModel}/${language} records and retries raw audio (${failure} failure)`, async ({
     page,
   }) => {
     const audioAssetRequests = await observeDesktopAudio(page);
@@ -36,38 +36,41 @@ for (const [model, language, failure] of [
           throw new Error("Local STT failed");
       },
     );
-    await page.addInitScript((transcript) => {
-      window.oralDesktop = {
-        sttModels: async () => [
-          {
-            id: "phowhisper-small",
-            label: "PhoWhisper-small",
-            available: true,
-          },
-          { id: "whisper-small", label: "Whisper-small", available: true },
-        ],
-        transcribe: async (audio, policy) => {
-          if (!audio.byteLength || policy.provider !== "local")
-            throw new Error("Expected recorded audio and a local STT policy");
-          await (
-            window as unknown as {
-              recordLocalStt: (
-                hash: string,
-                policy: SpeechPolicy,
-              ) => Promise<void>;
-            }
-          ).recordLocalStt(
-            Array.from(
-              new Uint8Array(await crypto.subtle.digest("SHA-256", audio)),
-            )
-              .map((x) => x.toString(16).padStart(2, "0"))
-              .join(""),
-            policy,
+    await page.addInitScript(
+      ({ transcript, savedModel }) => {
+        if (!localStorage.getItem("oral-desktop-speech-v1"))
+          localStorage.setItem(
+            "oral-desktop-speech-v1",
+            JSON.stringify({ model: savedModel, language: "vi" }),
           );
-          return { transcript, stt_confidence: 0.99 };
-        },
-      };
-    }, transcript);
+        window.oralDesktop = {
+          sttModels: async () => [
+            { id: "whisper-small", label: "Whisper-small", available: true },
+          ],
+          transcribe: async (audio, policy) => {
+            if (!audio.byteLength || policy.provider !== "local")
+              throw new Error("Expected recorded audio and a local STT policy");
+            await (
+              window as unknown as {
+                recordLocalStt: (
+                  hash: string,
+                  policy: SpeechPolicy,
+                ) => Promise<void>;
+              }
+            ).recordLocalStt(
+              Array.from(
+                new Uint8Array(await crypto.subtle.digest("SHA-256", audio)),
+              )
+                .map((x) => x.toString(16).padStart(2, "0"))
+                .join(""),
+              policy,
+            );
+            return { transcript, stt_confidence: 0.99 };
+          },
+        };
+      },
+      { transcript, savedModel },
+    );
     const session = {
       id: "session",
       exam_name: "Gemini exam",
@@ -164,8 +167,8 @@ for (const [model, language, failure] of [
       name: "Ngôn ngữ nói",
       exact: true,
     });
-    await expect(modelSelect).toBeEnabled();
-    await modelSelect.selectOption(model);
+    await expect(modelSelect).toHaveCount(0);
+    await expect(languageSelect).toBeEnabled();
     await languageSelect.selectOption(language);
     const startExam = page.getByRole("button", {
       name: "Bắt đầu thi",
@@ -189,7 +192,7 @@ for (const [model, language, failure] of [
       .click();
     // Wait for a real media chunk from Chromium's fake camera/mic.
     await page.waitForTimeout(1200);
-    await expect(modelSelect).toBeDisabled();
+    await expect(modelSelect).toHaveCount(0);
     await expect(languageSelect).toBeDisabled();
     await expect(
       page.getByRole("combobox", { name: "Microphone", exact: true }),
@@ -210,27 +213,28 @@ for (const [model, language, failure] of [
       exact: true,
     });
     await expect(retry).toBeEnabled();
+    await expect(transcriptInput).toHaveCount(0);
+    await expect(page.getByText(transcript, { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Explain DI.", { exact: true })).toBeVisible();
     if (failure === "initial") {
       await expect(page.getByText(/Local STT failed/)).toBeVisible();
-      await expect(transcriptInput).toHaveValue("");
-      await transcriptInput.fill(
-        "A manually entered transcript remains possible.",
-      );
+      await expect(
+        page.getByRole("button", { name: "Nộp câu trả lời & tiếp tục" }),
+      ).toBeDisabled();
     } else {
-      await expect(transcriptInput).toHaveValue(transcript);
+      await expect(
+        page.getByText("Câu trả lời đã sẵn sàng để nộp.", { exact: true }),
+      ).toBeVisible();
     }
     await expectNoDesktopAudioControls(page);
     expect(policies[0]).toMatchObject({
       provider: "local",
       preprocessing: "off",
-      desktop_model: model,
+      desktop_model: "whisper-small",
       language,
       hotwords: ["Dependency Injection"],
     });
-    const retryModel =
-      model === "whisper-small" ? "phowhisper-small" : "whisper-small";
     const retryLanguage = language === "en" ? "vi" : "en";
-    await modelSelect.selectOption(retryModel);
     await languageSelect.selectOption(retryLanguage);
     for (let index = 0; index < 3; index++) {
       await retry.click();
@@ -240,7 +244,9 @@ for (const [model, language, failure] of [
         await expect(
           page.getByText("Local STT failed", { exact: true }),
         ).toBeVisible();
-      await expect(transcriptInput).toHaveValue(transcript);
+      await expect(
+        page.getByText("Câu trả lời đã sẵn sàng để nộp.", { exact: true }),
+      ).toBeVisible();
     }
     expect(localHashes.every((hash) => hash === localHashes[0])).toBe(true);
     expect(localHashes[0]).toMatch(/^[a-f0-9]{64}$/);
@@ -275,11 +281,8 @@ for (const [model, language, failure] of [
       },
     ]);
     expect(audioAssetRequests).toEqual([]);
-    const finalTranscript =
-      failure !== "none" ? transcript + " Edited manually." : transcript;
-    await page
-      .getByRole("textbox", { name: "Transcript", exact: true })
-      .fill(finalTranscript);
+    await expect(transcriptInput).toHaveCount(0);
+    await expect(page.getByText(transcript, { exact: true })).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: /Gợi ý sửa chính tả/ }),
     ).toHaveCount(0);
@@ -312,22 +315,22 @@ for (const [model, language, failure] of [
     expect(localHashes).toHaveLength(4);
     expect(uploadedAudioHash).toBe(localHashes[1]);
     expect(submitted).toEqual({
-      transcript: finalTranscript,
-      stt_confidence: failure !== "none" ? 0 : 0.99,
+      transcript,
+      stt_confidence: 0.99,
     });
     expect(serverSttCalls).toEqual([]);
     for (const policy of policies.slice(1))
       expect(policy).toMatchObject({
         provider: "local",
         preprocessing: "off",
-        desktop_model: retryModel,
+        desktop_model: "whisper-small",
         language: retryLanguage,
         hotwords: ["Dependency Injection"],
       });
     session.status = "DEVICE_CHECK";
     await page.reload();
     await page.getByRole("button", { name: "Mở bài thi" }).click();
-    await expect(modelSelect).toHaveValue(retryModel);
+    await expect(modelSelect).toHaveCount(0);
     await expect(languageSelect).toHaveValue(retryLanguage);
     await expectNoDesktopAudioControls(page);
     expect(audioAssetRequests).toEqual([]);

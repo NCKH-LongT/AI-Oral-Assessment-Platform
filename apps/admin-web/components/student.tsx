@@ -25,6 +25,7 @@ import ExamScore from "./exam-score";
 import { useExamGuard } from "./use-exam-guard";
 import DesktopSpeechSettings, {
   useDesktopSpeech,
+  DESKTOP_STT_MODEL,
   type DesktopModel,
 } from "./desktop-speech-settings";
 import { createNoiseFilter, type NoiseFilter } from "../lib/noise-filter";
@@ -421,7 +422,7 @@ export default function Student() {
       ...(window.oralDesktop
         ? {
             language: desktopSpeech.preferences.language,
-            desktop_model: desktopSpeech.preferences.model,
+            desktop_model: DESKTOP_STT_MODEL,
           }
         : {}),
     };
@@ -432,11 +433,9 @@ export default function Student() {
       local_server: "Whisper trên server",
     }[policy.provider];
     const label = window.oralDesktop
-      ? `${desktopSpeech.preferences.model === "whisper-small" ? "Whisper-small" : "PhoWhisper-small"} · ${policy.language === "en" ? "Tiếng Anh" : "Tiếng Việt"}`
+      ? `Whisper-small · ${policy.language === "en" ? "Tiếng Anh" : "Tiếng Việt"}`
       : providerLabel;
-    setSpeechStage(
-      `${policy.preprocessing === "denoise" ? "Đang lọc nhiễu và nhận dạng" : "Đang nhận dạng"} bằng ${label}. Vui lòng đợi…`,
-    );
+    setSpeechStage(`Đang nhận dạng bằng ${label}. Vui lòng đợi…`);
     if (policy.provider === "local") {
       if (!window.oralDesktop)
         throw new Error(
@@ -453,7 +452,7 @@ export default function Student() {
         )
       )
         throw new Error(
-          "Model đã chọn chưa có trên máy. Chọn model đã cài hoặc cập nhật bộ OralAI đầy đủ.",
+          "Chưa có bộ nhận dạng Whisper-small trên máy. Cập nhật bộ OralAI đầy đủ.",
         );
       return window.oralDesktop.transcribe(await audio.arrayBuffer(), policy);
     }
@@ -563,7 +562,7 @@ export default function Student() {
         setAnswer({ ...a });
       } catch (e) {
         setError(
-          `${errorText(e)} Bạn có thể thử STT lại hoặc nhập transcript; bản nhập tay sẽ cần giảng viên xem lại.`,
+          `${errorText(e)} ${window.oralDesktop ? "Bạn có thể thử STT lại hoặc ghi lại câu trả lời." : "Bạn có thể thử STT lại hoặc nhập transcript; bản nhập tay sẽ cần giảng viên xem lại."}`,
         );
       } finally {
         setProcessing(false);
@@ -1144,7 +1143,15 @@ export default function Student() {
                       Đang nộp câu trả lời, vui lòng đợi…
                     </span>
                   ) : answer ? (
-                    "Kiểm tra transcript trước khi nộp"
+                    desktopSpeech.desktop ? (
+                      answer.transcript.trim() ? (
+                        "Câu trả lời đã sẵn sàng để nộp."
+                      ) : (
+                        "Chưa nhận dạng được câu trả lời. Hãy thử STT lại hoặc ghi lại."
+                      )
+                    ) : (
+                      "Kiểm tra transcript trước khi nộp"
+                    )
                   ) : (
                     "Dành một chút thời gian suy nghĩ trước khi trả lời."
                   )}
@@ -1171,24 +1178,27 @@ export default function Student() {
                   ))}
                 {answer && (
                   <div className="answer-form">
-                    <label>
-                      Transcript
-                      <textarea
-                        rows={7}
-                        disabled={processing || submitting}
-                        value={answer.transcript}
-                        onChange={(e) =>
-                          setAnswer({ ...answer, transcript: e.target.value })
-                        }
-                        placeholder="Transcript từ giọng nói sẽ xuất hiện ở đây…"
-                      />
-                    </label>
-                    <p className="muted">
-                      Chỉnh sửa hoặc nhập tay sẽ đánh dấu câu trả lời cần giảng
-                      viên đối chiếu với bản ghi.
-                    </p>
                     {!desktopSpeech.desktop && (
                       <>
+                        <label>
+                          Transcript
+                          <textarea
+                            rows={7}
+                            disabled={processing || submitting}
+                            value={answer.transcript}
+                            onChange={(e) =>
+                              setAnswer({
+                                ...answer,
+                                transcript: e.target.value,
+                              })
+                            }
+                            placeholder="Transcript từ giọng nói sẽ xuất hiện ở đây…"
+                          />
+                        </label>
+                        <p className="muted">
+                          Chỉnh sửa hoặc nhập tay sẽ đánh dấu câu trả lời cần
+                          giảng viên đối chiếu với bản ghi.
+                        </p>
                         <label>
                           Bản ghi dùng cho STT
                           <select

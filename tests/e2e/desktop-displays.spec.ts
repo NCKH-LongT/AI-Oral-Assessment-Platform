@@ -35,7 +35,7 @@ test("desktop disables selected extra outputs before starting and can restore", 
       },
       endExam: async () => {},
       sttModels: async () => [
-        { id: "phowhisper-small", label: "PhoWhisper-small", available: true },
+        { id: "whisper-small", label: "Whisper-small", available: true },
       ],
     };
   });

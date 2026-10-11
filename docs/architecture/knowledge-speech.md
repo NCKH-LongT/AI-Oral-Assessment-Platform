@@ -32,8 +32,8 @@ erDiagram
 ```mermaid
 flowchart LR
   Mic[Microphone] --> Raw[Audio và video gốc]
-  Raw --> Local[PhoWhisper-small hoặc Whisper-small INT8 trên desktop]
-  Local --> Text[Transcript để học viên kiểm tra]
+  Raw --> Local[Whisper-small INT8 trên desktop]
+  Local --> Text[Transcript gửi lên server]
   Raw --> Server[Server lưu minh chứng]
   Text --> Server
   Server --> Grade[LLM chấm theo rubric và RAG]
@@ -42,13 +42,13 @@ flowchart LR
   Review --> Grade
 ```
 
-Desktop dùng helper local với model và ngôn ngữ chọn trên thiết bị. Bộ cài chứa runtime, FFmpeg, PhoWhisper-small và Whisper-small đa ngôn ngữ, chạy CPU INT8. Helper chuyển audio gốc thành mono 16 kHz rồi nhận dạng. `STT_MODEL` điều khiển Whisper trên server; model desktop lấy từ tài nguyên đóng gói.
+Desktop dùng helper local với Whisper-small cố định và ngôn ngữ chọn trên thiết bị. Bộ cài chứa runtime, FFmpeg và Whisper-small đa ngôn ngữ, chạy CPU INT8. Helper chuyển audio gốc thành mono 16 kHz rồi nhận dạng. `STT_MODEL` điều khiển Whisper trên server; model desktop lấy từ tài nguyên đóng gói.
 
 STT lần đầu và **Thử STT lại** trên desktop đều dùng audio gốc. Khi nộp, desktop upload audio/video gốc và transcript; worker chấm bất đồng bộ. Transcript nhập tay hoặc độ tin cậy thấp cần giảng viên kiểm tra. Lỗi AI, bài demo hoặc đang chờ chấm không được hiển thị thành điểm 0/10.
 
 ### Transcript và thuật ngữ
 
-Người dùng kiểm tra và sửa transcript bằng tay trước khi nộp; mọi bản sửa được đánh dấu để giảng viên đối chiếu với audio.
+Desktop hiển thị trạng thái nhận dạng; transcript được gửi tự động để server chấm và giảng viên đối chiếu audio. Bài luyện tập trên web cho phép sửa transcript; bản sửa được đánh dấu để giảng viên đối chiếu.
 
 AI gợi ý thuật ngữ tiếng Anh và nghĩa tiếng Việt cùng lúc sinh câu hỏi, lưu trong snapshot đề và hiển thị ở workspace giảng viên. Không tự sửa transcript hoặc tự truyền gợi ý vào STT.
 
@@ -68,8 +68,8 @@ Gemini không trả acoustic confidence tương đương Whisper: adapter đánh
 
 ### Trình duyệt và credentials
 
-Cấu hình STT trên web chọn `local` (yêu cầu desktop), `local_server` (Whisper trong API), `gemini` hoặc `google`, cùng ngôn ngữ `vi`/`en`. Policy đã lưu ưu tiên hơn `STT_PROVIDER`; desktop dùng model/ngôn ngữ chọn trên thiết bị và luôn nhận dạng local. Audio nhận dạng tối đa 600 giây, request tối đa 30 MB. Trình duyệt web giữ gain, thu thử 10 giây trước thi và tùy chọn RNNoise (mặc định tắt), cùng lựa chọn bản gốc/bản lọc khi nhận dạng lại. RNNoise chỉ ảnh hưởng nhánh audio STT, không thay bản media minh chứng; không tách được chắc chắn người khác nói chồng. Xem [luồng audio desktop/web](crud-noise-check.md).
+Cấu hình STT trên web chọn `local` (yêu cầu desktop), `local_server` (Whisper trong API), `gemini` hoặc `google`, cùng ngôn ngữ `vi`/`en`. Policy đã lưu ưu tiên hơn `STT_PROVIDER`; desktop dùng Whisper-small với ngôn ngữ chọn trên thiết bị và luôn nhận dạng local. Audio nhận dạng tối đa 600 giây, request tối đa 30 MB. Trình duyệt web giữ gain, thu thử 10 giây trước thi và tùy chọn RNNoise (mặc định tắt), cùng lựa chọn bản gốc/bản lọc khi nhận dạng lại. RNNoise chỉ ảnh hưởng nhánh audio STT, không thay bản media minh chứng; không tách được chắc chắn người khác nói chồng. Xem [luồng audio desktop/web](crud-noise-check.md).
 
 Google Cloud STT là lựa chọn được hỗ trợ trên giao diện: admin upload JSON qua `/admin/settings/speech/google-credentials`. File riêng quyền 600, không trả private key hoặc chuyển xuống desktop; upload không đổi policy hoặc LLM. Thiếu key Gemini/JSON Google chỉ chặn provider tương ứng. Job đang chờ bằng provider khác trả 409 khi admin yêu cầu đổi provider; không tạo hai job song song hoặc âm thầm dùng nhầm provider.
 
-Nguồn: [PhoWhisper](https://github.com/VinAIResearch/PhoWhisper), [RNNoise Web Audio](https://github.com/sapphi-red/web-noise-suppressor), [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs), [Gemini audio](https://ai.google.dev/gemini-api/docs/audio).
+Nguồn: [Whisper](https://github.com/openai/whisper), [RNNoise Web Audio](https://github.com/sapphi-red/web-noise-suppressor), [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs), [Gemini audio](https://ai.google.dev/gemini-api/docs/audio).

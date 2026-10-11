@@ -12,7 +12,6 @@ function validHotwords(words) {
 }
 
 const STT_MODELS = Object.freeze({
-  "phowhisper-small": { label: "PhoWhisper-small", folder: "model" },
   "whisper-small": { label: "Whisper-small", folder: "whisper-small" },
 });
 

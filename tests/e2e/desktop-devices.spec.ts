@@ -15,8 +15,8 @@ test("desktop keeps permission and disconnect gates and reconnects without an au
     window.oralDesktop = {
       sttModels: async () => [
         {
-          id: "phowhisper-small",
-          label: "PhoWhisper-small",
+          id: "whisper-small",
+          label: "Whisper-small",
           available: true,
         },
       ],
@@ -254,8 +254,11 @@ test("desktop keeps permission and disconnect gates and reconnects without an au
     page.getByRole("button", { name: "Kết thúc trả lời", exact: true }),
   ).toHaveCount(0);
   await expect(
+    page.getByText("Câu trả lời đã sẵn sàng để nộp.", { exact: true }),
+  ).toBeVisible();
+  await expect(
     page.getByRole("textbox", { name: "Transcript", exact: true }),
-  ).toHaveValue("The recording survives a disconnected microphone.");
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Ghi lại", exact: true }).click();
   const startAnswer = page.getByRole("button", {
     name: "Bắt đầu trả lời",
@@ -281,8 +284,11 @@ test("desktop keeps permission and disconnect gates and reconnects without an au
     .getByRole("button", { name: "Kết thúc trả lời", exact: true })
     .click();
   await expect(
+    page.getByText("Câu trả lời đã sẵn sàng để nộp.", { exact: true }),
+  ).toBeVisible();
+  await expect(
     page.getByRole("textbox", { name: "Transcript", exact: true }),
-  ).toHaveValue("The recording survives a disconnected microphone.");
+  ).toHaveCount(0);
   await expectNoDesktopAudioProcessing(page);
   expect(audioAssetRequests).toEqual([]);
   const released = await page.evaluate(() => {

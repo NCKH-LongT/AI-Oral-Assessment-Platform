@@ -56,7 +56,12 @@
       },
       {
         "from": "resources/stt",
-        "to": "stt"
+        "to": "stt",
+        "filter": [
+          "oral-stt/**/*",
+          "whisper-small/**/*",
+          "WHISPER-LICENSE.txt"
+        ]
       }
     ],
     "win": {

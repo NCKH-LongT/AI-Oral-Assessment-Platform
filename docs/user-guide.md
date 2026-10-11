@@ -1,13 +1,13 @@
 # Hướng dẫn sử dụng OralAI
 
-## Quy trình khảo thí mới
+## Quy trình khảo thí
 
 Bắt đầu tại [hướng dẫn khảo thí → giảng viên → sinh viên](architecture/examination-workflow.md). Tải [Excel mẫu](templates/danh-sach-sinh-vien.xlsx). Admin duyệt role khảo thí và cấp role giảng viên; khảo thí giao môn, nhập danh sách, kiểm tra đề đã được giảng viên duyệt, xếp lịch từng sinh viên rồi mở thi. Bài AI dưới 5 được đánh dấu để giảng viên chấm lại; khảo thí xuất điểm chính thức trong Điều phối kỳ thi.
 
 
 [README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu) · [Desktop](../readme-desktop.md) · [Cập nhật qua Jenkins](jenkins.md)
 
-Hướng dẫn luồng audio desktop cập nhật ngày 09/10/2026. Admin và giảng viên quản lý trên web; học viên dùng desktop để nhận dạng giọng nói bằng PhoWhisper-small hoặc Whisper-small trên máy.
+Admin, khảo thí và giảng viên quản lý trên web; sinh viên dùng desktop nhận dạng giọng nói bằng Whisper-small trên máy.
 
 ## Chuẩn bị và đăng nhập
 
@@ -46,7 +46,7 @@ Sau khi công bố, ngay dưới đề xuất hiện **Câu hỏi & thuật ng�
 - Gợi ý được lưu cùng phiên bản đề và hiển thị trong trang quản lý. Học viên không nhận danh sách này qua màn hình câu hỏi.
 - Đề cũ, đề demo hoặc câu không có thuật ngữ phù hợp có thể hiển thị **Chưa có gợi ý thuật ngữ cho câu hỏi này**.
 - Hiện chưa có thao tác sửa trực tiếp danh sách thuật ngữ. Để sinh lại câu hỏi/gợi ý, chọn **Sao chép thành bản nháp**, điều chỉnh bản nháp và công bố lại; bản đề mới có thể có câu hỏi khác.
-- Hotword STT lưu riêng tại **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học**, áp dụng cho desktop/server khi làm bài của môn đó. Mỗi dòng một thuật ngữ; tối đa 500 mục, 100 ký tự/mục, tổng 10.000 ký tự sau khi bỏ dòng trống/mục trùng. Bấm **Lưu hotword môn học**, kiểm tra thông báo tên môn và số mục đã lưu. Không còn hotword chung trong Cấu hình giọng nói. Đề giữ hotword lúc sinh; sau khi sửa danh sách, cần sinh đề mới hoặc trả đề về nháp rồi sinh/duyệt lại để áp dụng. Danh sách thuật ngữ AI không tự trở thành hotword. Kiểm tra transcript trước khi nộp.
+- Hotword STT lưu riêng tại **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học**, áp dụng cho desktop/server khi làm bài của môn đó. Mỗi dòng một thuật ngữ; tối đa 500 mục, 100 ký tự/mục, tổng 10.000 ký tự sau khi bỏ dòng trống/mục trùng. Bấm **Lưu hotword môn học**, kiểm tra thông báo tên môn và số mục đã lưu. Đề giữ hotword lúc sinh; sau khi sửa danh sách, cần sinh đề mới hoặc trả đề về nháp rồi sinh/duyệt lại để áp dụng. Danh sách thuật ngữ AI không tự trở thành hotword. Giảng viên đối chiếu transcript với bản ghi khi xem bài.
 
 Đề đã công bố giữ nguyên nội dung để đối chiếu kết quả. Kỳ thi mới bắt buộc giảng viên và khảo thí duyệt trước; chỉ sinh viên trong roster thấy kỳ thi và chỉ bắt đầu trong lịch được xếp.
 
@@ -63,17 +63,17 @@ Hai cách giao trong bảng trên chỉ áp dụng đề legacy. Kỳ thi mới 
 
 ## Học viên làm bài trên desktop
 
-1. Mở OralAI, chọn máy chủ tại **OralAI → Cấu hình máy chủ…** rồi đăng nhập bằng email/mật khẩu được cấp hoặc Google đúng email trong danh sách Excel.
-2. Chọn bài thi, bấm **Mở bài thi → Cho phép camera & mic**. Chọn đúng microphone và camera.
-3. Chọn ngôn ngữ/model trong **Nhận dạng giọng nói trên desktop**. Desktop không có thu thử trước thi, gain hoặc RNNoise; thiết bị kết nối thành công là có thể bắt đầu.
-4. Bấm **Bắt đầu thi**. Mỗi câu bấm **Bắt đầu trả lời**, nói xong bấm **Kết thúc trả lời**.
-5. Chờ model đã chọn chuyển audio gốc thành transcript. App hiện nhận dạng sau khi dừng ghi, chưa hiện chữ trực tiếp trong lúc nói.
-6. Kiểm tra và sửa transcript bằng tay nếu cần. Có thể đổi model/ngôn ngữ rồi bấm **Thử STT lại** từ audio gốc; nhận dạng lại thành công sẽ thay transcript đang sửa.
-7. Bấm **Nộp câu trả lời & tiếp tục**. Khi đủ câu và upload hoàn tất, bấm **Nộp bài thi** rồi chờ kết quả.
+1. Mở OralAI, chọn **Cấu hình máy chủ** tại màn hình đăng nhập. Dùng tài khoản được cấp hoặc Google đúng email trong danh sách thi.
+2. Chọn bài, bấm **Mở bài thi → Cho phép camera & mic** và chọn đúng thiết bị.
+3. Chọn **Ngôn ngữ nói** (tiếng Việt hoặc tiếng Anh). Whisper-small nhận dạng cục bộ.
+4. Chuẩn bị một màn hình, đồng ý ghi toàn màn hình, bấm **Bắt đầu thi** và cấp quyền chia sẻ.
+5. Đọc câu hỏi, bấm **Bắt đầu trả lời**, nói xong bấm **Kết thúc trả lời**.
+6. Chờ nhận dạng thành công rồi **Nộp câu trả lời & tiếp tục**. Có thể đổi ngôn ngữ và **Thử STT lại**, hoặc **Ghi lại** khi cần.
+7. Khi đủ câu và upload hoàn tất, bấm **Nộp bài thi** rồi chờ kết quả.
 
-Chức năng sửa chính tả bằng LLM đã được gỡ; không cần tải Qwen3. Transcript sửa tay được đánh dấu để giảng viên đối chiếu bản ghi. Xem [kiểm tra transcript](transcript-correction.md) và [hướng dẫn mic](microphone-desktop.md).
+Desktop hiển thị câu hỏi, hướng dẫn và trạng thái nhận dạng; transcript gửi tự động lên server để chấm và cho giảng viên đối chiếu. [Transcript và review](transcript-correction.md), [microphone](microphone-desktop.md), [ghi màn hình và chế độ thi](../readme-desktop.md#truy-cập-và-ghi-màn-hình-bắt-buộc).
 
-Trình duyệt web vẫn giữ thu thử 10 giây, gain và tùy chọn RNNoise trước thi, cùng lựa chọn bản gốc/bản lọc khi thử STT lại. Xem [luồng âm thanh trên web](architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).
+Bài luyện tập của nhân sự trên web hỗ trợ thu thử 10 giây, gain, RNNoise và kiểm tra transcript. [Luồng âm thanh web](architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).
 
 ## Xem kết quả và làm lại
 
@@ -147,7 +147,7 @@ Giao diện quản lý và API cần cùng được cập nhật. Với server D
 
 ## Quyền truy cập và môn học của sinh viên
 
-Web chỉ cho **ADMIN, EXAM_OFFICER và TEACHER** truy cập. Sinh viên dùng OralAI Desktop. Admin có thể đổi role `REVIEWER` cũ sang vai trò phù hợp trong **Người dùng**; không cấp mới role này.
+Web chỉ cho **ADMIN, EXAM_OFFICER và TEACHER** truy cập. Sinh viên dùng OralAI Desktop.
 
 Trong **Người dùng**, bấm tên sinh viên để mở chi tiết và danh sách môn. Admin/khảo thí chọn môn rồi bấm **Thêm môn**, hoặc **Gỡ môn** để thu hồi cả đăng ký môn và các đề/lịch thi đã giao trong môn. Thao tác gỡ giữ nguyên bài làm, điểm và minh chứng; bị chặn khi sinh viên còn phiên đang mở hoặc đang làm. Với kỳ thi theo lịch, thêm môn không thay cho bước đưa sinh viên vào roster và xếp lịch. Giáo viên chỉ xem các môn mình phụ trách tại màn hình này.
 

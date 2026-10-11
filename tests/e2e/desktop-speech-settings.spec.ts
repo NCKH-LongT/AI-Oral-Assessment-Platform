@@ -6,15 +6,16 @@ for (const mode of [
   "old-desktop",
   "missing-model",
   "broken-preferences",
+  "saved-legacy-model",
 ] as const) {
-  test(`speech selection handles ${mode}`, async ({ page }) => {
+  test(`desktop language settings handle ${mode}`, async ({ page }) => {
     await page.addInitScript((mode) => {
       if (mode === "browser") return;
       localStorage.setItem(
         "oral-desktop-speech-v1",
         mode === "broken-preferences"
           ? "invalid json"
-          : JSON.stringify({ model: "whisper-small", language: "en" }),
+          : JSON.stringify({ model: "phowhisper-small", language: "en" }),
       );
       window.oralDesktop = {
         transcribe: async () => {
@@ -25,14 +26,9 @@ for (const mode of [
           : {
               sttModels: async () => [
                 {
-                  id: "phowhisper-small" as const,
-                  label: "PhoWhisper-small",
-                  available: true,
-                },
-                {
                   id: "whisper-small" as const,
                   label: "Whisper-small",
-                  available: false,
+                  available: mode !== "missing-model",
                 },
               ],
             }),
@@ -81,47 +77,33 @@ for (const mode of [
       name: "Model nhận dạng",
       exact: true,
     });
+    await expect(model).toHaveCount(0);
+    const group = page.getByRole("group", {
+      name: "Nhận dạng giọng nói trên desktop",
+      exact: true,
+    });
+    const language = page.getByRole("combobox", {
+      name: "Ngôn ngữ nói",
+      exact: true,
+    });
     if (mode === "browser") {
-      await expect(model).toHaveCount(0);
+      await expect(group).toHaveCount(0);
     } else if (mode === "old-desktop") {
-      await expect(
-        page
-          .getByRole("group", {
-            name: "Nhận dạng giọng nói trên desktop",
-            exact: true,
-          })
-          .getByRole("alert"),
-      ).toContainText("Đóng/mở lại desktop phiên bản mới");
-      await expect(model).toBeDisabled();
+      await expect(group.getByRole("alert")).toContainText(
+        "Đóng/mở lại desktop phiên bản mới",
+      );
+      await expect(language).toBeDisabled();
     } else {
-      await expect(model).toBeEnabled();
-      await expect(
-        model.locator('option[value="whisper-small"]'),
-      ).toHaveJSProperty("disabled", true);
+      await expect(language).toBeEnabled();
+      await expect(language).toHaveValue(
+        mode === "broken-preferences" ? "vi" : "en",
+      );
       if (mode === "missing-model") {
-        await expect(model).toHaveValue("whisper-small");
-        await expect(
-          page
-            .getByRole("group", {
-              name: "Nhận dạng giọng nói trên desktop",
-              exact: true,
-            })
-            .getByRole("alert"),
-        ).toContainText("Model đã chọn chưa có trên máy");
-        await model.selectOption("phowhisper-small");
-        await expect(
-          page
-            .getByRole("group", {
-              name: "Nhận dạng giọng nói trên desktop",
-              exact: true,
-            })
-            .getByRole("alert"),
-        ).toHaveCount(0);
+        await expect(group.getByRole("alert")).toContainText(
+          "Chưa có bộ nhận dạng Whisper-small",
+        );
       } else {
-        await expect(model).toHaveValue("phowhisper-small");
-        await expect(
-          page.getByRole("combobox", { name: "Ngôn ngữ nói", exact: true }),
-        ).toHaveValue("vi");
+        await expect(group.getByRole("alert")).toHaveCount(0);
       }
     }
   });

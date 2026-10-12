@@ -5,12 +5,17 @@ const config: NextConfig = {
   outputFileTracingRoot: path.join(process.cwd(), "../.."),
   experimental: { proxyTimeout: 300000 },
   async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${process.env.API_INTERNAL_URL || "http://127.0.0.1:8000"}/:path*`,
-      },
-    ];
+    return {
+      beforeFiles:
+        process.env.ORAL_CLIENT_ENABLED === "1"
+          ? []
+          : [
+              {
+                source: "/api/:path*",
+                destination: `${process.env.API_INTERNAL_URL || "http://127.0.0.1:8000"}/:path*`,
+              },
+            ],
+    };
   },
   async headers() {
     return [

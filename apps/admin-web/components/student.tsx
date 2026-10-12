@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -20,19 +21,42 @@ import {
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
 import NoiseCheck from "./noise-check";
+import ExamScore from "./exam-score";
+import { useExamGuard } from "./use-exam-guard";
+import DesktopSpeechSettings, {
+  useDesktopSpeech,
+  DESKTOP_STT_MODEL,
+  type DesktopModel,
+} from "./desktop-speech-settings";
 import { createNoiseFilter, type NoiseFilter } from "../lib/noise-filter";
+import DesktopDisplaySettings, {
+  type DesktopDisplayStatus,
+} from "./desktop-display-settings";
 import {
   createMicrophoneGain,
   peakDbfs,
   type MicrophoneGain,
 } from "../lib/microphone-gain";
 
-type STT = { transcript: string; stt_confidence: number };
+type STT = {
+  transcript: string;
+  stt_confidence: number | null;
+  stt_skipped_reason?: "MODEL_MISSING";
+};
 declare global {
   interface Window {
     oralDesktop?: {
       openGoogle?: (url: string) => Promise<void>;
+      focus?: () => Promise<void>;
+      settings?: () => Promise<void>;
+      beginExam?: () => Promise<void>;
+      endExam?: (options?: { restoreDisplays?: boolean }) => Promise<void>;
+      displayStatus?: () => Promise<DesktopDisplayStatus>;
+      useSingleDisplay?: (keep: string) => Promise<DesktopDisplayStatus>;
+      restoreDisplays?: () => Promise<DesktopDisplayStatus>;
+      onExamEvent?: (callback: (type: string) => void) => () => void;
       quit?: () => Promise<void>;
+      sttModels?: () => Promise<DesktopModel[]>;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
     };
   }
@@ -44,14 +68,15 @@ type PendingAnswer = {
   sttSource: "original" | "filtered";
   video: Blob;
   transcript: string;
-  confidence: number;
+  confidence: number | null;
+  sttSkippedReason?: "MODEL_MISSING";
   originalText: string;
   key: string;
 };
 type UploadJob = {
   id: string;
   attemptId: string;
-  kind: "AUDIO" | "VIDEO";
+  kind: "AUDIO" | "VIDEO" | "SCREEN";
   blob: Blob;
   progress: number;
   status: "pending" | "uploading" | "done" | "failed";
@@ -72,10 +97,19 @@ const mime = (kind: "audio" | "video") =>
   ).find((t) => MediaRecorder.isTypeSupported(t));
 
 export default function Student() {
+  const [displayBusy, setDisplayBusy] = useState(false);
+  const [screenConsent, setScreenConsent] = useState(false);
+  const screenJobs = useRef(
+    new Map<Blob, { job: UploadJob; task: Promise<boolean> }>(),
+  );
+  const desktopSpeech = useDesktopSpeech();
   const [courseFilter, setCourseFilter] = useState("");
   const [exams, setExams] = useState<StudentExam[]>([]),
     [session, setSession] = useState<ExamSession | null>(null),
     [error, setError] = useState("");
+  const sessionFinished =
+    !!session &&
+    ["SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"].includes(session.status);
   const [stream, setStream] = useState<MediaStream | null>(null),
     [noiseReady, setNoiseReady] = useState(false),
     [micLevel, setMicLevel] = useState(0),
@@ -96,7 +130,7 @@ export default function Student() {
   const [connecting, setConnecting] = useState(false);
   const [startingRecording, setStartingRecording] = useState(false);
   const connectingRef = useRef(false);
-  const [denoise, setDenoise] = useState(true);
+  const [denoise, setDenoise] = useState(false);
   const [gainDb, setGainDb] = useState(0);
   const [micPeak, setMicPeak] = useState(-120);
   const gainRef = useRef<MicrophoneGain | null>(null);
@@ -119,6 +153,8 @@ export default function Student() {
     setSession(s);
     return s;
   }, []);
+  const guard = useExamGuard(session, () => stopRef.current());
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- State updates follow an asynchronous API response.
     loadExams().catch((e) => setError(errorText(e)));
@@ -143,7 +179,7 @@ export default function Student() {
         if (!left && recordingRef.current) stopRef.current();
       }
     }, 500);
-    const before = (e: BeforeUnloadEvent) => {
+    const before = (e: Event) => {
       if (
         recordingRef.current ||
         answer ||
@@ -152,9 +188,11 @@ export default function Student() {
         e.preventDefault();
     };
     window.addEventListener("beforeunload", before);
+    window.addEventListener("oral:backend-switch", before);
     return () => {
       clearInterval(timer);
       window.removeEventListener("beforeunload", before);
+      window.removeEventListener("oral:backend-switch", before);
     };
   }, [answer, jobs]);
   useEffect(
@@ -189,7 +227,7 @@ export default function Student() {
     return () => clearInterval(timer);
   }, [session?.id, session?.status, refreshSession]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!stream) return;
+    if (!stream || sessionFinished) return;
     const context = new AudioContext(),
       analyser = context.createAnalyser();
     analyser.fftSize = 256;
@@ -215,7 +253,7 @@ export default function Student() {
       clearInterval(timer);
       void context.close();
     };
-  }, [stream]);
+  }, [stream, sessionFinished]);
   useEffect(() => {
     const media = navigator.mediaDevices;
     if (!media?.enumerateDevices) return;
@@ -296,46 +334,50 @@ export default function Student() {
         s.getTracks().forEach((t) => t.stop());
         return;
       }
-      let gain: MicrophoneGain;
-      try {
-        gain = await createMicrophoneGain(s, gainDb);
-      } catch (error) {
-        s.getTracks().forEach((t) => t.stop());
-        throw error;
-      }
-      if (generation !== deviceGeneration.current) {
-        await gain.close();
-        s.getTracks().forEach((t) => t.stop());
-        return;
-      }
-      gainRef.current = gain;
-      try {
-        const filter = await createNoiseFilter(gain.stream, () => {
-          if (generation === deviceGeneration.current) {
-            filterFailures.current++;
-            setFilterError(
-              "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
-            );
+      // Desktop records the device tracks directly. Optional gain/RNNoise
+      // processing belongs only to the browser exam flow.
+      if (!window.oralDesktop) {
+        let gain: MicrophoneGain;
+        try {
+          gain = await createMicrophoneGain(s, gainDb);
+        } catch (error) {
+          s.getTracks().forEach((t) => t.stop());
+          throw error;
+        }
+        if (generation !== deviceGeneration.current) {
+          await gain.close();
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        gainRef.current = gain;
+        try {
+          const filter = await createNoiseFilter(gain.stream, () => {
+            if (generation === deviceGeneration.current) {
+              filterFailures.current++;
+              setFilterError(
+                "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
+              );
+            }
+          });
+          if (generation !== deviceGeneration.current) {
+            await filter.close();
+            await gain.close();
+            s.getTracks().forEach((t) => t.stop());
+            return;
           }
-        });
-        if (generation !== deviceGeneration.current) {
-          await filter.close();
-          await gain.close();
-          s.getTracks().forEach((t) => t.stop());
-          return;
+          // Browser retains a filtered alternative for STT retries.
+          filter.setEnabled(true);
+          filterRef.current = filter;
+        } catch {
+          if (generation !== deviceGeneration.current) {
+            await gain.close();
+            s.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          setFilterError(
+            "Không tải được RNNoise. Tắt lọc nhiễu để thu bản gốc hoặc kết nối lại mic.",
+          );
         }
-        // Always retain a filtered alternative; denoise selects the first STT input.
-        filter.setEnabled(true);
-        filterRef.current = filter;
-      } catch {
-        if (generation !== deviceGeneration.current) {
-          await gain.close();
-          s.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        setFilterError(
-          "Không tải được RNNoise. Tắt lọc nhiễu để thu bản gốc hoặc kết nối lại mic.",
-        );
       }
       s.getTracks().forEach((t) => {
         t.onended = () => {
@@ -372,13 +414,37 @@ export default function Student() {
     }
   }
   async function transcribe(audio: Blob): Promise<STT> {
+    if (window.oralDesktop) {
+      setSpeechStage("Đang kiểm tra bộ nhận dạng trên máy…");
+      const models = await desktopSpeech.inspect();
+      const model = models.find((item) => item.id === DESKTOP_STT_MODEL);
+      if (!model)
+        throw new Error(
+          "Không kiểm tra được Whisper-small. Mở lại desktop rồi thử lại.",
+        );
+      if (!model.available)
+        return {
+          transcript: "",
+          stt_confidence: null,
+          stt_skipped_reason: "MODEL_MISSING",
+        };
+    }
     setSpeechStage("Đang tải cấu hình nhận dạng…");
-    const savedPolicy = await api<SpeechPolicy>("/stt/config");
-    // Desktop always transcribes locally. Filtering is already performed on the client.
+    const savedPolicy = await api<SpeechPolicy>(
+      `/stt/config${session ? `?session_id=${encodeURIComponent(session.id)}` : ""}`,
+    );
+    // Desktop uses original audio locally. Browser filtering, when selected,
+    // happens on the client; neither path needs server preprocessing.
     const policy: SpeechPolicy = {
       ...savedPolicy,
       provider: window.oralDesktop ? "local" : savedPolicy.provider,
       preprocessing: "off",
+      ...(window.oralDesktop
+        ? {
+            language: desktopSpeech.preferences.language,
+            desktop_model: DESKTOP_STT_MODEL,
+          }
+        : {}),
     };
     const providerLabel = {
       local: "Whisper trên máy của bạn",
@@ -386,9 +452,10 @@ export default function Student() {
       gemini: "Gemini",
       local_server: "Whisper trên server",
     }[policy.provider];
-    setSpeechStage(
-      `${policy.preprocessing === "denoise" ? "Đang lọc nhiễu và nhận dạng" : "Đang nhận dạng"} bằng ${providerLabel}. Vui lòng đợi…`,
-    );
+    const label = window.oralDesktop
+      ? `Whisper-small · ${policy.language === "en" ? "Tiếng Anh" : "Tiếng Việt"}`
+      : providerLabel;
+    setSpeechStage(`Đang nhận dạng bằng ${label}. Vui lòng đợi…`);
     if (policy.provider === "local") {
       if (!window.oralDesktop)
         throw new Error(
@@ -399,9 +466,14 @@ export default function Student() {
     const form = new FormData();
     form.set("file", audio, "answer.webm");
     form.set("preprocessing", "off");
+    if (session) form.set("session_id", session.id);
     return api<STT>("/stt", { method: "POST", body: form });
   }
   async function start() {
+    if (guard.blocked || guard.preparing || guard.finishing)
+      throw new Error(
+        "Khôi phục chế độ thi và ghi màn hình trước khi trả lời.",
+      );
     if (!session?.current_attempt || !stream || deviceError || connecting)
       throw new Error("Kiểm tra camera và microphone trước.");
     const am = mime("audio"),
@@ -410,13 +482,16 @@ export default function Student() {
       throw new Error(
         "Trình duyệt chưa hỗ trợ định dạng ghi âm/video. Dùng Chrome hoặc Electron.",
       );
-    if (denoise && (!filterRef.current || filterError))
+    if (!window.oralDesktop && denoise && (!filterRef.current || filterError))
       throw new Error(
         "Lọc nhiễu chưa sẵn sàng. Tắt lọc nhiễu hoặc kết nối lại mic.",
       );
     const attemptId = session.current_attempt.id;
     const capture = new MediaStream([
-      ...(gainRef.current?.stream || stream).getAudioTracks(),
+      ...(window.oralDesktop
+        ? stream
+        : gainRef.current?.stream || stream
+      ).getAudioTracks(),
       ...stream.getVideoTracks(),
     ]);
     const audioRecorder = new MediaRecorder(
@@ -429,7 +504,7 @@ export default function Student() {
     });
     const filterVersion = filterFailures.current;
     const cleanRecorder =
-      filterRef.current && !filterError
+      !window.oralDesktop && filterRef.current && !filterError
         ? new MediaRecorder(filterRef.current.stream, { mimeType: am })
         : null;
     const audioChunks: BlobPart[] = [],
@@ -445,9 +520,13 @@ export default function Student() {
     videoRecorder.ondataavailable = (e) => {
       if (e.data.size) videoChunks.push(e.data);
     };
+    const guardRevision = guard.getRevision();
     setStartingRecording(true);
     try {
       await send(`/question-attempts/${attemptId}/start`);
+      // A focus/display/capture interruption can arrive while the server
+      // acknowledges this start. Never start recorders on a stale permission.
+      guard.assertReady(guardRevision);
     } finally {
       setStartingRecording(false);
     }
@@ -479,7 +558,10 @@ export default function Student() {
         confidence: 0,
         key: crypto.randomUUID(),
       };
-      a.sttSource = denoise && a.filteredAudio ? "filtered" : "original";
+      a.sttSource =
+        !window.oralDesktop && denoise && a.filteredAudio
+          ? "filtered"
+          : "original";
       setAnswer(a);
       try {
         const stt = await transcribe(
@@ -488,10 +570,11 @@ export default function Student() {
         a.transcript = stt.transcript;
         a.originalText = stt.transcript;
         a.confidence = stt.stt_confidence;
+        a.sttSkippedReason = stt.stt_skipped_reason;
         setAnswer({ ...a });
       } catch (e) {
         setError(
-          `${errorText(e)} Bạn có thể thử STT lại hoặc nhập transcript; bản nhập tay sẽ cần giảng viên xem lại.`,
+          `${errorText(e)} ${window.oralDesktop ? "Bạn có thể thử STT lại hoặc ghi lại câu trả lời." : "Bạn có thể thử STT lại hoặc nhập transcript; bản nhập tay sẽ cần giảng viên xem lại."}`,
         );
       } finally {
         setProcessing(false);
@@ -522,10 +605,14 @@ export default function Student() {
     setError("");
   }
   async function runUpload(job: UploadJob) {
-    const update = (patch: Partial<UploadJob>) =>
+    const update = (patch: Partial<UploadJob>) => {
+      Object.assign(job, patch);
+      for (const item of screenJobs.current.values())
+        if (item.job.id === job.id) Object.assign(item.job, patch);
       setJobs((all) =>
         all.map((j) => (j.id === job.id ? { ...j, ...patch } : j)),
       );
+    };
     update({ status: "uploading", error: undefined });
     try {
       const init = await send<{
@@ -573,12 +660,18 @@ export default function Student() {
         await send(`/uploads/${init.id}/complete`);
       }
       update({ status: "done", progress: 100 });
+      return true;
     } catch (e) {
       update({ status: "failed", error: errorText(e) });
+      return false;
     }
   }
   async function submit() {
     if (!answer || !session || submitting || processing) return;
+    if (guard.blocked || guard.preparing)
+      throw new Error("Khôi phục chế độ thi trước khi nộp câu trả lời.");
+    if (!answer.transcript.trim() && !answer.sttSkippedReason)
+      throw new Error("Nhận dạng câu trả lời trước khi nộp.");
     if (!answer.audio.size || !answer.video.size)
       throw new Error("Media rỗng. Vui lòng ghi âm lại.");
     setSubmitting(true);
@@ -590,6 +683,9 @@ export default function Student() {
         body: JSON.stringify({
           transcript: answer.transcript,
           stt_confidence: confidence,
+          ...(answer.sttSkippedReason
+            ? { stt_skipped_reason: answer.sttSkippedReason }
+            : {}),
         }),
         headers: { "Idempotency-Key": answer.key },
       });
@@ -610,11 +706,37 @@ export default function Student() {
       setSubmitting(false);
     }
   }
+  function queueScreen(blob: Blob, attemptId: string) {
+    const existing = screenJobs.current.get(blob);
+    if (existing) return existing;
+    const job: UploadJob = {
+      id: crypto.randomUUID(),
+      attemptId,
+      kind: "SCREEN",
+      blob,
+      progress: 0,
+      status: "pending",
+    };
+    setJobs((all) => [...all, job]);
+    const item = { job, task: runUpload(job) };
+    screenJobs.current.set(blob, item);
+    return item;
+  }
+  useEffect(() => {
+    if (session?.status !== "IN_PROGRESS" || !session.screen_attempt_id) return;
+    for (const blob of guard.files())
+      queueScreen(blob, session.screen_attempt_id);
+    // A completed media segment triggers an upload, not each UI render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guard.segmentVersion, session?.id, session?.status]);
   async function openExam(
     examId: string,
     newAttempt = false,
     sessionId?: string,
   ) {
+    await guard.release();
+    screenJobs.current.clear();
+    setScreenConsent(false);
     const next = sessionId
       ? await api<ExamSession>(`/exam-sessions/${sessionId}`)
       : await send<ExamSession>("/exam-sessions", {
@@ -694,6 +816,18 @@ export default function Student() {
                   {e.question_count} câu hỏi · {Math.round(e.time_limit / 60)}{" "}
                   phút
                 </p>
+                {e.workflow && (
+                  <p>
+                    Lịch vào thi:{" "}
+                    {e.opens_at
+                      ? new Date(e.opens_at * 1000).toLocaleString("vi-VN")
+                      : "Chưa xếp lịch"}{" "}
+                    →{" "}
+                    {e.closes_at
+                      ? new Date(e.closes_at * 1000).toLocaleString("vi-VN")
+                      : "—"}
+                  </p>
+                )}
                 <Action action={() => openExam(e.id)}>
                   {!e.session_id
                     ? "Mở bài thi →"
@@ -796,8 +930,14 @@ export default function Student() {
               ? "Đã hoàn thành bài luyện tập"
               : "Đã nộp bài thi"}
           </h2>
-          <p>Transcript và minh chứng đã được lưu.</p>
+          <p>Câu trả lời và minh chứng đã được lưu.</p>
           {!session.practice && <Badge status={session.status} />}
+          {!session.practice && (
+            <ExamScore
+              summary={session.score_summary}
+              status={session.status}
+            />
+          )}
           {session.practice ? (
             <p>
               Bài luyện tập không tính điểm. Bạn đã thử xong quy trình thi vấn
@@ -832,6 +972,55 @@ export default function Student() {
       ) : (
         <div className="exam-grid">
           <section className="panel question-panel">
+            {session.screen_required && (
+              <p role="status">
+                {guard.recording
+                  ? "● Đang ghi toàn màn hình"
+                  : "Bài thi yêu cầu ghi toàn màn hình"}
+              </p>
+            )}
+            {guard.blocked && (
+              <div className="notice" role="alert">
+                <p>
+                  Bài thi bị gián đoạn hoặc chưa bật ghi màn hình. Kết nối lại
+                  để tiếp tục; thời gian thi vẫn chạy.
+                </p>
+                <Action
+                  disabled={displayBusy || guard.preparing}
+                  action={guard.prepare}
+                >
+                  Khôi phục chế độ thi
+                </Action>
+              </div>
+            )}
+            {guard.preparing && (
+              <div role="status">
+                <p>
+                  {guard.prepareStage || "Đang bật chế độ thi và ghi màn hình…"}
+                </p>
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() => void guard.cancelPrepare()}
+                >
+                  Hủy khôi phục
+                </button>
+              </div>
+            )}
+            {desktopSpeech.desktop &&
+              !guard.preparing &&
+              (session.status === "DEVICE_CHECK" || guard.blocked) && (
+                <DesktopDisplaySettings
+                  inExam={session.status === "IN_PROGRESS"}
+                  onBusy={setDisplayBusy}
+                />
+              )}
+            <DesktopSpeechSettings
+              settings={desktopSpeech}
+              disabled={
+                recording || startingRecording || processing || submitting
+              }
+            />
             {session.status === "DEVICE_CHECK" ? (
               <>
                 <span className="eyebrow">TRƯỚC KHI BẮT ĐẦU</span>
@@ -844,10 +1033,12 @@ export default function Student() {
                 <ol>
                   <li>Cho phép truy cập camera và microphone.</li>
                   <li>Kiểm tra hình ảnh và thanh tín hiệu microphone.</li>
-                  <li>
-                    Kiểm tra độ ồn, tìm chỗ yên lặng nếu được nhắc hoặc chọn bỏ
-                    qua.
-                  </li>
+                  {!desktopSpeech.desktop && (
+                    <li>
+                      Kiểm tra độ ồn, tìm chỗ yên lặng nếu được nhắc hoặc chọn
+                      bỏ qua.
+                    </li>
+                  )}
                   <li>Camera chỉ ghi khi bạn bấm “Bắt đầu trả lời”.</li>
                 </ol>
                 <p className="muted">
@@ -855,48 +1046,87 @@ export default function Student() {
                   phục bản ghi khi đóng ứng dụng; giữ cửa sổ mở đến khi nộp bài
                   thành công.
                 </p>
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={denoise}
-                    onChange={(event) => {
-                      setDenoise(event.target.checked);
-                    }}
-                  />
-                  Lọc nhiễu RNNoise khi nhận dạng câu trả lời
-                </label>
-                {filterError && (
-                  <p role="alert" className="error">
-                    {filterError}
+                {!desktopSpeech.desktop && (
+                  <>
+                    <label className="check">
+                      <input
+                        type="checkbox"
+                        checked={denoise}
+                        onChange={(event) => {
+                          setDenoise(event.target.checked);
+                        }}
+                      />
+                      Lọc nhiễu RNNoise khi nhận dạng câu trả lời
+                    </label>
+                    {filterError && (
+                      <p role="alert" className="error">
+                        {filterError}
+                      </p>
+                    )}
+                    <p className="muted">
+                      Mặc định STT dùng bản gốc. Audio/video gốc được giữ để đối
+                      chiếu. Lựa chọn lọc chỉ áp dụng cho audio dùng STT.
+                    </p>
+                    {stream && !deviceError && (
+                      <NoiseCheck
+                        key={`${stream.id}:${gainDb}`}
+                        stream={stream}
+                        gainDb={gainDb}
+                        onReady={setNoiseReady}
+                      />
+                    )}
+                  </>
+                )}
+                {desktopSpeech.desktop && (
+                  <p className="muted">
+                    STT dùng bản ghi gốc từ microphone. Audio/video gốc được giữ
+                    để đối chiếu. Nếu vẫn nhận nhiều màn hình dù đã tắt nguồn,
+                    dùng nút Tắt màn hình phụ trong mục Chuẩn bị màn hình, rồi
+                    bấm Bắt đầu thi.
                   </p>
                 )}
-                <p className="muted">
-                  Audio/video gốc được giữ để đối chiếu. Lựa chọn lọc chỉ áp
-                  dụng cho audio dùng STT.
-                </p>
-                {stream && !deviceError && (
-                  <NoiseCheck
-                    key={`${stream.id}:${gainDb}`}
-                    stream={stream}
-                    gainDb={gainDb}
-                    onReady={setNoiseReady}
-                  />
+                {session.screen_required && (
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={screenConsent}
+                      onChange={(e) => setScreenConsent(e.target.checked)}
+                    />
+                    Tôi đồng ý ghi toàn màn hình trong thời gian làm bài và lưu
+                    trên server để giảng viên xem lại. Tôi đã đóng thông tin
+                    riêng tư. Các lần chuyển cửa sổ hoặc ngắt ghi sẽ được ghi
+                    nhận.
+                  </label>
                 )}
                 <Action
                   disabled={
                     !stream ||
                     !!deviceError ||
-                    !noiseReady ||
+                    (!desktopSpeech.desktop && !noiseReady) ||
                     connecting ||
-                    processing
+                    displayBusy ||
+                    guard.preparing ||
+                    processing ||
+                    (session.screen_required && !screenConsent)
                   }
-                  action={async () =>
-                    setSession(
-                      await send<ExamSession>(
-                        `/exam-sessions/${session.id}/start`,
-                      ),
+                  action={async () => {
+                    if (
+                      window.oralDesktop?.beginExam ||
+                      session.screen_required
                     )
-                  }
+                      await guard.prepare();
+                    try {
+                      setSession(
+                        await send<ExamSession>(
+                          `/exam-sessions/${session.id}/start`,
+                          { screen_consent: screenConsent },
+                        ),
+                      );
+                    } catch (e) {
+                      await guard.release();
+                      throw e;
+                    }
+                  }}
                 >
                   Bắt đầu thi
                 </Action>
@@ -910,6 +1140,20 @@ export default function Student() {
                 <h2 className="question-text">
                   {session.current_attempt.text}
                 </h2>
+                {session.current_attempt.prompt_image && (
+                  <Image
+                    unoptimized
+                    src={session.current_attempt.prompt_image}
+                    alt="Tranh minh họa cho câu hỏi mô tả bằng tiếng Anh"
+                    width={960}
+                    height={540}
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 12,
+                    }}
+                  />
+                )}
                 <div className="recording-status">
                   {recording ? (
                     <>
@@ -935,7 +1179,17 @@ export default function Student() {
                       Đang nộp câu trả lời, vui lòng đợi…
                     </span>
                   ) : answer ? (
-                    "Kiểm tra transcript trước khi nộp"
+                    desktopSpeech.desktop ? (
+                      answer.transcript.trim() ? (
+                        "Câu trả lời đã sẵn sàng để nộp."
+                      ) : answer.sttSkippedReason ? (
+                        "Đã bỏ qua STT vì thiếu model. Bạn có thể nộp bản ghi; câu trả lời chưa có transcript hoặc điểm AI và cần giảng viên xem lại."
+                      ) : (
+                        "Chưa nhận dạng được câu trả lời. Hãy thử STT lại hoặc ghi lại."
+                      )
+                    ) : (
+                      "Kiểm tra transcript trước khi nộp"
+                    )
                   ) : (
                     "Dành một chút thời gian suy nghĩ trước khi trả lời."
                   )}
@@ -953,7 +1207,13 @@ export default function Student() {
                     </button>
                   ) : (
                     <Action
-                      disabled={!stream || !!deviceError || remaining === 0}
+                      disabled={
+                        guard.blocked ||
+                        guard.preparing ||
+                        !stream ||
+                        !!deviceError ||
+                        remaining === 0
+                      }
                       action={start}
                     >
                       <Mic size={17} />
@@ -962,54 +1222,66 @@ export default function Student() {
                   ))}
                 {answer && (
                   <div className="answer-form">
-                    <label>
-                      Transcript
-                      <textarea
-                        rows={7}
-                        disabled={processing || submitting}
-                        value={answer.transcript}
-                        onChange={(e) =>
-                          setAnswer({ ...answer, transcript: e.target.value })
-                        }
-                        placeholder="Transcript từ giọng nói sẽ xuất hiện ở đây…"
-                      />
-                    </label>
-                    <p className="muted">
-                      Chỉnh sửa hoặc nhập tay sẽ đánh dấu câu trả lời cần giảng
-                      viên đối chiếu với bản ghi.
-                    </p>
-                    <label>
-                      Bản ghi dùng cho STT
-                      <select
-                        value={answer.sttSource}
-                        disabled={processing || submitting}
-                        onChange={(e) =>
-                          setAnswer({
-                            ...answer,
-                            sttSource: e.target.value as
-                              "original" | "filtered",
-                          })
-                        }
-                      >
-                        <option value="original">Bản gốc</option>
-                        <option
-                          value="filtered"
-                          disabled={!answer.filteredAudio}
-                        >
-                          Bản giảm nhiễu RNNoise
-                        </option>
-                      </select>
-                    </label>
-                    {!answer.filteredAudio && (
-                      <p className="muted">
-                        Không có bản giảm nhiễu hợp lệ cho lần ghi này. Bạn vẫn
-                        có thể nhận dạng lại từ bản gốc.
-                      </p>
+                    {!desktopSpeech.desktop && (
+                      <>
+                        <label>
+                          Transcript
+                          <textarea
+                            rows={7}
+                            disabled={processing || submitting}
+                            value={answer.transcript}
+                            onChange={(e) =>
+                              setAnswer({
+                                ...answer,
+                                transcript: e.target.value,
+                              })
+                            }
+                            placeholder="Transcript từ giọng nói sẽ xuất hiện ở đây…"
+                          />
+                        </label>
+                        <p className="muted">
+                          Chỉnh sửa hoặc nhập tay sẽ đánh dấu câu trả lời cần
+                          giảng viên đối chiếu với bản ghi.
+                        </p>
+                        <label>
+                          Bản ghi dùng cho STT
+                          <select
+                            value={answer.sttSource}
+                            disabled={processing || submitting}
+                            onChange={(e) =>
+                              setAnswer({
+                                ...answer,
+                                sttSource: e.target.value as
+                                  "original" | "filtered",
+                              })
+                            }
+                          >
+                            <option value="original">Bản gốc</option>
+                            <option
+                              value="filtered"
+                              disabled={!answer.filteredAudio}
+                            >
+                              Bản giảm nhiễu RNNoise
+                            </option>
+                          </select>
+                        </label>
+                        {!answer.filteredAudio && (
+                          <p className="muted">
+                            Không có bản giảm nhiễu hợp lệ cho lần ghi này. Bạn
+                            vẫn có thể nhận dạng lại từ bản gốc.
+                          </p>
+                        )}
+                      </>
                     )}
                     <div className="inline">
                       <Action
                         disabled={
-                          processing || submitting || !answer.transcript.trim()
+                          guard.blocked ||
+                          guard.preparing ||
+                          processing ||
+                          submitting ||
+                          (!answer.transcript.trim() &&
+                            !answer.sttSkippedReason)
                         }
                         action={submit}
                       >
@@ -1022,18 +1294,26 @@ export default function Student() {
                           setProcessing(true);
                           try {
                             const audio =
+                              !window.oralDesktop &&
                               answer.sttSource === "filtered"
                                 ? answer.filteredAudio
                                 : answer.audio;
                             if (!audio)
                               throw new Error("Không có bản ghi đã lọc nhiễu.");
                             const s = await transcribe(audio);
-                            setAnswer({
-                              ...answer,
-                              transcript: s.transcript,
-                              originalText: s.transcript,
-                              confidence: s.stt_confidence,
-                            });
+                            // A missing model on retry must not erase the last
+                            // successful transcript from this same recording.
+                            if (
+                              !s.stt_skipped_reason ||
+                              !answer.transcript.trim()
+                            )
+                              setAnswer({
+                                ...answer,
+                                transcript: s.transcript,
+                                originalText: s.transcript,
+                                confidence: s.stt_confidence,
+                                sttSkippedReason: s.stt_skipped_reason,
+                              });
                             setError("");
                           } finally {
                             setProcessing(false);
@@ -1069,13 +1349,41 @@ export default function Student() {
               !answer && (
                 <Action
                   disabled={jobs.some((j) => j.status !== "done")}
-                  action={async () =>
-                    setSession(
-                      await send<ExamSession>(
-                        `/exam-sessions/${session.id}/finish`,
-                      ),
-                    )
-                  }
+                  action={async () => {
+                    try {
+                      const screens = await guard.stopRecording();
+                      if (
+                        session.screen_required &&
+                        !screens.length &&
+                        !jobs.some(
+                          (j) => j.kind === "SCREEN" && j.status === "done",
+                        )
+                      )
+                        throw new Error(
+                          "Chưa có bản ghi màn hình để nộp. Liên hệ giảng viên.",
+                        );
+                      for (const blob of screens) {
+                        const item = queueScreen(
+                          blob,
+                          session.screen_attempt_id!,
+                        );
+                        await item.task;
+                        if (item.job.status !== "done")
+                          throw new Error(
+                            "Chưa tải xong màn hình. Bấm thử lại ở bản ghi lỗi, sau đó nộp bài.",
+                          );
+                      }
+                      setSession(
+                        await send<ExamSession>(
+                          `/exam-sessions/${session.id}/finish`,
+                        ),
+                      );
+                      await guard.release();
+                    } catch (e) {
+                      guard.finishFailed();
+                      throw e;
+                    }
+                  }}
                 >
                   Nộp bài thi
                 </Action>
@@ -1124,7 +1432,9 @@ export default function Student() {
               </small>
               {stream && micPeak >= -1 && (
                 <p role="status" className="error">
-                  Âm quá lớn, có nguy cơ vỡ tiếng. Giảm gain hoặc đưa mic ra xa.
+                  {desktopSpeech.desktop
+                    ? "Âm quá lớn, có nguy cơ vỡ tiếng. Đưa mic ra xa hoặc chỉnh mức mic trong hệ điều hành."
+                    : "Âm quá lớn, có nguy cơ vỡ tiếng. Giảm gain hoặc đưa mic ra xa."}
                 </p>
               )}
               <fieldset
@@ -1138,29 +1448,33 @@ export default function Student() {
                 }
               >
                 <legend>Chọn thiết bị</legend>
-                <label>
-                  Gain microphone ({gainDb > 0 ? "+" : ""}
-                  {gainDb} dB)
-                  <input
-                    aria-label="Gain microphone"
-                    type="range"
-                    min={-12}
-                    max={18}
-                    step={1}
-                    value={gainDb}
-                    onChange={(event) => {
-                      const value = Number(event.target.value);
-                      gainRef.current?.setGain(value);
-                      setGainDb(value);
-                      setNoiseReady(false);
-                    }}
-                  />
-                </label>
-                <p className="muted">
-                  0 dB giữ nguyên mức mic. Tăng từng ít một nếu giọng nhỏ; giảm
-                  nếu rè. Áp dụng cho bản thu mới, video và STT. Thu thử lại sau
-                  khi chỉnh.
-                </p>
+                {!desktopSpeech.desktop && (
+                  <>
+                    <label>
+                      Gain microphone ({gainDb > 0 ? "+" : ""}
+                      {gainDb} dB)
+                      <input
+                        aria-label="Gain microphone"
+                        type="range"
+                        min={-12}
+                        max={18}
+                        step={1}
+                        value={gainDb}
+                        onChange={(event) => {
+                          const value = Number(event.target.value);
+                          gainRef.current?.setGain(value);
+                          setGainDb(value);
+                          setNoiseReady(false);
+                        }}
+                      />
+                    </label>
+                    <p className="muted">
+                      0 dB giữ nguyên mức mic. Tăng từng ít một nếu giọng nhỏ;
+                      giảm nếu rè. Áp dụng cho bản thu mới, video và STT. Thu
+                      thử lại sau khi chỉnh.
+                    </p>
+                  </>
+                )}
                 {(
                   [
                     ["audioinput", "Microphone", microphoneId],
@@ -1205,8 +1519,9 @@ export default function Student() {
               </fieldset>
               <p className="muted">
                 Cấp quyền để xem đầy đủ tên thiết bị. Chọn thiết bị sẽ kết nối
-                ngay; đổi thiết bị trước khi thi cần kiểm tra mic lại hoặc bỏ
-                qua.
+                ngay.
+                {!desktopSpeech.desktop &&
+                  " Đổi thiết bị trước khi thi cần kiểm tra mic lại hoặc bỏ qua."}
               </p>
               {connecting && (
                 <p role="status">Đang kết nối thiết bị đã chọn…</p>
@@ -1248,7 +1563,13 @@ export default function Student() {
                 jobs.map((j) => (
                   <div className="upload-job" key={j.id}>
                     <div>
-                      <span>{j.kind === "AUDIO" ? "Âm thanh" : "Video"}</span>
+                      <span>
+                        {j.kind === "AUDIO"
+                          ? "Âm thanh"
+                          : j.kind === "SCREEN"
+                            ? "Màn hình bài thi"
+                            : "Camera câu trả lời"}
+                      </span>
                       <small>
                         {j.status === "done" ? "Đã lưu" : `${j.progress}%`}
                       </small>

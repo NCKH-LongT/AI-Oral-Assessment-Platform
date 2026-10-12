@@ -1,4 +1,4 @@
-# Độ tin cậy và chấm lại theo phiên bản đề — 20/09/2026
+# Độ tin cậy và chấm lại theo phiên bản đề
 
 [README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
 
@@ -12,19 +12,19 @@
 | FAILED | null | Chấm thất bại, không có ước lượng độ tin cậy |
 | NOT_GRADED | null | Demo, luyện tập hoặc không có câu trả lời |
 
-`Attempt.status=GRADED` vẫn có nghĩa đã xử lý lần đầu để tương thích luồng cũ; giao diện đã dùng nhãn “Đã xử lý”. Kết quả lỗi không được biến thành điểm 0 hoặc confidence 0. Điểm 0 và confidence 0 từ một kết quả LLM hợp lệ vẫn được giữ nguyên.
+`Attempt.status=GRADED` có nghĩa đã xử lý lần đầu; giao diện dùng nhãn “Đã xử lý”. `assessment.status` xác định kết quả chấm thành công, thất bại hoặc không chấm. Điểm 0 và confidence 0 chỉ được hiển thị khi thuộc một kết quả LLM hợp lệ.
 
-API admin chuẩn hóa cách đọc kết quả cũ có placeholder `confidence=0`, không ghi đè dữ liệu/lịch sử. UI chỉ hiện phần trăm khi có điểm hợp lệ và không có lỗi. STT là một chỉ số riêng; STT thấp hoặc transcript đã sửa có thể yêu cầu giảng viên xem lại nhưng không ép confidence của LLM về 0.
+UI chỉ hiện phần trăm khi có điểm hợp lệ và không có lỗi. STT là một chỉ số riêng; STT thấp hoặc transcript đã sửa có thể yêu cầu giảng viên xem lại, trong khi confidence của LLM giữ giá trị từ kết quả chấm.
 
 ## Cấu hình đề và tài liệu
 
-Snapshot cố định provider, model, embedding và prompt version tại thời điểm công bố. Đổi `.env` không nâng cấp đề cũ. Sai khác trả mã `AI_CONFIG_MISMATCH`, có thông báo tạo phiên bản đề/tài liệu phù hợp. Kiểm tra trước khi tạo lượt mới, bắt đầu thi và trước khi gửi audio đi nhận dạng lại; worker kiểm tra lại vì cấu hình có thể thay đổi giữa các bước.
+Snapshot cố định provider, model, embedding và prompt version tại thời điểm công bố. Cấu hình `.env` phải khớp phiên bản đề đang dùng. Sai khác trả mã `AI_CONFIG_MISMATCH`, có thông báo tạo phiên bản đề/tài liệu phù hợp. Kiểm tra trước khi tạo lượt mới, bắt đầu thi và trước khi gửi audio đi nhận dạng lại; worker kiểm tra lại vì cấu hình có thể thay đổi giữa các bước.
 
-Không bỏ kiểm tra snapshot hoặc trộn vector từ các embedding khác nhau. Không tự sửa đề cũ và không giảm `CONFIDENCE_THRESHOLD` để che lỗi cấu hình. Các lỗi provider khác có mã `GRADING_FAILED`; log chỉ ghi mã lỗi và loại ngoại lệ, không ghi URL chứa token hoặc nội dung lỗi thô của provider.
+Việc chấm dùng snapshot và tập vector thuộc cùng cấu hình embedding. `CONFIDENCE_THRESHOLD` quyết định ngưỡng cần xem lại, độc lập với kiểm tra cấu hình AI. Các lỗi provider khác có mã `GRADING_FAILED`; log chỉ ghi mã lỗi và loại ngoại lệ, giữ URL chứa token và nội dung lỗi thô của provider ngoài log.
 
 `AI_TIMEOUT` chỉ lỗi chờ phản hồi; `AI_OUTPUT_INVALID` chỉ kết quả sai schema/thang điểm/dẫn chứng. `GEMINI_TIMEOUT` mặc định 180 giây, giới hạn 10–900 giây; không tự thử lại vô hạn.
 
-Trong kiểm tra thực tế, Gemini từng trả điểm 75 cho tiêu chí tối đa 2. Prompt `rubric-bounded-v2` nói rõ dùng điểm thô, không dùng phần trăm. Schema gửi provider giới hạn tên tiêu chí, số tiêu chí, ID dẫn chứng và điểm tối đa theo rubric; backend vẫn kiểm tra riêng trần điểm từng tiêu chí khi rubric có nhiều mức trần. Các ràng buộc numeric/enum theo [Gemini structured outputs](https://ai.google.dev/gemini-api/docs/structured-output). Không tự chia 75 cho 100 hoặc cắt về điểm tối đa vì như vậy sẽ biến kết quả không hợp lệ thành điểm thi. Thay đổi prompt version yêu cầu phiên bản đề mới.
+Prompt `rubric-bounded-v2` yêu cầu điểm thô trong thang điểm từng tiêu chí. Schema gửi provider giới hạn tên tiêu chí, số tiêu chí, ID dẫn chứng và điểm tối đa theo rubric; backend kiểm tra riêng trần điểm từng tiêu chí khi rubric có nhiều mức trần. Các ràng buộc numeric/enum theo [Gemini structured outputs](https://ai.google.dev/gemini-api/docs/structured-output). Điểm ngoài thang được coi là kết quả không hợp lệ. Thay đổi prompt version yêu cầu phiên bản đề mới.
 
 ## Chấm lại transcript đã nộp
 
@@ -32,13 +32,11 @@ Admin vào **Kết quả & xem lại → chọn lượt thi → Chấm lại tra
 
 Endpoint `POST /admin/attempts/{id}/grade-review` nhận `target_exam_id` và `reason`. Chỉ ADMIN được gọi. Phiên thi phải đã nộp, chưa xóa, câu đã xử lý và có transcript. Đề đích phải được công bố trong cùng môn, dùng LLM thật, cùng rubric/thời lượng và giữ nguyên nội dung câu hỏi, đáp án tham chiếu, độ khó; chỉ ID ánh xạ/tài liệu được phép khác. Giao diện chỉ liệt kê các phiên bản tương thích.
 
-ReviewJob lưu đánh giá cũ, transcript gốc, người yêu cầu, lý do và ID đề đích. Worker kiểm tra lại tính tương thích khi chạy, dùng chunk cố định của đề đích, không sửa snapshot, câu hỏi, transcript hoặc STT gốc. Lỗi giữ nguyên đánh giá trước; thành công ghi kết quả mới cùng `grading_exam_id`, `source_exam_id`, phiên bản kiến thức/rubric. Luôn để `review_required=true` khi chấm qua luồng này; không tự công bố điểm chính thức. Chức năng nhập điểm duyệt thủ công vẫn là phạm vi phát triển riêng.
+ReviewJob lưu đánh giá trước khi chấm lại, transcript gốc, người yêu cầu, lý do và ID đề đích. Worker kiểm tra lại tính tương thích khi chạy, dùng chunk cố định của đề đích, giữ nguyên snapshot, câu hỏi, transcript và STT gốc. Lỗi giữ nguyên đánh giá trước; thành công ghi kết quả mới cùng `grading_exam_id`, `source_exam_id`, phiên bản kiến thức/rubric. Luồng này đặt `review_required=true` để giảng viên xem lại. Giảng viên nhập điểm chính thức và nhận xét theo [quy trình khảo thí](examination-workflow.md#tổ-chức-một-kỳ-thi).
 
-Mỗi câu chỉ có một yêu cầu review đang chờ. Bấm lại cùng phiên bản đang chờ trả lại job đó; yêu cầu khác bị từ chối. Review STT cũ vẫn có lịch sử và kiểm tra cấu hình trước khi gọi dịch vụ.
+Mỗi câu chỉ có một yêu cầu review đang chờ. Bấm lại cùng phiên bản đang chờ trả lại job đó; yêu cầu khác bị từ chối. Nhận dạng lại STT lưu lịch sử và kiểm tra cấu hình trước khi gọi dịch vụ.
 
-## Software Testing trên môi trường hiện tại
-
-Đề gốc được tạo trong chế độ demo; sau khi đổi sang Gemini, hai câu bị chặn trước khi gọi LLM. Đây là lỗi cấu hình phiên bản, không phải LLM chấm rubric với độ tin cậy thấp.
+## Bộ dữ liệu Software Testing
 
 Dùng [bộ dữ liệu Software Testing](../../data/software-testing-istqb/README.md) để tạo embedding và phiên bản đề đúng cấu hình hiện tại:
 
@@ -47,7 +45,7 @@ docker compose cp data/software-testing-istqb api:/tmp/software-testing-istqb
 docker compose exec -T api python /tmp/software-testing-istqb/import_course.py
 ```
 
-Lệnh giữ nguyên đề/lịch sử cũ, không giao bài tự động; có thể phát sinh phí embedding khi provider là Gemini. Sau đó chọn phiên bản mới khi chấm lại bài cũ hoặc giao đề mới cho lần thi sau.
+Lệnh tạo tài liệu và phiên bản đề theo cấu hình AI đang dùng, giữ nguyên các phiên bản và lịch sử kết quả đã có. Việc giao bài được thực hiện riêng. Có thể chọn phiên bản phù hợp khi chấm lại transcript hoặc giao cho lần thi tiếp theo.
 
 ## Kiểm định confidence
 

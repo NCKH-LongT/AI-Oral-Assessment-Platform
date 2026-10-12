@@ -1,28 +1,63 @@
 # OralAI — Thi vấn đáp
 
-Desktop ghi audio/video, lọc nhiễu RNNoise và nhận dạng **PhoWhisper-small cục bộ**. Server nhận media gốc + transcript, chấm theo rubric/RAG bằng **Ollama local hoặc Gemini**, rồi trả kết quả cho app.
+Web dành cho **ADMIN, EXAM_OFFICER và TEACHER** quản lý môn, đề, lịch thi, kết quả và dung lượng. Sinh viên làm bài qua **OralAI Desktop**: ghi audio/camera, ghi toàn màn hình theo chính sách thi và nhận dạng bản ghi gốc bằng **Whisper-small** cục bộ. Server lưu minh chứng, chấm transcript theo rubric/RAG bằng Ollama hoặc Gemini và trả kết quả.
+
+Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, giảng viên, khảo thí và danh sách sinh viên; đề được review/duyệt trước khi mở thi. Admin quản lý dung lượng từng lần thi, dọn bản ghi giữ điểm hoặc xóa toàn bộ lần thi được chọn.
 
 ## Hướng dẫn theo nhu cầu
 
 | Bạn muốn làm gì? | Tài liệu |
 | --- | --- |
-| Cài desktop, chọn server, kiểm tra mic và làm bài | [Hướng dẫn OralAI Desktop](readme-desktop.md) |
-| Thu thử/nghe lại, chỉnh gain, thêm dấu câu hoặc thoát app | [Mic, dấu câu và thoát desktop](docs/microphone-desktop.md) |
-| Nghe lại và sửa transcript trước khi nộp | [Kiểm tra transcript](docs/transcript-correction.md) |
+| Tạo môn, sinh câu hỏi/thuật ngữ, giao bài, làm bài và xóa môn | [Hướng dẫn sử dụng cho admin, giảng viên và học viên](docs/user-guide.md) |
+| Cài desktop, chọn server, kết nối thiết bị và làm bài | [Hướng dẫn OralAI Desktop](readme-desktop.md) |
+| Chọn đúng lệnh mở desktop từ source hoặc server | [Bắt đầu nhanh](readme-desktop.md#bắt-đầu-nhanh) |
+| Cập nhật server và xử lý lỗi pipeline | [Hướng dẫn Jenkins](docs/jenkins.md) |
+| Chọn mic, nhận dạng câu trả lời hoặc thoát app | [Microphone và thoát desktop](docs/microphone-desktop.md) |
+| Đối chiếu transcript và bản ghi | [Transcript và review](docs/transcript-correction.md) |
 | Build, đóng gói và kiểm tra bộ cài Windows/Linux/macOS | [Build desktop](docs/desktop-build.md) |
 | Chuẩn bị tài nguyên STT bắt buộc trong bộ cài | [STT resources](apps/desktop/resources/stt/README.md) |
 | Hiểu luồng nhận dạng, tài liệu kiến thức và LLM chấm bài | [Kiến trúc STT/LLM](docs/architecture/knowledge-speech.md) |
 | Quản lý tài khoản, môn học và đăng nhập Google | [Tài khoản, OAuth và desktop](docs/architecture/accounts-courses-desktop.md) |
-| Quản lý dữ liệu, kiểm tra mic và lọc nhiễu | [CRUD và kiểm tra tiếng ồn](docs/architecture/crud-noise-check.md) |
+| Quản lý dữ liệu, phân biệt audio desktop và kiểm tra/lọc nhiễu trên web | [CRUD và kiểm tra tiếng ồn](docs/architecture/crud-noise-check.md) |
 | Cấu hình số lần thi, cấp thêm lượt và xem lịch sử | [Làm lại bài thi](docs/architecture/exam-retakes.md) |
 | Hiểu độ tin cậy AI và thao tác chấm lại | [Độ tin cậy và chấm lại](docs/architecture/grading-confidence.md) |
 | Nạp bộ câu hỏi mẫu môn Kiểm thử phần mềm | [Bộ dữ liệu Software Testing](data/software-testing-istqb/README.md) |
-| Xem kiến trúc ban đầu và kế hoạch phát triển | [Giai đoạn 1](docs/architecture/phase-1.md), [Project Guide](AI_Oral_Assessment_PROJECT_GUIDE.md) |
+| Hiểu kiến trúc và quy tắc phát triển | [Tổng quan kiến trúc](docs/architecture/phase-1.md), [Project Guide](AI_Oral_Assessment_PROJECT_GUIDE.md) |
 | Xem những gì đã kiểm thử và giới hạn còn lại | [Biên bản kiểm thử](docs/validation.md) |
 
-Để bắt đầu: chạy server theo mục bên dưới, sau đó làm theo hướng dẫn desktop. Project Guide và biên bản kiểm thử có các phần lịch sử; đọc ghi chú cập nhật trước khi áp dụng.
+Để bắt đầu: chạy server theo mục bên dưới, sau đó làm theo hướng dẫn desktop. Các tài liệu mô tả luồng hiện hành và phạm vi kiểm thử tương ứng.
 
 ## Chạy server
+
+### Chạy web và desktop local, chọn backend trên giao diện
+
+Tại thư mục gốc, chạy `npm run dev` để mở giao diện local tại **http://localhost:3001**.
+Chạy `npm run desktop` để mở Electron dùng cùng giao diện; nếu web local chưa chạy, lệnh này tự khởi động web.
+Trên Windows, Linux và macOS, chọn **Local / Online** ở thanh **Backend** đầu trang:
+
+- **Online:** `https://oral-test.paperlens.uk` (mặc định), dùng dữ liệu/tài khoản trên máy chủ này; không cần chạy Docker local.
+- **Local:** `http://localhost:3000`, dùng server Docker trên máy này. Khởi động bằng `docker compose up -d --build --wait` nếu cần.
+
+Lựa chọn được nhớ riêng trong trình duyệt và profile desktop. Đổi backend kiểm tra kết nối rồi tải lại giao diện;
+cookie đăng nhập được tách riêng cho mỗi backend. Hãy hoàn tất bản ghi/nộp bài trước khi đổi.
+Tab cũ sẽ yêu cầu tải lại nếu backend đã đổi ở tab khác. Không có thao tác đồng bộ dữ liệu giữa hai server.
+
+Các giá trị mặc định có thể chỉnh trong `.env`, sau đó khởi động lại web/desktop local:
+
+```dotenv
+ORAL_BACKEND_MODE=online
+ORAL_LOCAL_BACKEND_URL=http://localhost:3000
+ORAL_ONLINE_BACKEND_URL=https://oral-test.paperlens.uk
+ORAL_CLIENT_PORT=3001
+```
+
+`ORAL_BACKEND_MODE` chỉ dùng khi profile chưa lưu lựa chọn. Đây là lựa chọn **máy chủ ứng dụng**,
+khác với `AI_PROVIDER=local` (Ollama chạy tại backend). Desktop vẫn nhận dạng giọng nói trên máy người dùng.
+Launcher dùng `.venv-stt` nếu có; chuẩn bị bundle Whisper-small theo [hướng dẫn desktop](readme-desktop.md#chạy-từ-source).
+Đăng nhập Google trên web local mở cửa sổ đăng nhập của backend và hoàn tất bằng luồng polling.
+
+`npm run desktop:server` giữ cách mở Electron trực tiếp tới `ORAL_WEB_URL`/server đã lưu,
+không chạy giao diện local và không có bộ chọn backend local này. Bộ cài desktop chọn server tại **Cấu hình máy chủ** trên màn hình đăng nhập.
 
 Cần Docker Compose và Python 3. Tại thư mục gốc:
 
@@ -72,29 +107,25 @@ docker compose up -d --no-deps --force-recreate api worker
 
 `AI_CONFIG_SOURCE=env` ưu tiên cấu hình AI trong `.env`, bỏ qua AI cũ lưu trên web. `admin` chỉ dành cho triển khai cũ muốn tiếp tục chỉnh AI trên web. OAuth và cấu hình ngôn ngữ STT vẫn chỉnh trên web. Đề đã công bố giữ snapshot AI/rubric; đổi provider/model thì xử lý lại tài liệu và công bố đề mới.
 
-## Desktop và kiểm tra mic
+## Desktop và thiết bị ghi âm
 
-Đang sửa source trên Linux/macOS: chạy **`./run-desktop.sh`**. Script chỉ mở UI dev cổng 3001 và Electron, dùng server bạn đã chạy tại localhost:3000; không gọi Docker. Sửa giao diện tự cập nhật. Cần bundle STT đã build; xem [hướng dẫn](readme-desktop.md).
+Chạy `npm run desktop` để dùng giao diện source. Bộ cài từ workflow **Desktop installers** chứa Whisper-small đa ngôn ngữ, runtime STT và FFmpeg; nhận dạng CPU INT8. Máy sinh viên vẫn cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận điểm.
 
-Cài bộ OralAI từ workflow **Desktop installers**. Bộ cài chứa **PhoWhisper-small INT8, runtime STT và FFmpeg**; máy học viên không cần Python hoặc tải thêm model để nhận dạng. App vẫn cần kết nối server để đăng nhập, lấy đề, nộp bài và nhận điểm.
+1. Chọn server tại **Cấu hình máy chủ** trước khi đăng nhập.
+2. Mở bài, cấp quyền và chọn microphone/camera.
+3. Chọn **Ngôn ngữ nói**, chuẩn bị một màn hình và đồng ý ghi toàn màn hình.
+4. Bấm **Bắt đầu thi**, ghi từng câu, chờ nhận dạng rồi **Nộp câu trả lời & tiếp tục**. Nếu máy thiếu model Whisper-small, app bỏ qua STT và vẫn cho nộp bản ghi để tiếp tục; câu chưa có transcript/điểm AI và cần xem lại. Có thể thử STT lại hoặc ghi lại.
+5. Chờ minh chứng tải xong và bấm **Nộp bài thi**.
 
-1. Chọn server tại **OralAI → Cấu hình máy chủ…**.
-2. Mở bài, cấp quyền và chọn microphone/camera trong danh sách **Chọn thiết bị**.
-3. Để **Gain microphone** ở 0 dB rồi bấm **Kiểm tra độ ồn**: giữ im lặng 3 giây đầu, nói thử 7 giây sau.
-4. Phát lại bản thử, bật/tắt **Nghe bản đã lọc nhiễu RNNoise** để so sánh. Bản thử không upload.
-5. Chọn bật/tắt **Lọc nhiễu RNNoise khi nhận dạng câu trả lời**, bắt đầu thi, kiểm tra transcript rồi nộp.
+Desktop hiển thị câu hỏi, hướng dẫn và trạng thái nhận dạng. Transcript tự động được gửi lên server để chấm và cho giảng viên review. Ngôn ngữ được nhớ theo profile; Whisper-small là model cố định. [Hướng dẫn desktop](readme-desktop.md), [microphone](docs/microphone-desktop.md), [transcript và review](docs/transcript-correction.md).
 
-Giọng nhỏ có thể tăng gain từng ít một; âm rè/gần −1 dBFS thì giảm gain và thu lại. Gain áp dụng cho bản thu thử, audio/video và STT của lần ghi mới. Bấm **Thoát ứng dụng** hoặc X để đóng; nếu còn bản chưa nộp, chọn **Ở lại** hoặc xác nhận **Rời trang / thoát**. Xem [hướng dẫn mic và thoát app](docs/microphone-desktop.md).
-
-Sau khi ghi, chọn **Bản gốc** hoặc **Bản giảm nhiễu RNNoise** rồi bấm **Thử STT lại** nếu cần nhận dạng lại.
-
-Người dùng nghe lại và sửa transcript bằng tay trước khi nộp. Chức năng sửa chính tả bằng LLM đã được gỡ. Xem [kiểm tra transcript](docs/transcript-correction.md).
-
-Desktop luôn chạy STT local; lựa chọn STT trên server chỉ điều khiển đường nhận dạng của trình duyệt web. Media gốc được lưu riêng, không thay bằng bản đã lọc. Worker xử lý bất đồng bộ; app tự cập nhật điểm hoặc trạng thái cần xem lại.
+Bài luyện tập của nhân sự trên web có thu thử 10 giây, gain và RNNoise theo [luồng âm thanh web](docs/architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web). STT web dùng cấu hình server. Media gốc được lưu riêng; worker chấm bất đồng bộ, trả điểm hoặc trạng thái cần xem lại.
 
 ## Thuật ngữ tiếng Anh và xóa môn học
 
-Khi bấm **Sinh câu hỏi & công bố**, AI gợi ý thuật ngữ tiếng Anh kèm nghĩa tiếng Việt cho từng câu hỏi. Admin xem ngay trong **Môn học & đề thi → Bài thi & giao bài → Câu hỏi & thuật ngữ tiếng Anh gợi ý**. Gợi ý được lưu cùng phiên bản đề; đề cũ không tự sinh lại, chế độ demo không tạo thuật ngữ. Đây là gợi ý để giảng viên kiểm tra, chưa tự truyền làm hotwords cho STT.
+Khi bấm **Sinh câu hỏi & rubric để review**, AI gợi ý thuật ngữ tiếng Anh kèm nghĩa tiếng Việt cho từng câu hỏi. Admin xem ngay trong **Môn học & đề thi → Bài thi & giao bài → Câu hỏi & thuật ngữ tiếng Anh gợi ý**. Gợi ý được lưu cùng phiên bản đề; đề cũ không tự sinh lại, chế độ demo không tạo thuật ngữ. Thuật ngữ do AI sinh để giảng viên kiểm tra; STT dùng bảng hotword riêng do admin/giảng viên cấu hình, không tự đưa đáp án vào nhận dạng.
+
+Thao tác từng bước từ chuẩn bị giáo trình đến giao đề: [hướng dẫn admin/giảng viên](docs/user-guide.md#admin-và-giảng-viên-chuẩn-bị-bài-thi). Hiện chưa sửa trực tiếp thuật ngữ; sao chép đề thành bản nháp rồi công bố để sinh bộ câu hỏi/gợi ý mới.
 
 Admin vào **Môn học → Cài đặt → Xóa môn học**, nhập đúng mã môn để xóa vĩnh viễn toàn bộ tài liệu, chủ đề, rubric, đề thi, lượt thi, kết quả và bản ghi, kể cả bài đang làm. Tài khoản người dùng và môn khác được giữ lại. Worker dọn tệp sau khi giao dịch xóa thành công, tự thử lại nếu storage lỗi. Nếu môn đang được worker xử lý, chờ rồi thử xóa lại. Giảng viên chỉ xóa được môn trống do mình quản lý.
 
@@ -129,7 +160,11 @@ Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn deskto
 
 `Jenkinsfile` build/kiểm tra/deploy web và API; bộ cài desktop dùng workflow riêng. Nếu deploy bằng Jenkins, đồng bộ các biến mới trong credential `oral-ai-env`.
 
-Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration `0004` để lưu nhiều lần thi; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+Xem [các bước cập nhật và chẩn đoán lỗi Jenkins](docs/jenkins.md).
+
+Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0007` để lưu câu hỏi nhập Excel và theo dõi dọn bản ghi, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+
+Admin có trang **Lần thi & dung lượng** để lọc theo môn/người, xuất báo cáo Excel, chọn dọn bản ghi giữ điểm hoặc xóa toàn bộ dữ liệu lần thi. Có mẫu Excel và kiểm tra trước khi nhập môn, rubric, câu hỏi có sẵn, giảng viên và khảo thí. Cần cập nhật đồng bộ web, API và worker; xem [quản lý dung lượng và nhập Excel](docs/user-guide.md#quản-lý-lần-thi-và-dung-lượng).
 
 ```bash
 .venv/bin/python -m pytest services/api/tests -q
@@ -141,3 +176,22 @@ npm run test:desktop
 ```
 
 Tra cứu thêm trong [Hướng dẫn theo nhu cầu](#hướng-dẫn-theo-nhu-cầu) ở đầu trang.
+
+## Môn luyện nói TOEIC
+
+Bộ dữ liệu `TOEIC-SPEAKING-01`: 11 câu, 2 tranh minh họa, tài liệu RAG, đáp án và rubric chấm nội dung transcript thang 10; 30 phút/lượt, làm lại không giới hạn. Script nhập môn và giao đề cho toàn bộ sinh viên đang hoạt động: [hướng dẫn và dữ liệu](data/toeic-speaking/README.md). Điểm này chưa đánh giá phát âm/ngữ điệu và không quy đổi thành điểm TOEIC chính thức.
+
+Desktop luôn dùng **bản ghi gốc** cho STT và **Thử STT lại**. Trên web, checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt; có thể bật khi cần hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **Tiếng Anh**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.
+
+### Cài bộ luyện TOEIC trên server khác
+
+Source chứa dữ liệu mẫu và script nhập; `git pull` không sao chép database, tài khoản hoặc danh sách giao bài từ máy khác. Sau khi cấu hình môi trường và tài khoản trên server đích, chạy tại thư mục gốc dự án:
+
+```bash
+git pull --ff-only origin main
+docker compose up -d --build --wait
+docker compose cp data/toeic-speaking api:/tmp/toeic-speaking
+docker compose exec -T api python /tmp/toeic-speaking/import_course.py
+```
+
+Cần có ADMIN đang hoạt động và cấu hình LLM/embedding thật. Script tạo môn, tài liệu và đề, rồi thêm/giao bài cho các tài khoản **STUDENT / ACTIVE trên server đích**. Chạy lại cùng phiên bản không tạo trùng; có thể dùng lại lệnh import để thêm sinh viên mới. Chi tiết dữ liệu và cách kiểm tra chấm: [bộ TOEIC Speaking](data/toeic-speaking/README.md).

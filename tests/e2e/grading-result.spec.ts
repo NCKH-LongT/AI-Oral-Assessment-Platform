@@ -43,6 +43,11 @@ for (const scenario of [
   { name: "graded", status: "COMPLETED", score: 7.2, expected: "7.2/10" },
 ]) {
   test(`result: ${scenario.name}`, async ({ page }) => {
+    await page.addInitScript(() => {
+      window.oralDesktop = {
+        transcribe: async () => ({ transcript: "", stt_confidence: 1 }),
+      };
+    });
     await page.route("**/api/auth/me", (r) =>
       r.fulfill({
         json: {

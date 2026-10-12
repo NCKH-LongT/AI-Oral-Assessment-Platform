@@ -13,14 +13,14 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 from pydantic import Field
 from redis import Redis
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import Audit, OAuthFlow, User
 from .runtime_settings import settings
 from .schemas import Input
-from .security import cookies, digest, fail, hasher, issue_tokens, public_user
+from .security import WEB_ROLES, check_client_access, cookies, digest, fail, hasher, issue_tokens, public_user
 
 router = APIRouter()
 
@@ -177,6 +177,16 @@ def callback(
         db.commit()
         return failure
     user = db.scalar(select(User).where(User.google_sub == claims["sub"]))
+    if not user and claims.get("email_verified") is True:
+        # Only provisioned roster students can bind their verified Google identity.
+        # Privileged/manual accounts are never implicitly linked by email.
+        matches = db.scalars(select(User).where(func.lower(User.email) == claims["email"].lower()).with_for_update()).all()
+        if len(matches) == 1:
+            candidate = matches[0]
+            if (candidate.username.startswith("sv-") and candidate.role == "STUDENT"
+                    and candidate.status == "ACTIVE" and candidate.google_sub is None):
+                user = candidate
+                user.google_sub = claims["sub"]
     if not user:
         # Never link to a password account merely because its username matches an email.
         user = User(
@@ -189,11 +199,14 @@ def callback(
         )
         db.add(user)
         db.flush()
-    if user.status != "ACTIVE":
+    if user.status != "ACTIVE" or (not flow.poll_hash and user.role not in WEB_ROLES):
         flow.failed = True
         db.commit()
+        if user.status == "ACTIVE":
+            failure = RedirectResponse(cfg.public_origin + "/?login_error=desktop_required", status_code=303)
+            failure.delete_cookie("google_oauth_state", path="/api/auth/google")
         return failure
-    user.email = claims["email"]
+    user.email = claims["email"].lower()
     flow.user_id, flow.completed = user.id, True
     db.add(Audit(user_id=user.id, event="GOOGLE_LOGIN", details={"desktop": bool(flow.poll_hash)}))
     if flow.poll_hash:
@@ -216,7 +229,7 @@ class PollIn(Input):
 
 
 @router.post("/auth/google/poll")
-def poll(body: PollIn, response: Response, db: Session = Depends(get_db)):
+def poll(body: PollIn, request: Request, response: Response, db: Session = Depends(get_db)):
     config()
     flow = db.scalar(select(OAuthFlow).where(OAuthFlow.id == body.flow_id).with_for_update())
     if (
@@ -233,6 +246,7 @@ def poll(body: PollIn, response: Response, db: Session = Depends(get_db)):
     user = db.get(User, flow.user_id)
     if not user or user.status != "ACTIVE":
         fail(403, "ACCOUNT_DISABLED", "Tài khoản không hoạt động")
+    check_client_access(user, request)
     flow.poll_hash = None
     access, refresh = issue_tokens(db, user)
     cookies(response, access, refresh)

@@ -1,3 +1,4 @@
+import { openWebPractice } from "./helpers/web-practice";
 import { test, expect } from "@playwright/test";
 
 test("select mic/camera, reset preflight and handle disconnect without switching devices silently", async ({
@@ -70,7 +71,7 @@ test("select mic/camera, reset preflight and handle disconnect without switching
     const path = new URL(route.request().url()).pathname;
     return route.fulfill({
       json: path.endsWith("/auth/me")
-        ? { id: "student", role: "STUDENT", name: "Device test" }
+        ? { id: "student", role: "TEACHER", name: "Device test" }
         : path.endsWith("/exams/available")
           ? [
               {
@@ -95,7 +96,7 @@ test("select mic/camera, reset preflight and handle disconnect without switching
             },
     });
   });
-  await page.goto("/");
+  await openWebPractice(page);
   await page.getByRole("button", { name: "Mở bài thi" }).click();
   const mic = page.getByRole("combobox", { name: "Microphone", exact: true });
   const camera = page.getByRole("combobox", { name: "Camera", exact: true });

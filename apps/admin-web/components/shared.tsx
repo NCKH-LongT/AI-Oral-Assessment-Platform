@@ -6,6 +6,8 @@ const labels: Record<string, string> = {
   ACTIVE: "Đang hoạt động",
   ARCHIVED: "Đã lưu trữ",
   DRAFT: "Bản nháp",
+  GENERATED: "Chờ giảng viên duyệt",
+  TEACHER_APPROVED: "Chờ khảo thí kiểm tra",
   PUBLISHED: "Đã công bố",
   READY: "Sẵn sàng",
   PENDING: "Đang xử lý",

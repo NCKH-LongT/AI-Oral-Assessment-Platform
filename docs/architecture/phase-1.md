@@ -1,58 +1,61 @@
-# Hướng triển khai giai đoạn 1 — MVP
+# Tổng quan kiến trúc hệ thống
 
 [README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
 
-Phạm vi theo mục 21 trong [tài liệu gốc](../../AI_Oral_Assessment_PROJECT_GUIDE.md): chứng minh luồng tài liệu → rubric → đề thi → trả lời bằng giọng nói → STT → RAG + chấm → lưu minh chứng → giảng viên xem lại. Đây là toàn bộ MVP, không chỉ Sprint 0/1.
+Hệ thống tổ chức luồng tài liệu → rubric → đề thi → trả lời bằng giọng nói → STT → RAG và chấm điểm → lưu minh chứng → giảng viên xem lại. Web và desktop dùng chung giao diện Next.js, kết nối API FastAPI và các dịch vụ dữ liệu.
 
-**Cập nhật 11/09/2026:** giáo trình PDF cấp môn, chủ đề nhiều LO/chương/tài liệu, cấu hình STT và Google nhận dạng/chấm lại đã được bổ sung. Thiết kế chi tiết, migration và giới hạn tại [Mở rộng kiến thức và STT](knowledge-speech.md).
-
-## Hướng đi
+## Các thành phần chức năng
 
 1. **Nền tảng:** monorepo, PostgreSQL/pgvector, MinIO, Redis, migration, JWT và phân quyền.
 2. **Dữ liệu môn học:** môn học, LO, chủ đề; nhập PDF/PPTX/DOCX/TXT, tách văn bản theo trang/slide/nhóm đoạn, tạo embedding.
-3. **Thiết kế đề:** rubric nhiều tiêu chí có trọng số, blueprint chủ đề/độ khó/số câu. Công bố đề tạo câu hỏi theo RAG và cố định các phiên bản.
-4. **Thực hiện bài thi:** giao bài theo sinh viên, kiểm tra thiết bị, thu audio/video theo từng câu, lọc nhiễu và STT theo policy admin (local Electron / server nội bộ / Google), nộp transcript và tải minh chứng nền.
+3. **Thiết kế đề:** rubric nhiều tiêu chí có trọng số, blueprint chủ đề/độ khó/số câu. Câu hỏi có thể nhập sẵn qua Excel hoặc sinh theo RAG. Quy trình khảo thí gồm giảng viên review và duyệt, khảo thí xếp lịch và mở thi.
+4. **Thực hiện bài thi:** giao bài theo sinh viên, kết nối thiết bị, ghi toàn màn hình theo chính sách thi và audio/video từng câu, nhận dạng cục bộ, tải minh chứng và nộp bài.
 5. **Đánh giá:** worker truy xuất đúng môn/chủ đề/tập tài liệu đã công bố, kiểm tra JSON từ AI, tính điểm server và confidence gate.
-6. **Đối chiếu:** giảng viên xem transcript, điểm tiêu chí, tài liệu RAG, audio/video; kết quả thiếu tin cậy giữ trạng thái cần xem lại.
+6. **Đối chiếu:** giảng viên xem transcript, điểm tiêu chí, tài liệu RAG và audio/video; nhập điểm chính thức cùng nhận xét cho bài cần chấm lại.
 
-## Kiến trúc đã triển khai
+## Kiến trúc triển khai
 
 ```mermaid
 flowchart LR
-  Web[Next.js: quản trị + web thi] --> API[FastAPI modular monolith]
+  Web[Next.js: quản trị và luyện tập cho nhân sự] --> API[FastAPI modular monolith]
   Electron[Electron + giao diện React] --> Web
-  Electron --> LocalSTT[Whisper subprocess tại máy SV]
+  Electron --> LocalSTT[Whisper-small tại máy học viên]
   API --> PG[(PostgreSQL + pgvector)]
   API --> Redis[(Redis: giới hạn đăng nhập)]
   API --> S3[(MinIO: tài liệu và evidence)]
-  API --> STT[Lọc nhiễu + Whisper hoặc Google STT]
+  API --> STT[STT web: Whisper server, Gemini hoặc Google]
   Worker[Worker: tài liệu + chấm] --> PG
   Worker --> S3
-  Worker --> Gemini[Gemini: embedding + structured grading]
+  Worker --> AI[Gemini hoặc Ollama: embedding và chấm theo rubric]
 ```
 
-Worker là process riêng dùng chung code backend, không phải hệ microservice. Job nằm trong trạng thái bản ghi PostgreSQL; worker dùng `FOR UPDATE SKIP LOCKED`. Crash trước commit khiến transaction rollback, công việc được lấy lại. SQLite chỉ dành cho phát triển và một worker; không dùng SQLite cho triển khai nhiều người.
+Worker là process riêng dùng chung code backend. Job nằm trong trạng thái bản ghi PostgreSQL; worker dùng `FOR UPDATE SKIP LOCKED`. Crash trước commit khiến transaction rollback, công việc được lấy lại. SQLite phục vụ phát triển với một worker; PostgreSQL phục vụ triển khai nhiều người dùng.
 
-## Quyết định cụ thể
+Giao diện source chạy tại `http://localhost:3001`, có bộ chọn backend **Local / Online**. Local kết nối server `http://localhost:3000`; Online mặc định kết nối `https://oral-test.paperlens.uk`. Phiên đăng nhập tách riêng theo backend. Xem [kết nối web và desktop](accounts-courses-desktop.md#kết-nối-backend-trên-web-local-và-desktop).
 
-- **MVP mở rộng thêm web thi:** dùng chung giao diện Next.js cho web và Electron. Electron được phép đọc origin cấu hình và chỉ expose IPC STT; `contextIsolation=true`, `sandbox=true`, `nodeIntegration=false`.
-- **STT:** mặc định Whisper server nội bộ. Admin chọn provider, lọc nhiễu, ngôn ngữ; Electron/web đều theo policy này. Chọn local yêu cầu desktop. Confidence Whisper là heuristic trung bình likelihood, chưa được hiệu chuẩn; transcript sửa tay có confidence 0 và cần xem lại.
-- **Demo không phải chấm AI:** demo dùng hashing vector 768 chiều để thử luồng, câu hỏi theo mẫu và không tạo điểm. Gemini dùng embedding thật, sinh câu hỏi và chấm structured JSON. Không tự chuyển sang demo khi Gemini lỗi.
-- **Snapshot ngay từ MVP:** tuy checklist Pilot nhắc versioning, nguyên tắc kiến trúc bắt buộc khả năng truy vết; đề đã công bố không sửa/xóa. Snapshot chứa rubric, câu hỏi, tập document ID bất biến, model, provider, embedding và prompt version. Thay cấu hình AI sau publish khiến các bài cũ cần xem lại, không âm thầm chấm bằng phiên bản mới.
-- **Chunk upload ngay từ MVP:** tuân thủ quy tắc không upload media lớn trong một request. Hash từng chunk và cả file, retry ngắn; hàng đợi ở bộ nhớ client. Chưa có lưu hàng đợi bền vững hay resume sau crash.
-- **Điểm:** chuẩn hóa mỗi tiêu chí `score / max_score`, nhân trọng số, chia tổng trọng số, quy về 10. Điểm bài là trung bình điểm các câu. Chỉ công nhận nếu mọi câu hợp lệ và không cần review. LO weight là metadata; blueprint quyết định phân bổ số câu, không tự nhân LO weight lần nữa.
+## Quy tắc xử lý
+
+- **Web và desktop:** Electron dùng `contextIsolation=true`, `sandbox=true`, `nodeIntegration=false`. IPC kiểm tra renderer và origin cho phép trước khi xử lý STT, đăng nhập Google hoặc thoát ứng dụng.
+- **STT desktop:** nhận dạng audio gốc bằng Whisper-small CPU INT8. Sinh viên chọn tiếng Việt/tiếng Anh; transcript tự động gửi lên server để chấm và cho giảng viên review.
+- **STT web:** dùng provider và ngôn ngữ theo cấu hình server. Trình duyệt có gain microphone, thu thử 10 giây và tùy chọn RNNoise; mặc định nhận dạng bản gốc. Chi tiết tại [kiến thức và STT](knowledge-speech.md) và [luồng âm thanh](crud-noise-check.md).
+- **AI:** Gemini và Ollama phục vụ embedding, sinh câu hỏi và chấm JSON theo rubric. Chế độ demo dùng hashing vector 768 chiều và câu hỏi mẫu để thử quy trình, kết quả không có điểm chính thức. Lỗi provider được trả về để xử lý.
+- **Snapshot:** đề công bố cố định rubric, câu hỏi, nguồn kiến thức, provider, model, embedding, prompt version và hotword môn học. Cấu hình AI phải khớp snapshot khi thi và chấm; thay provider/model cần tài liệu và phiên bản đề phù hợp.
+- **Upload minh chứng:** media được chia chunk, kiểm tra hash từng chunk và cả file, có retry ngắn. Hàng đợi upload nằm trong bộ nhớ client.
+- **Điểm:** chuẩn hóa từng tiêu chí bằng `score / max_score`, nhân trọng số, chia tổng trọng số và quy về 10. Điểm AI của bài là trung bình điểm các câu. Bài thiếu điểm, có cờ cần xem lại hoặc điểm AI dưới 5 chuyển `REVIEW_REQUIRED`; điểm giảng viên duyệt được lưu riêng. LO weight là metadata; blueprint quyết định phân bổ số câu.
 - **Hết giờ:** server chặn bắt đầu câu mới. Transcript của câu đã bắt đầu vẫn được tiếp nhận khi đến trễ, có đánh dấu cần xem lại. Câu còn trống được ghi nhận thiếu bài và cần review khi nộp.
-- **Tài liệu:** lưu theo phiên bản bất biến (mỗi lần upload là một document mới, version 1). DOCX gộp nội dung và bảng với page=1 vì không có phân trang xác định; PDF scan phải OCR trước. Không xóa tài liệu đã nằm trong snapshot.
-- **Quyền:** ADMIN quản lý toàn bộ; TEACHER quản lý môn do mình tạo; REVIEWER xem tất cả môn/kết quả và không thay đổi; STUDENT chỉ thấy bài được giao và dữ liệu của chính mình.
+- **Tài liệu:** tài liệu đã xử lý và nguồn trong snapshot được giữ bất biến. Giáo trình lỗi có thể thay PDF để worker xử lý lại. DOCX gộp nội dung và bảng với `page=1`; PDF scan cần OCR trước khi nhập.
 
-## Giới hạn MVP và bước tiếp
+## Quản lý dữ liệu
 
-Chưa triển khai local SQLite mã hóa, offline exam, khôi phục sau crash, upload queue bền vững, sửa điểm thủ công, ghép video toàn bài, OCR, chống gian lận nâng cao, giám sát production và SSO. Google nhận dạng/chấm lại có lịch sử đã được bổ sung; các phần còn lại thuộc Pilot/Production theo tài liệu gốc.
+Admin xem dung lượng từng lần thi và tổng hợp theo môn/người, xuất Excel, chọn dọn media giữ điểm hoặc xóa toàn bộ lần thi đã kết thúc. API kiểm tra lại bản xem trước và worker dọn file sau commit. Mẫu Excel hỗ trợ môn, rubric, đề soạn sẵn và nhân sự. Xem [hướng dẫn quản trị](../user-guide.md#quản-lý-lần-thi-và-dung-lượng).
 
-Trước Pilot cần chạy đánh giá với Gemini thật và giọng nói tiếng Việt thực tế, bộ 100 bài synthetic, đối chiếu điểm giảng viên, kiểm thử mạng lỗi/khôi phục, tải đồng thời và chính sách lưu dữ liệu. Không coi test mô phỏng hoặc demo là chứng nhận chất lượng AI.
+## Phân quyền
 
-## Tài liệu API nhà cung cấp đã tham khảo
+| Vai trò | Phạm vi |
+| --- | --- |
+| ADMIN | Quản trị hệ thống, tài khoản, môn học và các bước tổ chức thi |
+| EXAM_OFFICER | Tổ chức kỳ thi, phân công giảng viên, nhập danh sách sinh viên, xếp lịch, mở thi và xuất điểm |
+| TEACHER | Quản lý môn phụ trách, soạn/duyệt đề và chấm lại bài của môn |
+| STUDENT | Dùng desktop xem bài được giao, thi theo lịch và truy cập kết quả của chính mình |
 
-- [Gemini structured output](https://ai.google.dev/gemini-api/docs/generate-content/structured-output)
-- [Gemini embeddings](https://ai.google.dev/gemini-api/docs/embeddings)
-- [Next.js rewrites](https://nextjs.org/docs/app/api-reference/config/next-config-js/rewrites)
+Chi tiết tại [quy trình khảo thí](examination-workflow.md), [số lần làm bài](exam-retakes.md) và [độ tin cậy, chấm lại](grading-confidence.md).

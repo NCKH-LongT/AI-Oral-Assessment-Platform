@@ -1,5 +1,42 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const { validHotwords, validModel } = require("../apps/desktop/stt-policy.cjs");
+
+test("desktop permits only Whisper-small", () => {
+  assert.equal(validModel("whisper-small"), true);
+  for (const id of [
+    undefined,
+    null,
+    {},
+    "small.en",
+    "phowhisper-small",
+    "../../model",
+    "toString",
+    "__proto__",
+  ])
+    assert.equal(validModel(id), false);
+});
+
+test("desktop accepts the complete course vocabulary and enforces server limits", () => {
+  assert.equal(validHotwords(undefined), true);
+  assert.equal(validHotwords([]), true);
+  assert.equal(
+    validHotwords(
+      Array.from({ length: 200 }, (_, i) => `Thuật ngữ chuyên ngành ${i}`),
+    ),
+    true,
+  );
+  const boundary = Array.from({ length: 500 }, (_, i) =>
+    String(i).padEnd(20, "x"),
+  );
+  assert.equal(validHotwords(boundary), true);
+  assert.equal(validHotwords([...boundary, "extra"]), false);
+  assert.equal(validHotwords(["x".repeat(101)]), false);
+  assert.equal(validHotwords(boundary.map((word) => word + "x")), false);
+  assert.equal(validHotwords(["😀".repeat(100)]), true);
+  for (const value of [null, "word", [1], [{}]])
+    assert.equal(validHotwords(value), false);
+});
 const {
   normalizeServerURL,
   googleLoginURL,
@@ -68,4 +105,51 @@ test("Google opens only the configured backend origin and start endpoint", () =>
   ]) {
     assert.throws(() => googleLoginURL(invalid, origin), invalid);
   }
+});
+
+const {
+  inspectSttModels,
+  missingModelResult,
+} = require("../apps/desktop/stt-policy.cjs");
+test("missing model skips runtime discovery and returns no fabricated transcript/confidence", async () => {
+  let checks = 0;
+  const models = await inspectSttModels(
+    () => "/not-installed/whisper-small",
+    () => false,
+    async () => {
+      checks++;
+      throw new Error("Python is not installed");
+    },
+  );
+  assert.equal(checks, 0);
+  assert.deepEqual(models, [
+    { id: "whisper-small", label: "Whisper-small", available: false },
+  ]);
+  assert.deepEqual(missingModelResult(), {
+    transcript: "",
+    stt_confidence: null,
+    stt_skipped_reason: "MODEL_MISSING",
+  });
+});
+test("present model validates runtime and never silently skips broken runtime", async () => {
+  let checks = 0;
+  const models = await inspectSttModels(
+    () => "/model",
+    () => true,
+    async () => {
+      checks++;
+    },
+  );
+  assert.equal(models[0].available, true);
+  assert.equal(checks, 1);
+  await assert.rejects(
+    inspectSttModels(
+      () => "/model",
+      () => true,
+      async () => {
+        throw new Error("Unsupported runtime");
+      },
+    ),
+    /Unsupported runtime/,
+  );
 });

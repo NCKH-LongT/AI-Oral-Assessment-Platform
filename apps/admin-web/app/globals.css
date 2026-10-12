@@ -8,6 +8,53 @@
   --pale: #e9f4ef;
   --white: #fff;
 }
+.backend-picker {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.backend-options {
+  display: flex;
+  gap: 4px;
+}
+.backend-options button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 14px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.backend-options button[aria-pressed="true"] {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: white;
+}
+.backend-address {
+  overflow-wrap: anywhere;
+}
+.backend-hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.backend-picker .error {
+  width: 100%;
+  margin: 0;
+}
+.local-client .sidebar {
+  top: var(--backend-bar-height, 58px);
+}
+.local-client .app-shell,
+.local-client .login-shell {
+  min-height: calc(100vh - var(--backend-bar-height, 58px));
+}
 * {
   box-sizing: border-box;
 }
@@ -909,6 +956,7 @@ footer {
   gap: 24px;
 }
 .question-text {
+  white-space: pre-line;
   font-size: 24px !important;
   line-height: 1.7 !important;
   margin: 25px 0 !important;
@@ -1387,4 +1435,36 @@ hr {
 }
 .generated-question li {
   margin: 6px 0;
+}
+
+/* Exam workflow: pending low scores remain visibly distinct from official grades. */
+.low-score-row {
+  background: #fff0eb;
+}
+.low-score-row td:first-child {
+  border-left: 4px solid #c34f32;
+}
+.badge.generated,
+.badge.teacher_approved {
+  background: #fff1ce;
+  color: #72540b;
+}
+.role-request {
+  margin-bottom: 1rem;
+}
+fieldset {
+  border: 1px solid var(--border, #dce3e4);
+  border-radius: 10px;
+  padding: 1rem;
+  margin: 0 0 1rem;
+  min-width: 0;
+}
+fieldset legend {
+  font-weight: 600;
+  padding: 0 0.4rem;
+}
+fieldset label {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
 }

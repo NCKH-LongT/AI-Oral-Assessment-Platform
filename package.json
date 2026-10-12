@@ -7,15 +7,20 @@
     "apps/desktop"
   ],
   "scripts": {
-    "dev": "npm run dev -w apps/admin-web",
+    "dev": "node scripts/run-client.cjs",
     "build": "npm run build -w apps/admin-web",
     "typecheck": "npm run typecheck -w apps/admin-web",
     "lint": "npm run lint -w apps/admin-web",
-    "desktop": "npm run start -w apps/desktop",
+    "desktop": "node scripts/run-client.cjs --desktop",
+    "desktop:server": "npm run start -w apps/desktop",
+    "test:backend": "node --test tests/client-backend.test.mjs",
     "test:e2e": "playwright test",
     "test:audio": "node --experimental-strip-types --test tests/noise-check.test.mjs",
-    "test:desktop": "node --test tests/desktop-config.test.cjs tests/desktop-close.test.cjs",
-    "test:desktop-exit": "node --test tests/desktop-exit.integration.cjs"
+    "test:desktop": "node --test tests/desktop-config.test.cjs tests/desktop-close.test.cjs tests/desktop-exam-lock.test.cjs tests/desktop-displays.test.cjs tests/desktop-exam-lock-recovery.test.cjs",
+    "test:desktop-displays": "python3 -m unittest discover -s tests -p test_display_gnome.py",
+    "test:screen": "node --experimental-strip-types --test tests/screen-recording.test.mjs tests/screen-recording-recovery.test.mjs",
+    "test:desktop-exit": "node --test tests/desktop-exit.integration.cjs",
+    "test:desktop-stt": "node --test tests/desktop-stt.integration.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.1",

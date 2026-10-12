@@ -72,6 +72,10 @@ for (const initialProvider of ["local_server", "google", "gemini"]) {
     await expect(page.getByLabel("Nhà cung cấp STT")).toHaveValue(
       initialProvider,
     );
+    await expect(page.getByLabel("Hotword chung")).toHaveCount(0);
+    await expect(
+      page.getByText(/Hotword được lưu riêng cho từng môn/),
+    ).toBeVisible();
     await page.getByLabel("Nhà cung cấp STT").selectOption("local");
     await page.getByLabel("Ngôn ngữ nhận dạng").selectOption("en");
     await expect(

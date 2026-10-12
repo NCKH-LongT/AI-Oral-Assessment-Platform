@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from .db import get_db
 from .runtime_settings import settings
 from .security import current_user, fail
-from .speech import google_ready, policy, transcribe_file
+from .speech import google_ready, session_policy, transcribe_file
 
 router = APIRouter()
 
@@ -17,10 +17,11 @@ router = APIRouter()
 def stt(
     file: UploadFile = File(),
     preprocessing: Literal["off"] | None = Form(default=None),
+    session_id: str | None = Form(default=None),
     db: Session = Depends(get_db),
     user=Depends(current_user),
 ):
-    config = policy(db)
+    config = session_policy(db, user, session_id)
     # New clients handle RNNoise/bypass locally; older clients keep the saved policy.
     if preprocessing == "off":
         config = config | {"preprocessing": "off"}

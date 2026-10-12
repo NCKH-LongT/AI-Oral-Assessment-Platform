@@ -1,0 +1,32 @@
+{
+  "purpose": "Các mẫu kiểm tra thứ tự điểm, không phải kết quả sinh viên hoặc chuẩn quy đổi TOEIC.",
+  "samples": [
+    {
+      "question_id": "Q09",
+      "label": "complete",
+      "transcript": "The fee is twenty-five dollars, but lunch is not included. The fee does include the workshop materials.",
+      "expected_score_range": [
+        8,
+        10
+      ]
+    },
+    {
+      "question_id": "Q09",
+      "label": "incorrect_information",
+      "transcript": "Yes, the fee is twenty-five dollars and it includes lunch.",
+      "expected_score_range": [
+        0,
+        7.5
+      ]
+    },
+    {
+      "question_id": "Q11",
+      "label": "developed_opinion",
+      "transcript": "I agree that employees should be allowed to work from home two days a week when their jobs make it practical. First, avoiding the commute gives people more time and energy. For example, a colleague who travels an hour each way could use some of that time to plan tasks carefully. Second, a quiet home environment can help with concentrated work such as preparing reports. Teamwork still matters, so companies could keep shared office days for meetings and agree on clear response times. This balanced arrangement would offer flexibility without losing regular contact.",
+      "expected_score_range": [
+        8,
+        10
+      ]
+    }
+  ]
+}

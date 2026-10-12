@@ -12,10 +12,12 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { api, send, User } from "../components/api";
-import { Form, Field } from "../components/shared";
+import { Action, Form, Field } from "../components/shared";
 import Admin from "../components/admin";
 import Student from "../components/student";
 import GoogleLogin from "../components/google-login";
+import Examination from "../components/examination";
+import StorageManager from "../components/storage-manager";
 import DesktopExit from "../components/desktop-exit";
 
 export default function Home() {
@@ -80,6 +82,15 @@ export default function Home() {
         </section>
         <section className="login-form">
           <DesktopExit />
+          <button
+            className="text-button"
+            onClick={() => void window.oralDesktop?.settings?.()}
+            hidden={
+              typeof window === "undefined" || !window.oralDesktop?.settings
+            }
+          >
+            Cấu hình máy chủ
+          </button>
           <span className="eyebrow">CHÀO MỪNG TRỞ LẠI</span>
           <h2>Đăng nhập</h2>
           <p className="muted">
@@ -96,15 +107,16 @@ export default function Home() {
             }}
           >
             <Field
-              label="Tên đăng nhập"
+              label="Email hoặc tên đăng nhập"
               name="username"
-              placeholder="Tên đăng nhập được cấp"
+              placeholder="Email sinh viên hoặc tên đăng nhập được cấp"
             />
             <Field label="Mật khẩu" name="password" type="password" />
           </Form>
           <GoogleLogin onLogin={setUser} />
           <p className="login-note">
-            Sử dụng tài khoản do quản trị viên cung cấp.
+            Web dành cho admin, khảo thí và giáo viên. Sinh viên sử dụng OralAI
+            Desktop.
             <br />
             Liên hệ giảng viên nếu bạn cần hỗ trợ truy cập.
           </p>
@@ -115,16 +127,80 @@ export default function Home() {
       </main>
     );
   const isStudent = user.role === "STUDENT";
+  const desktop = !!window.oralDesktop;
+  const logout = async () => {
+    await send("/auth/logout");
+    setUser(null);
+  };
+  if (!desktop && !["ADMIN", "EXAM_OFFICER", "TEACHER"].includes(user.role))
+    return (
+      <main className="main">
+        <h1>Vui lòng sử dụng OralAI Desktop</h1>
+        <p>Web chỉ dành cho admin, khảo thí và giáo viên.</p>
+        <button className="button" onClick={() => void logout()}>
+          Đăng xuất
+        </button>
+      </main>
+    );
+  if (desktop)
+    return (
+      <main className="main desktop-main">
+        <header className="topbar">
+          <strong>OralAI · {user.name}</strong>
+          <DesktopExit />
+          <button
+            className="text-button"
+            onClick={() => {
+              if (
+                window.dispatchEvent(
+                  new Event("oral:backend-switch", { cancelable: true }),
+                )
+              )
+                void logout();
+            }}
+          >
+            Đăng xuất
+          </button>
+        </header>
+        {isStudent ? (
+          <Student />
+        ) : (
+          <section className="panel">
+            <h1>Quản trị trên web</h1>
+            <p>
+              Đăng nhập website OralAI bằng tài khoản này để quản lý môn học,
+              sinh viên và kỳ thi. Desktop dành cho sinh viên làm bài.
+            </p>
+          </section>
+        )}
+      </main>
+    );
   const links = isStudent
     ? [{ id: "student", label: "Bài thi của tôi", icon: GraduationCap }]
     : [
         { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
         { id: "courses", label: "Môn học & đề thi", icon: BookOpen },
+        ...(["ADMIN", "EXAM_OFFICER", "TEACHER"].includes(user.role)
+          ? [
+              {
+                id: "examination",
+                label: "Điều phối kỳ thi",
+                icon: ClipboardCheck,
+              },
+            ]
+          : []),
         { id: "users", label: "Người dùng", icon: Users },
         { id: "results", label: "Kết quả & xem lại", icon: ClipboardCheck },
         { id: "student", label: "Học & thi thử", icon: GraduationCap },
         ...(user.role === "ADMIN"
-          ? [{ id: "settings", label: "Cấu hình hệ thống", icon: AudioLines }]
+          ? [
+              {
+                id: "storage",
+                label: "Lần thi & dung lượng",
+                icon: ShieldCheck,
+              },
+              { id: "settings", label: "Cấu hình hệ thống", icon: AudioLines },
+            ]
           : []),
       ];
   return (
@@ -187,7 +263,31 @@ export default function Home() {
           <span className="pill">MVP · Giai đoạn 1</span>
         </header>
         <div className="content">
-          {isStudent || page === "student" ? (
+          {isStudent && (
+            <details className="role-request">
+              <summary>Yêu cầu quyền khảo thí</summary>
+              <p>
+                Admin kiểm tra và duyệt trước khi tài khoản có quyền tổ chức kỳ
+                thi.
+              </p>
+              <Action
+                disabled={user.requested_role === "EXAM_OFFICER"}
+                action={async () => {
+                  await send("/auth/request-exam-officer");
+                  setUser(await api<User>("/auth/me"));
+                }}
+              >
+                {user.requested_role === "EXAM_OFFICER"
+                  ? "Đang chờ admin duyệt"
+                  : "Gửi yêu cầu làm khảo thí"}
+              </Action>
+            </details>
+          )}
+          {page === "storage" && user.role === "ADMIN" ? (
+            <StorageManager />
+          ) : page === "examination" && !isStudent ? (
+            <Examination user={user} navigate={setPage} />
+          ) : isStudent || page === "student" ? (
             <Student />
           ) : (
             <Admin key={page} user={user} page={page} navigate={setPage} />

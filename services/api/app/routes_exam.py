@@ -14,11 +14,13 @@ from . import schemas as s
 from . import storage
 from .config import settings
 from .db import get_db
-from .grading import GradingError, check_config
+from .examination import check_schedule, schedule_for
+from .grading import GradingError, check_config, score_summary
 from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, Upload
 from .practice import COURSE_ID
 from .retakes import ACTIVE, allowance, history_row, sessions_for
 from .security import by_id, course_access, current_user, fail
+from .submissions import missing_stt_assessment, stt_skipped_reason
 from .worker import finalize
 
 router = APIRouter()
@@ -53,7 +55,14 @@ def public_session(db, session):
         select(Attempt).where(Attempt.session_id == session.id).order_by(Attempt.sequence)
     ).all()
     first = next((a for a in attempts if a.status in {"READY", "STARTED"}), None)
-    if exam.snapshot.get("practice"):
+    if session.status in {"SUBMITTED", "REVIEW_REQUIRED"} and any(
+        (a.assessment or {}).get("stt_skipped_reason") == "MODEL_MISSING" for a in attempts
+    ):
+        grading_message = (
+            "Đã lưu bài và minh chứng. Máy thi thiếu model Whisper nên có câu chưa nhận dạng, chưa chấm điểm; "
+            "cần giảng viên xem lại hoặc admin yêu cầu nhận dạng lại."
+        )
+    elif exam.snapshot.get("practice"):
         grading_message = "Bài luyện tập không tính điểm."
     elif exam.snapshot.get("ai_provider") == "demo" and not any(
         (a.assessment or {}).get("grading_exam_id") for a in attempts
@@ -76,9 +85,14 @@ def public_session(db, session):
         "practice": bool(exam.snapshot.get("practice")),
         "status": session.status,
         "started_at": session.started_at,
+        "screen_required": session.screen_required,
+        "screen_attempt_id": attempts[0].id if attempts else None,
         "time_limit": exam.time_limit,
         "server_time": time.time(),
         "final_score": session.final_score if session.status == "COMPLETED" else None,
+        "score_summary": score_summary(attempts, len(exam.snapshot.get("questions", [])))
+        if session.status in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"}
+        and not exam.snapshot.get("practice") else None,
         "grading_message": grading_message,
         "question_count": len(attempts),
         "answered_count": sum(a.status in {"SUBMITTED", "GRADED"} for a in attempts),
@@ -87,6 +101,9 @@ def public_session(db, session):
                 "id": first.id,
                 "sequence": first.sequence,
                 "text": first.question["text"],
+                "prompt_image": first.question.get("prompt_image") if first.question.get("prompt_image") in {
+                    "/practice/toeic-speaking/office.svg", "/practice/toeic-speaking/cafe.svg"
+                } else None,
                 "status": first.status,
             }
             if first and session.status == "IN_PROGRESS"
@@ -113,6 +130,9 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
     ).all()
     result = []
     for exam in exams:
+        assignment = schedule_for(db, exam, user.id)
+        if exam.workflow and (user.role != "STUDENT" or assignment is None):
+            continue
         sessions = sessions_for(db, exam.id, user.id)
         session = next((s for s in sessions if s.status in ACTIVE), sessions[0] if sessions else None)
         result.append(
@@ -124,6 +144,10 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
                 "practice": bool(exam.snapshot.get("practice")),
                 "time_limit": exam.time_limit,
                 "question_count": len(exam.snapshot["questions"]),
+                "opens_at": assignment.opens_at if assignment else None,
+                "closes_at": assignment.closes_at if assignment else None,
+                "server_time": time.time(),
+                "workflow": exam.workflow,
                 "session_id": session.id if session else None,
                 "status": session.status if session else "ASSIGNED",
                 **allowance(db, exam, user.id, sessions),
@@ -147,6 +171,8 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
             select(Assignment.id).where(Assignment.exam_id == exam.id, Assignment.student_id == user.id)
         )
     )
+    if exam.workflow and (user.role != "STUDENT" or not schedule_for(db, exam, user.id)):
+        fail(403, "NOT_ASSIGNED", "Bạn không có tên trong danh sách kỳ thi")
     if exam.status != "PUBLISHED" or not allowed:
         fail(403, "NOT_ASSIGNED", "Bạn chưa được giao bài thi này")
     sessions = sessions_for(db, exam.id, user.id)
@@ -155,6 +181,7 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
         return public_session(db, existing)
     if sessions and not body.new_attempt:
         return public_session(db, sessions[0])
+    check_schedule(db, exam, user)
     try:
         check_config(exam)
     except GradingError as exc:
@@ -167,6 +194,7 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
     session = ExamSession(exam_id=exam.id, student_id=user.id, attempt_number=last_number + 1)
     db.add(session)
     db.flush()
+    session.screen_required = user.role == "STUDENT" and settings().exam_screen_required and not exam.snapshot.get("practice", False)
     for index, question in enumerate(exam.snapshot["questions"]):
         db.add(Attempt(session_id=session.id, sequence=index + 1, question=question))
     db.commit()
@@ -179,9 +207,14 @@ def get_session(key: str, db: Session = Depends(get_db), user=Depends(current_us
 
 
 @router.post("/exam-sessions/{key}/start")
-def start_session(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
+def start_session(key: str, body: s.ExamStartIn | None = None, db: Session = Depends(get_db), user=Depends(current_user)):
     session = owned_session(db, key, user, lock=True)
     if session.status == "DEVICE_CHECK":
+        if session.screen_required:
+            if not body or not body.screen_consent:
+                fail(409, "SCREEN_CONSENT_REQUIRED", "Đồng ý và bật ghi toàn màn hình trước khi bắt đầu thi")
+            session.screen_consent_at = time.time()
+        check_schedule(db, by_id(db, Exam, session.exam_id), user)
         try:
             check_config(by_id(db, Exam, session.exam_id))
         except GradingError as exc:
@@ -192,6 +225,19 @@ def start_session(key: str, db: Session = Depends(get_db), user=Depends(current_
     elif session.status != "IN_PROGRESS":
         fail(409, "INVALID_STATE", "Không thể bắt đầu lại bài đã nộp")
     return public_session(db, session)
+
+
+@router.post("/exam-sessions/{key}/proctoring-events", status_code=201)
+def proctoring_event(key: str, body: s.ProctoringEventIn, db: Session = Depends(get_db), user=Depends(current_user)):
+    session = owned_session(db, key, user, lock=True)
+    if session.status != "IN_PROGRESS":
+        fail(409, "INVALID_STATE", "Chỉ ghi nhận giám sát khi đang thi")
+    # A bounded append-only record. Repeated events do not grow without limit.
+    count = db.scalar(select(func.count()).select_from(Audit).where(Audit.event == "PROCTORING_EVENT", Audit.details["session_id"].as_string() == key))
+    if count < 500:
+        db.add(Audit(user_id=user.id, event="PROCTORING_EVENT", details={"session_id": key, "type": body.type}))
+        db.commit()
+    return {"ok": True}
 
 
 @router.post("/question-attempts/{key}/start")
@@ -220,16 +266,22 @@ def start_attempt(key: str, db: Session = Depends(get_db), user=Depends(current_
 def submit(
     key: str,
     body: s.TranscriptIn,
+    request: Request,
     idempotency_key: str = Header(min_length=8, max_length=100),
     db: Session = Depends(get_db),
     user=Depends(current_user),
 ):
     attempt, session = owned_attempt(db, key, user, lock=True)
+    if body.stt_skipped_reason and (user.role != "STUDENT" or request.headers.get("x-oral-client") != "desktop"):
+        # This identifies the supported channel, not trusted device attestation.
+        # A skipped answer can only require review; it cannot earn an AI score.
+        fail(403, "DESKTOP_STT_SKIP_REQUIRED", "Chỉ hỗ trợ bỏ qua model cục bộ khi sinh viên thi trên desktop")
     if attempt.submit_key:
         if (
             attempt.submit_key == idempotency_key
             and attempt.transcript == body.transcript
             and attempt.stt_confidence == body.stt_confidence
+            and stt_skipped_reason(db, key) == body.stt_skipped_reason
         ):
             return {"status": attempt.status}
         fail(409, "ALREADY_SUBMITTED", "Câu trả lời đã được nộp")
@@ -238,7 +290,16 @@ def submit(
         fail(409, "INVALID_STATE", "Câu trả lời chưa bắt đầu hoặc bài đã nộp")
     attempt.transcript, attempt.stt_confidence = body.transcript, body.stt_confidence
     attempt.submit_key, attempt.finished_at, attempt.status = idempotency_key, time.time(), "SUBMITTED"
-    db.add(Audit(user_id=user.id, event="TRANSCRIPT_SUBMITTED", details={"attempt_id": key}))
+    if body.stt_skipped_reason:
+        attempt.assessment = missing_stt_assessment(by_id(db, Exam, session.exam_id))
+        # GRADED means initial processing is done. NOT_GRADED + null score means
+        # no grading occurred; the worker must never grade a fabricated answer.
+        attempt.status = "GRADED"
+        db.add(Audit(user_id=user.id, event="STT_SKIPPED", details={
+            "attempt_id": key, "stt_status": "unavailable", "stt_skipped_reason": body.stt_skipped_reason,
+        }))
+    else:
+        db.add(Audit(user_id=user.id, event="TRANSCRIPT_SUBMITTED", details={"attempt_id": key}))
     db.commit()
     return {"status": attempt.status}
 
@@ -267,8 +328,11 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
                     "reasoning_summary": "Hết giờ, chưa có câu trả lời.",
                 }
     # Evidence is required for each submitted voice answer.
+    if session.screen_required and not db.scalar(select(Upload.id).join(Attempt).where(
+            Attempt.session_id == key, Upload.kind == "SCREEN", Upload.status == "COMPLETED")):
+        fail(409, "SCREEN_EVIDENCE_PENDING", "Chờ tải bản ghi màn hình trước khi nộp bài")
     for a in attempts:
-        if a.transcript:
+        if a.submit_key or a.transcript:
             kinds = set(
                 db.scalars(select(Upload.kind).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED"))
             )
@@ -285,9 +349,10 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
 @router.post("/uploads/init")
 def init_upload(body: s.UploadIn, db: Session = Depends(get_db), user=Depends(current_user)):
     attempt, session = owned_attempt(db, body.attempt_id, user)
-    if attempt.status == "READY" or session.status != "IN_PROGRESS":
+    if (attempt.status == "READY" and body.kind != "SCREEN") or session.status != "IN_PROGRESS":
         fail(409, "INVALID_STATE", "Chỉ upload khi câu trả lời đã bắt đầu và bài chưa nộp")
-    if not body.mime_type.startswith(body.kind.lower() + "/"):
+    media_kind = "video" if body.kind == "SCREEN" else body.kind.lower()
+    if not body.mime_type.startswith(media_kind + "/"):
         fail(422, "MIME_MISMATCH", "Loại file không khớp evidence")
     if body.size > settings().max_media_mb * 1024 * 1024:
         fail(413, "MEDIA_TOO_LARGE", "Media quá lớn")

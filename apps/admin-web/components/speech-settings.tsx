@@ -30,9 +30,9 @@ export default function SpeechSettings() {
     <section className="panel">
       <h1>Cấu hình giọng nói</h1>
       <p>
-        Desktop luôn dùng PhoWhisper-small cục bộ kèm bộ cài. Người dùng bật/tắt
-        RNNoise và nghe thử mic trước khi thi. Server nhận media gốc và
-        transcript để chấm.
+        Desktop nhận dạng bản ghi gốc bằng Whisper-small cục bộ. Sinh viên chọn
+        ngôn ngữ trong màn hình làm bài. Server nhận media và transcript để
+        chấm; giảng viên xem transcript khi review bài.
       </p>
       <Form
         label="Lưu cấu hình STT"
@@ -88,8 +88,16 @@ export default function SpeechSettings() {
           </select>
         </label>
         <p>
+          Ngôn ngữ ở đây áp dụng cho trình duyệt web. Desktop chọn ngôn ngữ
+          riêng trong màn hình làm bài.
+        </p>
+        <p>
+          Hotword được lưu riêng cho từng môn. Vào Môn học &amp; đề thi → chọn
+          môn → Bài thi &amp; giao bài → Hotword STT của môn học để chỉnh sửa.
+        </p>
+        <p>
           Whisper server: {value.server_model}. Chọn LLM chấm bài riêng trong
-          cấu hình AI. Không cần JSON Google cho PhoWhisper hoặc Gemini.
+          cấu hình AI. Không cần JSON Google cho Whisper hoặc Gemini.
         </p>
       </Form>
       {saved && <p role="status">Đã lưu cấu hình STT.</p>}

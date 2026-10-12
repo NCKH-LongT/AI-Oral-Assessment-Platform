@@ -1,8 +1,5 @@
 name: MVP checks
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
@@ -42,13 +39,14 @@ jobs:
           alembic -c services/api/alembic.ini downgrade base
           alembic -c services/api/alembic.ini upgrade head
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: ruff check services/api apps/desktop/transcribe.py scripts tests/test_desktop_launcher.py tests/test_desktop_stt.py
+      - run: ruff check services/api apps/desktop/transcribe.py scripts tests/test_desktop_launcher.py tests/test_desktop_stt.py tests/test_docker_cleanup.py
       - run: python -m unittest discover -s tests -p 'test_desktop*.py' -v
+      - run: python -m unittest discover -s tests -p test_docker_cleanup.py -v
       - run: pytest services/api/tests -q
       - run: npm ci
       - run: npm run lint && npm run typecheck && npm run build
       - run: npm run check -w apps/desktop
-      - run: npm run test:audio && npm run test:desktop
+      - run: npm run test:audio && npm run test:desktop && npm run test:screen
       - run: npm audit --audit-level=high
   compose-e2e:
     runs-on: ubuntu-latest

@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from redis import Redis
-from sqlalchemy import select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException
@@ -17,7 +17,17 @@ from . import google_login, routes_admin, routes_exam, runtime_settings, schemas
 from .config import settings
 from .db import get_db
 from .models import Audit, AuthSession, User
-from .security import cookies, current_user, digest, fail, hasher, issue_tokens, public_user, verify_password
+from .security import (
+    check_client_access,
+    cookies,
+    current_user,
+    digest,
+    fail,
+    hasher,
+    issue_tokens,
+    public_user,
+    verify_password,
+)
 
 cfg = settings()
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +48,7 @@ app.add_middleware(
     allow_origins=cfg.allowed_origins.split(","),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Content-Type", "Authorization", "Idempotency-Key", "X-Chunk-Sha256"],
+    allow_headers=["Content-Type", "Authorization", "Idempotency-Key", "X-Chunk-Sha256", "X-Oral-Client"],
 )
 
 
@@ -146,10 +156,14 @@ def login(body: schemas.Login, request: Request, response: Response, db: Session
         cache.expire(key, 65)
         if count > 10:
             fail(429, "RATE_LIMITED", "Quá nhiều lần đăng nhập; thử lại sau 1 phút")
-    user = db.scalar(select(User).where(User.username == body.username))
+    matches = db.scalars(select(User).where(or_(
+        User.username == body.username, func.lower(User.email) == body.username.lower(),
+    ))).all()
+    user = matches[0] if len(matches) == 1 else None
     verified = verify_password(body.password, user.password_hash if user else dummy_hash)
     if not user or not verified or user.status != "ACTIVE":
         fail(401, "INVALID_CREDENTIALS", "Tên đăng nhập hoặc mật khẩu không đúng")
+    check_client_access(user, request)
     access, refresh = issue_tokens(db, user)
     db.add(Audit(user_id=user.id, event="LOGIN", details={}))
     db.commit()
@@ -171,6 +185,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
     user = db.get(User, row.user_id)
     if not user or user.status != "ACTIVE":
         fail(401, "INVALID_REFRESH", "Tài khoản không hoạt động")
+    check_client_access(user, request)
     row.revoked = True
     access, new_refresh = issue_tokens(db, user)
     db.commit()
@@ -190,6 +205,11 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+from . import examination, excel_imports, storage_management  # noqa: E402
+
+app.include_router(excel_imports.router, tags=["Excel imports"])
+app.include_router(storage_management.router, tags=["Storage management"])
+app.include_router(examination.router, tags=["Examination workflow"])
 app.include_router(routes_admin.router, prefix="/admin", tags=["Administration"])
 app.include_router(routes_exam.router, tags=["Exams and evidence"])
 app.include_router(stt.router, tags=["Speech to text"])

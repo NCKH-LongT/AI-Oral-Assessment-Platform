@@ -17,6 +17,17 @@ from .models import AuthSession, Course, User
 hasher = PasswordHasher()
 
 
+WEB_ROLES = {"ADMIN", "EXAM_OFFICER", "TEACHER"}
+
+
+def check_client_access(user, request):
+    # Client identification enforces the supported UI channel, not hardware
+    # attestation. A modified client can forge this header; see desktop docs.
+    if user.role not in WEB_ROLES:
+        if user.role != "STUDENT" or request.headers.get("x-oral-client") != "desktop":
+            fail(403, "DESKTOP_REQUIRED", "Web chỉ dành cho admin, khảo thí và giáo viên. Sinh viên vui lòng dùng ứng dụng OralAI Desktop.")
+
+
 def fail(status: int, code: str, message: str):
     raise HTTPException(status, detail={"code": code, "message": message, "details": {}})
 
@@ -78,6 +89,7 @@ def current_user(request: Request, db: Session = Depends(get_db)):
             or user.status != "ACTIVE"
         ):
             raise ValueError()
+        check_client_access(user, request)
         return user
     except (jwt.PyJWTError, ValueError, KeyError):
         fail(401, "UNAUTHENTICATED", "Phiên đăng nhập hết hạn")
@@ -92,23 +104,24 @@ def roles(*allowed):
     return guard
 
 
-staff = roles("ADMIN", "TEACHER", "REVIEWER")
+staff = roles("ADMIN", "TEACHER", "EXAM_OFFICER")
 editor = roles("ADMIN", "TEACHER")
 student = roles("STUDENT")
 admin = roles("ADMIN")
+exam_officer = roles("ADMIN", "EXAM_OFFICER")
 
 
 def course_access(db, course_id, user):
     course = db.get(Course, course_id)
     if not course:
         fail(404, "NOT_FOUND", "Không tìm thấy môn học")
-    if user.role not in {"ADMIN", "REVIEWER"} and course.owner_id != user.id:
+    if user.role not in {"ADMIN", "EXAM_OFFICER"} and course.owner_id != user.id:
         fail(403, "FORBIDDEN", "Bạn không phụ trách môn học này")
     return course
 
 
 def public_user(user):
-    return {k: getattr(user, k) for k in ("id", "username", "name", "role", "status", "email")}
+    return {k: getattr(user, k) for k in ("id", "username", "name", "role", "status", "email", "requested_role")}
 
 
 def by_id(db, model, key, lock=False):

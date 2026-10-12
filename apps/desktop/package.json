@@ -5,7 +5,7 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check server-preload.cjs && node --check server-config.cjs && node --check server.js && node --check check-stt-bundle.cjs && node --check unload-guard.cjs",
+    "check": "node --check main.cjs && node --check preload.cjs && node --check server-preload.cjs && node --check server-config.cjs && node --check server.js && node --check check-stt-bundle.cjs && node --check unload-guard.cjs && node --check exam-lock.cjs && node --check display-manager.cjs && node --check stt-policy.cjs",
     "pack": "electron-builder --dir --publish never",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
@@ -35,9 +35,17 @@
       "server.css",
       "server.js",
       "package.json",
-      "unload-guard.cjs"
+      "unload-guard.cjs",
+      "exam-lock.cjs",
+      "display-manager.cjs",
+      "display-gnome.py",
+      "stt-policy.cjs"
     ],
     "extraResources": [
+      {
+        "from": "display-gnome.py",
+        "to": "python/display-gnome.py"
+      },
       {
         "from": "transcribe.py",
         "to": "python/transcribe.py"
@@ -48,7 +56,12 @@
       },
       {
         "from": "resources/stt",
-        "to": "stt"
+        "to": "stt",
+        "filter": [
+          "oral-stt/**/*",
+          "whisper-small/**/*",
+          "WHISPER-LICENSE.txt"
+        ]
       }
     ],
     "win": {
@@ -77,7 +90,7 @@
       ],
       "category": "public.app-category.education",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "OralAI sử dụng microphone để kiểm tra tiếng ồn và ghi câu trả lời.",
+        "NSMicrophoneUsageDescription": "OralAI sử dụng microphone để ghi câu trả lời vấn đáp.",
         "NSCameraUsageDescription": "OralAI sử dụng camera để ghi hình câu trả lời vấn đáp."
       }
     },

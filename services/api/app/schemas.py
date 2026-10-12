@@ -8,14 +8,16 @@ class Input(BaseModel):
 
 
 class Login(Input):
-    username: str = Field(min_length=1, max_length=80)
+    username: str = Field(min_length=1, max_length=320)
     password: str = Field(min_length=1, max_length=128)
 
 
 class UserIn(Login):
+    username: str = Field(min_length=1, max_length=80)
+    email: str | None = Field(default=None, max_length=320)
     password: str = Field(min_length=12, max_length=128)
     name: str = Field(min_length=1, max_length=150)
-    role: Literal["ADMIN", "TEACHER", "STUDENT", "REVIEWER"] = "STUDENT"
+    role: Literal["ADMIN", "TEACHER", "STUDENT", "EXAM_OFFICER"] = "STUDENT"
 
 
 class CourseIn(Input):
@@ -128,6 +130,16 @@ class SessionIn(Input):
     new_attempt: bool = False
 
 
+class ExamStartIn(Input):
+    screen_consent: bool = False
+
+
+class ProctoringEventIn(Input):
+    type: Literal["WINDOW_BLUR", "WINDOW_MINIMIZED", "FULLSCREEN_LEFT", "DISPLAY_CHANGED",
+                  "BLOCKED_SHORTCUT", "BLOCKED_NAVIGATION", "SCREEN_STOPPED", "SCREEN_RESUMED",
+                  "SCREEN_ERROR", "CLIENT_RESTARTED", "CLIPBOARD_BLOCKED"]
+
+
 class AttemptPolicyIn(Input):
     max_attempts: int | None = Field(ge=1, le=1001)
 
@@ -137,13 +149,23 @@ class RetakeIn(Input):
 
 
 class TranscriptIn(Input):
-    transcript: str = Field(min_length=1, max_length=30000)
-    stt_confidence: float = Field(ge=0, le=1)
+    transcript: str = Field(max_length=30000)
+    stt_confidence: float | None = Field(ge=0, le=1)
+    stt_skipped_reason: Literal["MODEL_MISSING"] | None = None
+
+    @model_validator(mode="after")
+    def validate_transcription(self):
+        if self.stt_skipped_reason:
+            if self.transcript or self.stt_confidence is not None:
+                raise ValueError("Bỏ qua STT phải gửi transcript rỗng và confidence null")
+        elif not self.transcript.strip() or self.stt_confidence is None:
+            raise ValueError("Cần transcript và confidence khi nhận dạng thành công")
+        return self
 
 
 class UploadIn(Input):
     attempt_id: str
-    kind: Literal["AUDIO", "VIDEO"]
+    kind: Literal["AUDIO", "VIDEO", "SCREEN"]
     mime_type: Literal["audio/webm", "video/webm", "audio/mp4", "video/mp4", "audio/ogg"]
     size: int = Field(gt=0)
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -188,4 +210,4 @@ class GradeOutput(Input):
 
 
 class RoleIn(Input):
-    role: Literal["ADMIN", "TEACHER", "STUDENT", "REVIEWER"]
+    role: Literal["ADMIN", "TEACHER", "STUDENT", "EXAM_OFFICER"]

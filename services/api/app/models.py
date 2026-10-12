@@ -2,7 +2,18 @@ import time
 import uuid
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -21,6 +32,7 @@ class User(Entity, Base):
     __tablename__ = "users"
     username: Mapped[str] = mapped_column(String(80), unique=True)
     email: Mapped[str | None] = mapped_column(String(320))
+    requested_role: Mapped[str | None] = mapped_column(String(20))
     google_sub: Mapped[str | None] = mapped_column(String(255), unique=True)
     name: Mapped[str] = mapped_column(String(150))
     password_hash: Mapped[str] = mapped_column(Text)
@@ -41,6 +53,7 @@ class Course(Entity, Base):
     code: Mapped[str] = mapped_column(String(50), unique=True)
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
+    hotwords: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
 
@@ -128,6 +141,8 @@ class Rubric(Entity, Base):
 class Exam(Entity, Base):
     __tablename__ = "exams"
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
+    imported_questions: Mapped[list | None] = mapped_column(JSON(none_as_null=True))
+    workflow: Mapped[bool] = mapped_column(default=False, server_default="false")
     rubric_id: Mapped[str] = mapped_column(ForeignKey("rubrics.id"))
     name: Mapped[str] = mapped_column(String(200))
     time_limit: Mapped[int] = mapped_column(Integer)
@@ -142,6 +157,9 @@ class Assignment(Entity, Base):
     __table_args__ = (UniqueConstraint("exam_id", "student_id"),)
     exam_id: Mapped[str] = mapped_column(ForeignKey("exams.id"))
     student_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    student_number: Mapped[str | None] = mapped_column(String(80))
+    opens_at: Mapped[float | None] = mapped_column(Float)
+    closes_at: Mapped[float | None] = mapped_column(Float)
     extra_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
@@ -158,7 +176,12 @@ class ExamSession(Entity, Base):
     status: Mapped[str] = mapped_column(String(30), default="DEVICE_CHECK")
     started_at: Mapped[float | None] = mapped_column(Float)
     completed_at: Mapped[float | None] = mapped_column(Float)
+    ai_score: Mapped[float | None] = mapped_column(Float)
+    manual_review: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
     final_score: Mapped[float | None] = mapped_column(Float)
+    screen_required: Mapped[bool] = mapped_column(default=False, server_default="false")
+    screen_consent_at: Mapped[float | None] = mapped_column(Float)
+    media_removed_at: Mapped[float | None] = mapped_column(Float)
     attempt_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     deleted_at: Mapped[float | None] = mapped_column(Float)
 
@@ -166,6 +189,7 @@ class ExamSession(Entity, Base):
 class MediaCleanup(Entity, Base):
     __tablename__ = "media_cleanup"
     upload_id: Mapped[str] = mapped_column(String(36), unique=True)
+    byte_size: Mapped[int | None] = mapped_column(BigInteger)
     storage_key: Mapped[str | None] = mapped_column(Text)
     retries: Mapped[int] = mapped_column(Integer, default=0)
     next_attempt_at: Mapped[float] = mapped_column(Float, default=0)

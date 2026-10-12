@@ -63,7 +63,8 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
             "original-key",
         )
         assert db.execute("SELECT content FROM document_chunks").fetchone() == ("Original knowledge",)
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0004",)
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0007",)
+        assert db.execute("SELECT screen_required,screen_consent_at FROM exam_sessions WHERE id='s'").fetchone() == (0, None)
 
         assert db.execute(
             "SELECT attempt_number,deleted_at,final_score FROM exam_sessions WHERE id='s'"
@@ -72,6 +73,9 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
             "Original answer",
         )
         assert db.execute("SELECT max_attempts FROM exams WHERE id='e'").fetchone() == (1,)
+        assert db.execute("SELECT imported_questions FROM exams WHERE id='e'").fetchone() == (None,)
+        assert db.execute("SELECT media_removed_at FROM exam_sessions WHERE id='s'").fetchone() == (None,)
+        assert "byte_size" in {column[1] for column in db.execute("PRAGMA table_info(media_cleanup)")}
         db.execute(
             "INSERT INTO exam_sessions (id,created_at,exam_id,student_id,status,attempt_number) VALUES ('s2',4,'e','u','DEVICE_CHECK',2)"
         )

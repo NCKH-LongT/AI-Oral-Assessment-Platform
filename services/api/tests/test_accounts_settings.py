@@ -125,7 +125,7 @@ def test_google_login_creates_student_without_linking_existing_account(env, plat
     clients, factory = env
     admin, browser = clients["admin"], clients["outsider"]
     ok(admin.put("/admin/settings/platform", json=config_body()))
-    state, _ = begin(browser)
+    state, flow = begin(browser, desktop=True)
     monkeypatch.setattr(
         google_login,
         "verify_identity",
@@ -143,7 +143,8 @@ def test_google_login_creates_student_without_linking_existing_account(env, plat
         headers={"Cookie": "google_oauth_state=" + state},
         follow_redirects=False,
     )
-    assert response.status_code == 303
+    assert response.status_code == 200
+    ok(browser.post("/auth/google/poll", json={"flow_id": flow["flow_id"], "poll_token": flow["poll_token"]}))
     user = ok(browser.get("/auth/me"))
     assert user["role"] == "STUDENT" and user["email"] == "admin"
     with factory() as db:
@@ -157,13 +158,14 @@ def test_google_login_creates_student_without_linking_existing_account(env, plat
         ).status_code
         == 400
     )
-    second, _ = begin(browser)
+    second, flow = begin(browser, desktop=True)
     browser.get(
         "/auth/google/callback",
         params={"state": second, "code": "test"},
         headers={"Cookie": "google_oauth_state=" + second},
         follow_redirects=False,
     )
+    ok(browser.post("/auth/google/poll", json={"flow_id": flow["flow_id"], "poll_token": flow["poll_token"]}))
     assert ok(browser.get("/auth/me"))["id"] == user["id"]
 
 

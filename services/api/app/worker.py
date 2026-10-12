@@ -13,7 +13,7 @@ from sqlalchemy import select
 from . import ai, runtime_settings, speech, storage
 from .db import SessionLocal
 from .documents import process_document
-from .grading import check_config, failure, review_question
+from .grading import check_config, failure, review_question, score_summary
 from .models import Attempt, Audit, Chunk, Document, Exam, ExamSession, MediaCleanup, ReviewJob, Upload
 
 log = logging.getLogger("oral.worker")
@@ -33,13 +33,20 @@ def finalize(db, session):
     ):
         session.status, session.final_score = "REVIEW_REQUIRED", None
         return
-    scores = [a.assessment.get("score") for a in attempts]
-    review = any(a.assessment.get("review_required", True) for a in attempts) or any(
-        score is None for score in scores
-    )
-    session.final_score = (
-        round(sum(scores) / len(scores), 2) if not review and all(s is not None for s in scores) else None
-    )
+    exam = db.get(Exam, session.exam_id)
+    summary = score_summary(attempts, len((exam.snapshot or {}).get("questions", [])))
+    session.ai_score = summary["total_score"]
+    if session.manual_review:
+        session.final_score = session.manual_review["score"]
+        session.status = "COMPLETED"
+        return
+    review = any(a.assessment.get("review_required", True) for a in attempts) or session.ai_score is None
+    review = review or bool(db.scalar(select(Audit.id).where(Audit.event == "PROCTORING_EVENT",
+        Audit.details["session_id"].as_string() == session.id).limit(1)))
+    session.final_score = session.ai_score if not review else None
+    if session.ai_score is not None and session.ai_score < 5:
+        review = True
+        session.final_score = None
     session.status = "REVIEW_REQUIRED" if review else "COMPLETED"
 
 

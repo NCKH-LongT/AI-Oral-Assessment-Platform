@@ -3,7 +3,8 @@ export type User = {
   username: string;
   email?: string | null;
   name: string;
-  role: "ADMIN" | "TEACHER" | "STUDENT" | "REVIEWER";
+  role: "ADMIN" | "TEACHER" | "STUDENT" | "REVIEWER" | "EXAM_OFFICER";
+  requested_role?: string | null;
 };
 export type Course = {
   id: string;
@@ -41,6 +42,8 @@ export type Rubric = {
 };
 export type Blueprint = { topic_id: string; difficulty: string; count: number };
 export type Exam = {
+  imported?: boolean;
+  workflow?: boolean;
   max_attempts: number | null;
   id: string;
   name: string;
@@ -72,6 +75,8 @@ export type Chapter = {
   source: string;
 };
 export type SpeechPolicy = {
+  desktop_model?: "whisper-small";
+  hotwords?: string[];
   provider: "local" | "google" | "gemini" | "local_server";
   preprocessing: "off" | "denoise";
   language: "vi" | "en";
@@ -94,6 +99,14 @@ export type Sitting = {
   final_score: number | null;
 };
 export type Result = {
+  ai_score?: number | null;
+  low_score?: boolean;
+  manual_review?: {
+    score: number;
+    reason: string;
+    reviewed_by: string;
+    reviewed_at: number;
+  } | null;
   attempt_number: number;
   created_at: number;
   started_at: number | null;
@@ -128,7 +141,20 @@ export type Assessment = {
   criteria?: { name: string; score: number; comment: string }[];
   retrieved_chunks?: Chunk[];
 };
+export type ScoreSummary = {
+  total_score: number | null;
+  question_count: number;
+  graded_question_count: number;
+  question_scores: { sequence: number; score: number | null }[];
+};
 export type Review = Result & {
+  media_removed_at?: number | null;
+  proctoring_events?: {
+    id: string;
+    created_at: number;
+    details: { type: string };
+  }[];
+  score_summary?: ScoreSummary | null;
   history: Sitting[];
   snapshot: {
     rubric_version: number;
@@ -165,6 +191,10 @@ export type Review = Result & {
   }[];
 };
 export type StudentExam = {
+  opens_at?: number | null;
+  closes_at?: number | null;
+  server_time?: number;
+  workflow?: boolean;
   attempt_count: number;
   remaining_attempts: number | null;
   can_start_new: boolean;
@@ -180,6 +210,9 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  screen_required?: boolean;
+  screen_attempt_id?: string | null;
+  score_summary?: ScoreSummary | null;
   attempt_number: number;
   practice?: boolean;
   grading_message?: string | null;
@@ -195,11 +228,24 @@ export type ExamSession = {
   current_attempt: {
     id: string;
     sequence: number;
+    prompt_image?: string | null;
     text: string;
     status: string;
   } | null;
 };
 
+export let clientBackend: {
+  mode: "local" | "online";
+  urls: { local: string; online: string };
+} | null = null;
+export function configureClientBackend(
+  value: NonNullable<typeof clientBackend>,
+) {
+  clientBackend = value;
+}
+function backendHeaders(): Record<string, string> {
+  return clientBackend ? { "X-Oral-Backend": clientBackend.mode } : {};
+}
 let refreshing: Promise<Response> | null = null;
 export async function api<T>(
   path: string,
@@ -214,12 +260,14 @@ export async function api<T>(
         ? { "Content-Type": "application/json" }
         : {}),
       ...init.headers,
+      ...backendHeaders(),
     },
   });
   if (response.status === 401 && retry && !path.startsWith("/auth/")) {
     refreshing ||= fetch("/api/auth/refresh", {
       method: "POST",
       credentials: "include",
+      headers: backendHeaders(),
     }).finally(() => {
       refreshing = null;
     });

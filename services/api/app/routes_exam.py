@@ -11,12 +11,12 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from . import schemas as s
-from . import storage
+from . import storage, processing
 from .config import settings
 from .db import get_db
 from .examination import check_schedule, schedule_for
 from .grading import GradingError, check_config, score_summary
-from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, Upload
+from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, ProcessingJob, Upload
 from .practice import COURSE_ID
 from .retakes import ACTIVE, allowance, history_row, sessions_for
 from .security import by_id, course_access, current_user, fail
@@ -78,8 +78,13 @@ def public_session(db, session):
         )
     else:
         grading_message = None
+    progress = processing.summary(db, session.id)
+    if progress and session.status == "SUBMITTED":
+        grading_message = "Đã nộp bài. Server đang nhận dạng và chấm bản ghi; bạn có thể rời ứng dụng và xem kết quả sau."
     return {
         "id": session.id,
+        "server_processing": not bool(exam.snapshot.get("practice")),
+        "processing": progress,
         "attempt_number": session.attempt_number,
         "exam_name": exam.name,
         "practice": bool(exam.snapshot.get("practice")),
@@ -276,6 +281,11 @@ def submit(
         # This identifies the supported channel, not trusted device attestation.
         # A skipped answer can only require review; it cannot earn an AI score.
         fail(403, "DESKTOP_STT_SKIP_REQUIRED", "Chỉ hỗ trợ bỏ qua model cục bộ khi sinh viên thi trên desktop")
+    job = db.scalar(select(ProcessingJob).where(ProcessingJob.attempt_id == key))
+    if attempt.submit_key and (job or body.processing_mode == "server_audio"):
+        if job and body.processing_mode == "server_audio" and attempt.submit_key == idempotency_key:
+            return {"status": attempt.status}
+        fail(409, "ALREADY_SUBMITTED", "Câu trả lời đã được nộp")
     if attempt.submit_key:
         if (
             attempt.submit_key == idempotency_key
@@ -290,7 +300,10 @@ def submit(
         fail(409, "INVALID_STATE", "Câu trả lời chưa bắt đầu hoặc bài đã nộp")
     attempt.transcript, attempt.stt_confidence = body.transcript, body.stt_confidence
     attempt.submit_key, attempt.finished_at, attempt.status = idempotency_key, time.time(), "SUBMITTED"
-    if body.stt_skipped_reason:
+    if body.processing_mode == "server_audio":
+        db.add(ProcessingJob(attempt_id=key, policy=processing.server_policy(db, by_id(db, Exam, session.exam_id))))
+        db.add(Audit(user_id=user.id, event="AUDIO_ANSWER_SUBMITTED", details={"attempt_id": key}))
+    elif body.stt_skipped_reason:
         attempt.assessment = missing_stt_assessment(by_id(db, Exam, session.exam_id))
         # GRADED means initial processing is done. NOT_GRADED + null score means
         # no grading occurred; the worker must never grade a fabricated answer.
@@ -339,6 +352,7 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
             if not {"AUDIO", "VIDEO"} <= kinds:
                 fail(409, "EVIDENCE_PENDING", "Chờ tải đủ audio/video trước khi nộp bài")
     session.status, session.completed_at = "SUBMITTED", time.time()
+    processing.queue_session(db, key)
     db.flush()
     finalize(db, session)
     db.add(Audit(user_id=user.id, event="FINISH_EXAM", details={"session_id": key}))

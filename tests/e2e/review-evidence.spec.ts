@@ -1,3 +1,4 @@
+import { installResultRoster, selectResultExam } from "./helpers/results-roster";
 import { test, expect } from "@playwright/test";
 
 for (const width of [1440, 768]) {
@@ -27,8 +28,10 @@ for (const width of [1440, 768]) {
       if (path.startsWith("/api/evidence/")) return route.fulfill({ status: 204 });
       return route.fulfill({ json: path.endsWith("dashboard") ? { courses: 0, documents: 0, exams: 0, sessions: 1 } : [] });
     });
+    await installResultRoster(page, review);
     await page.goto("/");
     await page.getByRole("button", { name: "Kết quả & xem lại", exact: true }).click();
+    await selectResultExam(page);
     await page.getByRole("button", { name: "Xem bài →" }).click();
     const screen = page.locator("video[aria-label='Bản ghi màn hình toàn bài']");
     await expect(screen).toHaveCount(1);

@@ -205,8 +205,9 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
-from . import examination, excel_imports, storage_management  # noqa: E402
+from . import examination, excel_imports, storage_management, result_roster  # noqa: E402
 
+app.include_router(result_roster.router, tags=["Results roster"])
 app.include_router(excel_imports.router, tags=["Excel imports"])
 app.include_router(storage_management.router, tags=["Storage management"])
 app.include_router(examination.router, tags=["Examination workflow"])

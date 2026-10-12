@@ -107,6 +107,7 @@ export default function Student() {
   const [exams, setExams] = useState<StudentExam[]>([]),
     [session, setSession] = useState<ExamSession | null>(null),
     [error, setError] = useState("");
+  const serverProcessing = !!session?.server_processing;
   const sessionFinished =
     !!session &&
     ["SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"].includes(session.status);
@@ -563,6 +564,11 @@ export default function Student() {
           ? "filtered"
           : "original";
       setAnswer(a);
+      if (serverProcessing) {
+        setProcessing(false);
+        setError("");
+        return;
+      }
       try {
         const stt = await transcribe(
           a.sttSource === "filtered" ? a.filteredAudio! : a.audio,
@@ -670,7 +676,11 @@ export default function Student() {
     if (!answer || !session || submitting || processing) return;
     if (guard.blocked || guard.preparing)
       throw new Error("Khôi phục chế độ thi trước khi nộp câu trả lời.");
-    if (!answer.transcript.trim() && !answer.sttSkippedReason)
+    if (
+      !serverProcessing &&
+      !answer.transcript.trim() &&
+      !answer.sttSkippedReason
+    )
       throw new Error("Nhận dạng câu trả lời trước khi nộp.");
     if (!answer.audio.size || !answer.video.size)
       throw new Error("Media rỗng. Vui lòng ghi âm lại.");
@@ -681,8 +691,9 @@ export default function Student() {
       await api(`/question-attempts/${answer.attemptId}/submit`, {
         method: "POST",
         body: JSON.stringify({
-          transcript: answer.transcript,
-          stt_confidence: confidence,
+          transcript: serverProcessing ? "" : answer.transcript,
+          stt_confidence: serverProcessing ? null : confidence,
+          ...(serverProcessing ? { processing_mode: "server_audio" } : {}),
           ...(answer.sttSkippedReason
             ? { stt_skipped_reason: answer.sttSkippedReason }
             : {}),
@@ -931,7 +942,24 @@ export default function Student() {
               : "Đã nộp bài thi"}
           </h2>
           <p>Câu trả lời và minh chứng đã được lưu.</p>
-          {!session.practice && <Badge status={session.status} />}
+          {!session.practice && (
+            <Badge
+              status={
+                session.status === "SUBMITTED"
+                  ? session.processing?.status || session.status
+                  : session.status
+              }
+            />
+          )}
+          {session.processing && (
+            <p role="status">
+              Đã nhận dạng {session.processing.transcribed}/
+              {session.processing.total} câu · Đã xử lý{" "}
+              {session.processing.completed}/{session.processing.total} câu
+              {session.processing.failed > 0 &&
+                ` · ${session.processing.failed} câu bị lỗi, cần giảng viên xử lý`}
+            </p>
+          )}
           {!session.practice && (
             <ExamScore
               summary={session.score_summary}
@@ -1015,12 +1043,20 @@ export default function Student() {
                   onBusy={setDisplayBusy}
                 />
               )}
-            <DesktopSpeechSettings
-              settings={desktopSpeech}
-              disabled={
-                recording || startingRecording || processing || submitting
-              }
-            />
+            {!serverProcessing && (
+              <DesktopSpeechSettings
+                settings={desktopSpeech}
+                disabled={
+                  recording || startingRecording || processing || submitting
+                }
+              />
+            )}
+            {serverProcessing && (
+              <p className="notice">
+                Bản ghi được nhận dạng và chấm trên server sau khi nộp toàn bài,
+                theo cấu hình STT của hệ thống.
+              </p>
+            )}
             {session.status === "DEVICE_CHECK" ? (
               <>
                 <span className="eyebrow">TRƯỚC KHI BẮT ĐẦU</span>
@@ -1077,7 +1113,7 @@ export default function Student() {
                     )}
                   </>
                 )}
-                {desktopSpeech.desktop && (
+                {desktopSpeech.desktop && !serverProcessing && (
                   <p className="muted">
                     STT dùng bản ghi gốc từ microphone. Audio/video gốc được giữ
                     để đối chiếu. Nếu vẫn nhận nhiều màn hình dù đã tắt nguồn,
@@ -1179,7 +1215,9 @@ export default function Student() {
                       Đang nộp câu trả lời, vui lòng đợi…
                     </span>
                   ) : answer ? (
-                    desktopSpeech.desktop ? (
+                    serverProcessing ? (
+                      "Bản ghi đã sẵn sàng để nộp. Server sẽ nhận dạng và chấm sau khi bạn nộp toàn bài."
+                    ) : desktopSpeech.desktop ? (
                       answer.transcript.trim() ? (
                         "Câu trả lời đã sẵn sàng để nộp."
                       ) : answer.sttSkippedReason ? (
@@ -1222,7 +1260,7 @@ export default function Student() {
                   ))}
                 {answer && (
                   <div className="answer-form">
-                    {!desktopSpeech.desktop && (
+                    {!serverProcessing && !desktopSpeech.desktop && (
                       <>
                         <label>
                           Transcript
@@ -1280,48 +1318,53 @@ export default function Student() {
                           guard.preparing ||
                           processing ||
                           submitting ||
-                          (!answer.transcript.trim() &&
+                          (!serverProcessing &&
+                            !answer.transcript.trim() &&
                             !answer.sttSkippedReason)
                         }
                         action={submit}
                       >
                         Nộp câu trả lời & tiếp tục →
                       </Action>
-                      <Action
-                        disabled={processing || submitting}
-                        className="button secondary"
-                        action={async () => {
-                          setProcessing(true);
-                          try {
-                            const audio =
-                              !window.oralDesktop &&
-                              answer.sttSource === "filtered"
-                                ? answer.filteredAudio
-                                : answer.audio;
-                            if (!audio)
-                              throw new Error("Không có bản ghi đã lọc nhiễu.");
-                            const s = await transcribe(audio);
-                            // A missing model on retry must not erase the last
-                            // successful transcript from this same recording.
-                            if (
-                              !s.stt_skipped_reason ||
-                              !answer.transcript.trim()
-                            )
-                              setAnswer({
-                                ...answer,
-                                transcript: s.transcript,
-                                originalText: s.transcript,
-                                confidence: s.stt_confidence,
-                                sttSkippedReason: s.stt_skipped_reason,
-                              });
-                            setError("");
-                          } finally {
-                            setProcessing(false);
-                          }
-                        }}
-                      >
-                        Thử STT lại
-                      </Action>
+                      {!serverProcessing && (
+                        <Action
+                          disabled={processing || submitting}
+                          className="button secondary"
+                          action={async () => {
+                            setProcessing(true);
+                            try {
+                              const audio =
+                                !window.oralDesktop &&
+                                answer.sttSource === "filtered"
+                                  ? answer.filteredAudio
+                                  : answer.audio;
+                              if (!audio)
+                                throw new Error(
+                                  "Không có bản ghi đã lọc nhiễu.",
+                                );
+                              const s = await transcribe(audio);
+                              // A missing model on retry must not erase the last
+                              // successful transcript from this same recording.
+                              if (
+                                !s.stt_skipped_reason ||
+                                !answer.transcript.trim()
+                              )
+                                setAnswer({
+                                  ...answer,
+                                  transcript: s.transcript,
+                                  originalText: s.transcript,
+                                  confidence: s.stt_confidence,
+                                  sttSkippedReason: s.stt_skipped_reason,
+                                });
+                              setError("");
+                            } finally {
+                              setProcessing(false);
+                            }
+                          }}
+                        >
+                          Thử STT lại
+                        </Action>
+                      )}
                       <button
                         disabled={processing || submitting}
                         className="text-button"

@@ -30,9 +30,10 @@ export default function SpeechSettings() {
     <section className="panel">
       <h1>Cấu hình giọng nói</h1>
       <p>
-        Desktop nhận dạng bản ghi gốc bằng Whisper-small cục bộ. Sinh viên chọn
-        ngôn ngữ trong màn hình làm bài. Server nhận media và transcript để
-        chấm; giảng viên xem transcript khi review bài.
+        Bài thi được đưa vào hàng đợi nhận dạng trên server sau khi sinh viên
+        nộp đủ bản ghi. Server dùng nhà cung cấp bên dưới rồi chấm transcript
+        theo rubric. Ngôn ngữ và hotword của đề được ưu tiên; bài thử thiết bị
+        vẫn có thể nhận dạng trên desktop.
       </p>
       <Form
         label="Lưu cấu hình STT"
@@ -52,7 +53,7 @@ export default function SpeechSettings() {
         }}
       >
         <label>
-          Nhà cung cấp STT cho trình duyệt web
+          Nhà cung cấp STT cho hàng đợi và trình duyệt web
           <select
             value={value.provider}
             onChange={(e) => {
@@ -63,7 +64,9 @@ export default function SpeechSettings() {
               setSaved(false);
             }}
           >
-            <option value="local">Yêu cầu dùng desktop (STT local)</option>
+            <option value="local">
+              Whisper desktop cho bài thử / Whisper server cho hàng đợi
+            </option>
             <option value="local_server">Whisper trên server nội bộ</option>
             <option value="gemini">Gemini STT (API key)</option>
             <option value="google">
@@ -88,8 +91,9 @@ export default function SpeechSettings() {
           </select>
         </label>
         <p>
-          Ngôn ngữ ở đây áp dụng cho trình duyệt web. Desktop chọn ngôn ngữ
-          riêng trong màn hình làm bài.
+          Ngôn ngữ áp dụng cho hàng đợi và trình duyệt web, trừ khi đề đã quy
+          định tiếng Việt hoặc tiếng Anh. Bài thử trên desktop có lựa chọn ngôn
+          ngữ riêng.
         </p>
         <p>
           Hotword được lưu riêng cho từng môn. Vào Môn học &amp; đề thi → chọn
@@ -103,8 +107,8 @@ export default function SpeechSettings() {
       {saved && <p role="status">Đã lưu cấu hình STT.</p>}
       <p>
         Khi xem bài, admin chọn Gemini hoặc Google Cloud STT cho từng lần nhận
-        dạng lại. Lựa chọn này độc lập với LLM chấm bài và STT local của
-        desktop.
+        dạng lại. Lựa chọn này độc lập với LLM chấm bài và nhà cung cấp của hàng
+        đợi ban đầu.
       </p>
       <h2>Gemini STT</h2>
       <p>

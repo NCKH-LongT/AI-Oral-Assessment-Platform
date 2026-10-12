@@ -1,6 +1,6 @@
 # OralAI — Thi vấn đáp
 
-Web dành cho **ADMIN, EXAM_OFFICER và TEACHER** quản lý môn, đề, lịch thi, kết quả và dung lượng. Sinh viên làm bài qua **OralAI Desktop**: ghi audio/camera, ghi toàn màn hình theo chính sách thi và nhận dạng bản ghi gốc bằng **Whisper-small** cục bộ. Server lưu minh chứng, chấm transcript theo rubric/RAG bằng Ollama hoặc Gemini và trả kết quả.
+Web dành cho **ADMIN, EXAM_OFFICER và TEACHER** quản lý môn, đề, lịch thi, kết quả và dung lượng. Sinh viên làm bài qua **OralAI Desktop**: ghi audio/camera, ghi toàn màn hình theo chính sách thi và tải bản ghi gốc lên server. Sau khi nộp toàn bài, server chạy hàng đợi **STT → chấm điểm** với trạng thái theo dõi; dùng nhà cung cấp STT trong cấu hình hệ thống và LLM Ollama/Gemini để chấm theo rubric/RAG.
 
 Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, giảng viên, khảo thí và danh sách sinh viên; đề được review/duyệt trước khi mở thi. Admin quản lý dung lượng từng lần thi, dọn bản ghi giữ điểm hoặc xóa toàn bộ lần thi được chọn.
 
@@ -52,7 +52,7 @@ ORAL_CLIENT_PORT=3001
 ```
 
 `ORAL_BACKEND_MODE` chỉ dùng khi profile chưa lưu lựa chọn. Đây là lựa chọn **máy chủ ứng dụng**,
-khác với `AI_PROVIDER=local` (Ollama chạy tại backend). Desktop vẫn nhận dạng giọng nói trên máy người dùng.
+khác với `AI_PROVIDER=local` (Ollama chạy tại backend). Bài thử desktop nhận dạng trên máy người dùng; bài thi mới được xử lý trên server.
 Launcher dùng `.venv-stt` nếu có; chuẩn bị bundle Whisper-small theo [hướng dẫn desktop](readme-desktop.md#chạy-từ-source).
 Đăng nhập Google trên web local mở cửa sổ đăng nhập của backend và hoàn tất bằng luồng polling.
 
@@ -114,10 +114,10 @@ Chạy `npm run desktop` để dùng giao diện source. Bộ cài từ workflow
 1. Chọn server tại **Cấu hình máy chủ** trước khi đăng nhập.
 2. Mở bài, cấp quyền và chọn microphone/camera.
 3. Chọn **Ngôn ngữ nói**, chuẩn bị một màn hình và đồng ý ghi toàn màn hình.
-4. Bấm **Bắt đầu thi**, ghi từng câu, chờ nhận dạng rồi **Nộp câu trả lời & tiếp tục**. Nếu máy thiếu model Whisper-small, app bỏ qua STT và vẫn cho nộp bản ghi để tiếp tục; câu chưa có transcript/điểm AI và cần xem lại. Có thể thử STT lại hoặc ghi lại.
-5. Chờ minh chứng tải xong và bấm **Nộp bài thi**.
+4. Bấm **Bắt đầu thi**, ghi từng câu rồi **Nộp câu trả lời & tiếp tục**; có thể ghi lại trước khi nộp câu. Không cần STT cục bộ cho bài thi mới.
+5. Chờ minh chứng tải xong và bấm **Nộp bài thi**. Server xếp hàng nhận dạng rồi chấm; màn hình tự cập nhật trạng thái và số câu đã xử lý.
 
-Desktop hiển thị câu hỏi, hướng dẫn và trạng thái nhận dạng. Transcript tự động được gửi lên server để chấm và cho giảng viên review. Ngôn ngữ được nhớ theo profile; Whisper-small là model cố định. [Hướng dẫn desktop](readme-desktop.md), [microphone](docs/microphone-desktop.md), [transcript và review](docs/transcript-correction.md).
+Desktop hiển thị câu hỏi, hướng dẫn và tiến độ xử lý trên server. STT theo cấu hình hệ thống, ưu tiên ngôn ngữ của đề. Whisper-small cục bộ còn dùng cho bài thử thiết bị/client cũ. [Hướng dẫn desktop](readme-desktop.md), [microphone](docs/microphone-desktop.md), [transcript và review](docs/transcript-correction.md).
 
 Bài luyện tập của nhân sự trên web có thu thử 10 giây, gain và RNNoise theo [luồng âm thanh web](docs/architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web). STT web dùng cấu hình server. Media gốc được lưu riêng; worker chấm bất đồng bộ, trả điểm hoặc trạng thái cần xem lại.
 
@@ -135,11 +135,11 @@ Admin vào **Môn học → Cài đặt → Xóa môn học**, nhập đúng mã
 
 Admin mở **Môn học & đề thi → chọn môn → Bài thi & giao bài → Cấu hình số lần làm lại**: không cho làm lại, cho làm lại N lần hoặc không giới hạn. Ví dụ cho làm lại 1 lần là tổng cộng 2 lượt.
 
-**Kết quả & xem lại** hiển thị từng lần thi. Mở **Quản lý lượt thi** để cấp thêm lượt riêng cho sinh viên hoặc xóa lần thi được chọn. Sinh viên xem lịch sử và bấm **Làm lại bài thi** khi còn lượt. [Chi tiết và nâng cấp database](docs/architecture/exam-retakes.md).
+**Kết quả & xem lại** cho chọn môn, đề/kỳ thi, ngày thi theo giờ Việt Nam và lần làm bài. Danh sách hiển thị cả sinh viên chưa thi, trạng thái hàng đợi và điểm chính thức; bấm **Xem bài** để mở chi tiết. Câu lỗi có nút **Thử xử lý lại** cho giảng viên phụ trách/admin. Mở **Quản lý lượt thi** để cấp thêm lượt riêng cho sinh viên hoặc xóa lần thi được chọn. Sinh viên xem lịch sử và bấm **Làm lại bài thi** khi còn lượt. [Chi tiết và nâng cấp database](docs/architecture/exam-retakes.md).
 
 ## Admin chọn STT trên server
 
-Trong **Cấu hình hệ thống → STT & giọng nói**, admin có thể chọn Gemini hoặc Google Cloud STT cho trình duyệt web. Desktop vẫn nhận dạng local.
+Trong **Cấu hình hệ thống → STT & giọng nói**, admin chọn Whisper server, Gemini hoặc Google Cloud STT cho hàng đợi và trình duyệt web. Bài thi mới nhận dạng trên server qua hàng đợi; bài thử desktop vẫn nhận dạng local.
 
 Khi xem kết quả, mở **Nhận dạng lại & chấm lại**, chọn nhà cung cấp và nhập lý do:
 
@@ -162,7 +162,7 @@ Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn deskto
 
 Xem [các bước cập nhật và chẩn đoán lỗi Jenkins](docs/jenkins.md).
 
-Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0007` để lưu câu hỏi nhập Excel và theo dõi dọn bản ghi, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0008` để thêm hàng đợi STT/chấm điểm bền vững, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
 
 Admin có trang **Lần thi & dung lượng** để lọc theo môn/người, xuất báo cáo Excel, chọn dọn bản ghi giữ điểm hoặc xóa toàn bộ dữ liệu lần thi. Có mẫu Excel và kiểm tra trước khi nhập môn, rubric, câu hỏi có sẵn, giảng viên và khảo thí. Cần cập nhật đồng bộ web, API và worker; xem [quản lý dung lượng và nhập Excel](docs/user-guide.md#quản-lý-lần-thi-và-dung-lượng).
 
@@ -181,7 +181,7 @@ Tra cứu thêm trong [Hướng dẫn theo nhu cầu](#hướng-dẫn-theo-nhu-c
 
 Bộ dữ liệu `TOEIC-SPEAKING-01`: 11 câu, 2 tranh minh họa, tài liệu RAG, đáp án và rubric chấm nội dung transcript thang 10; 30 phút/lượt, làm lại không giới hạn. Script nhập môn và giao đề cho toàn bộ sinh viên đang hoạt động: [hướng dẫn và dữ liệu](data/toeic-speaking/README.md). Điểm này chưa đánh giá phát âm/ngữ điệu và không quy đổi thành điểm TOEIC chính thức.
 
-Desktop luôn dùng **bản ghi gốc** cho STT và **Thử STT lại**. Trên web, checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt; có thể bật khi cần hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, desktop chọn **Tiếng Anh**; web nhận ngôn ngữ tiếng Anh từ phiên bản đề.
+Hàng đợi STT dùng **bản ghi gốc** được desktop tải lên. Bài thử desktop cũng dùng bản gốc khi nhận dạng/thử lại. Trên web, checkbox **Lọc nhiễu RNNoise khi nhận dạng câu trả lời** ban đầu tắt; có thể bật khi cần hoặc chọn bản gốc/bản lọc để nhận dạng lại. Với môn tiếng Anh này, hàng đợi và web nhận ngôn ngữ tiếng Anh từ phiên bản đề; bài thử desktop chọn **Tiếng Anh**.
 
 ### Cài bộ luyện TOEIC trên server khác
 

@@ -98,6 +98,22 @@ export type Sitting = {
   completed_at: number | null;
   final_score: number | null;
 };
+export type ProcessingSummary = {
+  status: string;
+  total: number;
+  transcribed: number;
+  completed: number;
+  failed: number;
+};
+export type AnswerProcessing = {
+  status: string;
+  stage: string;
+  updated_at: number;
+  runs: number;
+  provider: string;
+  error: string | null;
+  confidence_source?: string;
+};
 export type Result = {
   ai_score?: number | null;
   low_score?: boolean;
@@ -148,6 +164,7 @@ export type ScoreSummary = {
   question_scores: { sequence: number; score: number | null }[];
 };
 export type Review = Result & {
+  processing?: ProcessingSummary | null;
   media_removed_at?: number | null;
   proctoring_events?: {
     id: string;
@@ -170,6 +187,7 @@ export type Review = Result & {
     transcript: string | null;
     stt_confidence: number | null;
     assessment: Assessment | null;
+    processing?: AnswerProcessing | null;
     grading_targets?: { id: string; name: string; model: string }[];
     evidence: { id: string; kind: string; created_at?: number }[];
     reviews: {
@@ -210,6 +228,8 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  server_processing?: boolean;
+  processing?: ProcessingSummary | null;
   screen_required?: boolean;
   screen_attempt_id?: string | null;
   score_summary?: ScoreSummary | null;

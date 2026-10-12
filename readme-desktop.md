@@ -2,7 +2,7 @@
 
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
 
-OralAI Desktop dành cho sinh viên làm bài vấn đáp. App nhận dạng audio gốc bằng **Whisper-small** trên máy, dùng CPU INT8. Sinh viên chọn tiếng Việt hoặc tiếng Anh; câu hỏi và hướng dẫn hiển thị trong suốt lượt trả lời. Transcript được gửi lên server để chấm và cho giảng viên đối chiếu bản ghi.
+OralAI Desktop dành cho sinh viên làm bài vấn đáp. App ghi audio/camera và tải minh chứng lên server. Sau khi sinh viên nộp toàn bài, server đưa từng câu vào hàng đợi **STT → chấm điểm**, theo cấu hình **STT & giọng nói**. Sinh viên không cần chờ Whisper chạy trên máy trước khi nộp. Bài thử thiết bị vẫn hỗ trợ Whisper-small cục bộ.
 
 ## Bắt đầu nhanh
 
@@ -13,7 +13,7 @@ npm ci
 npm run desktop
 ```
 
-Lệnh mở Electron và giao diện source tại `http://localhost:3001`. Chạy riêng `npm run dev` để mở giao diện trong trình duyệt. Cần chuẩn bị STT theo [Chạy từ source](#chạy-từ-source) trước khi nhận dạng câu trả lời.
+Lệnh mở Electron và giao diện source tại `http://localhost:3001`. Chạy riêng `npm run dev` để mở giao diện trong trình duyệt. Bài thử thiết bị dùng STT cục bộ; chuẩn bị theo [Chạy từ source](#chạy-từ-source).
 
 Thanh **Backend** có hai lựa chọn:
 
@@ -72,7 +72,7 @@ Backend cần chạy sẵn. Script mở UI dev và Electron, dùng bundle STT đ
 3. Đăng nhập bằng tài khoản được cấp hoặc Google đúng email trong danh sách thi.
 4. Mở **Bài thi của tôi**, chọn bài được giao theo lịch.
 
-Bộ cài gồm helper STT, FFmpeg và Whisper-small. Máy sinh viên cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận điểm; nhận dạng giọng nói chạy cục bộ.
+Bộ cài gồm helper STT, FFmpeg và Whisper-small. Máy sinh viên cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận điểm. Bài thi được nhận dạng trên server; bài thử thiết bị nhận dạng cục bộ.
 
 ## Kết nối mic và camera trước khi thi
 
@@ -87,17 +87,19 @@ Rút thiết bị đang dùng sẽ chặn ghi tiếp; chọn lại thiết bị 
 
 1. Bấm **Bắt đầu thi** khi thiết bị và điều kiện phiên thi đã sẵn sàng.
 2. Đọc câu hỏi và hướng dẫn, bấm **Bắt đầu trả lời**. App ghi audio và camera của câu trả lời.
-3. Bấm **Kết thúc trả lời**, chờ Whisper-small nhận dạng bản ghi gốc. App hiển thị trạng thái xử lý và trạng thái sẵn sàng để nộp.
-4. Bấm **Nộp câu trả lời & tiếp tục**, hoặc **Thử STT lại** / **Ghi lại** nếu cần. Nếu máy chưa có model Whisper-small, app bỏ qua STT và vẫn cho nộp audio/video gốc để tiếp tục thi. Câu trả lời này không có transcript, độ tin cậy STT hoặc điểm AI; cần giảng viên xem lại hoặc admin yêu cầu nhận dạng lại từ audio. Các lỗi nhận dạng khác vẫn cần thử lại hoặc ghi lại trước khi nộp.
-5. Sau câu cuối, chờ minh chứng tải xong rồi bấm **Nộp bài thi**.
+3. Bấm **Kết thúc trả lời**, kiểm tra bản ghi đã sẵn sàng; có thể **Ghi lại** trước khi nộp câu.
+4. Bấm **Nộp câu trả lời & tiếp tục**. App tải audio/video gốc lên và chuyển câu tiếp theo, không nhận dạng trên máy cho bài thi dùng hàng đợi.
+5. Sau câu cuối, chờ tất cả minh chứng tải xong rồi bấm **Nộp bài thi**. Server chỉ bắt đầu hàng đợi sau bước này.
 
-Transcript tự động cùng độ tin cậy được gửi lên server; giảng viên xem trong **Kết quả & xem lại**. Desktop chỉ hiển thị trạng thái nhận dạng cho sinh viên. Audio/video gốc luôn được giữ làm minh chứng. Server chấm bất đồng bộ theo rubric và RAG, trả điểm hoặc trạng thái cần xem lại.
+Màn hình kết quả tự cập nhật: **Chờ nhận dạng → Đang nhận dạng → Chờ chấm điểm → Đang chấm điểm → Hoàn thành / Cần xem lại**. Hiển thị số câu đã nhận dạng, đã xử lý và bị lỗi. Khi đã báo nộp bài thành công, sinh viên có thể đóng app; worker tiếp tục xử lý trên server. Không đóng app khi còn bản ghi chưa tải xong.
 
-## Ngôn ngữ nhận dạng
+## Cấu hình STT và xử lý lỗi hàng đợi
 
-Whisper-small là model cố định của desktop. Chọn ngôn ngữ chính của câu trả lời, mặc định **Tiếng Việt**. Lựa chọn được nhớ trên thiết bị cho origin máy chủ hiện tại. Có thể đổi ngôn ngữ trước khi bấm **Thử STT lại**; bản ghi vẫn giữ nguyên. Lỗi nhận dạng lại hoặc model bị gỡ sau lần nhận dạng thành công giữ kết quả thành công gần nhất. App kiểm tra lại model mỗi lần nhận dạng; cài model khi app đang mở rồi bấm **Thử STT lại** để dùng bản ghi đang giữ.
+Admin chọn nhà cung cấp ở **Cấu hình hệ thống → STT & giọng nói**: Whisper server, Gemini hoặc Google. Nếu cấu hình cũ chọn Whisper desktop (`local`), hàng đợi dùng Whisper trên server (`local_server`). Ngôn ngữ được lấy từ đề nếu có, nếu không dùng cấu hình STT của hệ thống; hotword lấy từ đúng môn/đề. Cấu hình được lưu cùng từng yêu cầu nộp câu.
 
-Hotword lấy từ đúng môn/phiên thi: tối đa 500 mục, 100 ký tự/mục và 10.000 ký tự tổng cộng. Hotword gợi ý thuật ngữ cho STT, không bảo đảm mọi từ đều nhận đúng. Chất lượng nhận dạng cần đối chiếu bằng audio thực tế.
+Worker lưu trạng thái trong database. Nếu worker dừng giữa chừng, tác vụ được nhận lại sau khi lease hết hạn (5 phút), không xử lý song song cùng một câu. Nếu STT hoặc chấm thất bại, câu bị đánh dấu lỗi và giữ bản ghi để kiểm tra; không tạo điểm 0 giả. Giảng viên phụ trách/admin mở chi tiết và bấm **Thử xử lý lại** sau khi kiểm tra cấu hình. Lỗi chấm thử lại từ transcript đã nhận dạng; lỗi STT nhận dạng lại audio với cấu hình STT hiện tại. Nhiều lần worker bị ngắt liên tiếp sẽ chuyển tác vụ sang lỗi cần xử lý.
+
+Whisper server cần model `STT_MODEL` và bộ nhớ/CPU phù hợp; lần đầu có thể phải tải model. Gemini dùng API key; Google dùng service-account JSON. Không phụ thuộc model Whisper trên máy sinh viên cho bài thi mới. Bài thử thiết bị và client cũ vẫn giữ luồng transcript cục bộ để tương thích; các hướng dẫn build/helper bên dưới áp dụng cho luồng đó.
 
 ## Làm lại bài thi
 
@@ -105,7 +107,7 @@ Sinh viên xem **Xem lần N** để mở kết quả cũ, hoặc **Làm lại b
 
 ## Transcript và đối chiếu bản ghi
 
-Giảng viên mở **Kết quả & xem lại → Xem bài** để đối chiếu transcript với audio/video. Admin có thể yêu cầu nhận dạng lại hoặc chấm lại, có lý do và lịch sử. [Chi tiết review](docs/transcript-correction.md).
+Giảng viên mở **Kết quả & xem lại → chọn môn → chọn đề/kỳ thi**, lọc ngày thi (giờ Việt Nam) và lần làm bài nếu cần. Danh sách gồm sinh viên được giao bài/ghi danh chưa thi và người đã thi, trạng thái xử lý, điểm chính thức khi đã hoàn tất. Không chọn số lần sẽ hiển thị lần gần nhất trong bộ lọc; **Xem bài** mở chi tiết đúng sinh viên/lần thi, quay lại giữ bộ lọc. Transcript từ server được đối chiếu với audio/video gốc. Admin có thể yêu cầu nhận dạng lại hoặc chấm lại, có lý do và lịch sử. [Chi tiết review](docs/transcript-correction.md).
 
 Mỗi câu trả lời có một audio và một video camera. Gửi lại đúng file tiếp tục upload cũ; server từ chối file khác cùng loại cho câu đó. Các đoạn ghi màn hình được xem riêng tại **Giám sát màn hình toàn bài thi**, chọn từng đoạn trong một khung phát. Bản ghi màn hình không phải video trả lời của câu đầu. Dữ liệu cũ có nhiều camera/audio vẫn xem được bằng bộ chọn bản ghi.
 
@@ -145,24 +147,24 @@ Bộ cài chưa có auto-update, code signing hoặc notarization. Chi tiết bu
 
 ## STT trên server do admin chọn
 
-**Cấu hình hệ thống → STT & giọng nói** điều khiển STT cho bài thử trên web. Khi review bài, admin có thể chọn Gemini hoặc Google để nhận dạng lại audio gốc. Gemini dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google dùng JSON service account lưu trên server. Model nhận dạng trên desktop vẫn là Whisper-small.
+**Cấu hình hệ thống → STT & giọng nói** điều khiển STT cho hàng đợi bài thi và bài thử trên web. Khi review bài, admin có thể chọn Gemini hoặc Google để nhận dạng lại audio gốc. Gemini dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google dùng JSON service account lưu trên server. Bài thử thiết bị trên desktop vẫn dùng Whisper-small.
 
 ## Xử lý lỗi
 
 | Hiện tượng | Cách xử lý |
 | --- | --- |
-| Chưa có model Whisper-small | Vẫn thi và nộp bản ghi được; câu cần xem lại, chưa có điểm AI. Cài model rồi Thử STT lại trước khi nộp, hoặc admin nhận dạng lại sau đó |
+| Chưa có model Whisper-small trên desktop | Bài thi mới vẫn nộp bản ghi để server xử lý; model desktop chỉ cần cho bài thử/luồng cũ |
 | Khôi phục chế độ thi chờ mãi hoặc báo lỗi | Bấm Hủy khôi phục, đóng hộp chia sẻ nếu còn mở; kiểm tra một màn hình/quyền ghi/mạng rồi thử lại. App tự dừng lần khôi phục sau 30 giây; không cho trả lời khi giám sát chưa sẵn sàng |
 | Không nhận được camera/mic | Kiểm tra quyền hệ điều hành, chọn thiết bị và kết nối lại |
-| STT lỗi hoặc không có tiếng nói | Kiểm tra mic, thử STT lại hoặc ghi lại câu trả lời |
-| STT quá thời gian | Đóng tác vụ đang dùng nhiều CPU, thử câu trả lời ngắn hơn |
+| STT bài thi báo lỗi | Giảng viên kiểm tra bản ghi/cấu hình ở chi tiết bài và bấm Thử xử lý lại |
+| STT bài thử thiết bị quá thời gian | Đóng tác vụ đang dùng nhiều CPU, thử câu trả lời ngắn hơn |
 | Có nhiều màn hình | Dùng Chuẩn bị màn hình hoặc Settings → Displays như hướng dẫn bên dưới |
 | Upload chưa xong | Giữ app mở, kiểm tra mạng và thử tải lại minh chứng |
 | Đề không xuất hiện | Kiểm tra backend, email, danh sách được giao và lịch thi |
 
 ## Môn luyện nói TOEIC
 
-Bộ `TOEIC-SPEAKING-01` có 11 câu, 2 tranh minh họa, tài liệu RAG và rubric chấm nội dung thang 10. Chọn **Tiếng Anh** trước khi ghi. Điểm chưa đánh giá phát âm/ngữ điệu hoặc quy đổi thành TOEIC chính thức. [Nhập dữ liệu và giao bài](data/toeic-speaking/README.md).
+Bộ `TOEIC-SPEAKING-01` có 11 câu, 2 tranh minh họa, tài liệu RAG và rubric chấm nội dung thang 10. Đặt ngôn ngữ đề là **Tiếng Anh** để hàng đợi nhận dạng đúng ngôn ngữ. Điểm chưa đánh giá phát âm/ngữ điệu hoặc quy đổi thành TOEIC chính thức. [Nhập dữ liệu và giao bài](data/toeic-speaking/README.md).
 
 ## Truy cập và ghi màn hình bắt buộc
 
@@ -180,8 +182,8 @@ Trong lúc thi, app bật kiosk toàn màn hình, chặn menu chuột phải, De
 
 Đây là hạn chế ở cấp ứng dụng, không khóa hoàn toàn hệ điều hành và không ngăn được thiết bị phụ hay client đã sửa. Header `X-Oral-Client: desktop` phân biệt kênh truy cập được hỗ trợ, không phải chứng thực bộ cài; một client tự viết có thể giả mạo header. Server kiểm tra quyền, đồng ý ghi và có bản ghi hoàn tất, nhưng không thể chứng minh video bao phủ toàn bộ thời gian thi. Nếu triển khai kỳ thi cần bảo đảm cao, cần máy được quản lý bằng chính sách kiosk của hệ điều hành và giám thị. Nút thoát khẩn cấp vẫn xác nhận rời ứng dụng; đoạn chưa tải lên có thể mất khi đóng cưỡng bức. Khi mở lại phiên đang thi, sự kiện khởi động lại được ghi nhận và phải khôi phục ghi màn hình.
 
-Server cần chạy đầy đủ migration đến `0007`, cập nhật đồng bộ API/worker/web. `EXAM_SCREEN_REQUIRED` mặc định `true`. Chính sách ghi màn hình được lưu theo phiên thi. Người dùng bộ cài cần phiên bản Electron tương ứng; người chạy source đóng rồi mở lại app sau khi cập nhật.
+Server cần chạy đầy đủ migration đến `0008`, cập nhật đồng bộ API/worker/web. `EXAM_SCREEN_REQUIRED` mặc định `true`. Chính sách ghi màn hình được lưu theo phiên thi. Người dùng bộ cài cần phiên bản Electron tương ứng; người chạy source đóng rồi mở lại app sau khi cập nhật.
 
 ### Cập nhật cho chế độ thiếu model và khôi phục có thể hủy
 
-Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Không cần migration database mới. Thiếu model được ghi rõ trong lịch sử nộp, không tự gửi audio sang STT ngoài; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bộ cài phát hành vẫn yêu cầu tài nguyên STT đầy đủ khi build.
+Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Luồng hàng đợi mới cần migration `0008`; cập nhật đồng bộ API/worker/web. Với bài thử/client cũ, thiếu model được ghi rõ trong lịch sử nộp. Bài thi mới nhận dạng trên server theo cấu hình hệ thống; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bộ cài phát hành vẫn yêu cầu tài nguyên STT đầy đủ khi build.

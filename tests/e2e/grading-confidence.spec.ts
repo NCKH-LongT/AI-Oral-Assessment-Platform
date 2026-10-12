@@ -1,3 +1,4 @@
+import { installResultRoster, selectResultExam } from "./helpers/results-roster";
 import { test, expect } from "@playwright/test";
 
 for (const kind of ["legacy-error", "error", "demo", "valid-zero"]) {
@@ -68,10 +69,12 @@ for (const kind of ["legacy-error", "error", "demo", "valid-zero"]) {
           : [],
       });
     });
+    await installResultRoster(page, review);
     await page.goto("/");
     await page
       .getByRole("button", { name: "Kết quả & xem lại", exact: true })
       .click();
+    await selectResultExam(page);
     await page.getByRole("button", { name: "Xem bài →" }).click();
     if (kind === "valid-zero") {
       await expect(page.getByText(/Độ tin cậy do AI tự báo: 0%/)).toBeVisible();

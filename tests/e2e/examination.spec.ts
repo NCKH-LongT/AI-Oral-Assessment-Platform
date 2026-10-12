@@ -1,3 +1,7 @@
+import {
+  installResultRoster,
+  selectResultExam,
+} from "./helpers/results-roster";
 import { test, expect } from "@playwright/test";
 
 const exam = {
@@ -218,10 +222,12 @@ test("lecturer sees a highlighted low score and records an official reviewed gra
       };
     await route.fulfill({ json });
   });
+  await installResultRoster(page, row);
   await page.goto("/");
   await page
     .getByRole("button", { name: "Kết quả & xem lại", exact: true })
     .click();
+  await selectResultExam(page);
   await expect(page.locator("tr.low-score-row")).toContainText("AI: 4/10");
   await page.getByRole("button", { name: "Xem bài →", exact: true }).click();
   await page.getByLabel("Điểm chính thức (0–10)", { exact: true }).fill("6.5");

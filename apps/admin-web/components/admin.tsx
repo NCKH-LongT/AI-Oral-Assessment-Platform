@@ -2,6 +2,7 @@
 import ExcelImport from "./excel-import";
 import ExamScore from "./exam-score";
 import ReviewEvidence from "./review-evidence";
+import ResultsBrowser, { initialResultFilters } from "./results-browser";
 import StudentCourses from "./student-courses";
 import {
   AttemptLimitFields,
@@ -82,6 +83,7 @@ export default function Admin({
     [review, setReview] = useState<Review | null>(null),
     [query, setQuery] = useState(""),
     [showCreate, setShowCreate] = useState(false);
+  const [resultFilters, setResultFilters] = useState(initialResultFilters);
   const editable = user.role === "ADMIN" || user.role === "TEACHER";
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
   const load = useCallback(async () => {
@@ -500,30 +502,14 @@ export default function Admin({
         )
       )}
       {page === "results" && (
-        <>
-          <div className="page-heading">
-            <div>
-              <span className="eyebrow">MINH BẠCH TRONG ĐÁNH GIÁ</span>
-              <h1>Kết quả & xem lại</h1>
-              <p className="muted">
-                Kiểm tra câu trả lời, điểm theo tiêu chí và minh chứng gốc.
-              </p>
-            </div>
-            <Action className="button secondary" action={load}>
-              Làm mới
-            </Action>
-          </div>
-          <section className="panel">
-            <ResultTable
-              rows={results}
-              admin={user.role === "ADMIN"}
-              refresh={load}
-              open={async (id) =>
-                setReview(await api<Review>(`/admin/results/${id}`))
-              }
-            />
-          </section>
-        </>
+        <ResultsBrowser
+          courses={courses}
+          filters={resultFilters}
+          setFilters={setResultFilters}
+          open={async (id) =>
+            setReview(await api<Review>(`/admin/results/${id}`))
+          }
+        />
       )}
     </>
   );
@@ -1662,9 +1648,13 @@ function ReviewPage({
   refresh: () => Promise<void>;
   open: (id: string) => Promise<unknown>;
 }) {
-  const screens = review.attempts.flatMap((attempt) => attempt.evidence)
+  const screens = review.attempts
+    .flatMap((attempt) => attempt.evidence)
     .filter((file) => file.kind === "SCREEN")
-    .sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0) || a.id.localeCompare(b.id));
+    .sort(
+      (a, b) =>
+        (a.created_at ?? 0) - (b.created_at ?? 0) || a.id.localeCompare(b.id),
+    );
   return (
     <>
       <button className="text-button back" onClick={back}>
@@ -1729,6 +1719,17 @@ function ReviewPage({
         </span>
       </div>
       <ExamScore summary={review.score_summary} status={review.status} />
+      {review.processing && (
+        <div className="notice" role="status">
+          <Badge status={review.processing.status} />
+          <span>
+            Đã nhận dạng {review.processing.transcribed}/
+            {review.processing.total} câu · Đã xử lý{" "}
+            {review.processing.completed}/{review.processing.total} câu ·{" "}
+            {review.processing.failed} câu lỗi
+          </span>
+        </div>
+      )}
       {review.media_removed_at && (
         <p className="notice">
           Bản ghi của lần thi đã được admin dọn để giải phóng dung lượng.
@@ -1738,7 +1739,10 @@ function ReviewPage({
       {screens.length > 0 && (
         <section className="panel">
           <h2>Giám sát màn hình toàn bài thi</h2>
-          <p className="muted">Bản ghi được chia thành nhiều đoạn trong suốt lần thi. Chọn từng đoạn để xem.</p>
+          <p className="muted">
+            Bản ghi được chia thành nhiều đoạn trong suốt lần thi. Chọn từng
+            đoạn để xem.
+          </p>
           <ReviewEvidence key={review.id} evidence={screens} kind="SCREEN" />
         </section>
       )}
@@ -1808,6 +1812,27 @@ function ReviewPage({
             <Badge status={a.status} />
           </div>
           <h3>{a.question.text}</h3>
+          {a.processing && (
+            <div className="notice">
+              <Badge status={a.processing.status} />
+              {a.processing.error && (
+                <p role="alert" className="error">
+                  {a.processing.error}
+                </p>
+              )}
+              {canGrade && a.processing.status === "FAILED" && (
+                <Action
+                  className="button secondary"
+                  action={async () => {
+                    await send(`/admin/attempts/${a.id}/retry-processing`);
+                    await refresh();
+                  }}
+                >
+                  Thử xử lý lại
+                </Action>
+              )}
+            </div>
+          )}
           <div className="review-grid">
             <div>
               <span className="eyebrow">TRANSCRIPT SINH VIÊN ĐÃ NỘP</span>
@@ -1816,9 +1841,11 @@ function ReviewPage({
               </p>
               <small className="muted">
                 Độ tin cậy STT:{" "}
-                {a.stt_confidence === null
-                  ? "—"
-                  : `${Math.round(a.stt_confidence * 100)}%`}
+                {a.processing?.confidence_source === "unavailable"
+                  ? "Nhà cung cấp không trả độ tin cậy"
+                  : a.stt_confidence === null
+                    ? "—"
+                    : `${Math.round(a.stt_confidence * 100)}%`}
               </small>
               <ReviewEvidence evidence={a.evidence} kind="VIDEO" />
               <ReviewEvidence evidence={a.evidence} kind="AUDIO" />

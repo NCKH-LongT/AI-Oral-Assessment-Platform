@@ -152,10 +152,14 @@ class TranscriptIn(Input):
     transcript: str = Field(max_length=30000)
     stt_confidence: float | None = Field(ge=0, le=1)
     stt_skipped_reason: Literal["MODEL_MISSING"] | None = None
+    processing_mode: Literal["client_transcript", "server_audio"] = "client_transcript"
 
     @model_validator(mode="after")
     def validate_transcription(self):
-        if self.stt_skipped_reason:
+        if self.processing_mode == "server_audio":
+            if self.transcript or self.stt_confidence is not None or self.stt_skipped_reason:
+                raise ValueError("Nộp audio để server xử lý phải để transcript rỗng và confidence null")
+        elif self.stt_skipped_reason:
             if self.transcript or self.stt_confidence is not None:
                 raise ValueError("Bỏ qua STT phải gửi transcript rỗng và confidence null")
         elif not self.transcript.strip() or self.stt_confidence is None:

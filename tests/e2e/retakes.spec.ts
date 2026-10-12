@@ -72,6 +72,21 @@ test("admin sets limits, reviews sittings, grants extra attempts and deletes onl
       currentExam.max_attempts = route.request().postDataJSON().max_attempts;
       limits.push(currentExam.max_attempts);
       json = currentExam;
+    } else if (path === "/api/admin/courses/course/results") {
+      const number = new URL(route.request().url()).searchParams.get(
+        "attempt_number",
+      );
+      const sitting = results.find(
+        (r) => !number || r.attempt_number === Number(number),
+      );
+      json = {
+        exams: [currentExam],
+        dates: [],
+        attempt_numbers: results.map((r) => r.attempt_number),
+        rows: sitting
+          ? [{ ...sitting, session: sitting, processing: null }]
+          : [],
+      };
     } else if (path === "/api/admin/results") json = results;
     else if (path.endsWith("/retake")) {
       grants.push(route.request().postDataJSON());
@@ -122,16 +137,18 @@ test("admin sets limits, reviews sittings, grants extra attempts and deletes onl
   await page
     .getByRole("button", { name: "Kết quả & xem lại", exact: true })
     .click();
-  await expect(
-    page.getByRole("cell", { name: "Lần 1", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("cell", { name: "Lần 2", exact: true }),
-  ).toBeVisible();
-  const first = page
-    .getByRole("row")
-    .filter({ has: page.getByRole("cell", { name: "Lần 1", exact: true }) });
-  await first.getByRole("button", { name: "Xem bài →" }).click();
+  await page
+    .getByRole("combobox", { name: "Môn học", exact: true })
+    .selectOption("course");
+  await page
+    .getByRole("combobox", { name: "Đề / kỳ thi", exact: true })
+    .selectOption("exam");
+  await expect(page.getByRole("row").last()).toContainText("Lần 2");
+  await page
+    .getByRole("combobox", { name: "Lần làm bài", exact: true })
+    .selectOption("1");
+  await expect(page.getByRole("row").last()).toContainText("Lần 1");
+  await page.getByRole("button", { name: "Xem bài →" }).click();
   await expect(
     page.getByRole("heading", { name: "Retake exam · Lần 1" }),
   ).toBeVisible();
@@ -159,12 +176,8 @@ test("admin sets limits, reviews sittings, grants extra attempts and deletes onl
   await expect(
     page.getByRole("heading", { name: "Kết quả & xem lại", exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("cell", { name: "Lần 1", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("cell", { name: "Lần 2", exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("cell", { name: /^Lần 1/ })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /^Lần 2/ })).toHaveCount(0);
   expect(deleted).toEqual(["session-2"]);
 });
 

@@ -1477,3 +1477,13 @@ fieldset label {
   gap: 0.4rem;
   margin-bottom: 0.8rem;
 }
+
+.results-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.results-filters > label {
+  min-width: 0;
+}

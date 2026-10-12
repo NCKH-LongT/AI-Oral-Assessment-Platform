@@ -10,11 +10,11 @@ from types import SimpleNamespace
 
 from sqlalchemy import select
 
-from . import ai, runtime_settings, speech, storage
+from . import ai, runtime_settings, speech, storage, processing
 from .db import SessionLocal
 from .documents import process_document
 from .grading import check_config, failure, review_question, score_summary
-from .models import Attempt, Audit, Chunk, Document, Exam, ExamSession, MediaCleanup, ReviewJob, Upload
+from .models import Attempt, Audit, Chunk, Document, Exam, ExamSession, MediaCleanup, ProcessingJob, ReviewJob, Upload
 
 log = logging.getLogger("oral.worker")
 
@@ -23,6 +23,11 @@ def finalize(db, session):
     if session.status not in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"}:
         return
     attempts = db.scalars(select(Attempt).where(Attempt.session_id == session.id)).all()
+    if db.scalar(select(ProcessingJob.id).join(Attempt).where(
+        Attempt.session_id == session.id, ProcessingJob.status.in_(processing.ACTIVE),
+    ).limit(1)):
+        session.status, session.final_score = "SUBMITTED", None
+        return
     if not attempts or any(a.assessment is None for a in attempts):
         return
     if db.scalar(
@@ -156,6 +161,8 @@ def process_transcription_review(db, job, exam, session, attempt):
 
 @runtime_settings.snapshot()
 def tick():
+    if processing.tick(SessionLocal):
+        return True
     with SessionLocal() as db:
         cleanup = db.scalar(select(MediaCleanup).where(MediaCleanup.next_attempt_at <= time.time())
                             .order_by(MediaCleanup.created_at).with_for_update(skip_locked=True).limit(1))
@@ -206,7 +213,8 @@ def tick():
             return True
         attempt = db.scalar(
             select(Attempt)
-            .where(Attempt.status == "SUBMITTED", Attempt.assessment.is_(None))
+            .where(Attempt.status == "SUBMITTED", Attempt.assessment.is_(None),
+                   ~select(ProcessingJob.id).where(ProcessingJob.attempt_id == Attempt.id).exists())
             .order_by(Attempt.created_at)
             .with_for_update(skip_locked=True)
             .limit(1)

@@ -12,7 +12,7 @@ from .db import get_db
 from .exam_generation import build_snapshot
 from .examination_schemas import CommissionIn, DraftReviewIn, HotwordsIn, ManualGradeIn, ScheduleIn, TeacherIn
 from .excel import parse_roster, template_bytes, workbook_bytes
-from .models import Assignment, Attempt, Audit, Course, Exam, ExamSession, ReviewJob, Rubric, User, uid
+from .models import Assignment, Attempt, Audit, Course, Exam, ExamSession, ProcessingJob, ReviewJob, Rubric, User, uid
 from .runtime_settings import settings
 from .schemas import ReviewIn, RubricIn
 from .security import by_id, course_access, current_user, editor, exam_officer, fail, hasher, staff
@@ -295,6 +295,9 @@ def manual_grade(key: str, body: ManualGradeIn, db: Session = Depends(get_db), u
     course_access(db, exam.course_id, user)
     if session.deleted_at is not None or session.status not in {"REVIEW_REQUIRED", "COMPLETED"}:
         fail(409, "NOT_READY", "Chờ máy chủ chấm xong trước khi chấm lại")
+    if db.scalar(select(ProcessingJob.id).join(Attempt).where(Attempt.session_id == key,
+        ProcessingJob.status.not_in(["COMPLETED", "FAILED"]))):
+        fail(409, "PROCESSING_PENDING", "Chờ hoàn tất hàng đợi STT và chấm điểm")
     if db.scalar(select(ReviewJob.id).join(Attempt).where(Attempt.session_id == key, ReviewJob.status == "PENDING")):
         fail(409, "REVIEW_PENDING", "Đang chạy nhận dạng/chấm lại AI; chờ hoàn tất")
     before = {"final_score": session.final_score, "manual_review": session.manual_review}

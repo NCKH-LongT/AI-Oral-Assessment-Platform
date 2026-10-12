@@ -1,3 +1,7 @@
+import {
+  installResultRoster,
+  selectResultExam,
+} from "./helpers/results-roster";
 import { test, expect } from "@playwright/test";
 
 test("admin sees the question mean alongside a separately reviewed final grade", async ({
@@ -51,10 +55,12 @@ test("admin sees the question mean alongside a separately reviewed final grade",
       };
     return route.fulfill({ json });
   });
+  await installResultRoster(page, result);
   await page.goto("/");
   await page
     .getByRole("button", { name: "Kết quả & xem lại", exact: true })
     .click();
+  await selectResultExam(page);
   await page.getByRole("button", { name: "Xem bài →", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Điểm tổng bài thi" }),

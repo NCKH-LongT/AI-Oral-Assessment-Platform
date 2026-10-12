@@ -1,3 +1,7 @@
+import {
+  installResultRoster,
+  selectResultExam,
+} from "./helpers/results-roster";
 import { test, expect } from "@playwright/test";
 
 for (const provider of ["gemini", "google"]) {
@@ -61,8 +65,12 @@ for (const provider of ["gemini", "google"]) {
           : [],
       });
     });
+    await installResultRoster(page, review);
     await page.goto("/");
-    await page.getByRole("button", { name: "Kết quả & xem lại", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Kết quả & xem lại", exact: true })
+      .click();
+    await selectResultExam(page);
     await page.getByRole("button", { name: "Xem bài →" }).click();
     await page.getByText("Nhận dạng lại & chấm lại", { exact: true }).click();
     await page.getByLabel("Nhà cung cấp nhận dạng lại").selectOption(provider);

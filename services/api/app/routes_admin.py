@@ -9,7 +9,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from . import ai, storage
+from . import ai, storage, processing
 from . import schemas as s
 from .course_deletion import delete_course_tree
 from .db import get_db
@@ -28,6 +28,7 @@ from .models import (
     ExamSession,
     LearningOutcome,
     ReviewJob,
+    ProcessingJob,
     Rubric,
     Topic,
     TopicDocument,
@@ -613,6 +614,7 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
             Audit.event == "PROCTORING_EVENT", Audit.details["session_id"].as_string() == key).order_by(Audit.created_at))],
         "score_summary": score_summary(attempts, len((exam.snapshot or {}).get("questions", [])))
         if not (exam.snapshot or {}).get("practice") else None,
+        "processing": processing.summary(db, key),
         "ai_score": session.ai_score, "manual_review": session.manual_review,
         "media_removed_at": session.media_removed_at,
         "exam_id": exam.id, "student_id": session.student_id,
@@ -624,6 +626,8 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
         "attempts": [
             data(a, "sequence", "question", "transcript", "stt_confidence", "assessment", "status")
             | {
+                "processing": next((processing.job_view(j) for j in db.scalars(
+                    select(ProcessingJob).where(ProcessingJob.attempt_id == a.id))), None),
                 "assessment": assessment_view(a.assessment, exam),
                 "stt_skipped_reason": stt_skipped_reason(db, a.id),
                 "grading_targets": grading_targets(db, exam, a),
@@ -932,3 +936,30 @@ def delete_result(key: str, db: Session = Depends(get_db), user=Depends(admin)):
     }))
     db.commit()
     return {"ok": True}
+
+
+@router.post("/attempts/{key}/retry-processing", status_code=202)
+def retry_processing(key: str, db: Session = Depends(get_db), user=Depends(editor)):
+    job = db.scalar(select(ProcessingJob).where(ProcessingJob.attempt_id == key).with_for_update())
+    if not job:
+        fail(404, "NOT_FOUND", "Không có tác vụ xử lý bản ghi")
+    attempt = by_id(db, Attempt, key, lock=True)
+    session = by_id(db, ExamSession, attempt.session_id, lock=True)
+    exam = by_id(db, Exam, session.exam_id)
+    course_access(db, exam.course_id, user)
+    if session.deleted_at is not None or session.media_removed_at is not None:
+        fail(409, "MEDIA_REMOVED", "Bản ghi đã bị xóa")
+    if job.status != "FAILED":
+        fail(409, "PROCESSING_NOT_FAILED", "Chỉ thử lại tác vụ bị lỗi")
+    if db.scalar(select(ReviewJob.id).where(ReviewJob.attempt_id == key, ReviewJob.status == "PENDING")):
+        fail(409, "REVIEW_PENDING", "Đang có yêu cầu xem lại")
+    job.status = "QUEUED_GRADING" if job.result else "QUEUED_STT"
+    if not job.result:
+        job.policy = processing.server_policy(db, exam)
+    job.error, job.token, job.lease_until, job.runs = None, None, None, 0
+    job.updated_at = time.time()
+    attempt.status, attempt.assessment = "SUBMITTED", None
+    session.status, session.final_score, session.ai_score, session.manual_review = "SUBMITTED", None, None, None
+    db.add(Audit(user_id=user.id, event="ANSWER_PROCESSING_RETRIED", details={"attempt_id": key}))
+    db.commit()
+    return processing.job_view(job)

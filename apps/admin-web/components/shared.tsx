@@ -3,6 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { errorText } from "./api";
 const labels: Record<string, string> = {
+  NOT_TAKEN: "Chưa thi",
+  WAITING_SUBMISSION: "Chờ nộp toàn bài",
+  QUEUED_STT: "Chờ nhận dạng",
+  STT_RUNNING: "Đang nhận dạng",
+  QUEUED_GRADING: "Chờ chấm điểm",
+  GRADING_RUNNING: "Đang chấm điểm",
   ACTIVE: "Đang hoạt động",
   ARCHIVED: "Đã lưu trữ",
   DRAFT: "Bản nháp",
@@ -15,7 +21,7 @@ const labels: Record<string, string> = {
   ASSIGNED: "Được giao",
   DEVICE_CHECK: "Kiểm tra thiết bị",
   IN_PROGRESS: "Đang thi",
-  SUBMITTED: "Đang chấm",
+  SUBMITTED: "Đã nộp · đang xử lý",
   COMPLETED: "Hoàn thành",
   REVIEW_REQUIRED: "Cần xem lại",
   GRADED: "Đã xử lý",

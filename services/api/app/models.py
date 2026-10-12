@@ -210,6 +210,20 @@ class Attempt(Entity, Base):
     submit_key: Mapped[str | None] = mapped_column(String(100))
 
 
+class ProcessingJob(Entity, Base):
+    __tablename__ = "answer_processing_jobs"
+    attempt_id: Mapped[str] = mapped_column(ForeignKey("question_attempts.id", ondelete="CASCADE"), unique=True)
+    status: Mapped[str] = mapped_column(String(30), default="WAITING_SUBMISSION", index=True)
+    policy: Mapped[dict] = mapped_column(JSON)
+    stage: Mapped[str] = mapped_column(String(10), default="STT")
+    token: Mapped[str | None] = mapped_column(String(36))
+    lease_until: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[float] = mapped_column(Float, default=time.time)
+    runs: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
+
+
 class Upload(Entity, Base):
     __tablename__ = "uploads"
     attempt_id: Mapped[str] = mapped_column(ForeignKey("question_attempts.id"))

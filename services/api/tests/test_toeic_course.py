@@ -10,7 +10,13 @@ from app.models import Assignment, Attempt, Course, CourseEnrollment, Document, 
 
 def test_toeic_import_enrollment_idempotency_and_public_prompt(env, monkeypatch):
     clients, factory = env
-    path = Path(__file__).resolve().parents[3] / "data/toeic-speaking/import_course.py"
+    path = next(
+        (parent / "data/toeic-speaking/import_course.py"
+         for parent in Path(__file__).resolve().parents
+         if (parent / "data/toeic-speaking/import_course.py").is_file()),
+        None,
+    )
+    assert path is not None, "TOEIC test bundle is missing: copy data/toeic-speaking into the test container"
     spec = importlib.util.spec_from_file_location("toeic_import", path)
     importer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(importer)

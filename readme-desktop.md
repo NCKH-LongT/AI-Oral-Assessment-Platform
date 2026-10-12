@@ -88,14 +88,14 @@ Rút thiết bị đang dùng sẽ chặn ghi tiếp; chọn lại thiết bị 
 1. Bấm **Bắt đầu thi** khi thiết bị và điều kiện phiên thi đã sẵn sàng.
 2. Đọc câu hỏi và hướng dẫn, bấm **Bắt đầu trả lời**. App ghi audio và camera của câu trả lời.
 3. Bấm **Kết thúc trả lời**, chờ Whisper-small nhận dạng bản ghi gốc. App hiển thị trạng thái xử lý và trạng thái sẵn sàng để nộp.
-4. Bấm **Nộp câu trả lời & tiếp tục**, hoặc **Thử STT lại** / **Ghi lại** nếu cần. Khi nhận dạng chưa thành công, nút nộp câu trả lời chưa bật.
+4. Bấm **Nộp câu trả lời & tiếp tục**, hoặc **Thử STT lại** / **Ghi lại** nếu cần. Nếu máy chưa có model Whisper-small, app bỏ qua STT và vẫn cho nộp audio/video gốc để tiếp tục thi. Câu trả lời này không có transcript, độ tin cậy STT hoặc điểm AI; cần giảng viên xem lại hoặc admin yêu cầu nhận dạng lại từ audio. Các lỗi nhận dạng khác vẫn cần thử lại hoặc ghi lại trước khi nộp.
 5. Sau câu cuối, chờ minh chứng tải xong rồi bấm **Nộp bài thi**.
 
 Transcript tự động cùng độ tin cậy được gửi lên server; giảng viên xem trong **Kết quả & xem lại**. Desktop chỉ hiển thị trạng thái nhận dạng cho sinh viên. Audio/video gốc luôn được giữ làm minh chứng. Server chấm bất đồng bộ theo rubric và RAG, trả điểm hoặc trạng thái cần xem lại.
 
 ## Ngôn ngữ nhận dạng
 
-Whisper-small là model cố định của desktop. Chọn ngôn ngữ chính của câu trả lời, mặc định **Tiếng Việt**. Lựa chọn được nhớ trên thiết bị cho origin máy chủ hiện tại. Có thể đổi ngôn ngữ trước khi bấm **Thử STT lại**; bản ghi vẫn giữ nguyên. Lỗi nhận dạng lại giữ kết quả thành công gần nhất.
+Whisper-small là model cố định của desktop. Chọn ngôn ngữ chính của câu trả lời, mặc định **Tiếng Việt**. Lựa chọn được nhớ trên thiết bị cho origin máy chủ hiện tại. Có thể đổi ngôn ngữ trước khi bấm **Thử STT lại**; bản ghi vẫn giữ nguyên. Lỗi nhận dạng lại hoặc model bị gỡ sau lần nhận dạng thành công giữ kết quả thành công gần nhất. App kiểm tra lại model mỗi lần nhận dạng; cài model khi app đang mở rồi bấm **Thử STT lại** để dùng bản ghi đang giữ.
 
 Hotword lấy từ đúng môn/phiên thi: tối đa 500 mục, 100 ký tự/mục và 10.000 ký tự tổng cộng. Hotword gợi ý thuật ngữ cho STT, không bảo đảm mọi từ đều nhận đúng. Chất lượng nhận dạng cần đối chiếu bằng audio thực tế.
 
@@ -149,7 +149,8 @@ Bộ cài chưa có auto-update, code signing hoặc notarization. Chi tiết bu
 
 | Hiện tượng | Cách xử lý |
 | --- | --- |
-| Chưa có bộ nhận dạng Whisper-small | Build tài nguyên STT hoặc cài bộ OralAI đầy đủ |
+| Chưa có model Whisper-small | Vẫn thi và nộp bản ghi được; câu cần xem lại, chưa có điểm AI. Cài model rồi Thử STT lại trước khi nộp, hoặc admin nhận dạng lại sau đó |
+| Khôi phục chế độ thi chờ mãi hoặc báo lỗi | Bấm Hủy khôi phục, đóng hộp chia sẻ nếu còn mở; kiểm tra một màn hình/quyền ghi/mạng rồi thử lại. App tự dừng lần khôi phục sau 30 giây; không cho trả lời khi giám sát chưa sẵn sàng |
 | Không nhận được camera/mic | Kiểm tra quyền hệ điều hành, chọn thiết bị và kết nối lại |
 | STT lỗi hoặc không có tiếng nói | Kiểm tra mic, thử STT lại hoặc ghi lại câu trả lời |
 | STT quá thời gian | Đóng tác vụ đang dùng nhiều CPU, thử câu trả lời ngắn hơn |
@@ -167,7 +168,7 @@ Nếu báo còn hai màn hình dù đã tắt màn hình phụ: nút nguồn kh�
 
 App lưu cấu hình cũ trước khi thay đổi và tự khôi phục sau khi kết thúc, rời trang thi hoặc thoát app bình thường. Trước khi bắt đầu có nút **Khôi phục các màn hình**. Nếu app bị dừng đột ngột hoặc màn hình bị rút, cấu hình vẫn được giữ trong `exam-display-backup.json` ở thư mục dữ liệu desktop để thử khôi phục khi mở lại. App không tự ghi đè nếu phát hiện bạn đã thay đổi cấu hình bên ngoài; khi đó khôi phục bằng Settings → Displays. Các thay đổi dùng chế độ tạm thời của [GNOME Mutter DisplayConfig](https://gitlab.gnome.org/GNOME/mutter/-/blob/main/data/dbus-interfaces/org.gnome.Mutter.DisplayConfig.xml).
 
-Tính năng tự tắt hiện cần GNOME cùng `/usr/bin/python3` và `python3-gi` (Ubuntu Desktop thông thường đã có); bản đóng gói có kèm helper nhưng dùng thư viện hệ thống này. Windows/macOS và Linux không có dịch vụ GNOME DisplayConfig vẫn hướng dẫn tắt trong cài đặt hệ điều hành hoặc rút cáp; không tự động tắt trên các hệ đó. Trên Windows chọn chế độ chỉ một màn hình bằng **Win+P**. Cần đóng/mở desktop sau khi cập nhật source để nạp IPC/helper mới. Khi khôi phục bị chặn vì nhiều màn hình, app thoát kiosk để bạn sửa cài đặt; bài đang thi vẫn tiếp tục tính giờ.
+Tính năng tự tắt hiện cần GNOME cùng `/usr/bin/python3` và `python3-gi` (Ubuntu Desktop thông thường đã có); bản đóng gói có kèm helper nhưng dùng thư viện hệ thống này. Windows/macOS và Linux không có dịch vụ GNOME DisplayConfig vẫn hướng dẫn tắt trong cài đặt hệ điều hành hoặc rút cáp; không tự động tắt trên các hệ đó. Trên Windows chọn chế độ chỉ một màn hình bằng **Win+P**. Cần đóng/mở desktop sau khi cập nhật source để nạp IPC/helper mới. Khi khôi phục bị chặn vì nhiều màn hình, app thoát kiosk để bạn sửa cài đặt; bài đang thi vẫn tiếp tục tính giờ. Nếu khôi phục lỗi, quá thời gian hoặc bị hủy, app cũng thoát kiosk, giữ cấu hình một màn hình đã chuẩn bị và giữ các đoạn ghi có sẵn để tải minh chứng. Có thể bấm **Khôi phục chế độ thi** lần nữa; chỉ bật trả lời khi chế độ thi, ghi màn hình bắt buộc và đồng bộ sự kiện đã thành công. Kết quả chia sẻ đến muộn sau khi hủy không bật lại chế độ thi. **Hủy khôi phục** chỉ hủy thao tác kết nối lại, không hủy bài hay dừng đồng hồ.
 
 Web dành cho **ADMIN, EXAM_OFFICER (khảo thí), TEACHER**. Sinh viên đăng nhập và làm bài bằng **OralAI Desktop**. Đổi server tại nút **Cấu hình máy chủ** trước khi đăng nhập.
 
@@ -178,3 +179,7 @@ Trong lúc thi, app bật kiosk toàn màn hình, chặn menu chuột phải, De
 Đây là hạn chế ở cấp ứng dụng, không khóa hoàn toàn hệ điều hành và không ngăn được thiết bị phụ hay client đã sửa. Header `X-Oral-Client: desktop` phân biệt kênh truy cập được hỗ trợ, không phải chứng thực bộ cài; một client tự viết có thể giả mạo header. Server kiểm tra quyền, đồng ý ghi và có bản ghi hoàn tất, nhưng không thể chứng minh video bao phủ toàn bộ thời gian thi. Nếu triển khai kỳ thi cần bảo đảm cao, cần máy được quản lý bằng chính sách kiosk của hệ điều hành và giám thị. Nút thoát khẩn cấp vẫn xác nhận rời ứng dụng; đoạn chưa tải lên có thể mất khi đóng cưỡng bức. Khi mở lại phiên đang thi, sự kiện khởi động lại được ghi nhận và phải khôi phục ghi màn hình.
 
 Server cần chạy đầy đủ migration đến `0007`, cập nhật đồng bộ API/worker/web. `EXAM_SCREEN_REQUIRED` mặc định `true`. Chính sách ghi màn hình được lưu theo phiên thi. Người dùng bộ cài cần phiên bản Electron tương ứng; người chạy source đóng rồi mở lại app sau khi cập nhật.
+
+### Cập nhật cho chế độ thiếu model và khôi phục có thể hủy
+
+Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Không cần migration database mới. Thiếu model được ghi rõ trong lịch sử nộp, không tự gửi audio sang STT ngoài; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bộ cài phát hành vẫn yêu cầu tài nguyên STT đầy đủ khi build.

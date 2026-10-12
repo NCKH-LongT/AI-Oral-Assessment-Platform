@@ -106,3 +106,50 @@ test("Google opens only the configured backend origin and start endpoint", () =>
     assert.throws(() => googleLoginURL(invalid, origin), invalid);
   }
 });
+
+const {
+  inspectSttModels,
+  missingModelResult,
+} = require("../apps/desktop/stt-policy.cjs");
+test("missing model skips runtime discovery and returns no fabricated transcript/confidence", async () => {
+  let checks = 0;
+  const models = await inspectSttModels(
+    () => "/not-installed/whisper-small",
+    () => false,
+    async () => {
+      checks++;
+      throw new Error("Python is not installed");
+    },
+  );
+  assert.equal(checks, 0);
+  assert.deepEqual(models, [
+    { id: "whisper-small", label: "Whisper-small", available: false },
+  ]);
+  assert.deepEqual(missingModelResult(), {
+    transcript: "",
+    stt_confidence: null,
+    stt_skipped_reason: "MODEL_MISSING",
+  });
+});
+test("present model validates runtime and never silently skips broken runtime", async () => {
+  let checks = 0;
+  const models = await inspectSttModels(
+    () => "/model",
+    () => true,
+    async () => {
+      checks++;
+    },
+  );
+  assert.equal(models[0].available, true);
+  assert.equal(checks, 1);
+  await assert.rejects(
+    inspectSttModels(
+      () => "/model",
+      () => true,
+      async () => {
+        throw new Error("Unsupported runtime");
+      },
+    ),
+    /Unsupported runtime/,
+  );
+});

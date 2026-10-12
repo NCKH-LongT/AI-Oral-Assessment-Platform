@@ -20,6 +20,7 @@ from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, 
 from .practice import COURSE_ID
 from .retakes import ACTIVE, allowance, history_row, sessions_for
 from .security import by_id, course_access, current_user, fail
+from .submissions import missing_stt_assessment, stt_skipped_reason
 from .worker import finalize
 
 router = APIRouter()
@@ -54,7 +55,14 @@ def public_session(db, session):
         select(Attempt).where(Attempt.session_id == session.id).order_by(Attempt.sequence)
     ).all()
     first = next((a for a in attempts if a.status in {"READY", "STARTED"}), None)
-    if exam.snapshot.get("practice"):
+    if session.status in {"SUBMITTED", "REVIEW_REQUIRED"} and any(
+        (a.assessment or {}).get("stt_skipped_reason") == "MODEL_MISSING" for a in attempts
+    ):
+        grading_message = (
+            "Đã lưu bài và minh chứng. Máy thi thiếu model Whisper nên có câu chưa nhận dạng, chưa chấm điểm; "
+            "cần giảng viên xem lại hoặc admin yêu cầu nhận dạng lại."
+        )
+    elif exam.snapshot.get("practice"):
         grading_message = "Bài luyện tập không tính điểm."
     elif exam.snapshot.get("ai_provider") == "demo" and not any(
         (a.assessment or {}).get("grading_exam_id") for a in attempts
@@ -258,16 +266,22 @@ def start_attempt(key: str, db: Session = Depends(get_db), user=Depends(current_
 def submit(
     key: str,
     body: s.TranscriptIn,
+    request: Request,
     idempotency_key: str = Header(min_length=8, max_length=100),
     db: Session = Depends(get_db),
     user=Depends(current_user),
 ):
     attempt, session = owned_attempt(db, key, user, lock=True)
+    if body.stt_skipped_reason and (user.role != "STUDENT" or request.headers.get("x-oral-client") != "desktop"):
+        # This identifies the supported channel, not trusted device attestation.
+        # A skipped answer can only require review; it cannot earn an AI score.
+        fail(403, "DESKTOP_STT_SKIP_REQUIRED", "Chỉ hỗ trợ bỏ qua model cục bộ khi sinh viên thi trên desktop")
     if attempt.submit_key:
         if (
             attempt.submit_key == idempotency_key
             and attempt.transcript == body.transcript
             and attempt.stt_confidence == body.stt_confidence
+            and stt_skipped_reason(db, key) == body.stt_skipped_reason
         ):
             return {"status": attempt.status}
         fail(409, "ALREADY_SUBMITTED", "Câu trả lời đã được nộp")
@@ -276,7 +290,16 @@ def submit(
         fail(409, "INVALID_STATE", "Câu trả lời chưa bắt đầu hoặc bài đã nộp")
     attempt.transcript, attempt.stt_confidence = body.transcript, body.stt_confidence
     attempt.submit_key, attempt.finished_at, attempt.status = idempotency_key, time.time(), "SUBMITTED"
-    db.add(Audit(user_id=user.id, event="TRANSCRIPT_SUBMITTED", details={"attempt_id": key}))
+    if body.stt_skipped_reason:
+        attempt.assessment = missing_stt_assessment(by_id(db, Exam, session.exam_id))
+        # GRADED means initial processing is done. NOT_GRADED + null score means
+        # no grading occurred; the worker must never grade a fabricated answer.
+        attempt.status = "GRADED"
+        db.add(Audit(user_id=user.id, event="STT_SKIPPED", details={
+            "attempt_id": key, "stt_status": "unavailable", "stt_skipped_reason": body.stt_skipped_reason,
+        }))
+    else:
+        db.add(Audit(user_id=user.id, event="TRANSCRIPT_SUBMITTED", details={"attempt_id": key}))
     db.commit()
     return {"status": attempt.status}
 
@@ -309,7 +332,7 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
             Attempt.session_id == key, Upload.kind == "SCREEN", Upload.status == "COMPLETED")):
         fail(409, "SCREEN_EVIDENCE_PENDING", "Chờ tải bản ghi màn hình trước khi nộp bài")
     for a in attempts:
-        if a.transcript:
+        if a.submit_key or a.transcript:
             kinds = set(
                 db.scalars(select(Upload.kind).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED"))
             )

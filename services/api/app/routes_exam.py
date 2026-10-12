@@ -348,7 +348,9 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
 
 @router.post("/uploads/init")
 def init_upload(body: s.UploadIn, db: Session = Depends(get_db), user=Depends(current_user)):
-    attempt, session = owned_attempt(db, body.attempt_id, user)
+    # Serialize both duplicate retries and different files for the same answer.
+    # Locking only existing uploads leaves a race when neither request has inserted yet.
+    attempt, session = owned_attempt(db, body.attempt_id, user, lock=True)
     if (attempt.status == "READY" and body.kind != "SCREEN") or session.status != "IN_PROGRESS":
         fail(409, "INVALID_STATE", "Chỉ upload khi câu trả lời đã bắt đầu và bài chưa nộp")
     media_kind = "video" if body.kind == "SCREEN" else body.kind.lower()
@@ -366,6 +368,10 @@ def init_upload(body: s.UploadIn, db: Session = Depends(get_db), user=Depends(cu
     )
     if existing:
         return {"id": existing.id, "chunk_size": settings().media_chunk_bytes, "status": existing.status}
+    if body.kind != "SCREEN" and db.scalar(select(Upload.id).where(
+        Upload.attempt_id == attempt.id, Upload.kind == body.kind,
+    ).limit(1)):
+        fail(409, "EVIDENCE_ALREADY_EXISTS", "Câu trả lời đã có bản ghi loại này. Chỉ được tải lại đúng file ban đầu.")
     row = Upload(**body.model_dump(), total_chunks=math.ceil(body.size / settings().media_chunk_bytes))
     db.add(row)
     db.flush()

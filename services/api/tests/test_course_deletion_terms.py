@@ -164,3 +164,17 @@ def test_course_delete_retries_when_related_rows_are_locked(env, model):
             assert db.get(Attempt, attempt_id) is not None
             assert db.scalar(select(func.count()).select_from(MediaCleanup)) == 0
     ok(clients["admin"].request("DELETE", path, json={"confirm_code": "SE101"}))
+
+
+def test_deleted_practice_course_is_not_recreated_on_bootstrap(env):
+    from app.practice import COURSE_ID, ensure_practice
+
+    clients, factory = env
+    with factory() as db:
+        ensure_practice(db)
+        assert db.get(Course, COURSE_ID) is not None
+    ok(clients["admin"].request("DELETE", f"/admin/courses/{COURSE_ID}",
+                               json={"confirm_code": "ORAL-PRACTICE"}))
+    with factory() as db:
+        ensure_practice(db)
+        assert db.get(Course, COURSE_ID) is None

@@ -2,7 +2,7 @@
 
 from sqlalchemy import select
 
-from .models import Course, Exam, LearningOutcome, Rubric, Topic, TopicOutcome, User
+from .models import Audit, Course, Exam, LearningOutcome, Rubric, Topic, TopicOutcome, User
 
 COURSE_ID = "00000000-0000-4000-8000-000000000001"
 EXAM_ID = "00000000-0000-4000-8000-000000000002"
@@ -10,6 +10,12 @@ EXAM_ID = "00000000-0000-4000-8000-000000000002"
 
 def ensure_practice(db):
     if db.get(Course, COURSE_ID):
+        return
+    # An administrator's explicit deletion survives bootstrap/deployment.
+    if db.scalar(select(Audit.id).where(
+        Audit.event == "COURSE_DELETED",
+        Audit.details["course_id"].as_string() == COURSE_ID,
+    ).limit(1)):
         return
     owner = db.scalar(select(User).where(User.role == "ADMIN").order_by(User.created_at))
     if not owner:

@@ -107,6 +107,8 @@ Sinh viên xem **Xem lần N** để mở kết quả cũ, hoặc **Làm lại b
 
 Giảng viên mở **Kết quả & xem lại → Xem bài** để đối chiếu transcript với audio/video. Admin có thể yêu cầu nhận dạng lại hoặc chấm lại, có lý do và lịch sử. [Chi tiết review](docs/transcript-correction.md).
 
+Mỗi câu trả lời có một audio và một video camera. Gửi lại đúng file tiếp tục upload cũ; server từ chối file khác cùng loại cho câu đó. Các đoạn ghi màn hình được xem riêng tại **Giám sát màn hình toàn bài thi**, chọn từng đoạn trong một khung phát. Bản ghi màn hình không phải video trả lời của câu đầu. Dữ liệu cũ có nhiều camera/audio vẫn xem được bằng bộ chọn bản ghi.
+
 ## Chạy từ source
 
 Cần Node 22.12+, Python 3.12 và backend hoạt động. Tạo môi trường build STT riêng:

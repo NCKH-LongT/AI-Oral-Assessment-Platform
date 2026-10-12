@@ -40,6 +40,7 @@ from .runtime_settings import settings
 from .security import admin, by_id, course_access, editor, exam_officer, fail, hasher, public_user, staff
 from .speech import exam_policy, google_ready
 from .storage_management import enqueue_media
+from .submissions import stt_skipped_reason
 
 router = APIRouter()
 
@@ -624,6 +625,7 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
             data(a, "sequence", "question", "transcript", "stt_confidence", "assessment", "status")
             | {
                 "assessment": assessment_view(a.assessment, exam),
+                "stt_skipped_reason": stt_skipped_reason(db, a.id),
                 "grading_targets": grading_targets(db, exam, a),
                 "evidence": [
                     data(e, "kind", "status", "sha256", "size")
@@ -760,6 +762,7 @@ def request_transcription_review(key, body, db, user, provider):
             "transcript": previous.result["transcript"] if previous else attempt.transcript,
             "stt_confidence": previous.result["stt_confidence"] if previous else attempt.stt_confidence,
             "submitted_transcript": attempt.transcript,
+            "stt_skipped_reason": stt_skipped_reason(db, attempt.id),
             "assessment": attempt.assessment,
             "audio_id": audio.id,
             "audio_sha256": audio.sha256,

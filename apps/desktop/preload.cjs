@@ -32,7 +32,7 @@ contextBridge.exposeInMainWorld(
         );
       }
     },
-    endExam: () => ipcRenderer.invoke("oral:exam-end"),
+    endExam: (options) => ipcRenderer.invoke("oral:exam-end", options),
     onExamEvent: (callback) => {
       const listener = (_event, type) => callback(type);
       ipcRenderer.on("oral:exam-event", listener);

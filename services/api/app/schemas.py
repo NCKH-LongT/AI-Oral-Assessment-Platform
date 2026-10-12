@@ -149,8 +149,18 @@ class RetakeIn(Input):
 
 
 class TranscriptIn(Input):
-    transcript: str = Field(min_length=1, max_length=30000)
-    stt_confidence: float = Field(ge=0, le=1)
+    transcript: str = Field(max_length=30000)
+    stt_confidence: float | None = Field(ge=0, le=1)
+    stt_skipped_reason: Literal["MODEL_MISSING"] | None = None
+
+    @model_validator(mode="after")
+    def validate_transcription(self):
+        if self.stt_skipped_reason:
+            if self.transcript or self.stt_confidence is not None:
+                raise ValueError("Bỏ qua STT phải gửi transcript rỗng và confidence null")
+        elif not self.transcript.strip() or self.stt_confidence is None:
+            raise ValueError("Cần transcript và confidence khi nhận dạng thành công")
+        return self
 
 
 class UploadIn(Input):

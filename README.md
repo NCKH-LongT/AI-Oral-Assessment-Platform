@@ -114,7 +114,7 @@ Chạy `npm run desktop` để dùng giao diện source. Bộ cài từ workflow
 1. Chọn server tại **Cấu hình máy chủ** trước khi đăng nhập.
 2. Mở bài, cấp quyền và chọn microphone/camera.
 3. Chọn **Ngôn ngữ nói**, chuẩn bị một màn hình và đồng ý ghi toàn màn hình.
-4. Bấm **Bắt đầu thi**, ghi từng câu, chờ nhận dạng rồi **Nộp câu trả lời & tiếp tục**. Có thể thử STT lại hoặc ghi lại.
+4. Bấm **Bắt đầu thi**, ghi từng câu, chờ nhận dạng rồi **Nộp câu trả lời & tiếp tục**. Nếu máy thiếu model Whisper-small, app bỏ qua STT và vẫn cho nộp bản ghi để tiếp tục; câu chưa có transcript/điểm AI và cần xem lại. Có thể thử STT lại hoặc ghi lại.
 5. Chờ minh chứng tải xong và bấm **Nộp bài thi**.
 
 Desktop hiển thị câu hỏi, hướng dẫn và trạng thái nhận dạng. Transcript tự động được gửi lên server để chấm và cho giảng viên review. Ngôn ngữ được nhớ theo profile; Whisper-small là model cố định. [Hướng dẫn desktop](readme-desktop.md), [microphone](docs/microphone-desktop.md), [transcript và review](docs/transcript-correction.md).

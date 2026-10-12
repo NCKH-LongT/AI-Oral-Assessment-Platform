@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { errorText } from "./api";
 
 export const DESKTOP_STT_MODEL = "whisper-small";
@@ -16,6 +16,18 @@ export function useDesktopSpeech() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [storageError, setStorageError] = useState("");
+  const inspect = useCallback(async () => {
+    const bridge = window.oralDesktop;
+    if (!bridge?.sttModels)
+      throw new Error(
+        "Đóng/mở lại desktop phiên bản mới để sử dụng nhận dạng giọng nói.",
+      );
+    const available = await bridge.sttModels();
+    setModels(available);
+    setReady(true);
+    setError("");
+    return available;
+  }, []);
   useEffect(() => {
     const bridge = window.oralDesktop;
     if (!bridge) return;
@@ -59,7 +71,16 @@ export function useDesktopSpeech() {
       );
     }
   }
-  return { desktop, preferences, models, ready, error, storageError, update };
+  return {
+    desktop,
+    preferences,
+    models,
+    ready,
+    error,
+    storageError,
+    update,
+    inspect,
+  };
 }
 
 export default function DesktopSpeechSettings({
@@ -107,8 +128,10 @@ export default function DesktopSpeechSettings({
           (model) => model.id === DESKTOP_STT_MODEL && model.available,
         ) && (
           <p role="alert">
-            Chưa có bộ nhận dạng Whisper-small trên máy. Cập nhật bộ OralAI đầy
-            đủ.
+            Chưa có bộ nhận dạng Whisper-small trên máy. Bạn vẫn có thể thi và
+            nộp audio/video gốc. App bỏ qua STT; câu trả lời chưa có transcript
+            hoặc điểm AI và cần giảng viên xem lại. Cài model rồi bấm Thử STT
+            lại nếu muốn nhận dạng bản ghi trước khi nộp.
           </p>
         )}
       {settings.storageError && <p role="status">{settings.storageError}</p>}

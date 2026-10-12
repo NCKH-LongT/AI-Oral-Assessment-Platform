@@ -191,7 +191,6 @@ export default function Home() {
           : []),
         { id: "users", label: "Người dùng", icon: Users },
         { id: "results", label: "Kết quả & xem lại", icon: ClipboardCheck },
-        { id: "student", label: "Học & thi thử", icon: GraduationCap },
         ...(user.role === "ADMIN"
           ? [
               {
@@ -287,7 +286,7 @@ export default function Home() {
             <StorageManager />
           ) : page === "examination" && !isStudent ? (
             <Examination user={user} navigate={setPage} />
-          ) : isStudent || page === "student" ? (
+          ) : isStudent ? (
             <Student />
           ) : (
             <Admin key={page} user={user} page={page} navigate={setPage} />

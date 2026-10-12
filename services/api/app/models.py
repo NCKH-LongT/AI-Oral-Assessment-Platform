@@ -201,6 +201,7 @@ class Attempt(Entity, Base):
     session_id: Mapped[str] = mapped_column(ForeignKey("exam_sessions.id"), index=True)
     sequence: Mapped[int] = mapped_column(Integer)
     question: Mapped[dict] = mapped_column(JSON(none_as_null=True))
+    prepared_at: Mapped[float | None] = mapped_column(Float)
     status: Mapped[str] = mapped_column(String(30), default="READY")
     started_at: Mapped[float | None] = mapped_column(Float)
     finished_at: Mapped[float | None] = mapped_column(Float)

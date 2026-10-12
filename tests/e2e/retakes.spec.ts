@@ -144,17 +144,7 @@ test("admin sets limits, reviews sittings, grants extra attempts and deletes onl
     .getByRole("combobox", { name: "Đề / kỳ thi", exact: true })
     .selectOption("exam");
   await expect(page.getByRole("row").last()).toContainText("Lần 2");
-  await page
-    .getByRole("combobox", { name: "Lần làm bài", exact: true })
-    .selectOption("1");
-  await expect(page.getByRole("row").last()).toContainText("Lần 1");
   await page.getByRole("button", { name: "Xem bài →" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Retake exam · Lần 1" }),
-  ).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "Lịch sử làm bài" })
-    .selectOption("session-2");
   await expect(
     page.getByRole("heading", { name: "Retake exam · Lần 2" }),
   ).toBeVisible();
@@ -176,8 +166,8 @@ test("admin sets limits, reviews sittings, grants extra attempts and deletes onl
   await expect(
     page.getByRole("heading", { name: "Kết quả & xem lại", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("cell", { name: /^Lần 1/ })).toBeVisible();
-  await expect(page.getByRole("cell", { name: /^Lần 2/ })).toHaveCount(0);
+  await expect(page.getByRole("row").last()).toContainText("Lần 1");
+  await expect(page.getByRole("row").last()).not.toContainText("Lần 2");
   expect(deleted).toEqual(["session-2"]);
 });
 
@@ -240,7 +230,8 @@ test("student sees history and only requests a new sitting when allowed", async 
   ).toHaveCount(0);
   await page.getByText("Lịch sử làm bài (2)", { exact: true }).click();
   await page.getByRole("button", { name: "Xem lần 1", exact: true }).click();
-  await expect(page.locator(".finished")).toContainText("6/10");
+  await expect(page.locator(".finished")).toContainText("Đã nộp bài thi");
+  await expect(page.locator("main")).not.toContainText("6/10");
   await page.getByRole("button", { name: "Về danh sách bài thi" }).click();
   allowed = true;
   await page.getByRole("button", { name: "Làm mới bài thi" }).click();

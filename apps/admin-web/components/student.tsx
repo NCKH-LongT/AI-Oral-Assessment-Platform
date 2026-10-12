@@ -21,7 +21,7 @@ import {
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
 import NoiseCheck from "./noise-check";
-import ExamScore from "./exam-score";
+import { useQuestionTimer, type QuestionClock } from "./use-question-timer";
 import { useExamGuard } from "./use-exam-guard";
 import DesktopSpeechSettings, {
   useDesktopSpeech,
@@ -96,6 +96,12 @@ const mime = (kind: "audio" | "video") =>
     : ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
   ).find((t) => MediaRecorder.isTypeSupported(t));
 
+function submissionBadge(status: string) {
+  return ["SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"].includes(status)
+    ? "RECEIVED"
+    : status;
+}
+
 export default function Student() {
   const [displayBusy, setDisplayBusy] = useState(false);
   const [screenConsent, setScreenConsent] = useState(false);
@@ -107,6 +113,8 @@ export default function Student() {
   const [exams, setExams] = useState<StudentExam[]>([]),
     [session, setSession] = useState<ExamSession | null>(null),
     [error, setError] = useState("");
+  const autoSubmitRecording = useRef(false);
+  const timedQuestions = !!session?.timed_questions;
   const serverProcessing = !!session?.server_processing;
   const sessionFinished =
     !!session &&
@@ -155,6 +163,28 @@ export default function Student() {
     return s;
   }, []);
   const guard = useExamGuard(session, () => stopRef.current());
+  function endAnswer() {
+    autoSubmitRecording.current = timedQuestions;
+    stopRef.current();
+  }
+  const questionTimer = useQuestionTimer({
+    id: session?.current_attempt?.id,
+    enabled: timedQuestions && session?.status === "IN_PROGRESS",
+    canRecord:
+      !!stream &&
+      !deviceError &&
+      !connecting &&
+      !guard.blocked &&
+      !guard.preparing &&
+      !guard.finishing &&
+      !startingRecording &&
+      !processing &&
+      !submitting,
+    recording,
+    hasAnswer: !!answer,
+    start,
+    end: endAnswer,
+  });
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- State updates follow an asynchronous API response.
@@ -177,7 +207,10 @@ export default function Student() {
           Math.ceil((localDeadline.current - Date.now()) / 1000),
         );
         setRemaining(left);
-        if (!left && recordingRef.current) stopRef.current();
+        if (!left && recordingRef.current) {
+          autoSubmitRecording.current = timedQuestions;
+          stopRef.current();
+        }
       }
     }, 500);
     const before = (e: Event) => {
@@ -195,7 +228,7 @@ export default function Student() {
       window.removeEventListener("beforeunload", before);
       window.removeEventListener("oral:backend-switch", before);
     };
-  }, [answer, jobs]);
+  }, [answer, jobs, timedQuestions]);
   useEffect(
     () => () => {
       for (const r of recorders.current) {
@@ -221,12 +254,7 @@ export default function Student() {
     filterRef.current = null;
     void gainRef.current?.close();
     gainRef.current = null;
-    const timer = setInterval(
-      () => refreshSession(session.id).catch(() => {}),
-      4000,
-    );
-    return () => clearInterval(timer);
-  }, [session?.id, session?.status, refreshSession]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session?.id, session?.status]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!stream || sessionFinished) return;
     const context = new AudioContext(),
@@ -523,8 +551,11 @@ export default function Student() {
     };
     const guardRevision = guard.getRevision();
     setStartingRecording(true);
+    let timing: QuestionClock | undefined;
     try {
-      await send(`/question-attempts/${attemptId}/start`);
+      timing = await send<QuestionClock>(
+        `/question-attempts/${attemptId}/start`,
+      );
       // A focus/display/capture interruption can arrive while the server
       // acknowledges this start. Never start recorders on a stale permission.
       guard.assertReady(guardRevision);
@@ -567,6 +598,14 @@ export default function Student() {
       if (serverProcessing) {
         setProcessing(false);
         setError("");
+        if (autoSubmitRecording.current) {
+          autoSubmitRecording.current = false;
+          try {
+            await submit(a, true);
+          } catch (e) {
+            setError(errorText(e));
+          }
+        }
         return;
       }
       try {
@@ -605,10 +644,12 @@ export default function Student() {
       for (const r of recorders.current) if (r.state !== "inactive") r.stop();
       setRecording(false);
     };
+    autoSubmitRecording.current = false;
     activeRecorders.forEach((r) => r.start(1000));
     recordingRef.current = true;
     setRecording(true);
     setError("");
+    return timing;
   }
   async function runUpload(job: UploadJob) {
     const update = (patch: Partial<UploadJob>) => {
@@ -672,7 +713,8 @@ export default function Student() {
       return false;
     }
   }
-  async function submit() {
+  async function submit(pendingAnswer = answer, automatic = false) {
+    const answer = pendingAnswer;
     if (!answer || !session || submitting || processing) return;
     if (guard.blocked || guard.preparing)
       throw new Error("Khôi phục chế độ thi trước khi nộp câu trả lời.");
@@ -711,10 +753,43 @@ export default function Student() {
       setJobs((all) => [...all, ...added]);
       setAnswer(null);
       setError("");
-      added.forEach((j) => void runUpload(j));
-      await refreshSession(session.id);
+      if (automatic) {
+        const uploaded = await Promise.all(added.map(runUpload));
+        const next = await refreshSession(session.id);
+        if (!next.current_attempt && uploaded.every(Boolean))
+          await finishExam(next);
+      } else {
+        added.forEach((j) => void runUpload(j));
+        await refreshSession(session.id);
+      }
     } finally {
       setSubmitting(false);
+    }
+  }
+  async function finishExam(session: ExamSession) {
+    try {
+      const screens = await guard.stopRecording();
+      if (
+        session.screen_required &&
+        !screens.length &&
+        !jobs.some((j) => j.kind === "SCREEN" && j.status === "done")
+      )
+        throw new Error("Chưa có bản ghi màn hình để nộp. Liên hệ giảng viên.");
+      for (const blob of screens) {
+        const item = queueScreen(blob, session.screen_attempt_id!);
+        await item.task;
+        if (item.job.status !== "done")
+          throw new Error(
+            "Chưa tải xong màn hình. Bấm thử lại ở bản ghi lỗi, sau đó nộp bài.",
+          );
+      }
+      setSession(
+        await send<ExamSession>(`/exam-sessions/${session.id}/finish`),
+      );
+      await guard.release();
+    } catch (e) {
+      guard.finishFailed();
+      throw e;
     }
   }
   function queueScreen(blob: Blob, attemptId: string) {
@@ -814,10 +889,13 @@ export default function Student() {
         </label>
         <div className="course-grid">
           {exams
-            .filter((e) => !courseFilter || e.course_id === courseFilter)
+            .filter(
+              (e) =>
+                !e.practice && (!courseFilter || e.course_id === courseFilter),
+            )
             .map((e) => (
               <section className="panel" key={e.id}>
-                <Badge status={e.status} />
+                <Badge status={submissionBadge(e.status)} />
                 <p className="eyebrow">
                   {e.course_name}
                   {e.practice ? " · LUYỆN TẬP" : ""}
@@ -844,7 +922,7 @@ export default function Student() {
                     ? "Mở bài thi →"
                     : ["DEVICE_CHECK", "IN_PROGRESS"].includes(e.status)
                       ? "Tiếp tục làm bài →"
-                      : "Xem lần thi gần nhất →"}
+                      : "Xem xác nhận nộp bài →"}
                 </Action>
                 {!!e.attempt_count && (
                   <>
@@ -873,13 +951,9 @@ export default function Student() {
                             <p className="muted">
                               {new Date(s.created_at * 1000).toLocaleString(
                                 "vi-VN",
-                              )}{" "}
-                              ·{" "}
-                              {s.final_score === null
-                                ? "Chưa xác nhận điểm"
-                                : `${s.final_score}/10`}
+                              )}
                             </p>
-                            <Badge status={s.status} />
+                            <Badge status={submissionBadge(s.status)} />
                           </div>
                           <Action
                             className="text-button"
@@ -925,7 +999,7 @@ export default function Student() {
             {String(remaining % 60).padStart(2, "0")}
           </span>
         ) : (
-          <Badge status={session.status} />
+          <Badge status={submissionBadge(session.status)} />
         )}
       </div>
       {error && (
@@ -942,48 +1016,10 @@ export default function Student() {
               : "Đã nộp bài thi"}
           </h2>
           <p>Câu trả lời và minh chứng đã được lưu.</p>
-          {!session.practice && (
-            <Badge
-              status={
-                session.status === "SUBMITTED"
-                  ? session.processing?.status || session.status
-                  : session.status
-              }
-            />
-          )}
-          {session.processing && (
-            <p role="status">
-              Đã nhận dạng {session.processing.transcribed}/
-              {session.processing.total} câu · Đã xử lý{" "}
-              {session.processing.completed}/{session.processing.total} câu
-              {session.processing.failed > 0 &&
-                ` · ${session.processing.failed} câu bị lỗi, cần giảng viên xử lý`}
-            </p>
-          )}
-          {!session.practice && (
-            <ExamScore
-              summary={session.score_summary}
-              status={session.status}
-            />
-          )}
-          {session.practice ? (
-            <p>
-              Bài luyện tập không tính điểm. Bạn đã thử xong quy trình thi vấn
-              đáp.
-            </p>
-          ) : (
-            <p>
-              Điểm chính thức:{" "}
-              {session.status === "COMPLETED" &&
-              typeof session.final_score === "number" &&
-              Number.isFinite(session.final_score)
-                ? `${session.final_score}/10`
-                : session.grading_message ||
-                  (session.status === "SUBMITTED"
-                    ? "Đã nộp bài, đang chờ máy chủ chấm điểm."
-                    : "Chưa có điểm chính thức; cần giảng viên xem lại.")}
-            </p>
-          )}
+          <p>
+            Bạn có thể đóng ứng dụng. Việc chấm và xem điểm được thực hiện trên
+            web dành cho quản trị viên, khảo thí và giáo viên có quyền.
+          </p>
           <button
             className="button secondary"
             onClick={() => {
@@ -1195,6 +1231,9 @@ export default function Student() {
                     <>
                       <span className="record-dot" />
                       Đang ghi âm và ghi hình
+                      {timedQuestions
+                        ? ` · Còn ${questionTimer.seconds} giây`
+                        : ""}
                     </>
                   ) : processing ? (
                     <span
@@ -1228,22 +1267,41 @@ export default function Student() {
                     ) : (
                       "Kiểm tra transcript trước khi nộp"
                     )
+                  ) : timedQuestions ? (
+                    questionTimer.ready ? (
+                      `Chuẩn bị: ${questionTimer.seconds} giây — tự động bắt đầu ghi`
+                    ) : (
+                      "Đang chuẩn bị câu hỏi…"
+                    )
                   ) : (
                     "Dành một chút thời gian suy nghĩ trước khi trả lời."
                   )}
                 </div>
+                {timedQuestions && questionTimer.error && (
+                  <p role="alert" className="error">
+                    {questionTimer.error}
+                  </p>
+                )}
+                {timedQuestions &&
+                  questionTimer.error &&
+                  !recording &&
+                  !answer && (
+                    <button
+                      className="button secondary"
+                      onClick={questionTimer.retry}
+                    >
+                      Thử kết nối ghi lại
+                    </button>
+                  )}
                 {!answer &&
                   !processing &&
                   !submitting &&
                   (recording ? (
-                    <button
-                      className="button stop"
-                      onClick={() => stopRef.current()}
-                    >
+                    <button className="button stop" onClick={endAnswer}>
                       <Square size={17} />
                       Kết thúc trả lời
                     </button>
-                  ) : (
+                  ) : !timedQuestions ? (
                     <Action
                       disabled={
                         guard.blocked ||
@@ -1257,7 +1315,7 @@ export default function Student() {
                       <Mic size={17} />
                       Bắt đầu trả lời
                     </Action>
-                  ))}
+                  ) : null)}
                 {answer && (
                   <div className="answer-form">
                     {!serverProcessing && !desktopSpeech.desktop && (
@@ -1365,16 +1423,18 @@ export default function Student() {
                           Thử STT lại
                         </Action>
                       )}
-                      <button
-                        disabled={processing || submitting}
-                        className="text-button"
-                        onClick={() => {
-                          setAnswer(null);
-                          setError("");
-                        }}
-                      >
-                        Ghi lại
-                      </button>
+                      {!timedQuestions && (
+                        <button
+                          disabled={processing || submitting}
+                          className="text-button"
+                          onClick={() => {
+                            setAnswer(null);
+                            setError("");
+                          }}
+                        >
+                          Ghi lại
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1392,41 +1452,7 @@ export default function Student() {
               !answer && (
                 <Action
                   disabled={jobs.some((j) => j.status !== "done")}
-                  action={async () => {
-                    try {
-                      const screens = await guard.stopRecording();
-                      if (
-                        session.screen_required &&
-                        !screens.length &&
-                        !jobs.some(
-                          (j) => j.kind === "SCREEN" && j.status === "done",
-                        )
-                      )
-                        throw new Error(
-                          "Chưa có bản ghi màn hình để nộp. Liên hệ giảng viên.",
-                        );
-                      for (const blob of screens) {
-                        const item = queueScreen(
-                          blob,
-                          session.screen_attempt_id!,
-                        );
-                        await item.task;
-                        if (item.job.status !== "done")
-                          throw new Error(
-                            "Chưa tải xong màn hình. Bấm thử lại ở bản ghi lỗi, sau đó nộp bài.",
-                          );
-                      }
-                      setSession(
-                        await send<ExamSession>(
-                          `/exam-sessions/${session.id}/finish`,
-                        ),
-                      );
-                      await guard.release();
-                    } catch (e) {
-                      guard.finishFailed();
-                      throw e;
-                    }
-                  }}
+                  action={() => finishExam(session)}
                 >
                   Nộp bài thi
                 </Action>

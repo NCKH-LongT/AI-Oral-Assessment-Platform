@@ -5,6 +5,8 @@ import { Action, Badge, Empty, Form } from "./shared";
 
 type Question = {
   text: string;
+  preparation_seconds?: number;
+  recording_seconds?: number;
   expected_concepts: string[];
   reference_chunk_ids: string[];
   english_terms: { term: string; meaning: string }[];
@@ -96,11 +98,15 @@ export default function ExamDraftReview({
                     expected_concepts,
                     reference_chunk_ids,
                     english_terms,
+                    preparation_seconds = 10,
+                    recording_seconds = 60,
                   }) => ({
                     text,
                     expected_concepts,
                     reference_chunk_ids,
                     english_terms,
+                    preparation_seconds,
+                    recording_seconds,
                   }),
                 ),
                 criteria: snapshot.criteria,
@@ -135,6 +141,40 @@ export default function ExamDraftReview({
                 onChange={(e) => updateQuestion(i, { text: e.target.value })}
               />
             </label>
+            <div className="inline">
+              <label>
+                Thời gian chuẩn bị (giây)
+                <input
+                  type="number"
+                  min={0}
+                  max={600}
+                  step={1}
+                  required
+                  value={q.preparation_seconds ?? 10}
+                  onChange={(e) =>
+                    updateQuestion(i, {
+                      preparation_seconds: Number(e.target.value),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Thời gian trả lời tối đa (giây)
+                <input
+                  type="number"
+                  min={1}
+                  max={1800}
+                  step={1}
+                  required
+                  value={q.recording_seconds ?? 60}
+                  onChange={(e) =>
+                    updateQuestion(i, {
+                      recording_seconds: Number(e.target.value),
+                    })
+                  }
+                />
+              </label>
+            </div>
             <label>
               Ý chính mong đợi (mỗi dòng một ý)
               <textarea

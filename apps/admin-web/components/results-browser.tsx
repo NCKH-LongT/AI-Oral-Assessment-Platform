@@ -14,7 +14,6 @@ export type ResultFilters = {
   course: string;
   exam: string;
   date: string;
-  attempt: string;
   status: string;
   query: string;
 };
@@ -22,17 +21,16 @@ export const initialResultFilters: ResultFilters = {
   course: "",
   exam: "",
   date: "",
-  attempt: "",
   status: "all",
   query: "",
 };
 type Roster = {
   exams: { id: string; name: string; status: string }[];
   dates: string[];
-  attempt_numbers: number[];
   rows: {
     student_id: string;
     student_name: string;
+    exam_name?: string | null;
     email: string | null;
     student_number: string | null;
     session: Sitting | null;
@@ -63,7 +61,6 @@ export default function ResultsBrowser({
   const params = new URLSearchParams();
   if (filters.exam) params.set("exam_id", filters.exam);
   if (filters.date) params.set("exam_date", filters.date);
-  if (filters.attempt) params.set("attempt_number", filters.attempt);
   const path = filters.course
     ? `/admin/courses/${filters.course}/results?${params}`
     : "";
@@ -131,8 +128,8 @@ export default function ResultsBrowser({
           <span className="eyebrow">THEO DÕI BÀI THI</span>
           <h1>Kết quả &amp; xem lại</h1>
           <p className="muted">
-            Chọn môn và đề thi để xem cả sinh viên đã nộp và chưa nộp bài. Trạng
-            thái tự cập nhật.
+            Chọn môn để xem bài gần nhất của mỗi sinh viên. Có thể lọc thêm đề
+            hoặc ngày thi. Trạng thái tự cập nhật.
           </p>
         </div>
         <button
@@ -165,11 +162,9 @@ export default function ResultsBrowser({
             <select
               disabled={!filters.course}
               value={filters.exam}
-              onChange={(e) =>
-                patch({ exam: e.target.value, date: "", attempt: "" })
-              }
+              onChange={(e) => patch({ exam: e.target.value })}
             >
-              <option value="">Chọn đề / kỳ thi</option>
+              <option value="">Tất cả đề / kỳ thi</option>
               {exams.map((exam) => (
                 <option key={exam.id} value={exam.id}>
                   {exam.name}
@@ -181,7 +176,7 @@ export default function ResultsBrowser({
             Ngày thi (giờ Việt Nam)
             <input
               type="date"
-              disabled={!filters.exam}
+              disabled={!filters.course}
               value={filters.date}
               onChange={(e) => patch({ date: e.target.value })}
               list="exam-dates"
@@ -191,24 +186,6 @@ export default function ResultsBrowser({
                 <option key={date} value={date} />
               ))}
             </datalist>
-          </label>
-          <label>
-            Lần làm bài
-            <select
-              disabled={!filters.exam}
-              value={filters.attempt}
-              onChange={(e) => patch({ attempt: e.target.value })}
-            >
-              <option value="">Lần gần nhất trong bộ lọc</option>
-              {(
-                roster?.attempt_numbers ||
-                (filters.attempt ? [Number(filters.attempt)] : [])
-              ).map((n) => (
-                <option key={n} value={n}>
-                  Lần {n}
-                </option>
-              ))}
-            </select>
           </label>
         </div>
         {error && (
@@ -220,8 +197,6 @@ export default function ResultsBrowser({
           <Empty>Chọn môn học để bắt đầu.</Empty>
         ) : !roster ? (
           <Empty>Đang tải danh sách…</Empty>
-        ) : !filters.exam ? (
-          <Empty>Chọn đề / kỳ thi.</Empty>
         ) : (
           <>
             <p role="status">
@@ -292,7 +267,8 @@ export default function ResultsBrowser({
                         <td>
                           {row.session ? (
                             <>
-                              Lần {row.session.attempt_number}
+                              <strong>{row.exam_name}</strong>
+                              <div>Lần {row.session.attempt_number}</div>
                               <p>
                                 {new Date(
                                   (row.session.started_at ||

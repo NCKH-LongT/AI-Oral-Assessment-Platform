@@ -15,10 +15,10 @@ from . import storage, processing
 from .config import settings
 from .db import get_db
 from .examination import check_schedule, schedule_for
-from .grading import GradingError, check_config, score_summary
+from .grading import GradingError, check_config
 from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, ProcessingJob, Upload
 from .practice import COURSE_ID
-from .retakes import ACTIVE, allowance, history_row, sessions_for
+from .retakes import ACTIVE, allowance, submission_history_row, submission_status, sessions_for
 from .security import by_id, course_access, current_user, fail
 from .submissions import missing_stt_assessment, stt_skipped_reason
 from .worker import finalize
@@ -30,6 +30,9 @@ def owned_session(db, key, user, lock=False):
     session = by_id(db, ExamSession, key, lock)
     if session.deleted_at is not None:
         fail(404, "NOT_FOUND", "Lần thi đã bị xóa")
+    exam = by_id(db, Exam, session.exam_id)
+    if exam.course_id == COURSE_ID or (exam.snapshot or {}).get("practice"):
+        fail(410, "PRACTICE_DISABLED", "Chức năng học và thi thử đã ngừng sử dụng")
     if session.student_id != user.id:
         fail(403, "FORBIDDEN", "Phiên thi không thuộc sinh viên")
     return session
@@ -55,50 +58,19 @@ def public_session(db, session):
         select(Attempt).where(Attempt.session_id == session.id).order_by(Attempt.sequence)
     ).all()
     first = next((a for a in attempts if a.status in {"READY", "STARTED"}), None)
-    if session.status in {"SUBMITTED", "REVIEW_REQUIRED"} and any(
-        (a.assessment or {}).get("stt_skipped_reason") == "MODEL_MISSING" for a in attempts
-    ):
-        grading_message = (
-            "Đã lưu bài và minh chứng. Máy thi thiếu model Whisper nên có câu chưa nhận dạng, chưa chấm điểm; "
-            "cần giảng viên xem lại hoặc admin yêu cầu nhận dạng lại."
-        )
-    elif exam.snapshot.get("practice"):
-        grading_message = "Bài luyện tập không tính điểm."
-    elif exam.snapshot.get("ai_provider") == "demo" and not any(
-        (a.assessment or {}).get("grading_exam_id") for a in attempts
-    ):
-        grading_message = "Đề thi ở chế độ demo: AI không chấm điểm. Liên hệ giảng viên để được giao đề có bật chấm điểm AI."
-    elif session.status == "SUBMITTED":
-        grading_message = "Đã nộp bài, đang chờ máy chủ chấm điểm. Nếu chờ lâu, hãy liên hệ giảng viên kiểm tra dịch vụ chấm điểm."
-    elif session.status == "REVIEW_REQUIRED":
-        grading_message = (
-            "Chấm tự động thất bại; cần giảng viên kiểm tra và chấm lại."
-            if any((a.assessment or {}).get("error") for a in attempts)
-            else "Bài cần giảng viên xem lại trước khi công bố điểm chính thức."
-        )
-    else:
-        grading_message = None
-    progress = processing.summary(db, session.id)
-    if progress and session.status == "SUBMITTED":
-        grading_message = "Đã nộp bài. Server đang nhận dạng và chấm bản ghi; bạn có thể rời ứng dụng và xem kết quả sau."
     return {
         "id": session.id,
+        "timed_questions": True,
         "server_processing": not bool(exam.snapshot.get("practice")),
-        "processing": progress,
         "attempt_number": session.attempt_number,
         "exam_name": exam.name,
         "practice": bool(exam.snapshot.get("practice")),
-        "status": session.status,
+        "status": submission_status(session.status),
         "started_at": session.started_at,
         "screen_required": session.screen_required,
         "screen_attempt_id": attempts[0].id if attempts else None,
         "time_limit": exam.time_limit,
         "server_time": time.time(),
-        "final_score": session.final_score if session.status == "COMPLETED" else None,
-        "score_summary": score_summary(attempts, len(exam.snapshot.get("questions", [])))
-        if session.status in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"}
-        and not exam.snapshot.get("practice") else None,
-        "grading_message": grading_message,
         "question_count": len(attempts),
         "answered_count": sum(a.status in {"SUBMITTED", "GRADED"} for a in attempts),
         "current_attempt": (
@@ -110,6 +82,8 @@ def public_session(db, session):
                     "/practice/toeic-speaking/office.svg", "/practice/toeic-speaking/cafe.svg"
                 } else None,
                 "status": first.status,
+                "preparation_seconds": first.question.get("preparation_seconds", 10),
+                "recording_seconds": first.question.get("recording_seconds", 60),
             }
             if first and session.status == "IN_PROGRESS"
             else None
@@ -124,7 +98,6 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
         .where(
             Exam.status == "PUBLISHED",
             or_(
-                Exam.course_id == COURSE_ID,
                 Exam.course_id.in_(
                     select(CourseEnrollment.course_id).where(CourseEnrollment.student_id == user.id)
                 ),
@@ -135,6 +108,8 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
     ).all()
     result = []
     for exam in exams:
+        if exam.course_id == COURSE_ID or exam.snapshot.get("practice"):
+            continue
         assignment = schedule_for(db, exam, user.id)
         if exam.workflow and (user.role != "STUDENT" or assignment is None):
             continue
@@ -154,9 +129,9 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
                 "server_time": time.time(),
                 "workflow": exam.workflow,
                 "session_id": session.id if session else None,
-                "status": session.status if session else "ASSIGNED",
+                "status": submission_status(session.status) if session else "ASSIGNED",
                 **allowance(db, exam, user.id, sessions),
-                "history": [history_row(s) for s in sessions],
+                "history": [submission_history_row(s) for s in sessions],
             }
         )
     return result
@@ -165,9 +140,10 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
 @router.post("/exam-sessions")
 def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depends(current_user)):
     exam = by_id(db, Exam, body.exam_id, lock=True)
+    if exam.course_id == COURSE_ID or (exam.snapshot or {}).get("practice"):
+        fail(410, "PRACTICE_DISABLED", "Chức năng học và thi thử đã ngừng sử dụng")
     allowed = (
-        exam.course_id == COURSE_ID
-        or db.scalar(
+        db.scalar(
             select(CourseEnrollment.id).where(
                 CourseEnrollment.course_id == exam.course_id, CourseEnrollment.student_id == user.id
             )
@@ -245,6 +221,29 @@ def proctoring_event(key: str, body: s.ProctoringEventIn, db: Session = Depends(
     return {"ok": True}
 
 
+def question_clock(attempt, session, time_limit):
+    exam_deadline = session.started_at + time_limit
+    return {"server_time": time.time(),
+            "ready_at": (attempt.prepared_at + attempt.question.get("preparation_seconds", 10)) if attempt.prepared_at else None,
+            "recording_deadline": min(attempt.started_at + attempt.question.get("recording_seconds", 60), exam_deadline) if attempt.started_at else None}
+
+
+
+@router.post("/question-attempts/{key}/prepare")
+def prepare_attempt(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
+    attempt, session = owned_attempt(db, key, user, lock=True)
+    active(db, session)
+    if db.scalar(select(Attempt.id).where(Attempt.session_id == session.id,
+        Attempt.sequence < attempt.sequence, Attempt.status.in_(["READY", "STARTED"]))):
+        fail(409, "QUESTION_ORDER", "Hãy trả lời câu trước")
+    if attempt.status not in {"READY", "STARTED"}:
+        fail(409, "INVALID_STATE", "Câu trả lời đã được nộp")
+    if attempt.prepared_at is None:
+        attempt.prepared_at = time.time()
+        db.commit()
+    return question_clock(attempt, session, by_id(db, Exam, session.exam_id).time_limit)
+
+
 @router.post("/question-attempts/{key}/start")
 def start_attempt(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
     attempt, session = owned_attempt(db, key, user, lock=True)
@@ -258,13 +257,17 @@ def start_attempt(key: str, db: Session = Depends(get_db), user=Depends(current_
     )
     if earlier:
         fail(409, "QUESTION_ORDER", "Hãy trả lời câu trước")
+    if attempt.prepared_at is not None and time.time() < attempt.prepared_at + attempt.question.get("preparation_seconds", 10):
+        fail(409, "PREPARATION_PENDING", "Chưa hết thời gian chuẩn bị")
+    if attempt.started_at and time.time() >= attempt.started_at + attempt.question.get("recording_seconds", 60):
+        fail(409, "ANSWER_EXPIRED", "Đã hết thời gian trả lời câu hỏi")
     if attempt.status == "READY":
         attempt.status, attempt.started_at = "STARTED", time.time()
         db.add(Audit(user_id=user.id, event="START_QUESTION", details={"attempt_id": key}))
         db.commit()
     elif attempt.status != "STARTED":
         fail(409, "INVALID_STATE", "Câu trả lời đã được nộp")
-    return {"status": attempt.status}
+    return {"status": attempt.status} | question_clock(attempt, session, by_id(db, Exam, session.exam_id).time_limit)
 
 
 @router.post("/question-attempts/{key}/submit")
@@ -475,6 +478,9 @@ def evidence(key: str, request: Request, db: Session = Depends(get_db), user=Dep
     session = by_id(db, ExamSession, attempt.session_id)
     if session.deleted_at is not None:
         fail(404, "NOT_FOUND", "Lần thi đã bị xóa")
+    exam = by_id(db, Exam, session.exam_id)
+    if exam.course_id == COURSE_ID or (exam.snapshot or {}).get("practice"):
+        fail(410, "PRACTICE_DISABLED", "Chức năng học và thi thử đã ngừng sử dụng")
     if session.student_id != user.id:
         if user.role == "STUDENT":
             fail(403, "FORBIDDEN", "Minh chứng không thuộc tài khoản")

@@ -52,6 +52,8 @@ export type Exam = {
   blueprint: Blueprint[];
   rubric_id: string;
   questions?: {
+    preparation_seconds?: number;
+    recording_seconds?: number;
     text: string;
     english_terms: { term: string; meaning: string }[];
   }[];
@@ -216,7 +218,7 @@ export type StudentExam = {
   attempt_count: number;
   remaining_attempts: number | null;
   can_start_new: boolean;
-  history: Sitting[];
+  history: Omit<Sitting, "final_score">[];
   course_id?: string;
   course_name?: string;
   practice?: boolean;
@@ -228,26 +230,25 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  timed_questions?: boolean;
   server_processing?: boolean;
-  processing?: ProcessingSummary | null;
   screen_required?: boolean;
   screen_attempt_id?: string | null;
-  score_summary?: ScoreSummary | null;
   attempt_number: number;
   practice?: boolean;
-  grading_message?: string | null;
   id: string;
   exam_name: string;
   status: string;
   started_at: number | null;
   time_limit: number;
   server_time: number;
-  final_score: number | null;
   question_count: number;
   answered_count: number;
   current_attempt: {
     id: string;
     sequence: number;
+    preparation_seconds?: number;
+    recording_seconds?: number;
     prompt_image?: string | null;
     text: string;
     status: string;

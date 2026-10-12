@@ -79,11 +79,9 @@ def test_missing_model_advances_exam_without_grading_and_requires_all_evidence(e
         upload(student, attempt_id, "VIDEO")
 
     final = ok(student.post(session_path + "/finish"))
-    assert final["status"] == "REVIEW_REQUIRED" and final["final_score"] is None
-    assert final["score_summary"]["total_score"] is None
-    assert final["score_summary"]["graded_question_count"] == 0
-    assert "Whisper" in final["grading_message"]
-    assert ok(student.post(session_path + "/finish"))["status"] == "REVIEW_REQUIRED"
+    assert final["status"] == "SUBMITTED"
+    assert not {"final_score", "score_summary", "grading_message"} & final.keys()
+    assert ok(student.post(session_path + "/finish"))["status"] == "SUBMITTED"
     reviewed = ok(admin.get(f"/admin/results/{session['id']}"))
     for attempt in reviewed["attempts"]:
         assert attempt["transcript"] == "" and attempt["stt_confidence"] is None
@@ -163,7 +161,7 @@ def test_admin_can_explicitly_retranscribe_original_audio_and_preserve_skip_hist
     audio, original_bytes = upload(student, attempt_id, "AUDIO")
     upload(student, attempt_id, "VIDEO")
     final = ok(student.post(f"/exam-sessions/{session['id']}/finish"))
-    assert final["status"] == "REVIEW_REQUIRED"
+    assert final["status"] == "SUBMITTED"
     monkeypatch.setattr(routes_admin, "google_ready", lambda: True)
     review_path = f"/admin/attempts/{attempt_id}/google-review"
     for role in ("teacher", "reviewer", "student", "outsider"):

@@ -230,7 +230,14 @@ def grade(question, transcript, criteria, chunks, stt_confidence):
         "Return one score per criterion with the exact criterion name, bounded by its max_score. "
         "Scores are raw rubric points, NEVER percentages: for max_score=2, three of four equal items earns 1.5, not 75. "
         "Return every criterion once in the supplied order; use its own max_score even when other criteria have a larger maximum. "
-        "Use short comments and a brief reasoning summary. Cite supporting chunk IDs.",
+        "Write teacher-facing feedback in Vietnamese, preserving technical terms when needed. "
+        "Each criterion comment must be one concise sentence, at most 30 words: state the key achievement "
+        "and the main missing or incorrect point that explains the score, if any. "
+        "The reasoning_summary must be 1-2 short sentences, at most 50 words, covering only the overall "
+        "result and the most important improvement. Do not repeat individual criterion comments, "
+        "rubric definitions, score calculations, the question or the full answer. Avoid generic praise, "
+        "long quotations and introductory phrases. Keep essential reasons for deductions and uncertainty. "
+        "Cite supporting chunk IDs in reference_chunk_ids, not in the prose.",
         {"question": question, "transcript": transcript, "rubric": criteria, "evidence": chunks},
         grading_schema(criteria, chunks),
     ).model_dump(mode="json")

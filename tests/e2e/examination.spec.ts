@@ -56,6 +56,8 @@ test("lecturer saves a reviewed draft before sending it to examination office", 
         expect(payload.questions[0].text).toBe(
           "Trình bày kiểm thử đơn vị và giải thích một ví dụ.",
         );
+        expect(payload.questions[0].preparation_seconds).toBe(15);
+        expect(payload.questions[0].recording_seconds).toBe(90);
         content = {
           ...payload,
           questions: payload.questions.map((q: object) => ({
@@ -79,6 +81,12 @@ test("lecturer saves a reviewed draft before sending it to examination office", 
   await page
     .getByLabel("Nội dung câu hỏi")
     .fill("Trình bày kiểm thử đơn vị và giải thích một ví dụ.");
+  await expect(page.getByLabel("Thời gian chuẩn bị (giây)")).toHaveValue("10");
+  await expect(page.getByLabel("Thời gian trả lời tối đa (giây)")).toHaveValue(
+    "60",
+  );
+  await page.getByLabel("Thời gian chuẩn bị (giây)").fill("15");
+  await page.getByLabel("Thời gian trả lời tối đa (giây)").fill("90");
   const approve = page.getByRole("button", {
     name: "Duyệt đề & gửi khảo thí",
     exact: true,

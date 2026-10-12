@@ -34,8 +34,13 @@ class CommissionIn(TeacherIn):
     time_limit: int = Field(default=900, ge=60, le=10800)
 
 
+class DraftQuestion(QuestionOutput):
+    preparation_seconds: int = Field(default=10, ge=0, le=600, strict=True)
+    recording_seconds: int = Field(default=60, ge=1, le=1800, strict=True)
+
+
 class DraftReviewIn(Input):
-    questions: list[QuestionOutput] = Field(min_length=1, max_length=20)
+    questions: list[DraftQuestion] = Field(min_length=1, max_length=20)
     criteria: list[Criterion] = Field(min_length=1, max_length=20)
 
     @model_validator(mode="after")

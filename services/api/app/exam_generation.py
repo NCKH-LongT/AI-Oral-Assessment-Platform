@@ -63,6 +63,8 @@ def build_snapshot(db, exam):
             questions.append(
                 question
                 | {
+                    "preparation_seconds": question.get("preparation_seconds", 10),
+                    "recording_seconds": question.get("recording_seconds", 60),
                     "topic_id": topic.id,
                     "learning_outcome_id": topic.learning_outcome_id,
                     "learning_outcome_ids": mappings[topic.id]["learning_outcome_ids"],

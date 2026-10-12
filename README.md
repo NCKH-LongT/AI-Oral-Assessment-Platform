@@ -109,17 +109,17 @@ docker compose up -d --no-deps --force-recreate api worker
 
 ## Desktop và thiết bị ghi âm
 
-Chạy `npm run desktop` để dùng giao diện source. Bộ cài từ workflow **Desktop installers** chứa Whisper-small đa ngôn ngữ, runtime STT và FFmpeg; nhận dạng CPU INT8. Máy sinh viên vẫn cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận điểm.
+Chạy `npm run desktop` để dùng giao diện source. Bộ cài từ workflow **Desktop installers** chứa Whisper-small đa ngôn ngữ, runtime STT và FFmpeg; nhận dạng CPU INT8. Máy sinh viên vẫn cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận xác nhận nộp bài.
 
 1. Chọn server tại **Cấu hình máy chủ** trước khi đăng nhập.
 2. Mở bài, cấp quyền và chọn microphone/camera.
-3. Chọn **Ngôn ngữ nói**, chuẩn bị một màn hình và đồng ý ghi toàn màn hình.
-4. Bấm **Bắt đầu thi**, ghi từng câu rồi **Nộp câu trả lời & tiếp tục**; có thể ghi lại trước khi nộp câu. Không cần STT cục bộ cho bài thi mới.
-5. Chờ minh chứng tải xong và bấm **Nộp bài thi**. Server xếp hàng nhận dạng rồi chấm; màn hình tự cập nhật trạng thái và số câu đã xử lý.
+3. Chuẩn bị một màn hình và đồng ý ghi toàn màn hình; bài thi nhận dạng theo ngôn ngữ cấu hình trên server.
+4. Bấm **Bắt đầu thi**. Câu hỏi đếm ngược chuẩn bị mặc định 10 giây rồi tự ghi tối đa 60 giây. N/M cấu hình riêng cho từng câu trong Review câu hỏi & rubric. Có thể bấm **Kết thúc trả lời** sớm.
+5. App tự tải bản ghi, chuyển câu tiếp theo và tự nộp ở câu cuối khi đủ minh chứng. Nếu tải lỗi, thử lại rồi nộp; chỉ đóng app sau xác nhận đã nộp. Server tiếp tục nhận dạng và chấm.
 
-Desktop hiển thị câu hỏi, hướng dẫn và tiến độ xử lý trên server. STT theo cấu hình hệ thống, ưu tiên ngôn ngữ của đề. Whisper-small cục bộ còn dùng cho bài thử thiết bị/client cũ. [Hướng dẫn desktop](readme-desktop.md), [microphone](docs/microphone-desktop.md), [transcript và review](docs/transcript-correction.md).
+Desktop hiển thị câu hỏi, hướng dẫn và xác nhận nộp bài; không hiển thị điểm. Trạng thái STT/chấm, điểm và chi tiết đánh giá chỉ dành cho admin, khảo thí và giáo viên có quyền trên web. STT theo cấu hình hệ thống, ưu tiên ngôn ngữ của đề. Whisper-small cục bộ giữ để tương thích client cũ. [Hướng dẫn desktop](readme-desktop.md), [microphone](docs/microphone-desktop.md), [transcript và review](docs/transcript-correction.md).
 
-Bài luyện tập của nhân sự trên web có thu thử 10 giây, gain và RNNoise theo [luồng âm thanh web](docs/architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web). STT web dùng cấu hình server. Media gốc được lưu riêng; worker chấm bất đồng bộ, trả điểm hoặc trạng thái cần xem lại.
+Chức năng **Học & thi thử** đã bỏ trên web/desktop. Server không tạo lại môn luyện tập và không cho mở các đề luyện tập cũ.
 
 ## Thuật ngữ tiếng Anh và xóa môn học
 
@@ -135,7 +135,7 @@ Admin vào **Môn học → Cài đặt → Xóa môn học**, nhập đúng mã
 
 Admin mở **Môn học & đề thi → chọn môn → Bài thi & giao bài → Cấu hình số lần làm lại**: không cho làm lại, cho làm lại N lần hoặc không giới hạn. Ví dụ cho làm lại 1 lần là tổng cộng 2 lượt.
 
-**Kết quả & xem lại** cho chọn môn, đề/kỳ thi, ngày thi theo giờ Việt Nam và lần làm bài. Danh sách hiển thị cả sinh viên chưa thi, trạng thái hàng đợi và điểm chính thức; bấm **Xem bài** để mở chi tiết. Câu lỗi có nút **Thử xử lý lại** cho giảng viên phụ trách/admin. Mở **Quản lý lượt thi** để cấp thêm lượt riêng cho sinh viên hoặc xóa lần thi được chọn. Sinh viên xem lịch sử và bấm **Làm lại bài thi** khi còn lượt. [Chi tiết và nâng cấp database](docs/architecture/exam-retakes.md).
+**Kết quả & xem lại** hiển thị ngay bài gần nhất của mỗi sinh viên khi chọn môn; đề/kỳ thi và ngày thi là bộ lọc tùy chọn. Không lọc theo số lần làm bài. Danh sách hiển thị cả sinh viên chưa thi, trạng thái hàng đợi và điểm chính thức; bấm **Xem bài** để mở chi tiết. Câu lỗi có nút **Thử xử lý lại** cho giảng viên phụ trách/admin. Mở **Quản lý lượt thi** để cấp thêm lượt riêng cho sinh viên hoặc xóa lần thi được chọn. Sinh viên xem lịch sử nộp bài không kèm điểm và bấm **Làm lại bài thi** khi còn lượt. [Chi tiết và nâng cấp database](docs/architecture/exam-retakes.md).
 
 ## Admin chọn STT trên server
 
@@ -162,7 +162,7 @@ Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn deskto
 
 Xem [các bước cập nhật và chẩn đoán lỗi Jenkins](docs/jenkins.md).
 
-Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0008` để thêm hàng đợi STT/chấm điểm bền vững, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0009` để lưu đồng hồ chuẩn bị câu hỏi, cùng hàng đợi STT/chấm điểm bền vững, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
 
 Admin có trang **Lần thi & dung lượng** để lọc theo môn/người, xuất báo cáo Excel, chọn dọn bản ghi giữ điểm hoặc xóa toàn bộ dữ liệu lần thi. Có mẫu Excel và kiểm tra trước khi nhập môn, rubric, câu hỏi có sẵn, giảng viên và khảo thí. Cần cập nhật đồng bộ web, API và worker; xem [quản lý dung lượng và nhập Excel](docs/user-guide.md#quản-lý-lần-thi-và-dung-lượng).
 
@@ -195,3 +195,5 @@ docker compose exec -T api python /tmp/toeic-speaking/import_course.py
 ```
 
 Cần có ADMIN đang hoạt động và cấu hình LLM/embedding thật. Script tạo môn, tài liệu và đề, rồi thêm/giao bài cho các tài khoản **STUDENT / ACTIVE trên server đích**. Chạy lại cùng phiên bản không tạo trùng; có thể dùng lại lệnh import để thêm sinh viên mới. Chi tiết dữ liệu và cách kiểm tra chấm: [bộ TOEIC Speaking](data/toeic-speaking/README.md).
+
+Khi có lần nộp mới hơn của cùng sinh viên/cùng đề, worker dọn audio/video/màn hình của lần cũ đã xử lý xong; giữ điểm, transcript và lịch sử. Bài cũ đang STT/chấm/chấm lại được giữ file đến khi hoàn tất. Quy tắc cũng dọn các lần cũ đã có sau khi triển khai.

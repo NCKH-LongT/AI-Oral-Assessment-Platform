@@ -43,10 +43,12 @@ def test_queue_starts_only_after_finish_and_exposes_each_stage(env, monkeypatch)
     student = clients["student"]
     path = f"/exam-sessions/{session['id']}"
     assert session["server_processing"]
-    assert session["processing"]["status"] == "WAITING_SUBMISSION"
+    assert "processing" not in session
+    assert ok(clients["admin"].get(f"/admin/results/{session['id']}"))["processing"]["status"] == "WAITING_SUBMISSION"
     assert not worker.tick()  # No STT or legacy grading before finishing the sitting.
     queued = ok(student.post(path + "/finish"))
-    assert queued["status"] == "SUBMITTED" and queued["processing"]["status"] == "QUEUED_STT"
+    assert queued["status"] == "SUBMITTED" and "processing" not in queued
+    assert ok(clients["admin"].get(f"/admin/results/{session['id']}"))["processing"]["status"] == "QUEUED_STT"
     observed = []
 
     def stt(path, policy):
@@ -62,7 +64,7 @@ def test_queue_starts_only_after_finish_and_exposes_each_stage(env, monkeypatch)
     monkeypatch.setattr(speech, "transcribe_file", stt)
     monkeypatch.setattr(worker, "grade_answer", grade)
     assert worker.tick()
-    middle = ok(student.get(path))
+    middle = ok(clients["admin"].get(f"/admin/results/{session['id']}"))
     assert middle["processing"] == {"status": "QUEUED_GRADING", "total": 1, "transcribed": 1, "completed": 0, "failed": 0}
     assert middle["final_score"] is None
     # Retried submissions must remain idempotent after server transcription changed the answer.
@@ -71,7 +73,8 @@ def test_queue_starts_only_after_finish_and_exposes_each_stage(env, monkeypatch)
                         headers={"Idempotency-Key": "another-request"}).status_code == 409
     assert worker.tick()
     assert observed == ["STT_RUNNING", "GRADING_RUNNING"]
-    final = ok(student.get(path))
+    assert ok(student.get(path))["status"] == "SUBMITTED"
+    final = ok(clients["admin"].get(f"/admin/results/{session['id']}"))
     assert final["status"] == "COMPLETED" and final["final_score"] == 8.5
     assert final["processing"]["completed"] == 1
     assert not worker.tick()
@@ -123,7 +126,7 @@ def test_failed_stage_is_visible_retryable_and_does_not_leak_provider_error(env,
     if stage == "STT":
         assert worker.tick()
     assert worker.tick()
-    assert ok(clients["student"].get(f"/exam-sessions/{session['id']}"))["final_score"] == 8.5
+    assert ok(clients["admin"].get(f"/admin/results/{session['id']}"))["final_score"] == 8.5
     assert calls == [stage]
 
 
@@ -140,7 +143,7 @@ def test_expired_claim_recovers_and_live_lease_is_not_reprocessed(env, monkeypat
         db.scalar(select(ProcessingJob)).lease_until = time.time() - 1
         db.commit()
     assert worker.tick()
-    assert ok(env[0]["student"].get(f"/exam-sessions/{session['id']}"))["processing"]["status"] == "QUEUED_GRADING"
+    assert ok(env[0]["admin"].get(f"/admin/results/{session['id']}"))["processing"]["status"] == "QUEUED_GRADING"
 
 
 def test_policy_frozen_per_submission_and_local_maps_to_server(env):
@@ -187,7 +190,7 @@ def test_other_answers_continue_after_stt_failure(env, monkeypatch):
     monkeypatch.setattr(worker, "grade_answer", success_grade)
     for _ in range(3):
         assert worker.tick()
-    result = ok(env[0]["student"].get(f"/exam-sessions/{session['id']}"))
+    result = ok(env[0]["admin"].get(f"/admin/results/{session['id']}"))
     assert result["status"] == "REVIEW_REQUIRED" and result["final_score"] is None
     assert result["processing"]["failed"] == 1 and result["processing"]["completed"] == 1
 

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("student submits recordings without local STT and tracks queued processing", async ({
+test("student submits recordings and receives a receipt without polling grading", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -16,6 +16,7 @@ test("student submits recordings without local STT and tracks queued processing"
   const submissions: unknown[] = [];
   const uploads: { kind: string; size: number }[] = [];
   let sttCalls = 0;
+  let finishedReads = 0;
   const session = {
     id: "s",
     server_processing: true,
@@ -43,6 +44,8 @@ test("student submits recordings without local STT and tracks queued processing"
   };
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === "/api/exam-sessions/s" && session.status === "SUBMITTED")
+      finishedReads++;
     if (path === "/api/auth/me")
       return route.fulfill({
         json: { id: "student", role: "STUDENT", name: "Student" },
@@ -127,8 +130,13 @@ test("student submits recordings without local STT and tracks queued processing"
     { transcript: "", stt_confidence: null, processing_mode: "server_audio" },
   ]);
   await page.getByRole("button", { name: "Nộp bài thi", exact: true }).click();
-  await expect(page.locator(".finished")).toContainText("Chờ nhận dạng");
-  session.processing!.status = "STT_RUNNING";
-  await expect(page.locator(".finished")).toContainText("Đang nhận dạng");
+  await expect(page.locator(".finished")).toContainText("Đã nộp bài thi");
+  await expect(page.locator(".finished")).toContainText(
+    "Bạn có thể đóng ứng dụng",
+  );
+  await expect(page.locator(".finished")).not.toContainText("Chờ nhận dạng");
+  const reads = finishedReads;
+  await page.waitForTimeout(4500); // Cross the former grading poll interval.
+  expect(finishedReads).toBe(reads);
   expect(sttCalls).toBe(0);
 });

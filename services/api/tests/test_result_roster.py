@@ -6,7 +6,7 @@ from test_mvp import ok, prepare
 from app.models import Assignment, CourseEnrollment, Exam, ExamSession, User
 
 
-def test_roster_includes_absent_students_latest_score_and_day_attempt_filters(env):
+def test_roster_includes_absent_students_latest_score_and_optional_exam_date_filters(env):
     context = prepare(env, 1)
     clients, factory = env
     admin = clients["admin"]
@@ -23,18 +23,16 @@ def test_roster_includes_absent_students_latest_score_and_day_attempt_filters(en
         student_id, absent_id, first_id, second_id = student.id, absent.id, first.id, second.id
     path = f"/admin/courses/{context['course']['id']}/results"
     catalog = ok(admin.get(path))
-    assert len(catalog["exams"]) == 1 and catalog["rows"] == []
+    assert len(catalog["exams"]) == 1 and len(catalog["rows"]) == 2
     query = {"exam_id": context["exam"]["id"]}
     result = ok(admin.get(path, params=query))
     assert result["dates"] == ["2026-10-12", "2026-10-11"]
-    assert result["attempt_numbers"] == [1, 2]
     rows = {r["student_id"]: r for r in result["rows"]}
     assert len(rows) == 2 and rows[absent_id]["status"] == "NOT_TAKEN" and rows[absent_id]["session"] is None
     assert rows[student_id]["session"]["id"] == second_id and rows[student_id]["final_score"] == 0
     filtered = ok(admin.get(path, params=query | {"exam_date": "2026-10-11"}))
     assert next(r for r in filtered["rows"] if r["student_id"] == student_id)["session"]["id"] == first_id
-    filtered = ok(admin.get(path, params=query | {"attempt_number": 1}))
-    assert next(r for r in filtered["rows"] if r["student_id"] == student_id)["final_score"] == 7
+    assert next(r for r in catalog["rows"] if r["student_id"] == student_id)["session"]["id"] == second_id
     assert clients["student"].get(path).status_code == 403
     assert clients["teacher"].get(path).status_code == 403
     assert admin.get(path, params={"exam_id": "different-exam"}).status_code == 404
@@ -62,3 +60,28 @@ def test_workflow_roster_respects_schedule_and_deleted_sittings(env):
     assert len(result["rows"]) == 1 and result["rows"][0]["status"] == "NOT_TAKEN"
     assert result["rows"][0]["final_score"] is None
     assert not ok(clients["admin"].get(path, params=query | {"exam_date": "2026-10-13"}))["rows"]
+
+
+def test_course_roster_chooses_latest_across_exams_and_can_narrow_later(env):
+    context = prepare(env, 1)
+    clients, factory = env
+    with factory() as db:
+        original = db.get(Exam, context["exam"]["id"])
+        student = db.scalar(select(User).where(User.username == "student"))
+        other = Exam(course_id=original.course_id, rubric_id=original.rubric_id,
+                     name="Second exam", time_limit=600, blueprint=original.blueprint,
+                     snapshot=original.snapshot, status="PUBLISHED")
+        db.add(other); db.flush()
+        first = ExamSession(exam_id=original.id, student_id=student.id, attempt_number=5,
+                            status="COMPLETED", final_score=8, started_at=100, created_at=100)
+        latest = ExamSession(exam_id=other.id, student_id=student.id, attempt_number=1,
+                             status="COMPLETED", final_score=6, started_at=200, created_at=200)
+        db.add_all([first, latest]); db.commit()
+        first_id, latest_id = first.id, latest.id
+    path = f"/admin/courses/{context['course']['id']}/results"
+    result = ok(clients["admin"].get(path))
+    assert len(result["exams"]) == 2 and len(result["rows"]) == 1
+    assert result["rows"][0]["session"]["id"] == latest_id
+    assert result["rows"][0]["exam_name"] == "Second exam"
+    narrowed = ok(clients["admin"].get(path, params={"exam_id": context["exam"]["id"]}))
+    assert narrowed["rows"][0]["session"]["id"] == first_id

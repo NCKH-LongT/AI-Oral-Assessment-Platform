@@ -7,14 +7,14 @@ Bắt đầu tại [hướng dẫn khảo thí → giảng viên → sinh viên]
 
 [README / danh mục tài liệu](../README.md#hướng-dẫn-theo-nhu-cầu) · [Desktop](../readme-desktop.md) · [Cập nhật qua Jenkins](jenkins.md)
 
-Admin, khảo thí và giảng viên quản lý trên web; sinh viên dùng desktop nhận dạng giọng nói bằng Whisper-small trên máy.
+Admin, khảo thí và giảng viên quản lý trên web; sinh viên dùng desktop ghi và nộp bài lên server. Server thực hiện STT và chấm điểm.
 
 ## Chuẩn bị và đăng nhập
 
 - Dùng địa chỉ web do người vận hành cung cấp. Khi chạy Docker mặc định trên máy cá nhân, địa chỉ là `http://localhost:3000`.
 - Admin ban đầu đăng nhập bằng `BOOTSTRAP_ADMIN` và `BOOTSTRAP_PASSWORD` đã cấu hình cho server. Admin có thể tạo tài khoản ở **Người dùng** và phân vai trò phù hợp.
 - Học viên dùng tài khoản được cấp hoặc đăng nhập Google nếu server đã bật chức năng này.
-- Server phải hoạt động để đăng nhập, lấy đề, nộp bài và xem kết quả. STT local không đồng nghĩa làm bài hoàn toàn offline.
+- Server phải hoạt động để đăng nhập, lấy đề và nộp bài. Desktop chỉ hiển thị xác nhận nộp; admin, khảo thí và giáo viên có quyền xem kết quả trên web. STT local không đồng nghĩa làm bài hoàn toàn offline.
 
 ## Admin và giảng viên chuẩn bị bài thi
 
@@ -65,19 +65,19 @@ Hai cách giao trong bảng trên chỉ áp dụng đề legacy. Kỳ thi mới 
 
 1. Mở OralAI, chọn **Cấu hình máy chủ** tại màn hình đăng nhập. Dùng tài khoản được cấp hoặc Google đúng email trong danh sách thi.
 2. Chọn bài, bấm **Mở bài thi → Cho phép camera & mic** và chọn đúng thiết bị.
-3. Chọn **Ngôn ngữ nói** (tiếng Việt hoặc tiếng Anh). Whisper-small nhận dạng cục bộ.
+3. Kiểm tra âm thanh và camera; ngôn ngữ nhận dạng của bài thi được cấu hình trên server.
 4. Chuẩn bị một màn hình, đồng ý ghi toàn màn hình, bấm **Bắt đầu thi** và cấp quyền chia sẻ.
-5. Đọc câu hỏi, bấm **Bắt đầu trả lời**, nói xong bấm **Kết thúc trả lời**.
-6. Chờ nhận dạng thành công rồi **Nộp câu trả lời & tiếp tục**. Có thể đổi ngôn ngữ và **Thử STT lại**, hoặc **Ghi lại** khi cần.
-7. Khi đủ câu và upload hoàn tất, bấm **Nộp bài thi** rồi chờ kết quả.
+5. Đọc câu hỏi trong N giây chuẩn bị (mặc định 10). Hết đếm ngược app tự ghi trong tối đa M giây (mặc định 60); có thể bấm **Kết thúc trả lời** sớm.
+6. App tự tải bản ghi rồi chuyển câu. N/M được giảng viên cấu hình riêng trong Review câu hỏi & rubric trước khi duyệt đề.
+7. Câu cuối tự nộp toàn bài sau khi tải đủ minh chứng; nếu tải lỗi, thử tải lại và nộp. Chờ xác nhận đã nộp rồi có thể đóng app.
 
-Desktop hiển thị câu hỏi, hướng dẫn và trạng thái nhận dạng; transcript gửi tự động lên server để chấm và cho giảng viên đối chiếu. [Transcript và review](transcript-correction.md), [microphone](microphone-desktop.md), [ghi màn hình và chế độ thi](../readme-desktop.md#truy-cập-và-ghi-màn-hình-bắt-buộc).
+Desktop hiển thị câu hỏi, hướng dẫn và xác nhận nộp bài. Điểm và trạng thái chấm chỉ có trên web cho nhân sự có quyền. [Transcript và review](transcript-correction.md), [microphone](microphone-desktop.md), [ghi màn hình và chế độ thi](../readme-desktop.md#truy-cập-và-ghi-màn-hình-bắt-buộc).
 
-Bài luyện tập của nhân sự trên web hỗ trợ thu thử 10 giây, gain, RNNoise và kiểm tra transcript. [Luồng âm thanh web](architecture/crud-noise-check.md#kiểm-tra-mic-trên-trình-duyệt-web).
+Đã bỏ Học & thi thử trên web và desktop.
 
 ## Xem kết quả và làm lại
 
-Trong kết quả từng lần thi, **Điểm tổng** là trung bình cộng điểm tất cả câu hỏi,
+Trên web dành cho admin, khảo thí và giáo viên có quyền, **Điểm tổng** là trung bình cộng điểm tất cả câu hỏi,
 làm tròn đến 2 chữ số thập phân trên thang 10. Ví dụ: `(6 + 8 + 10) / 3 = 8/10`.
 Bảng bên dưới hiển thị điểm từng câu và phép tính. Điểm 0 vẫn được tính; câu chưa
 chấm hoặc chấm lỗi không được thay bằng 0 và bài chưa có điểm tổng cho đến khi đủ
@@ -88,9 +88,9 @@ quy trình duyệt; nếu giảng viên đã chấm lại toàn bài, điểm ch
 trung bình do AI đề xuất. Bài luyện tập không tính điểm không hiển thị điểm tổng.
 Tính năng cần cập nhật cả API/worker và giao diện trên server sử dụng.
 
-- Admin/giảng viên mở **Kết quả & xem lại**, chọn lần thi để xem transcript, audio/video, đánh giá và tài liệu dẫn chứng.
+- Admin/khảo thí/giảng viên mở **Kết quả & xem lại**, chọn môn để thấy lần gần nhất, có thể lọc thêm đề/ngày để xem transcript, audio/video, đánh giá và tài liệu dẫn chứng.
 - **Chưa có độ tin cậy AI** có thể xuất hiện khi chưa chấm, chấm lỗi hoặc dùng demo. Confidence do AI tự báo không phải bảo đảm độ chính xác.
-- Admin dùng **Quản lý lượt thi → Cấp thêm lượt** khi cần cho một học viên thi lại. Học viên làm mới danh sách rồi chọn **Làm lại bài thi** nếu còn lượt; **Xem lần N** mở kết quả cũ.
+- Admin dùng **Quản lý lượt thi → Cấp thêm lượt** khi cần cho một học viên thi lại. Học viên làm mới danh sách rồi chọn **Làm lại bài thi** nếu còn lượt; **Xem lần N** mở xác nhận nộp bài cũ, không hiển thị điểm.
 - Nhận dạng lại audio và chấm lại transcript là hai thao tác riêng, đều có lịch sử. Xem [lượt thi](architecture/exam-retakes.md) và [chấm lại](architecture/grading-confidence.md).
 
 ## Lưu trữ hoặc xóa môn học

@@ -16,7 +16,7 @@ Có thể chọn ngay khi tạo đề hoặc chỉnh cả đề đã công bố.
 
 ## Xem kết quả, cấp lượt và xóa
 
-Trong **Kết quả & xem lại**, mỗi hàng là một lần làm bài, có số lần, thời gian, trạng thái và điểm. Mở bài để xem transcript/media/đánh giá; dùng danh sách lịch sử để chuyển giữa các lần của cùng sinh viên và đề.
+Trong **Kết quả & xem lại**, chọn môn để hiện ngay danh sách sinh viên và lần làm bài gần nhất của mỗi người. Có thể lọc thêm đề/kỳ thi hoặc ngày; không cần chọn hết bộ lọc. Mở bài để xem transcript/media/đánh giá; danh sách lịch sử trong chi tiết giữ điểm và thông tin các lần trước để đối chiếu.
 
 Mở **Quản lý lượt thi** trên hàng kết quả hoặc trong màn hình xem bài:
 
@@ -36,6 +36,7 @@ Một lượt được tính từ khi mở phiên mới, kể cả chưa bắt �
 - `exams.max_attempts`: tổng số lượt, bao gồm lần đầu; `1` là không cho làm lại, `null` là không giới hạn. `assignments.extra_attempts` lưu lượt cấp thêm riêng.
 - `exam_sessions.attempt_number` tăng theo từng cặp đề/sinh viên. Số lần đã xóa không được dùng lại. Một phiên tối thiểu có `deleted_at` và bản ghi audit được giữ để truy vết; câu trả lời và kết quả đã xóa không còn được API trả về.
 - Thay đổi lượt và tạo phiên cùng khóa đề trong PostgreSQL; chỉ mục duy nhất chặn nhiều phiên đang làm. Khóa khi xóa tránh xung đột với worker/upload.
+- Khi sinh viên nộp lần mới của cùng đề, worker tự dọn audio/video/màn hình của các lần cũ đã xử lý xong. Giữ nguyên điểm, transcript, lịch sử chấm và số lượt đã dùng. Lần đang chấm hoặc chờ chấm lại được dọn sau khi xử lý xong. Quy tắc cũng áp dụng cho các lần cũ đã tồn tại khi triển khai.
 - Media mất quyền truy cập ngay khi xóa. Bảng `media_cleanup` giữ công việc xóa object storage và phần upload tạm; worker thực hiện và thử lại khi storage lỗi. Worker phải chạy để hoàn tất xóa file vật lý.
 
 | API (qua web thêm tiền tố `/api`) | Nội dung |
@@ -45,7 +46,7 @@ Một lượt được tính từ khi mở phiên mới, kể cả chưa bắt �
 | `DELETE /admin/results/{session_id}` | Xóa đúng một lần thi |
 | `POST /exam-sessions` | `{ "exam_id": "…", "new_attempt": true }` để xin lần mới; luôn tiếp tục phiên đang làm nếu có |
 
-API danh sách bài thi và xem kết quả có `history`; mỗi phần tử chứa số lần, trạng thái, thời gian và điểm được xác nhận. Lịch sử của sinh viên chỉ thuộc chính tài khoản đó.
+API quản lý kết quả có `history` gồm số lần, trạng thái, thời gian và điểm được xác nhận, chỉ cho nhân sự có quyền. API dành cho sinh viên chỉ trả lịch sử nộp bài của chính tài khoản đó, gồm số lần, thời gian và trạng thái nộp; không trả điểm hoặc chi tiết chấm.
 
 ## Vận hành
 

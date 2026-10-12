@@ -52,3 +52,14 @@ def history_row(session):
         "completed_at": session.completed_at,
         "final_score": session.final_score if session.status == "COMPLETED" else None,
     }
+
+
+def submission_status(status):
+    """The candidate sees a receipt, never the internal grading outcome."""
+    return "SUBMITTED" if status in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"} else status
+
+
+def submission_history_row(session):
+    return {key: getattr(session, key) for key in (
+        "id", "attempt_number", "created_at", "started_at", "completed_at",
+    )} | {"status": submission_status(session.status)}

@@ -127,7 +127,7 @@ def test_required_screen_consent_upload_access_and_incident_review(env, monkeypa
     assert clients["outsider"].get(f"/evidence/{evidence['id']}/content").status_code == 403
     assert clients["teacher"].get(f"/evidence/{evidence['id']}/content").status_code == 403
     final = ok(student.post(path + "/finish"))
-    assert final["status"] == "REVIEW_REQUIRED" and final["final_score"] is None
+    assert final["status"] == "SUBMITTED" and "final_score" not in final
     review = ok(admin.get(f"/admin/results/{key}"))
     assert review["score_summary"]["total_score"] == 8
     assert review["proctoring_events"][0]["details"]["type"] == "WINDOW_BLUR"

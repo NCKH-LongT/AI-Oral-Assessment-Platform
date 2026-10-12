@@ -42,7 +42,7 @@ for (const scenario of [
   { name: "real zero", status: "COMPLETED", score: 0, expected: "0/10" },
   { name: "graded", status: "COMPLETED", score: 7.2, expected: "7.2/10" },
 ]) {
-  test(`result: ${scenario.name}`, async ({ page }) => {
+  test(`desktop hides legacy grading result: ${scenario.name}`, async ({ page }) => {
     await page.addInitScript(() => {
       window.oralDesktop = {
         transcribe: async () => ({ transcript: "", stt_confidence: 1 }),
@@ -93,8 +93,9 @@ for (const scenario of [
     await page.goto("/");
     await page.getByRole("button", { name: "Mở bài thi" }).click();
     const result = page.locator(".finished");
-    await expect(result).toContainText(scenario.expected);
-    if (scenario.status !== "COMPLETED" || scenario.score === null)
-      await expect(result).not.toContainText("/10");
+    await expect(result).toContainText("Đã nộp bài thi");
+    await expect(result).not.toContainText(scenario.expected);
+    await expect(result).not.toContainText("/10");
+    await expect(page.getByRole("region", { name: "Điểm tổng bài thi" })).toHaveCount(0);
   });
 }

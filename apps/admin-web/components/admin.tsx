@@ -43,6 +43,7 @@ import CourseStudents from "./course-students";
 import ExamDraftReview from "./exam-draft-review";
 import CourseHotwords from "./course-hotwords";
 import { TranscriptionReview } from "./transcription-review";
+import RubricNote from "./rubric-note";
 
 const proctoringLabels: Record<string, string> = {
   WINDOW_BLUR: "Rời cửa sổ thi",
@@ -1129,6 +1130,10 @@ function CourseWorkspace({
                         <h4>
                           Câu {index + 1}: {question.text}
                         </h4>
+                        <p className="muted">
+                          Chuẩn bị {question.preparation_seconds ?? 10} giây ·
+                          Trả lời tối đa {question.recording_seconds ?? 60} giây
+                        </p>
                         {question.english_terms?.length ? (
                           <ul>
                             {question.english_terms.map(({ term, meaning }) => (
@@ -1858,13 +1863,16 @@ function ReviewPage({
                     {a.assessment.score ?? "—"}
                     <small>/ 10</small>
                   </div>
-                  <p>{a.assessment.reasoning_summary}</p>
+                  <RubricNote
+                    text={a.assessment.reasoning_summary}
+                    limit={240}
+                  />
                   {a.assessment.criteria?.map((c) => (
                     <div className="criterion-score" key={c.name}>
                       <strong>
                         {c.name}: {c.score}
                       </strong>
-                      <p>{c.comment}</p>
+                      <RubricNote text={c.comment} />
                     </div>
                   ))}
                   <small>

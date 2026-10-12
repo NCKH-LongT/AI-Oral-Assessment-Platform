@@ -183,7 +183,7 @@ for (const mode of ["missing", "disappears", "installed-later"] as const) {
       .getByRole("button", { name: "Nộp bài thi", exact: true })
       .click();
     await expect(page.locator(".finished")).toContainText(
-      "Chưa có điểm chính thức",
+      "Đã nộp bài thi",
     );
     await expect(page.locator(".finished")).not.toContainText("0/10");
     expect(serverSttCalls).toBe(0);

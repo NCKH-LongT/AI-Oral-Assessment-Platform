@@ -102,8 +102,8 @@ def test_course_membership_includes_future_exams_and_hides_drafts(env):
         ensure_practice(db)
     for role in ("student", "outsider", "admin", "teacher", "reviewer"):
         rows = ok(clients[role].get("/exams/available"))
-        assert any(row["id"] == EXAM_ID and row["practice"] and row["course_id"] == COURSE_ID for row in rows)
-        assert clients[role].post("/exam-sessions", json={"exam_id": EXAM_ID}).status_code == 200
+        assert not any(row["id"] == EXAM_ID or row["practice"] for row in rows)
+        assert clients[role].post("/exam-sessions", json={"exam_id": EXAM_ID}).status_code == 410
     with factory() as db:
         assert len(db.scalars(select(Exam).where(Exam.id == EXAM_ID)).all()) == 1
         result = worker.grade_answer(db, db.get(Exam, EXAM_ID), None, None, "Thử trả lời", 1)

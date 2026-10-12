@@ -102,10 +102,10 @@ def test_enable_gemini_preserves_whisper_policy_and_grades_text(env, monkeypatch
     upload(student, aid, "AUDIO")
     upload(student, aid, "VIDEO")
     pending = ok(student.post(f"/exam-sessions/{session['id']}/finish"))
-    assert pending["status"] == "SUBMITTED" and pending["final_score"] is None
+    assert pending["status"] == "SUBMITTED" and "final_score" not in pending
     monkeypatch.setattr(speech, "transcribe_file", forbidden_google)
     assert worker.tick()
-    result = ok(student.get(f"/exam-sessions/{session['id']}"))
+    result = ok(env[0]["admin"].get(f"/admin/results/{session['id']}"))
     assert result["status"] == "COMPLETED" and result["final_score"] == 8
     assert len(grading_inputs) == 1 and grading_inputs[0]["transcript"] == transcript
 

@@ -21,6 +21,7 @@ const labels: Record<string, string> = {
   ASSIGNED: "Được giao",
   DEVICE_CHECK: "Kiểm tra thiết bị",
   IN_PROGRESS: "Đang thi",
+  RECEIVED: "Đã nộp bài",
   SUBMITTED: "Đã nộp · đang xử lý",
   COMPLETED: "Hoàn thành",
   REVIEW_REQUIRED: "Cần xem lại",

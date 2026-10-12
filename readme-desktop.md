@@ -2,7 +2,7 @@
 
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
 
-OralAI Desktop dành cho sinh viên làm bài vấn đáp. App ghi audio/camera và tải minh chứng lên server. Sau khi sinh viên nộp toàn bài, server đưa từng câu vào hàng đợi **STT → chấm điểm**, theo cấu hình **STT & giọng nói**. Sinh viên không cần chờ Whisper chạy trên máy trước khi nộp. Bài thử thiết bị vẫn hỗ trợ Whisper-small cục bộ.
+OralAI Desktop dành cho sinh viên làm bài vấn đáp. App ghi audio/camera và tải minh chứng lên server. Sau khi sinh viên nộp toàn bài, server đưa từng câu vào hàng đợi **STT → chấm điểm**, theo cấu hình **STT & giọng nói**. Sinh viên không cần chờ Whisper chạy trên máy trước khi nộp. Đã bỏ chức năng Học & thi thử; desktop chỉ liệt kê các bài thi được giao.
 
 ## Bắt đầu nhanh
 
@@ -13,7 +13,7 @@ npm ci
 npm run desktop
 ```
 
-Lệnh mở Electron và giao diện source tại `http://localhost:3001`. Chạy riêng `npm run dev` để mở giao diện trong trình duyệt. Bài thử thiết bị dùng STT cục bộ; chuẩn bị theo [Chạy từ source](#chạy-từ-source).
+Lệnh mở Electron và giao diện source tại `http://localhost:3001`. Chạy riêng `npm run dev` để mở giao diện trong trình duyệt. Các hướng dẫn bundle STT bên dưới dành cho đóng gói và tương thích client cũ.
 
 Thanh **Backend** có hai lựa chọn:
 
@@ -72,7 +72,7 @@ Backend cần chạy sẵn. Script mở UI dev và Electron, dùng bundle STT đ
 3. Đăng nhập bằng tài khoản được cấp hoặc Google đúng email trong danh sách thi.
 4. Mở **Bài thi của tôi**, chọn bài được giao theo lịch.
 
-Bộ cài gồm helper STT, FFmpeg và Whisper-small. Máy sinh viên cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận điểm. Bài thi được nhận dạng trên server; bài thử thiết bị nhận dạng cục bộ.
+Bộ cài gồm helper STT, FFmpeg và Whisper-small. Máy sinh viên cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận xác nhận nộp bài. Bài thi được nhận dạng trên server.
 
 ## Kết nối mic và camera trước khi thi
 
@@ -86,12 +86,14 @@ Rút thiết bị đang dùng sẽ chặn ghi tiếp; chọn lại thiết bị 
 ## Khi làm bài
 
 1. Bấm **Bắt đầu thi** khi thiết bị và điều kiện phiên thi đã sẵn sàng.
-2. Đọc câu hỏi và hướng dẫn, bấm **Bắt đầu trả lời**. App ghi audio và camera của câu trả lời.
-3. Bấm **Kết thúc trả lời**, kiểm tra bản ghi đã sẵn sàng; có thể **Ghi lại** trước khi nộp câu.
-4. Bấm **Nộp câu trả lời & tiếp tục**. App tải audio/video gốc lên và chuyển câu tiếp theo, không nhận dạng trên máy cho bài thi dùng hàng đợi.
-5. Sau câu cuối, chờ tất cả minh chứng tải xong rồi bấm **Nộp bài thi**. Server chỉ bắt đầu hàng đợi sau bước này.
+2. Mỗi câu xuất hiện với đếm ngược **N giây chuẩn bị**, mặc định **10 giây**; hết thời gian, app tự ghi audio/camera.
+3. Đồng hồ ghi âm giới hạn **M giây**, mặc định **60 giây**. Có thể bấm **Kết thúc trả lời** sớm; hết M giây app tự dừng.
+4. App tự nộp câu trả lời và tải audio/video. Khi tải xong sẽ chuyển câu tiếp theo; câu cuối tự nộp toàn bài sau khi tải đủ cả minh chứng màn hình.
+5. Nếu mạng/storage lỗi, bản ghi còn trong app và có **Tải lại** / **Nộp bài thi** để hoàn tất. Không đóng app trước xác nhận đã nộp.
 
-Màn hình kết quả tự cập nhật: **Chờ nhận dạng → Đang nhận dạng → Chờ chấm điểm → Đang chấm điểm → Hoàn thành / Cần xem lại**. Hiển thị số câu đã nhận dạng, đã xử lý và bị lỗi. Khi đã báo nộp bài thành công, sinh viên có thể đóng app; worker tiếp tục xử lý trên server. Không đóng app khi còn bản ghi chưa tải xong.
+Giáo viên/admin chỉnh N và M riêng cho từng câu trong **Review câu hỏi & rubric** trước khi duyệt đề: **Thời gian chuẩn bị (giây)** (0–600), **Thời gian trả lời tối đa (giây)** (1–1800). Đề đã công bố cần sao chép thành bản nháp để đổi; câu cũ thiếu cấu hình dùng 10/60 giây. Thời lượng toàn bài vẫn là giới hạn trên. Đồng hồ chuẩn bị/bắt đầu ghi được lưu trên server để mở lại app không được cấp lại toàn bộ thời gian.
+
+Desktop chỉ hiển thị **Đã nộp bài thi** khi server đã nhận đủ câu trả lời và minh chứng. Sinh viên có thể đóng app sau xác nhận này; không cần chờ STT/chấm điểm. Lịch sử trên desktop chỉ hiển thị lần thi, thời gian và xác nhận nộp, không có điểm hoặc tiến độ chấm. **Admin, khảo thí và giáo viên có quyền xem trạng thái xử lý và điểm trên web**. Không đóng app khi còn bản ghi chưa tải xong.
 
 ## Cấu hình STT và xử lý lỗi hàng đợi
 
@@ -99,7 +101,7 @@ Admin chọn nhà cung cấp ở **Cấu hình hệ thống → STT & giọng n�
 
 Worker lưu trạng thái trong database. Nếu worker dừng giữa chừng, tác vụ được nhận lại sau khi lease hết hạn (5 phút), không xử lý song song cùng một câu. Nếu STT hoặc chấm thất bại, câu bị đánh dấu lỗi và giữ bản ghi để kiểm tra; không tạo điểm 0 giả. Giảng viên phụ trách/admin mở chi tiết và bấm **Thử xử lý lại** sau khi kiểm tra cấu hình. Lỗi chấm thử lại từ transcript đã nhận dạng; lỗi STT nhận dạng lại audio với cấu hình STT hiện tại. Nhiều lần worker bị ngắt liên tiếp sẽ chuyển tác vụ sang lỗi cần xử lý.
 
-Whisper server cần model `STT_MODEL` và bộ nhớ/CPU phù hợp; lần đầu có thể phải tải model. Gemini dùng API key; Google dùng service-account JSON. Không phụ thuộc model Whisper trên máy sinh viên cho bài thi mới. Bài thử thiết bị và client cũ vẫn giữ luồng transcript cục bộ để tương thích; các hướng dẫn build/helper bên dưới áp dụng cho luồng đó.
+Whisper server cần model `STT_MODEL` và bộ nhớ/CPU phù hợp; lần đầu có thể phải tải model. Gemini dùng API key; Google dùng service-account JSON. Không phụ thuộc model Whisper trên máy sinh viên cho bài thi mới. Client cũ vẫn giữ luồng transcript cục bộ để tương thích; các hướng dẫn build/helper bên dưới áp dụng cho luồng đó.
 
 ## Làm lại bài thi
 
@@ -107,7 +109,7 @@ Sinh viên xem **Xem lần N** để mở kết quả cũ, hoặc **Làm lại b
 
 ## Transcript và đối chiếu bản ghi
 
-Giảng viên mở **Kết quả & xem lại → chọn môn → chọn đề/kỳ thi**, lọc ngày thi (giờ Việt Nam) và lần làm bài nếu cần. Danh sách gồm sinh viên được giao bài/ghi danh chưa thi và người đã thi, trạng thái xử lý, điểm chính thức khi đã hoàn tất. Không chọn số lần sẽ hiển thị lần gần nhất trong bộ lọc; **Xem bài** mở chi tiết đúng sinh viên/lần thi, quay lại giữ bộ lọc. Transcript từ server được đối chiếu với audio/video gốc. Admin có thể yêu cầu nhận dạng lại hoặc chấm lại, có lý do và lịch sử. [Chi tiết review](docs/transcript-correction.md).
+Trên web, admin/khảo thí/giáo viên có quyền mở **Kết quả & xem lại → chọn môn**, có thể lọc thêm đề hoặc ngày thi (giờ Việt Nam). Chỉ chọn môn là có danh sách. Danh sách gồm sinh viên được giao bài/ghi danh chưa thi và người đã thi, trạng thái xử lý, điểm chính thức khi đã hoàn tất. Mỗi sinh viên hiển thị lần gần nhất trong bộ lọc; không có bộ lọc số lần làm bài; **Xem bài** mở chi tiết đúng sinh viên/lần thi, quay lại giữ bộ lọc. Transcript từ server được đối chiếu với audio/video gốc. Admin có thể yêu cầu nhận dạng lại hoặc chấm lại, có lý do và lịch sử. [Chi tiết review](docs/transcript-correction.md).
 
 Mỗi câu trả lời có một audio và một video camera. Gửi lại đúng file tiếp tục upload cũ; server từ chối file khác cùng loại cho câu đó. Các đoạn ghi màn hình được xem riêng tại **Giám sát màn hình toàn bài thi**, chọn từng đoạn trong một khung phát. Bản ghi màn hình không phải video trả lời của câu đầu. Dữ liệu cũ có nhiều camera/audio vẫn xem được bằng bộ chọn bản ghi.
 
@@ -147,7 +149,7 @@ Bộ cài chưa có auto-update, code signing hoặc notarization. Chi tiết bu
 
 ## STT trên server do admin chọn
 
-**Cấu hình hệ thống → STT & giọng nói** điều khiển STT cho hàng đợi bài thi và bài thử trên web. Khi review bài, admin có thể chọn Gemini hoặc Google để nhận dạng lại audio gốc. Gemini dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google dùng JSON service account lưu trên server. Bài thử thiết bị trên desktop vẫn dùng Whisper-small.
+**Cấu hình hệ thống → STT & giọng nói** điều khiển STT cho hàng đợi bài thi và yêu cầu nhận dạng lại của nhân sự. Khi review bài, admin có thể chọn Gemini hoặc Google để nhận dạng lại audio gốc. Gemini dùng `GEMINI_API_KEY` / `GEMINI_STT_MODEL`; Google dùng JSON service account lưu trên server. Chức năng Học & thi thử đã được gỡ khỏi web/desktop.
 
 ## Xử lý lỗi
 
@@ -176,14 +178,22 @@ Tính năng tự tắt hiện cần GNOME cùng `/usr/bin/python3` và `python3-
 
 Web dành cho **ADMIN, EXAM_OFFICER (khảo thí), TEACHER**. Sinh viên đăng nhập và làm bài bằng **OralAI Desktop**. Đổi server tại nút **Cấu hình máy chủ** trước khi đăng nhập.
 
-Với mỗi lần thi mới (trừ bài thử thiết bị), sinh viên phải đồng ý ghi toàn màn hình rồi cấp quyền chia sẻ trước khi bắt đầu. Đóng thông tin riêng tư, dùng một màn hình và cấp quyền ghi màn hình trong hệ điều hành nếu được yêu cầu. App ghi màn hình từ lúc bắt đầu đến khi bấm nộp, hiện trạng thái ghi rõ ràng, không thu âm hệ thống; microphone/camera câu trả lời vẫn được lưu riêng. Giao diện chia bản ghi thành các đoạn khoảng 60 giây, tải lên server khi thi và tải đoạn cuối trước khi hoàn tất nộp bài. Giữ app mở đến khi báo đã nộp; lỗi upload có nút thử lại.
+Với mỗi lần thi mới, sinh viên phải đồng ý ghi toàn màn hình rồi cấp quyền chia sẻ trước khi bắt đầu. Đóng thông tin riêng tư, dùng một màn hình và cấp quyền ghi màn hình trong hệ điều hành nếu được yêu cầu. App ghi màn hình từ lúc bắt đầu đến khi bấm nộp, hiện trạng thái ghi rõ ràng, không thu âm hệ thống; microphone/camera câu trả lời vẫn được lưu riêng. Giao diện chia bản ghi thành các đoạn khoảng 60 giây, tải lên server khi thi và tải đoạn cuối trước khi hoàn tất nộp bài. Giữ app mở đến khi báo đã nộp; lỗi upload có nút thử lại.
 
 Trong lúc thi, app bật kiosk toàn màn hình, chặn menu chuột phải, DevTools, tải file, sao chép/dán, reload và một số phím tắt điều hướng. Không đổi server hoặc đăng xuất được khi đang thi. Khi rời cửa sổ, thu nhỏ, thoát toàn màn hình, đổi màn hình hoặc ngắt ghi, app dừng câu trả lời đang ghi và yêu cầu **Khôi phục chế độ thi**. Đồng hồ thi vẫn chạy. Sự kiện giám sát được lưu và bài chuyển sang cần giảng viên xem lại; sự kiện không phải kết luận gian lận.
 
 Đây là hạn chế ở cấp ứng dụng, không khóa hoàn toàn hệ điều hành và không ngăn được thiết bị phụ hay client đã sửa. Header `X-Oral-Client: desktop` phân biệt kênh truy cập được hỗ trợ, không phải chứng thực bộ cài; một client tự viết có thể giả mạo header. Server kiểm tra quyền, đồng ý ghi và có bản ghi hoàn tất, nhưng không thể chứng minh video bao phủ toàn bộ thời gian thi. Nếu triển khai kỳ thi cần bảo đảm cao, cần máy được quản lý bằng chính sách kiosk của hệ điều hành và giám thị. Nút thoát khẩn cấp vẫn xác nhận rời ứng dụng; đoạn chưa tải lên có thể mất khi đóng cưỡng bức. Khi mở lại phiên đang thi, sự kiện khởi động lại được ghi nhận và phải khôi phục ghi màn hình.
 
-Server cần chạy đầy đủ migration đến `0008`, cập nhật đồng bộ API/worker/web. `EXAM_SCREEN_REQUIRED` mặc định `true`. Chính sách ghi màn hình được lưu theo phiên thi. Người dùng bộ cài cần phiên bản Electron tương ứng; người chạy source đóng rồi mở lại app sau khi cập nhật.
+Server cần chạy đầy đủ migration đến `0009`, cập nhật đồng bộ API/worker/web. `EXAM_SCREEN_REQUIRED` mặc định `true`. Chính sách ghi màn hình được lưu theo phiên thi. Người dùng bộ cài cần phiên bản Electron tương ứng; người chạy source đóng rồi mở lại app sau khi cập nhật.
 
 ### Cập nhật cho chế độ thiếu model và khôi phục có thể hủy
 
-Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Luồng hàng đợi mới cần migration `0008`; cập nhật đồng bộ API/worker/web. Với bài thử/client cũ, thiếu model được ghi rõ trong lịch sử nộp. Bài thi mới nhận dạng trên server theo cấu hình hệ thống; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bộ cài phát hành vẫn yêu cầu tài nguyên STT đầy đủ khi build.
+Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Luồng hàng đợi mới cần migration `0009`; cập nhật đồng bộ API/worker/web. Với bài thử/client cũ, thiếu model được ghi rõ trong lịch sử nộp. Bài thi mới nhận dạng trên server theo cấu hình hệ thống; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bộ cài phát hành vẫn yêu cầu tài nguyên STT đầy đủ khi build.
+
+### Quyền xem điểm
+
+API dành cho người làm bài (`/exams/available`, `/exam-sessions` và các phản hồi mở lại/nộp bài) chỉ trả xác nhận nộp, không trả điểm tổng, điểm từng câu, nhận xét chấm hoặc trạng thái worker. Điểm được cung cấp qua API quản lý có kiểm tra vai trò và quyền theo môn. Cần cập nhật đồng bộ API và web để áp dụng; cần migration `0009` để lưu đồng hồ chuẩn bị câu hỏi.
+
+### Dọn bản ghi của lần thi cũ
+
+Worker tự xóa audio/video/các đoạn màn hình của những lần cũ khi đã có lần nộp mới hơn của **cùng sinh viên và cùng đề**. Chỉ dọn khi bài cũ đã kết thúc và không còn tác vụ STT/chấm/chấm lại; bài mới đang làm chưa kích hoạt dọn. Điểm, transcript, số lượt và lịch sử đối chiếu vẫn giữ. File được xóa qua hàng đợi có thử lại khi storage lỗi. Quy tắc áp dụng cả các lần cũ đang có sau khi triển khai; bản ghi đã dọn không xem hoặc nhận dạng lại được.

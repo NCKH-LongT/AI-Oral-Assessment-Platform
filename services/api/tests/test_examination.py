@@ -139,7 +139,8 @@ def test_low_grade_manual_override_and_export(env, score, expected):
     payload = {"score": 6.5, "reason": "Đã kiểm tra bản ghi và nội dung câu trả lời."}
     assert office.post(f"/admin/results/{session['id']}/manual-grade", json=payload).status_code == 403
     ok(teacher.post(f"/admin/results/{session['id']}/manual-grade", json=payload))
-    result = ok(student.get(f"/exam-sessions/{session['id']}"))
+    assert "final_score" not in ok(student.get(f"/exam-sessions/{session['id']}"))
+    result = ok(teacher.get(f"/admin/results/{session['id']}"))
     assert result["status"] == "COMPLETED" and result["final_score"] == 6.5
     with factory() as db:
         row = db.get(ExamSession, session["id"])

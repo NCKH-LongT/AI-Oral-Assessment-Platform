@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("results select course/exam/date/attempt, include absent students and retain filters", async ({
+test("results select course with optional exam/date, include absent students and retain filters", async ({
   page,
 }) => {
   const queries: URLSearchParams[] = [];
@@ -36,7 +36,6 @@ test("results select course/exam/date/attempt, include absent students and retai
         json: {
           exams: [{ id: "e", name: "English speaking", status: "PUBLISHED" }],
           dates: ["2026-10-12"],
-          attempt_numbers: [1, 2],
           rows: [
             {
               student_id: "an",
@@ -91,14 +90,17 @@ test("results select course/exam/date/attempt, include absent students and retai
   await page
     .getByRole("combobox", { name: "Môn học", exact: true })
     .selectOption("c");
+  await expect(page.getByRole("row").filter({ hasText: "Bình" })).toContainText(
+    "Chưa thi",
+  );
+  await expect(
+    page.getByRole("combobox", { name: "Lần làm bài", exact: true }),
+  ).toHaveCount(0);
   await page
     .getByRole("combobox", { name: "Đề / kỳ thi", exact: true })
     .selectOption("e");
   await page.getByLabel("Ngày thi (giờ Việt Nam)").fill("2026-10-12");
-  await page
-    .getByRole("combobox", { name: "Lần làm bài", exact: true })
-    .selectOption("2");
-  await expect.poll(() => queries.at(-1)?.get("attempt_number")).toBe("2");
+  await expect.poll(() => queries.at(-1)?.get("exam_date")).toBe("2026-10-12");
   expect(queries.at(-1)?.get("exam_date")).toBe("2026-10-12");
   await expect(page.getByRole("row").filter({ hasText: "Bình" })).toContainText(
     "Chưa thi",
@@ -121,9 +123,7 @@ test("results select course/exam/date/attempt, include absent students and retai
   await expect(page.getByLabel("Ngày thi (giờ Việt Nam)")).toHaveValue(
     "2026-10-12",
   );
-  await expect(
-    page.getByRole("combobox", { name: "Lần làm bài", exact: true }),
-  ).toHaveValue("2");
+
   await page.getByLabel("Trạng thái bài thi").selectOption("not_submitted");
   await expect(page.getByRole("row")).toHaveCount(2);
   await expect(page.getByRole("row").last()).toContainText("Bình");

@@ -71,7 +71,7 @@ test("admin sees the question mean alongside a separately reviewed final grade",
 });
 
 for (const complete of [true, false]) {
-  test(`student sees the average only when all questions have scores: ${complete}`, async ({
+  test(`student never sees grades even in a legacy server response: ${complete}`, async ({
     page,
   }) => {
     await page.addInitScript(() => {
@@ -97,7 +97,15 @@ for (const complete of [true, false]) {
             attempt_count: 1,
             remaining_attempts: 0,
             can_start_new: false,
-            history: [],
+            history: [
+              {
+                id: "session",
+                attempt_number: 1,
+                status: "COMPLETED",
+                final_score: 5,
+                created_at: 1800000000,
+              },
+            ],
           },
         ];
       if (path.startsWith("/api/exam-sessions"))
@@ -127,19 +135,17 @@ for (const complete of [true, false]) {
     });
     await page.goto("/");
     await page
-      .getByRole("button", { name: "Xem lần thi gần nhất →", exact: true })
+      .getByRole("button", { name: "Xem xác nhận nộp bài →", exact: true })
       .click();
-    const summary = page.getByRole("region", { name: "Điểm tổng bài thi" });
-    await expect(summary).toBeVisible();
-    if (complete) {
-      await expect(summary).toContainText("Điểm tổng: 5/10");
-      await expect(summary).toContainText("(0 + 6 + 9) ÷ 3 = 5/10");
-      await expect(summary).toContainText("tạm tính");
-    } else {
-      await expect(summary).toContainText("Điểm tổng: Chưa đủ điểm");
-      await expect(summary).toContainText("Đã có điểm 2/3 câu");
-      await expect(summary).not.toContainText("÷");
-    }
-    await expect(summary.getByRole("row")).toHaveCount(4);
+    await expect(
+      page.getByRole("region", { name: "Điểm tổng bài thi" }),
+    ).toHaveCount(0);
+    await expect(page.locator(".finished")).toContainText("Đã nộp bài thi");
+    await expect(page.locator("main")).not.toContainText("Điểm chính thức:");
+    await expect(page.locator("main")).not.toContainText("Cần xem lại");
+    await page.getByRole("button", { name: "Về danh sách bài thi" }).click();
+    await page.getByText("Lịch sử làm bài (1)", { exact: true }).click();
+    await expect(page.locator("main")).not.toContainText("5/10");
+    await expect(page.locator("main")).not.toContainText("Chưa xác nhận điểm");
   });
 }

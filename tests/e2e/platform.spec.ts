@@ -367,189 +367,24 @@ test("login, responsive layout and admin course form", async ({ page }) => {
   ).toBeTruthy();
 });
 
-test("teacher practice records only during answer, submits media, admin plays real WebM", async ({
-  page,
-  request,
-}) => {
-  const { student, exam } = await setup(request);
-  // Browser assessment tools are restricted to staff; student coverage uses Desktop.
-  expect(
-    (
-      await request.put(`/api/admin/users/${student.id}/role`, {
-        data: { role: "TEACHER" },
-      })
-    ).ok(),
-  ).toBeTruthy();
-  await page.addInitScript(() => {
-    const Recorder = window.MediaRecorder;
-    (window as unknown as { recordingStarts: number }).recordingStarts = 0;
-    window.MediaRecorder = class extends Recorder {
-      start(timeslice?: number) {
-        (window as unknown as { recordingStarts: number }).recordingStarts++;
-        super.start(timeslice);
-      }
-    };
-  });
-  // Browser capture/upload/playback are real; STT is deterministic here (tested independently).
-  await page.route("**/api/stt/config", (route) =>
-    route.fulfill({
-      json: {
-        provider: "local_server",
-        preprocessing: "denoise",
-        language: "vi",
-      },
-    }),
-  );
-  await page.route("**/api/stt", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    await route.fulfill({
-      json: {
-        transcript:
-          "Dependency injection cung cấp dependency từ bên ngoài và giúp kiểm thử.",
-        stt_confidence: 0.96,
-      },
+test("staff web no longer offers study or practice exams", async ({ page }) => {
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    return route.fulfill({
+      json: path.endsWith("auth/me")
+        ? { id: "admin", role: "ADMIN", name: "Admin" }
+        : path.endsWith("dashboard")
+          ? { courses: 0, exams: 0, documents: 0, sessions: 0 }
+          : [],
     });
   });
-  await page.route("**/api/question-attempts/*/submit", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    await route.continue();
-  });
   await page.goto("/");
-  await page
-    .getByLabel("Email hoặc tên đăng nhập", { exact: true })
-    .fill(student.username);
-  await page.getByLabel("Mật khẩu", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Vào không gian làm việc" }).click();
-  await page
-    .getByRole("button", { name: "Học & thi thử", exact: true })
-    .click();
   await expect(
-    page.getByRole("heading", { name: "Bài thi của tôi" }),
+    page.getByRole("button", { name: "Môn học & đề thi", exact: true }),
   ).toBeVisible();
-  await page
-    .locator("section.panel")
-    .filter({
-      has: page.getByRole("heading", { name: exam.name, exact: true }),
-    })
-    .getByRole("button", { name: "Mở bài thi" })
-    .click();
-  await page.getByRole("button", { name: "Cho phép camera & mic" }).click();
-  await expect
-    .poll(() =>
-      page.locator("video").evaluate((v: HTMLVideoElement) => v.videoWidth),
-    )
-    .toBeGreaterThan(0);
-  expect(
-    await page.evaluate(
-      () => (window as unknown as { recordingStarts: number }).recordingStarts,
-    ),
-  ).toBe(0);
   await expect(
-    page.getByRole("button", { name: "Bắt đầu thi", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByRole("button", { name: "Bỏ qua kiểm tra độ ồn", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Bắt đầu thi", exact: true }).click();
-  for (let i = 0; i < 2; i++) {
-    await expect(
-      page.getByRole("button", { name: "Bắt đầu trả lời", exact: true }),
-    ).toBeEnabled();
-    await page
-      .getByRole("button", { name: "Bắt đầu trả lời", exact: true })
-      .click();
-    await expect(
-      page.getByText("Đang ghi âm và ghi hình", { exact: true }),
-    ).toBeVisible();
-    await page.waitForTimeout(1600);
-    await page
-      .getByRole("button", { name: "Kết thúc trả lời", exact: true })
-      .click();
-    await expect(
-      page.getByRole("status").filter({ hasText: "Đang nhận dạng" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Ghi lại", exact: true }),
-    ).toBeDisabled();
-    await expect(
-      page.getByRole("textbox", { name: "Transcript", exact: true }),
-    ).toHaveValue(/Dependency injection/);
-    await page
-      .getByRole("button", { name: "Nộp câu trả lời & tiếp tục" })
-      .click();
-    await expect(
-      page.getByRole("status").filter({ hasText: "Đang nộp câu trả lời" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("textbox", { name: "Transcript", exact: true }),
-    ).toBeDisabled();
-    await expect(
-      page.getByText(`Đã trả lời ${i + 1}/2 câu`, { exact: true }),
-    ).toBeVisible();
-  }
-  expect(
-    await page.evaluate(
-      () => (window as unknown as { recordingStarts: number }).recordingStarts,
-    ),
-  ).toBe(6);
-  await expect(
-    page.getByRole("button", { name: "Nộp bài thi", exact: true }),
-  ).toBeEnabled();
-  await page.getByRole("button", { name: "Nộp bài thi", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Đã nộp bài thi" }),
-  ).toBeVisible();
-  const resultResponse = await request.get("/api/admin/results");
-  const result = (await resultResponse.json()).find(
-    (r: { exam_name: string }) => r.exam_name === exam.name,
-  );
-  await expect
-    .poll(
-      async () => {
-        const r = await request.get("/api/admin/results/" + result.id);
-        return (await r.json()).status;
-      },
-      { timeout: 30000 },
-    )
-    .toBe("REVIEW_REQUIRED");
-  await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
-  await page
-    .getByLabel("Email hoặc tên đăng nhập", { exact: true })
-    .fill(env.BOOTSTRAP_ADMIN);
-  await page
-    .getByLabel("Mật khẩu", { exact: true })
-    .fill(env.BOOTSTRAP_PASSWORD);
-  await page.getByRole("button", { name: "Vào không gian làm việc" }).click();
-  await page
-    .getByRole("button", { name: "Kết quả & xem lại", exact: true })
-    .click();
-  await page
-    .getByRole("row")
-    .filter({ hasText: exam.name })
-    .getByRole("button", { name: "Xem bài" })
-    .click();
-  await expect(
-    page
-      .getByText(
-        "Dependency injection cung cấp dependency từ bên ngoài và giúp kiểm thử.",
-        { exact: true },
-      )
-      .first(),
-  ).toBeVisible();
-  const video = page.locator("video").first();
-  await video.evaluate((v: HTMLVideoElement) => v.play());
-  await expect
-    .poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime))
-    .toBeGreaterThan(0);
-  const audio = page.locator("audio").first();
-  await audio.evaluate((a: HTMLAudioElement) => a.play());
-  await expect
-    .poll(() => audio.evaluate((a: HTMLAudioElement) => a.currentTime))
-    .toBeGreaterThan(0);
-  await page.screenshot({
-    path: "docs/screenshots/review.png",
-    fullPage: true,
-  });
+    page.getByRole("button", { name: "Học & thi thử", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("admin enrolls a course, promotes a user, and configures services without exposing secrets", async ({

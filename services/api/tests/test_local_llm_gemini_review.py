@@ -118,7 +118,7 @@ def test_local_ollama_grades_submitted_text_without_cloud(env, monkeypatch, inva
     upload(student, aid, "VIDEO")
     ok(student.post(f"/exam-sessions/{session['id']}/finish"))
     assert worker.tick()
-    final = ok(student.get(f"/exam-sessions/{session['id']}"))
+    final = ok(env[0]["admin"].get(f"/admin/results/{session['id']}"))
     assert final["status"] == ("REVIEW_REQUIRED" if invalid else "COMPLETED")
     assert final["final_score"] == (None if invalid else 8)
     assert inputs[0]["transcript"] == "Local PhoWhisper transcript"

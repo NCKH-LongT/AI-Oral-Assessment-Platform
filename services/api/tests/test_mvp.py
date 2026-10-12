@@ -145,9 +145,9 @@ def test_end_to_end_demo_with_evidence_and_review(env):
         assert worker.tick()
         session = ok(student.get(f"/exam-sessions/{sid}"))
     final = ok(student.post(f"/exam-sessions/{sid}/finish"))
-    assert final["status"] == "REVIEW_REQUIRED" and final["final_score"] is None
-    assert "demo" in final["grading_message"]
-    assert ok(student.post(f"/exam-sessions/{sid}/finish")) == final or final["status"] == "REVIEW_REQUIRED"
+    assert final["status"] == "SUBMITTED" and "final_score" not in final
+    assert "grading_message" not in final
+    assert ok(student.post(f"/exam-sessions/{sid}/finish"))["status"] == "SUBMITTED"
     review = ok(admin.get(f"/admin/results/{sid}"))
     assert len(review["attempts"]) == 2
     for a in review["attempts"]:
@@ -224,7 +224,7 @@ def test_state_order_deadline_and_missing_evidence(env):
     upload(student, first, "VIDEO")
     ok(student.post(f"/exam-sessions/{session['id']}/finish"))
     worker.tick()
-    assert ok(student.get(f"/exam-sessions/{session['id']}"))["status"] == "REVIEW_REQUIRED"
+    assert ok(student.get(f"/exam-sessions/{session['id']}"))["status"] == "SUBMITTED"
 
 
 def test_auth_rotation_logout_csrf_errors(env):
@@ -315,16 +315,16 @@ def test_structured_grading_server_calculation_and_validation(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "status,score,error,expected",
+    "status,score,error",
     [
-        ("SUBMITTED", 0, None, "đang chờ"),
-        ("REVIEW_REQUIRED", 0, None, "xem lại"),
-        ("REVIEW_REQUIRED", None, "TimeoutError", "thất bại"),
-        ("COMPLETED", 0, None, None),
-        ("COMPLETED", 7.2, None, None),
+        ("SUBMITTED", 0, None),
+        ("REVIEW_REQUIRED", 0, None),
+        ("REVIEW_REQUIRED", None, "TimeoutError"),
+        ("COMPLETED", 0, None),
+        ("COMPLETED", 7.2, None),
     ],
 )
-def test_public_grading_state(env, status, score, error, expected):
+def test_candidate_receipt_hides_grading_state(env, status, score, error):
     context = prepare(env, 1)
     session = start(env, context)
     with env[1]() as db:
@@ -337,11 +337,9 @@ def test_public_grading_state(env, status, score, error, expected):
             attempt.assessment = {"error": error, "score": None, "review_required": True}
         db.commit()
     result = ok(env[0]["student"].get(f"/exam-sessions/{session['id']}"))
-    assert result["final_score"] == (score if status == "COMPLETED" else None)
-    if expected:
-        assert expected in result["grading_message"]
-    else:
-        assert result["grading_message"] is None
+    assert result["status"] == "SUBMITTED"
+    assert not {"final_score", "score_summary", "grading_message", "processing"} & result.keys()
+
 
 
 @pytest.mark.parametrize(

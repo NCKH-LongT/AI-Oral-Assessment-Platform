@@ -231,7 +231,8 @@ def workspace(course_id: str, db: Session = Depends(get_db), user=Depends(staff)
         "exams": [
             data(exam, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts", "workflow")
             | {"imported": bool(exam.imported_questions), "questions": [
-                {"text": q["text"], "english_terms": q.get("english_terms", [])}
+                {"text": q["text"], "english_terms": q.get("english_terms", []),
+                 "preparation_seconds": q.get("preparation_seconds", 10), "recording_seconds": q.get("recording_seconds", 60)}
                 for q in (exam.snapshot or {}).get("questions", exam.imported_questions or [])
             ]}
             for exam in db.scalars(select(Exam).where(Exam.course_id == course_id).order_by(Exam.created_at))

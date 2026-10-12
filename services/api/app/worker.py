@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 from sqlalchemy import select
 
-from . import ai, runtime_settings, speech, storage, processing
+from . import ai, runtime_settings, speech, storage, processing, media_retention
 from .db import SessionLocal
 from .documents import process_document
 from .grading import check_config, failure, review_question, score_summary
@@ -161,6 +161,8 @@ def process_transcription_review(db, job, exam, session, attempt):
 
 @runtime_settings.snapshot()
 def tick():
+    if media_retention.tick(SessionLocal):
+        return True
     if processing.tick(SessionLocal):
         return True
     with SessionLocal() as db:

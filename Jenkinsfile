@@ -41,6 +41,17 @@ test ! -f services/api/.env
 '''
             }
         }
+        stage('Check infrastructure images') {
+            steps {
+                // Pull public images without loading the deployment Secret file.
+                // Keep Docker errors visible and fail before expensive application builds.
+                sh '''set -eu
+docker pull pgvector/pgvector:pg16
+docker pull redis:7-alpine
+docker pull quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+'''
+            }
+        }
         stage('Prepare Docker builder') {
             steps {
                 sh '''set -eu

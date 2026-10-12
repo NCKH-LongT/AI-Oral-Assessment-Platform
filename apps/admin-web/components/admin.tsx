@@ -1,6 +1,7 @@
 "use client";
 import ExcelImport from "./excel-import";
 import ExamScore from "./exam-score";
+import ReviewEvidence from "./review-evidence";
 import StudentCourses from "./student-courses";
 import {
   AttemptLimitFields,
@@ -1661,6 +1662,9 @@ function ReviewPage({
   refresh: () => Promise<void>;
   open: (id: string) => Promise<unknown>;
 }) {
+  const screens = review.attempts.flatMap((attempt) => attempt.evidence)
+    .filter((file) => file.kind === "SCREEN")
+    .sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0) || a.id.localeCompare(b.id));
   return (
     <>
       <button className="text-button back" onClick={back}>
@@ -1730,6 +1734,13 @@ function ReviewPage({
           Bản ghi của lần thi đã được admin dọn để giải phóng dung lượng.
           Transcript, điểm và lịch sử chấm vẫn được giữ.
         </p>
+      )}
+      {screens.length > 0 && (
+        <section className="panel">
+          <h2>Giám sát màn hình toàn bài thi</h2>
+          <p className="muted">Bản ghi được chia thành nhiều đoạn trong suốt lần thi. Chọn từng đoạn để xem.</p>
+          <ReviewEvidence key={review.id} evidence={screens} kind="SCREEN" />
+        </section>
       )}
       {!!review.proctoring_events?.length && (
         <section className="panel">
@@ -1809,33 +1820,8 @@ function ReviewPage({
                   ? "—"
                   : `${Math.round(a.stt_confidence * 100)}%`}
               </small>
-              <div className="media-grid">
-                {a.evidence.map((e, index) => (
-                  <div key={e.id}>
-                    <p className="muted">
-                      {e.kind === "SCREEN"
-                        ? "Bản ghi màn hình bài thi"
-                        : e.kind === "VIDEO"
-                          ? "Camera câu trả lời"
-                          : "Âm thanh câu trả lời"}{" "}
-                      · {index + 1}
-                    </p>
-                    {e.kind !== "AUDIO" ? (
-                      <video
-                        controls
-                        preload="metadata"
-                        src={`/api/evidence/${e.id}/content`}
-                      />
-                    ) : (
-                      <audio
-                        controls
-                        preload="metadata"
-                        src={`/api/evidence/${e.id}/content`}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
+              <ReviewEvidence evidence={a.evidence} kind="VIDEO" />
+              <ReviewEvidence evidence={a.evidence} kind="AUDIO" />
             </div>
             <div className="assessment">
               <span className="eyebrow">ĐÁNH GIÁ THEO RUBRIC</span>

@@ -628,7 +628,7 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
                 "stt_skipped_reason": stt_skipped_reason(db, a.id),
                 "grading_targets": grading_targets(db, exam, a),
                 "evidence": [
-                    data(e, "kind", "status", "sha256", "size")
+                    data(e, "kind", "status", "sha256", "size", "created_at")
                     for e in db.scalars(
                         select(Upload).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED").order_by(Upload.created_at, Upload.id)
                     )

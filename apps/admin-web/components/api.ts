@@ -171,7 +171,7 @@ export type Review = Result & {
     stt_confidence: number | null;
     assessment: Assessment | null;
     grading_targets?: { id: string; name: string; model: string }[];
-    evidence: { id: string; kind: string }[];
+    evidence: { id: string; kind: string; created_at?: number }[];
     reviews: {
       id: string;
       policy?: { provider: string };

@@ -2,6 +2,19 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Bản sửa thiếu model và khôi phục chế độ thi — 12/10/2026
+
+Kiểm thử trên checkout cô lập; không thao tác bài thi hay dữ liệu production.
+
+- API: **123 đạt, 5 bỏ qua**. Năm ca bỏ qua cần PostgreSQL/row locking; lần này dùng SQLite. Bao phủ payload thiếu model, ownership/kênh desktop, hạn giờ/trạng thái, idempotency, tiến câu, minh chứng bắt buộc và nhận dạng lại có quyền.
+- Thiếu model: không chạy STT/LLM, transcript rỗng, confidence/điểm `null`, trạng thái cần review; audio/video gốc và màn hình theo chính sách vẫn bắt buộc. Lỗi runtime/STT thông thường không được chuyển thành bỏ qua.
+- Node: **15 desktop, 8 screen, 3 audio, 2 proxy backend đạt**. Bao phủ model có/không có, runtime hỏng, kiosk lặp/rollback, hủy chooser, stream đến muộn, lỗi encoder và giữ các đoạn minh chứng.
+- Kiểm tra hook React cô lập bổ sung: **9/9 đạt** với ScreenRecording thật và bridge/media giả lập, gồm lỗi begin/capture/report, hủy + kết quả đến muộn, chooser blur, sự kiện sau khóa lại và timeout/retry. Đây không thay thế kiểm thử Electron trên hệ điều hành thật.
+- Python: 4 ca launcher/STT, 3 ca GNOME và 10 ca Docker cleanup đạt. Ruff các file Python thay đổi, cú pháp Electron, ESLint, TypeScript và production build đạt.
+- Đã bổ sung Playwright regression cho thiếu model, cài model rồi thử lại, begin/capture/report thất bại, hủy/retry, chooser blur và sự kiện mới sau khi khóa lại. Danh sách test/biên dịch fixture kiểm tra được; **chưa chạy qua trình duyệt thành công trong môi trường này**: Chromium dừng ngay khi khởi chạy với `socket() failed: Operation not permitted`, trước khi mở ứng dụng. Không coi lỗi hạ tầng này là pass UI.
+- Chưa xác minh Electron/Windows/macOS/GNOME/PipeWire thật hoặc model Whisper thật cho bản sửa này; các kết quả native ngày 11/10 bên dưới là của bản trước. Cần chạy lại các ca trên máy đích trước khi phát hành bộ cài.
+- Không thay workflow/Jenkins, không kích hoạt CI thủ công, merge hoặc deploy. Cập nhật cần web/API và Electron đồng bộ, không có migration mới.
+
 ## Phạm vi xác minh ngày 11/10/2026
 
 Desktop nhận dạng bằng Whisper-small, sinh viên chọn tiếng Việt/Anh, câu hỏi và hướng dẫn hiển thị, transcript gửi tự động để server chấm. Kiểm thử dùng dữ liệu cô lập; các ca UI bên dưới giả lập API và bridge STT, ghi media bằng thiết bị giả lập Chromium.

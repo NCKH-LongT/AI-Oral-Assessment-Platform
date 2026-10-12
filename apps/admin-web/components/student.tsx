@@ -38,7 +38,11 @@ import {
   type MicrophoneGain,
 } from "../lib/microphone-gain";
 
-type STT = { transcript: string; stt_confidence: number };
+type STT = {
+  transcript: string;
+  stt_confidence: number | null;
+  stt_skipped_reason?: "MODEL_MISSING";
+};
 declare global {
   interface Window {
     oralDesktop?: {
@@ -46,7 +50,7 @@ declare global {
       focus?: () => Promise<void>;
       settings?: () => Promise<void>;
       beginExam?: () => Promise<void>;
-      endExam?: () => Promise<void>;
+      endExam?: (options?: { restoreDisplays?: boolean }) => Promise<void>;
       displayStatus?: () => Promise<DesktopDisplayStatus>;
       useSingleDisplay?: (keep: string) => Promise<DesktopDisplayStatus>;
       restoreDisplays?: () => Promise<DesktopDisplayStatus>;
@@ -64,7 +68,8 @@ type PendingAnswer = {
   sttSource: "original" | "filtered";
   video: Blob;
   transcript: string;
-  confidence: number;
+  confidence: number | null;
+  sttSkippedReason?: "MODEL_MISSING";
   originalText: string;
   key: string;
 };
@@ -409,6 +414,21 @@ export default function Student() {
     }
   }
   async function transcribe(audio: Blob): Promise<STT> {
+    if (window.oralDesktop) {
+      setSpeechStage("Đang kiểm tra bộ nhận dạng trên máy…");
+      const models = await desktopSpeech.inspect();
+      const model = models.find((item) => item.id === DESKTOP_STT_MODEL);
+      if (!model)
+        throw new Error(
+          "Không kiểm tra được Whisper-small. Mở lại desktop rồi thử lại.",
+        );
+      if (!model.available)
+        return {
+          transcript: "",
+          stt_confidence: null,
+          stt_skipped_reason: "MODEL_MISSING",
+        };
+    }
     setSpeechStage("Đang tải cấu hình nhận dạng…");
     const savedPolicy = await api<SpeechPolicy>(
       `/stt/config${session ? `?session_id=${encodeURIComponent(session.id)}` : ""}`,
@@ -441,19 +461,6 @@ export default function Student() {
         throw new Error(
           "Admin chọn STT local. Vui lòng dùng ứng dụng desktop để nhận dạng.",
         );
-      if (!desktopSpeech.ready)
-        throw new Error(
-          desktopSpeech.error ||
-            "Đang kiểm tra bộ nhận dạng trên máy. Vui lòng thử lại.",
-        );
-      if (
-        !desktopSpeech.models.some(
-          (model) => model.id === policy.desktop_model && model.available,
-        )
-      )
-        throw new Error(
-          "Chưa có bộ nhận dạng Whisper-small trên máy. Cập nhật bộ OralAI đầy đủ.",
-        );
       return window.oralDesktop.transcribe(await audio.arrayBuffer(), policy);
     }
     const form = new FormData();
@@ -463,7 +470,7 @@ export default function Student() {
     return api<STT>("/stt", { method: "POST", body: form });
   }
   async function start() {
-    if (guard.blocked || guard.finishing)
+    if (guard.blocked || guard.preparing || guard.finishing)
       throw new Error(
         "Khôi phục chế độ thi và ghi màn hình trước khi trả lời.",
       );
@@ -513,9 +520,13 @@ export default function Student() {
     videoRecorder.ondataavailable = (e) => {
       if (e.data.size) videoChunks.push(e.data);
     };
+    const guardRevision = guard.getRevision();
     setStartingRecording(true);
     try {
       await send(`/question-attempts/${attemptId}/start`);
+      // A focus/display/capture interruption can arrive while the server
+      // acknowledges this start. Never start recorders on a stale permission.
+      guard.assertReady(guardRevision);
     } finally {
       setStartingRecording(false);
     }
@@ -559,6 +570,7 @@ export default function Student() {
         a.transcript = stt.transcript;
         a.originalText = stt.transcript;
         a.confidence = stt.stt_confidence;
+        a.sttSkippedReason = stt.stt_skipped_reason;
         setAnswer({ ...a });
       } catch (e) {
         setError(
@@ -656,8 +668,10 @@ export default function Student() {
   }
   async function submit() {
     if (!answer || !session || submitting || processing) return;
-    if (guard.blocked)
+    if (guard.blocked || guard.preparing)
       throw new Error("Khôi phục chế độ thi trước khi nộp câu trả lời.");
+    if (!answer.transcript.trim() && !answer.sttSkippedReason)
+      throw new Error("Nhận dạng câu trả lời trước khi nộp.");
     if (!answer.audio.size || !answer.video.size)
       throw new Error("Media rỗng. Vui lòng ghi âm lại.");
     setSubmitting(true);
@@ -669,6 +683,9 @@ export default function Student() {
         body: JSON.stringify({
           transcript: answer.transcript,
           stt_confidence: confidence,
+          ...(answer.sttSkippedReason
+            ? { stt_skipped_reason: answer.sttSkippedReason }
+            : {}),
         }),
         headers: { "Idempotency-Key": answer.key },
       });
@@ -913,7 +930,7 @@ export default function Student() {
               ? "Đã hoàn thành bài luyện tập"
               : "Đã nộp bài thi"}
           </h2>
-          <p>Transcript và minh chứng đã được lưu.</p>
+          <p>Câu trả lời và minh chứng đã được lưu.</p>
           {!session.practice && <Badge status={session.status} />}
           {!session.practice && (
             <ExamScore
@@ -968,12 +985,30 @@ export default function Student() {
                   Bài thi bị gián đoạn hoặc chưa bật ghi màn hình. Kết nối lại
                   để tiếp tục; thời gian thi vẫn chạy.
                 </p>
-                <Action disabled={displayBusy} action={guard.prepare}>
+                <Action
+                  disabled={displayBusy || guard.preparing}
+                  action={guard.prepare}
+                >
                   Khôi phục chế độ thi
                 </Action>
               </div>
             )}
+            {guard.preparing && (
+              <div role="status">
+                <p>
+                  {guard.prepareStage || "Đang bật chế độ thi và ghi màn hình…"}
+                </p>
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() => void guard.cancelPrepare()}
+                >
+                  Hủy khôi phục
+                </button>
+              </div>
+            )}
             {desktopSpeech.desktop &&
+              !guard.preparing &&
               (session.status === "DEVICE_CHECK" || guard.blocked) && (
                 <DesktopDisplaySettings
                   inExam={session.status === "IN_PROGRESS"}
@@ -1070,6 +1105,7 @@ export default function Student() {
                     (!desktopSpeech.desktop && !noiseReady) ||
                     connecting ||
                     displayBusy ||
+                    guard.preparing ||
                     processing ||
                     (session.screen_required && !screenConsent)
                   }
@@ -1146,6 +1182,8 @@ export default function Student() {
                     desktopSpeech.desktop ? (
                       answer.transcript.trim() ? (
                         "Câu trả lời đã sẵn sàng để nộp."
+                      ) : answer.sttSkippedReason ? (
+                        "Đã bỏ qua STT vì thiếu model. Bạn có thể nộp bản ghi; câu trả lời chưa có transcript hoặc điểm AI và cần giảng viên xem lại."
                       ) : (
                         "Chưa nhận dạng được câu trả lời. Hãy thử STT lại hoặc ghi lại."
                       )
@@ -1169,7 +1207,13 @@ export default function Student() {
                     </button>
                   ) : (
                     <Action
-                      disabled={!stream || !!deviceError || remaining === 0}
+                      disabled={
+                        guard.blocked ||
+                        guard.preparing ||
+                        !stream ||
+                        !!deviceError ||
+                        remaining === 0
+                      }
                       action={start}
                     >
                       <Mic size={17} />
@@ -1232,7 +1276,12 @@ export default function Student() {
                     <div className="inline">
                       <Action
                         disabled={
-                          processing || submitting || !answer.transcript.trim()
+                          guard.blocked ||
+                          guard.preparing ||
+                          processing ||
+                          submitting ||
+                          (!answer.transcript.trim() &&
+                            !answer.sttSkippedReason)
                         }
                         action={submit}
                       >
@@ -1252,12 +1301,19 @@ export default function Student() {
                             if (!audio)
                               throw new Error("Không có bản ghi đã lọc nhiễu.");
                             const s = await transcribe(audio);
-                            setAnswer({
-                              ...answer,
-                              transcript: s.transcript,
-                              originalText: s.transcript,
-                              confidence: s.stt_confidence,
-                            });
+                            // A missing model on retry must not erase the last
+                            // successful transcript from this same recording.
+                            if (
+                              !s.stt_skipped_reason ||
+                              !answer.transcript.trim()
+                            )
+                              setAnswer({
+                                ...answer,
+                                transcript: s.transcript,
+                                originalText: s.transcript,
+                                confidence: s.stt_confidence,
+                                sttSkippedReason: s.stt_skipped_reason,
+                              });
                             setError("");
                           } finally {
                             setProcessing(false);

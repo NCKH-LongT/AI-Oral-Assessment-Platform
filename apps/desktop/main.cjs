@@ -25,7 +25,13 @@ const path = require("node:path");
 const { installUnloadGuard } = require("./unload-guard.cjs");
 const { installExamLock } = require("./exam-lock.cjs");
 const { createDisplayManager } = require("./display-manager.cjs");
-const { validHotwords, validModel, STT_MODELS } = require("./stt-policy.cjs");
+const {
+  validHotwords,
+  validModel,
+  STT_MODELS,
+  inspectSttModels,
+  missingModelResult,
+} = require("./stt-policy.cjs");
 const runFile = promisify(execFile);
 
 function sttRoot() {
@@ -101,6 +107,7 @@ let webURL = new URL(DEFAULT_URL),
   configWindow;
 let sttChild;
 let examLock;
+let examBeginGeneration = 0;
 let displayManager;
 let quitRestoreStarted = false;
 let restoreWarning = "";
@@ -254,15 +261,35 @@ app.whenReady().then(async () => {
         !hasSameOrigin(request.securityOrigin, webURL.origin)
       )
         return callback({});
+      const generation = examBeginGeneration;
+      let timer;
       try {
-        const sources = await desktopCapturer.getSources({
-          types: ["screen"],
-          thumbnailSize: { width: 0, height: 0 },
-        });
-        if (sources.length !== 1) return callback({});
+        const sources = await Promise.race([
+          desktopCapturer.getSources({
+            types: ["screen"],
+            thumbnailSize: { width: 0, height: 0 },
+          }),
+          new Promise((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error("Screen capture timed out")),
+              20000,
+            );
+          }),
+        ]);
+        if (
+          !examLock.active ||
+          generation !== examBeginGeneration ||
+          win.isDestroyed() ||
+          request.frame !== win.webContents.mainFrame ||
+          !hasSameOrigin(request.securityOrigin, webURL.origin) ||
+          sources.length !== 1
+        )
+          return callback({});
         callback({ video: sources[0] });
       } catch {
         callback({});
+      } finally {
+        clearTimeout(timer);
       }
     },
   );
@@ -295,13 +322,19 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("oral:exam-begin", async (event) => {
     trustedStudent(event);
+    const generation = ++examBeginGeneration;
     await displayManager.idle();
+    if (generation !== examBeginGeneration)
+      throw new Error("Đã hủy khôi phục chế độ thi. Bạn có thể thử lại.");
     await examLock.begin();
   });
-  ipcMain.handle("oral:exam-end", async (event) => {
+  ipcMain.handle("oral:exam-end", async (event, options) => {
     trustedStudent(event);
+    examBeginGeneration++;
     examLock.end();
-    await restoreDisplays();
+    // Failed/cancelled capture must unlock controls without undoing the
+    // single-display setup needed by the next recovery attempt.
+    if (options?.restoreDisplays !== false) await restoreDisplays();
   });
   ipcMain.handle("oral:displays-status", (event) => {
     trustedStudent(event);
@@ -420,12 +453,7 @@ app.whenReady().then(async () => {
       new URL(event.senderFrame.url).origin !== webURL.origin
     )
       throw new Error("Forbidden");
-    await checkSttRuntime();
-    return Object.entries(STT_MODELS).map(([id, model]) => ({
-      id,
-      label: model.label,
-      available: existsSync(path.join(sttModelPath(id), "model.bin")),
-    }));
+    return inspectSttModels(sttModelPath, existsSync, checkSttRuntime);
   });
   ipcMain.handle("oral:transcribe", async (event, buffer, policy) => {
     if (
@@ -450,9 +478,7 @@ app.whenReady().then(async () => {
       const selected = policy.desktop_model || "whisper-small";
       const modelPath = sttModelPath(selected);
       if (!existsSync(path.join(modelPath, "model.bin")))
-        throw new Error(
-          `Chưa có model ${STT_MODELS[selected].label} trên máy. Cài bộ OralAI đầy đủ hoặc build lại tài nguyên STT.`,
-        );
+        return missingModelResult();
       const helper = await checkSttRuntime();
       folder = await mkdtemp(path.join(tmpdir(), "oral-stt-"));
       const audioPath = path.join(folder, "answer.webm");

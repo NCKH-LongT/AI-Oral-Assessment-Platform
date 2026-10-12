@@ -79,11 +79,21 @@ function installExamLock(win, { screen }) {
       }
       // Consent is presented next to the exam start button. Avoid an additional
       // modal here so getDisplayMedia retains the user's transient activation.
-      active = true;
-      win.setKiosk(true);
-      win.setMinimizable(false);
-      win.show();
-      win.focus();
+      try {
+        // Re-entering kiosk on an already locked window can churn native focus
+        // and fullscreen transitions. A retry should only restore what changed.
+        if (win.isMinimized?.()) win.restore();
+        if (!(win.isKiosk?.() ?? active)) win.setKiosk(true);
+        win.setMinimizable(false);
+        win.show();
+        win.focus();
+        active = true;
+      } catch (error) {
+        active = false;
+        win.setKiosk(false);
+        win.setMinimizable(true);
+        throw error;
+      }
     },
     end() {
       active = false;

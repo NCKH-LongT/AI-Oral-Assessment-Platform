@@ -1,4 +1,4 @@
-// Save as Jenkinsfile at repository root, branch main.
+// Loaded from the branch configured in the job SCM (checkout scm below).
 // Credentials: oral-ai-github is selected in the job SCM; oral-ai-env is a Secret file.
 // Only web/backend are built. Desktop packaging is deliberately excluded.
 pipeline {
@@ -27,6 +27,12 @@ pipeline {
         stage('Preflight') {
             steps {
                 sh '''set -eu
+if ! command -v python3 >/dev/null 2>&1; then
+    echo 'ERROR: python3 is missing on the Jenkins agent running this job.' >&2
+    echo 'For Docker-based Jenkins, install Python inside the agent/container image, not only on the Docker host.' >&2
+    echo 'Python is required for preflight tests, deployment and Docker cleanup. See docs/jenkins.md.' >&2
+    exit 127
+fi
 python3 --version
 docker compose version
 docker buildx version

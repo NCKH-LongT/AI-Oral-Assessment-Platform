@@ -11,7 +11,7 @@ Các giá trị dưới đây lấy từ `Jenkinsfile` đang có trong repo:
 | Thành phần | Thiết lập |
 | --- | --- |
 | Agent | Nhãn `docker`, có Python 3, Docker, Docker Compose và plugin Buildx |
-| SCM | Repository này, nhánh triển khai `main`; credential Git được chọn trong cấu hình job |
+| SCM | Repository này; nhánh do job SCM chọn (`checkout scm`), credential Git được chọn trong cấu hình job |
 | Biến môi trường triển khai | Jenkins credential loại **Secret file**, ID `oral-ai-env` |
 | Reverse proxy | Docker network ngoài `nginx-network` |
 | Domain triển khai | `https://oral-test.paperlens.uk` |
@@ -20,6 +20,39 @@ Các giá trị dưới đây lấy từ `Jenkinsfile` đang có trong repo:
 Trong credential, `PUBLIC_ORIGIN` và `ALLOWED_ORIGINS` phải khớp domain trên; `COOKIE_SECURE=true`, `WEB_BIND=127.0.0.1`, `WEB_PORT=13000`, `MINIO_CONSOLE_PORT=19001`. Các biến database, storage và AI cần giữ giá trị phù hợp với server đang chạy. Sửa `.env` trên máy phát triển không tự cập nhật credential Jenkins.
 
 Jenkinsfile này dành cho địa chỉ triển khai trên. Nếu đổi domain, network hoặc cổng, phải cập nhật cả cấu hình pipeline, credential và reverse proxy tương ứng.
+
+## Jenkins Docker báo `python3: not found`
+
+Lỗi tại **Preflight**, exit code `127`, nghĩa là môi trường chạy agent thiếu Python. Nếu log ghi `Running on Jenkins` / `(built-in)` và Jenkins chạy bằng Docker, phải cài Python **trong container Jenkins**, không chỉ trên host. Pipeline dùng Python ở cả kiểm thử cleanup, snapshot, deploy và dọn image nên không bỏ dòng kiểm tra để xử lý lỗi này.
+
+Trên máy chủ đang chạy container Jenkins, tìm tên container:
+
+```bash
+docker ps --format 'table {{.Names}}\t{{.Image}}'
+```
+
+Với image Jenkins nền Debian/Ubuntu, thay `TEN_CONTAINER_JENKINS` bằng tên vừa tìm rồi chạy:
+
+```bash
+docker exec -u 0 TEN_CONTAINER_JENKINS sh -c 'apt-get update && apt-get install -y --no-install-recommends python3'
+docker exec TEN_CONTAINER_JENKINS sh -c 'python3 --version && docker compose version && docker buildx version && docker info --format "{{.ServerVersion}}"'
+```
+
+Nếu image nền Alpine (không có `apt-get`), dùng `apk add --no-cache python3` thay cho lệnh cài bằng apt. Sau khi kiểm tra thành công, chạy lại **Build Now**. Không cần khởi động lại Jenkins chỉ để nhận lệnh Python mới.
+
+Lệnh `docker exec` sửa container hiện tại; Python sẽ mất khi **tạo lại container từ image cũ**. Để giữ lâu dài, thêm vào Dockerfile Jenkins hiện đang dùng (giữ nguyên các bước cài Docker CLI, Compose và Buildx):
+
+```dockerfile
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/*
+USER jenkins
+```
+
+Build lại image Jenkins và cập nhật service Jenkins dùng image đó, giữ cấu hình volume `/var/jenkins_home` và kết nối Docker hiện tại. Nếu Dockerfile dùng user agent khác, trở về user đó thay cho `jenkins`. Đây là cách [Jenkins hướng dẫn bổ sung công cụ vào image](https://github.com/jenkinsci/docker#installing-more-tools).
+
+Kiểm tra dòng `Checking out Revision ... (refs/remotes/origin/...)`: nếu job lấy **`Staging`**, thay đổi chỉ push lên `main` chưa chắc được dùng. Merge commit cần triển khai vào `Staging` theo quy trình hiện tại hoặc sửa nhánh SCM của job theo chủ đích.
 
 ## Chạy một bản cập nhật
 

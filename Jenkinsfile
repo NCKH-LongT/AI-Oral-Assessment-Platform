@@ -48,7 +48,6 @@ test ! -f services/api/.env
                 sh '''set -eu
 docker pull pgvector/pgvector:pg16
 docker pull redis:7-alpine
-docker pull quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
 '''
             }
         }
@@ -62,6 +61,14 @@ fi
 driver=$(docker buildx inspect "$ORAL_BUILDER" | awk '$1 == "Driver:" {print $2}')
 [ "$driver" = "docker-container" ] || { echo 'OralAI builder must use docker-container driver'; exit 1; }
 docker buildx inspect "$ORAL_BUILDER" --bootstrap
+'''
+            }
+        }
+        stage('Build MinIO') {
+            steps {
+                sh '''set -eu
+docker buildx build --builder "$ORAL_BUILDER" --load -t oral-assessment-minio:RELEASE.2025-09-07T16-13-09Z-source services/minio
+docker run --rm --network none oral-assessment-minio:RELEASE.2025-09-07T16-13-09Z-source --version
 '''
             }
         }
@@ -251,8 +258,9 @@ def main():
         for svc in config[\'services\']:
             if actual[\'services\'][svc].get(\'environment\', {}) != config[\'services\'][svc].get(\'environment\', {}):
                 abort(\'Environment changed during Compose interpolation. No deployment made.\')
-        print(\'Pulling PostgreSQL, Redis and MinIO images...\', flush=True)
-        command(compose + [\'pull\', \'postgres\', \'redis\', \'minio\'], child, \'Infrastructure image pull\')
+        command([\'docker\', \'image\', \'inspect\', config[\'services\'][\'minio\'][\'image\'], \'--format\', \'{{.Id}}\'], child, \'Built MinIO image lookup\')
+        print(\'Pulling PostgreSQL and Redis images; using locally built MinIO...\', flush=True)
+        command(compose + [\'pull\', \'postgres\', \'redis\'], child, \'Infrastructure image pull\')
         if current_pg:
             backup_dir = Path(os.environ.get(\'JENKINS_HOME\', \'/var/jenkins_home\')) / \'oral-backups\'
             backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)

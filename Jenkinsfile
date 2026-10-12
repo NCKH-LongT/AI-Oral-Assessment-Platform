@@ -64,6 +64,7 @@ docker buildx inspect "$ORAL_BUILDER" --bootstrap
                 sh '''set -eu
 docker create --label uk.paperlens.oral.project=oral-assessment-web --name "$ORAL_TEST_CONTAINER" --network none -e PYTHONPATH=/app "$ORAL_API_IMAGE" python -m pytest tests -q -p no:cacheprovider --junitxml=/tmp/oral-results.xml
 docker cp services/api/tests "$ORAL_TEST_CONTAINER:/app/tests"
+docker cp data "$ORAL_TEST_CONTAINER:/app/data"
 '''
                 script {
                     int testStatus = sh(script: 'docker start -a "$ORAL_TEST_CONTAINER"', returnStatus: true)

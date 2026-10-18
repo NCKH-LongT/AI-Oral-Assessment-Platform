@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from test_mvp import ok, prepare
+
 from app.models import Assignment, CourseEnrollment, Exam, ExamSession, User
 
 
@@ -19,7 +20,8 @@ def test_roster_includes_absent_students_latest_score_and_optional_exam_date_fil
                             status="COMPLETED", final_score=7, started_at=times[0], created_at=times[0])
         second = ExamSession(exam_id=context["exam"]["id"], student_id=student.id, attempt_number=2,
                              status="COMPLETED", final_score=0, started_at=times[1], created_at=times[1])
-        db.add_all([first, second]); db.commit()
+        db.add_all([first, second])
+        db.commit()
         student_id, absent_id, first_id, second_id = student.id, absent.id, first.id, second.id
     path = f"/admin/courses/{context['course']['id']}/results"
     catalog = ok(admin.get(path))
@@ -71,12 +73,14 @@ def test_course_roster_chooses_latest_across_exams_and_can_narrow_later(env):
         other = Exam(course_id=original.course_id, rubric_id=original.rubric_id,
                      name="Second exam", time_limit=600, blueprint=original.blueprint,
                      snapshot=original.snapshot, status="PUBLISHED")
-        db.add(other); db.flush()
+        db.add(other)
+        db.flush()
         first = ExamSession(exam_id=original.id, student_id=student.id, attempt_number=5,
                             status="COMPLETED", final_score=8, started_at=100, created_at=100)
         latest = ExamSession(exam_id=other.id, student_id=student.id, attempt_number=1,
                              status="COMPLETED", final_score=6, started_at=200, created_at=200)
-        db.add_all([first, latest]); db.commit()
+        db.add_all([first, latest])
+        db.commit()
         first_id, latest_id = first.id, latest.id
     path = f"/admin/courses/{context['course']['id']}/results"
     result = ok(clients["admin"].get(path))

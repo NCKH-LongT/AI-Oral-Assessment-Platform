@@ -114,6 +114,7 @@ export default function Student() {
     [session, setSession] = useState<ExamSession | null>(null),
     [error, setError] = useState("");
   const autoSubmitRecording = useRef(false);
+  const answerUploads = useRef(new Map<string, UploadJob[]>());
   const timedQuestions = !!session?.timed_questions;
   const serverProcessing = !!session?.server_processing;
   const sessionFinished =
@@ -742,25 +743,37 @@ export default function Student() {
         }),
         headers: { "Idempotency-Key": answer.key },
       });
-      const added: UploadJob[] = (["AUDIO", "VIDEO"] as const).map((kind) => ({
-        id: crypto.randomUUID(),
-        attemptId: answer.attemptId,
-        kind,
-        blob: kind === "AUDIO" ? answer.audio : answer.video,
-        progress: 0,
-        status: "pending",
-      }));
-      setJobs((all) => [...all, ...added]);
-      setAnswer(null);
+      let added = answerUploads.current.get(answer.key);
+      if (!added) {
+        added = (["AUDIO", "VIDEO"] as const).map((kind) => ({
+          id: crypto.randomUUID(),
+          attemptId: answer.attemptId,
+          kind,
+          blob: kind === "AUDIO" ? answer.audio : answer.video,
+          progress: 0,
+          status: "pending",
+        }));
+        answerUploads.current.set(answer.key, added);
+        const newJobs = added;
+        setJobs((all) => [...all, ...newJobs]);
+      }
       setError("");
       if (automatic) {
-        const uploaded = await Promise.all(added.map(runUpload));
+        const uploaded = await Promise.all(
+          added.map((job) => (job.status === "done" ? true : runUpload(job))),
+        );
         const next = await refreshSession(session.id);
+        setAnswer(null);
+        answerUploads.current.delete(answer.key);
         if (!next.current_attempt && uploaded.every(Boolean))
           await finishExam(next);
       } else {
-        added.forEach((j) => void runUpload(j));
+        added
+          .filter((job) => ["pending", "failed"].includes(job.status))
+          .forEach((job) => void runUpload(job));
         await refreshSession(session.id);
+        setAnswer(null);
+        answerUploads.current.delete(answer.key);
       }
     } finally {
       setSubmitting(false);
@@ -822,6 +835,7 @@ export default function Student() {
   ) {
     await guard.release();
     screenJobs.current.clear();
+    answerUploads.current.clear();
     setScreenConsent(false);
     const next = sessionId
       ? await api<ExamSession>(`/exam-sessions/${sessionId}`)
@@ -1380,7 +1394,7 @@ export default function Student() {
                             !answer.transcript.trim() &&
                             !answer.sttSkippedReason)
                         }
-                        action={submit}
+                        action={() => submit(answer, timedQuestions)}
                       >
                         Nộp câu trả lời & tiếp tục →
                       </Action>

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from test_mvp import ok, prepare, start, upload
 
 from app import processing, speech, worker
-from app.models import Attempt, Exam, ExamSession, ProcessingJob, SystemSetting
+from app.models import Attempt, Exam, ProcessingJob, SystemSetting
 
 BODY = {"transcript": "", "stt_confidence": None, "processing_mode": "server_audio"}
 HEADERS = {"Idempotency-Key": "server-audio-answer-123"}

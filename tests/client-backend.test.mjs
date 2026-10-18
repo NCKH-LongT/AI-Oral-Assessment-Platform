@@ -229,3 +229,36 @@ test("proxy isolates logins, validates browser origin and keeps uploads intact",
     "failed switch keeps current backend",
   );
 });
+
+test("proxy transport failures include a trace id without logging auth or answers", async (t) => {
+  const logs = [];
+  t.mock.method(console, "warn", (...args) => logs.push(args));
+  t.mock.method(globalThis, "fetch", async () => {
+    throw new TypeError("fetch failed", { cause: { code: "ECONNRESET" } });
+  });
+  const response = await proxyBackend(
+    new Request("http://localhost:3001/api/question-attempts/a/submit", {
+      method: "POST",
+      body: "private-answer",
+      headers: {
+        origin: "http://localhost:3001",
+        "x-oral-backend": "online",
+        cookie: "oral_online_access_token=private-token",
+      },
+    }),
+    {
+      defaultMode: "online",
+      urls: { online: "https://backend.test", local: "http://localhost:3000" },
+    },
+  );
+  const body = await response.json();
+  assert.equal(response.status, 502);
+  assert.equal(body.error.code, "BACKEND_UNREACHABLE");
+  assert.equal(
+    body.error.details.request_id,
+    response.headers.get("x-request-id"),
+  );
+  assert.equal(logs[0][1].code, "ECONNRESET");
+  assert.equal(logs[0][1].request_id, body.error.details.request_id);
+  assert.doesNotMatch(JSON.stringify(logs), /private-answer|private-token/);
+});

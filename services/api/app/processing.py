@@ -63,8 +63,8 @@ def queue_session(db, session_id):
 
 
 def tick(factory):
-    from .worker import finalize, grade_answer
     from .grading import failure
+    from .worker import finalize, grade_answer
 
     with factory() as db:
         job = db.scalar(select(ProcessingJob).join(Attempt).join(ExamSession).where(

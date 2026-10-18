@@ -137,9 +137,7 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     path: "docs/screenshots/dashboard.png",
     fullPage: true,
   });
-  await page
-    .getByRole("button", { name: "Môn học & đề thi", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Môn học", exact: true }).click();
   await page.getByRole("button", { name: "Tạo môn học", exact: true }).click();
   const courseName = "Môn học tạo từ giao diện " + Date.now();
   await page.getByLabel("Mã môn học", { exact: true }).fill("UI-" + Date.now());
@@ -245,8 +243,9 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     page.getByRole("button", { name: "Tạo rubric", exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "03 · Bài thi & giao bài", exact: true })
+    .getByRole("button", { name: "Ngân hàng đề thi", exact: true })
     .click();
+  await page.getByRole("button", { name: new RegExp(courseName) }).click();
   await page.getByRole("button", { name: "Tạo bài thi", exact: true }).click();
   await page.getByLabel("Tên bài thi", { exact: true }).fill("Đề CRUD");
   await page
@@ -287,6 +286,8 @@ test("login, responsive layout and admin course form", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Rubric đã sửa v2" }),
   ).toHaveCount(0);
+  await page.getByRole("button", { name: "Môn học", exact: true }).click();
+  await page.getByRole("button", { name: new RegExp(courseName) }).click();
   await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
   await page
     .getByLabel("Tên môn học", { exact: true })
@@ -310,7 +311,7 @@ test("login, responsive layout and admin course form", async ({ page }) => {
     await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
     await page.getByRole("button", { name: action, exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "Môn học & đề thi", exact: true }),
+      page.getByRole("heading", { name: "Môn học", exact: true }),
     ).toBeVisible();
   }
   await page.getByRole("button", { name: "Tạo môn học", exact: true }).click();
@@ -333,7 +334,7 @@ test("login, responsive layout and admin course form", async ({ page }) => {
   await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
   await page.getByRole("button", { name: "Xóa môn học", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Môn học & đề thi", exact: true }),
+    page.getByRole("heading", { name: "Môn học", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Môn trống để xóa", exact: true }),
@@ -380,7 +381,7 @@ test("staff web no longer offers study or practice exams", async ({ page }) => {
   });
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "Môn học & đề thi", exact: true }),
+    page.getByRole("button", { name: "Môn học", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Học & thi thử", exact: true }),
@@ -401,9 +402,7 @@ test("admin enrolls a course, promotes a user, and configures services without e
   // Reuse only the admin auth cookies for this browser context.
   await page.context().addCookies((await request.storageState()).cookies);
   await page.goto("/");
-  await page
-    .getByRole("button", { name: "Môn học & đề thi", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Môn học", exact: true }).click();
   await page
     .getByRole("button")
     .filter({

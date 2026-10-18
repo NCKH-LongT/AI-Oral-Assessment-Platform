@@ -1,8 +1,9 @@
 import time
-import pytest
+
 from sqlalchemy import select
-from test_mvp import ok, prepare, start
 from test_examination import setup_workflow
+from test_mvp import ok, prepare, start
+
 from app.models import Attempt
 
 

@@ -4,7 +4,7 @@
 
 ## Admin cấu hình đề
 
-Mở **Môn học & đề thi → chọn môn → Bài thi & giao bài → Cấu hình số lần làm lại**, chọn một trong ba chế độ rồi lưu:
+Mở **Ngân hàng đề thi → chọn môn → Cấu hình số lần làm lại**, chọn một trong ba chế độ rồi lưu:
 
 | Chế độ | Số lượt cho mỗi sinh viên |
 | --- | --- |

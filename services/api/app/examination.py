@@ -12,10 +12,33 @@ from .db import get_db
 from .exam_generation import build_snapshot
 from .examination_schemas import CommissionIn, DraftReviewIn, HotwordsIn, ManualGradeIn, ScheduleIn, TeacherIn
 from .excel import parse_roster, template_bytes, workbook_bytes
-from .models import Assignment, Attempt, Audit, Course, Exam, ExamSession, ProcessingJob, ReviewJob, Rubric, User, uid
+from .models import (
+    Assignment,
+    Attempt,
+    Audit,
+    Course,
+    Exam,
+    ExamSession,
+    ProcessingJob,
+    ReviewJob,
+    Rubric,
+    User,
+    uid,
+)
 from .runtime_settings import settings
 from .schemas import ReviewIn, RubricIn
-from .security import by_id, course_access, current_user, editor, exam_officer, fail, hasher, staff
+from .security import (
+    by_id,
+    course_access,
+    current_user,
+    editor,
+    exam_access,
+    exam_officer,
+    fail,
+    hasher,
+    staff,
+    visible_exams,
+)
 
 router = APIRouter()
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -27,7 +50,7 @@ def audit(db, user, event, **details):
 
 def scoped_exam(db, key, user):
     exam = by_id(db, Exam, key, lock=True)
-    course_access(db, exam.course_id, user)
+    exam_access(db, exam, user)
     return exam
 
 
@@ -96,9 +119,9 @@ def save_hotwords(key: str, body: HotwordsIn, db: Session = Depends(get_db), use
 
 @router.get("/admin/examination/exams")
 def exam_list(db: Session = Depends(get_db), user=Depends(staff)):
-    query = select(Exam, Course).join(Course).where(Exam.workflow.is_(True))
+    query = select(Exam, Course).join(Course).where(Exam.workflow.is_(True), Exam.class_id.is_(None))
     if user.role == "TEACHER":
-        query = query.where(Course.owner_id == user.id)
+        query = query.where(visible_exams(user))
     return [{"id": e.id, "name": e.name, "status": e.status, "course_id": c.id,
              "course_name": c.name, "teacher_id": c.owner_id, "imported": bool(e.imported_questions), "time_limit": e.time_limit}
             for e, c in db.execute(query.order_by(Exam.created_at.desc()))]
@@ -187,7 +210,7 @@ def generate(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     if exam.status not in {"DRAFT", "GENERATED"}:
         fail(409, "DRAFT_REQUIRED", "Trả về bản nháp trước khi sinh lại đề")
     if not exam.blueprint:
-        fail(422, "BLUEPRINT_REQUIRED", "Cấu hình chủ đề, số câu và độ khó trong Môn học & đề thi")
+        fail(422, "BLUEPRINT_REQUIRED", "Cấu hình chủ đề, số câu và độ khó trong Ngân hàng đề thi")
     snapshot = build_snapshot(db, exam)
     if exam.imported_questions:
         criteria = snapshot["criteria"]
@@ -292,7 +315,7 @@ def office_approve(key: str, db: Session = Depends(get_db), user=Depends(exam_of
 def manual_grade(key: str, body: ManualGradeIn, db: Session = Depends(get_db), user=Depends(editor)):
     session = by_id(db, ExamSession, key, lock=True)
     exam = by_id(db, Exam, session.exam_id)
-    course_access(db, exam.course_id, user)
+    exam_access(db, exam, user)
     if session.deleted_at is not None or session.status not in {"REVIEW_REQUIRED", "COMPLETED"}:
         fail(409, "NOT_READY", "Chờ máy chủ chấm xong trước khi chấm lại")
     if db.scalar(select(ProcessingJob.id).join(Attempt).where(Attempt.session_id == key,

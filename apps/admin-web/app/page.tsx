@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { api, send, User } from "../components/api";
 import { Action, Form, Field } from "../components/shared";
+import Academic from "../components/academic";
 import Admin from "../components/admin";
 import Student from "../components/student";
 import GoogleLogin from "../components/google-login";
@@ -179,7 +180,16 @@ export default function Home() {
     ? [{ id: "student", label: "Bài thi của tôi", icon: GraduationCap }]
     : [
         { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
-        { id: "courses", label: "Môn học & đề thi", icon: BookOpen },
+        { id: "courses", label: "Môn học", icon: BookOpen },
+        { id: "exams", label: "Ngân hàng đề thi", icon: ClipboardCheck },
+        ...(["ADMIN", "EXAM_OFFICER"].includes(user.role)
+          ? [{ id: "departments", label: "Bộ môn", icon: BookOpen }]
+          : []),
+        {
+          id: "classes",
+          label: user.role === "TEACHER" ? "Lớp được phân công" : "Lớp học",
+          icon: GraduationCap,
+        },
         ...(["ADMIN", "EXAM_OFFICER", "TEACHER"].includes(user.role)
           ? [
               {
@@ -282,7 +292,9 @@ export default function Home() {
               </Action>
             </details>
           )}
-          {page === "storage" && user.role === "ADMIN" ? (
+          {["classes", "departments"].includes(page) ? (
+            <Academic key={page} user={user} page={page} />
+          ) : page === "storage" && user.role === "ADMIN" ? (
             <StorageManager />
           ) : page === "examination" && !isStudent ? (
             <Examination user={user} navigate={setPage} />

@@ -2,6 +2,37 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Bộ môn, lớp học và ngân hàng đề — 18/10/2026
+
+Kiểm tra trên dữ liệu tạm, PostgreSQL/pgvector trong container riêng và web production build local; không thao tác dữ liệu production.
+
+| Nhóm | Kết quả |
+| --- | --- |
+| Toàn bộ API trên PostgreSQL | **164 đạt**, không bỏ qua; gồm quyền lớp, snapshot đề/roster, lịch, nhập Excel nguyên tử, chấm lại và các ca khóa đồng thời |
+| Migration `0009 → 0010 → 0009 → 0010` | Đạt trên SQLite và PostgreSQL; kiểm thử nâng từ MVP giữ dữ liệu cũ, FK và điểm/transcript đạt |
+| Playwright Chromium | **18 đạt**, API/bridge desktop giả lập; 4 ca mới về bộ môn/lớp, quyền giáo viên, người dùng và ngân hàng đề |
+| ESLint, TypeScript, production build Next.js | Đạt |
+| Ruff theo phạm vi workflow CI và kiểm tra cú pháp Electron | Đạt; sửa các import/định dạng cũ khiến Ruff báo lỗi |
+| Node backend/retry, audio, desktop, screen | Đạt |
+| Kiểm tra giao diện | Xem ảnh trang Người dùng ở 1024×768; bảng, hai khối nhập Excel, tìm kiếm và lọc vai trò không tràn ngang |
+
+Các ca API mới xác nhận giáo viên không quản lý bộ môn/lớp hoặc xem/chấm lớp khác, đổi phân công thu hồi quyền ngay, đề nguồn duyệt vào ngân hàng không tự giao cho sinh viên, mỗi đợt có lịch/roster/điểm riêng, và thao tác gỡ môn legacy không xóa roster của lớp. Import lỗi rollback toàn bộ; nhập lại không nhân đôi thành viên. Xóa bộ môn/lớp đang có dữ liệu bị chặn; admin xóa toàn bộ môn dọn đủ cây lớp/đợt thi.
+
+18 ca trình duyệt chạy các file `academic`, `course-hotwords`, `course-management`, `retakes`, `storage-imports`, `exam-screen`, `timed-questions` và ca `staff web` trong `platform.spec.ts`. Bao gồm khôi phục màn hình, lỗi upload, mất response và lỗi refresh của các thay đổi đã có trong workspace. Không đồng nghĩa toàn bộ 85 ca E2E đã chạy; hai ca platform dùng backend thật chưa chạy trong lượt này. Không đánh giá độ chính xác STT/LLM thật hoặc phát hành bộ cài native.
+
+Chạy lại với PostgreSQL test riêng bằng `TEST_DATABASE_URL=... .venv/bin/python -m pytest services/api/tests -q`. Không trỏ biến này vào database đang sử dụng: fixture tạo/xóa bảng. Chạy UI sau khi build và mở web local:
+
+```bash
+E2E_BASE_URL=http://127.0.0.1:3100 npx playwright test \
+  tests/e2e/academic.spec.ts tests/e2e/course-hotwords.spec.ts \
+  tests/e2e/course-management.spec.ts tests/e2e/retakes.spec.ts \
+  tests/e2e/storage-imports.spec.ts tests/e2e/exam-screen.spec.ts \
+  tests/e2e/timed-questions.spec.ts tests/e2e/platform.spec.ts \
+  --grep-invert 'login, responsive|admin enrolls'
+```
+
+Nâng cấp server cần migration **0010** và web/API/worker đồng bộ. [Thiết kế và quy tắc dữ liệu](architecture/academic-classes.md).
+
 ## Bản sửa thiếu model và khôi phục chế độ thi — 12/10/2026
 
 Kiểm thử trên checkout cô lập; không thao tác bài thi hay dữ liệu production.

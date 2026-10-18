@@ -10,16 +10,26 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from . import processing, storage
 from . import schemas as s
-from . import storage, processing
 from .config import settings
 from .db import get_db
 from .examination import check_schedule, schedule_for
 from .grading import GradingError, check_config
-from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, ProcessingJob, Upload
+from .models import (
+    Assignment,
+    Attempt,
+    Audit,
+    Course,
+    CourseEnrollment,
+    Exam,
+    ExamSession,
+    ProcessingJob,
+    Upload,
+)
 from .practice import COURSE_ID
-from .retakes import ACTIVE, allowance, submission_history_row, submission_status, sessions_for
-from .security import by_id, course_access, current_user, fail
+from .retakes import ACTIVE, allowance, sessions_for, submission_history_row, submission_status
+from .security import by_id, current_user, exam_access, fail
 from .submissions import missing_stt_assessment, stt_skipped_reason
 from .worker import finalize
 
@@ -484,7 +494,7 @@ def evidence(key: str, request: Request, db: Session = Depends(get_db), user=Dep
     if session.student_id != user.id:
         if user.role == "STUDENT":
             fail(403, "FORBIDDEN", "Minh chứng không thuộc tài khoản")
-        course_access(db, by_id(db, Exam, session.exam_id).course_id, user)
+        exam_access(db, exam, user)
     if row.status != "COMPLETED":
         fail(409, "NOT_READY", "Evidence chưa sẵn sàng")
     start, end, status = 0, row.size - 1, 200

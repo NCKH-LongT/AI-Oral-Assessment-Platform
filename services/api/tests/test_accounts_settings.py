@@ -7,7 +7,7 @@ from test_mvp import ok, prepare
 
 from app import google_login, runtime_settings, worker
 from app.models import Exam, OAuthFlow, User
-from app.practice import COURSE_ID, EXAM_ID, ensure_practice
+from app.practice import EXAM_ID, ensure_practice
 
 
 @pytest.fixture

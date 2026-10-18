@@ -96,10 +96,9 @@ test("admin sees generated terms and confirms full course deletion with retry", 
   });
   await page.goto("/");
   await page
-    .getByRole("button", { name: "Môn học & đề thi", exact: true })
+    .getByRole("button", { name: "Ngân hàng đề thi", exact: true })
     .click();
   await page.getByRole("button", { name: /Software Testing/ }).click();
-  await page.getByRole("button", { name: "03 · Bài thi & giao bài" }).click();
   await page
     .getByRole("button", { name: "Sinh câu hỏi & rubric để review" })
     .click();
@@ -112,6 +111,8 @@ test("admin sees generated terms and confirms full course deletion with retry", 
   await expect(
     page.getByText("unit test: kiểm thử đơn vị", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Môn học", exact: true }).click();
+  await page.getByRole("button", { name: /Software Testing/ }).click();
   await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
   await page.getByRole("button", { name: "Xóa môn học", exact: true }).click();
   await expect(

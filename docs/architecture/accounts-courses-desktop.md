@@ -16,11 +16,15 @@ Tham khảo: [Google web-server OAuth](https://developers.google.com/identity/pr
 
 ## Môn mặc định và giao môn
 
-Bootstrap tạo idempotent môn **Luyện tập vấn đáp** và đề **Thi thử: Làm quen hệ thống** gồm hai câu hỏi có sẵn. Không gọi AI/Google khi tạo, không cần key để xem/thi thử. Desktop dùng Whisper-small với tiếng Việt/tiếng Anh. Trình duyệt dùng policy STT đã cấu hình; nếu chọn Whisper server thì server cần tải model lần đầu. Bài luyện tập lưu minh chứng và transcript nhưng không tính điểm chính thức. Sinh viên trên desktop và nhân sự có quyền trên web truy cập từ **Bài thi của tôi** hoặc **Học & thi thử**; môn được nhận diện bằng ID cố định, không dựa vào tên/mã có thể sửa.
+Chức năng **Học & thi thử** đã ngừng sử dụng; bootstrap không tạo lại môn/đề luyện tập. Sinh viên dùng desktop để mở các bài được giao. Đợt thi theo lớp dùng roster và lịch riêng; đề nguồn duyệt vào ngân hàng không tự xuất hiện cho sinh viên.
 
 ADMIN vào môn → **04 · Học viên**, tìm tài khoản và **Thêm vào môn học**. Bảng `course_enrollments` lưu thành viên môn; đề PUBLISHED có `workflow=false` được hiển thị theo đăng ký môn hoặc giao bài riêng. Đề có `workflow=true` yêu cầu sinh viên thuộc danh sách kỳ thi và vào thi đúng lịch. Học viên bấm **Làm mới bài thi** để tải danh sách. Đề nháp bị ẩn và API chặn truy cập. Xóa thành viên khỏi môn giữ nguyên kết quả/phiên thi đã tạo và assignment riêng. Quyền vào một môn chỉ áp dụng cho dữ liệu học tập của chính học viên. Xem [quy trình khảo thí](examination-workflow.md).
 
 Số lượt do chính sách từng đề và lượt cấp thêm quyết định. Học viên có thể mở kết quả cũ hoặc tạo lượt mới khi còn quyền; hệ thống giữ lịch sử các lần thi. Xem [quản lý lượt thi](exam-retakes.md) và [hướng dẫn sử dụng](../user-guide.md#xem-kết-quả-và-làm-lại).
+
+## Phân công theo lớp
+
+Admin/khảo thí quản lý bộ môn, lớp và phân công trực tiếp hoặc nhập Excel. Giáo viên được phân công có quyền xem/chấm bài của lớp đó, độc lập với chủ sở hữu môn. Các môn/đề cũ giữ cơ chế quyền theo môn. Xem [bộ môn, lớp học và ngân hàng đề](academic-classes.md).
 
 ## Giao diện quản lý
 
@@ -55,6 +59,6 @@ Giao diện local chuyển tiếp `/api` tới backend đã chọn, kiểm tra o
 
 `users.email` lưu email, Google `sub` là định danh duy nhất; bảng OAuth flow quản lý phiên đăng nhập và `course_enrollments` quản lý thành viên môn. Middleware API ghi request ID/method/path/status, giữ query OAuth ngoài access log Docker.
 
-Bộ cài desktop chứa runtime STT, FFmpeg và Whisper-small CPU INT8. Desktop gửi media gốc và transcript local để server chấm bằng Ollama/Gemini. Hướng dẫn: [Desktop đa nền tảng](../desktop-build.md).
+Bộ cài desktop chứa runtime STT, FFmpeg và Whisper-small CPU INT8. Bài thi mới gửi media gốc để hàng đợi server nhận dạng và chấm bằng Ollama/Gemini; STT local còn dùng cho bài thử thiết bị và tương thích client cũ. Hướng dẫn: [Desktop đa nền tảng](../desktop-build.md).
 
 Transcript tự động gửi lên server để chấm; giảng viên xem/nghe minh chứng đã upload khi review bài. Xem [kiểm tra transcript](../transcript-correction.md).

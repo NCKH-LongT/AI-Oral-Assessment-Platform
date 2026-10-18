@@ -90,7 +90,7 @@ def template(kind: str, course_id: str | None = None, db: Session = Depends(get_
         headers={"Content-Disposition": f'attachment; filename="{kind}-template.xlsx"'})
 
 
-def parse(file, kind):
+def parse(file, kind, custom_headers=None):
     if not (file.filename or "").lower().endswith(".xlsx"):
         fail(422, "EXCEL_TYPE", "Chọn file .xlsx theo mẫu")
     raw = file.file.read(2 * 1024 * 1024 + 1)
@@ -103,7 +103,7 @@ def parse(file, kind):
         book = load_workbook(io.BytesIO(raw), read_only=True, data_only=False, keep_links=False)
         try:
             sheet = book["Data"] if "Data" in book.sheetnames else book.active
-            headers = SPECS[kind][0]
+            headers = custom_headers if custom_headers is not None else SPECS[kind][0]
             limit = 200 if kind in {"teachers", "officers"} else 1000
             if (sheet.max_row or 0) > limit + 1 or (sheet.max_column or 0) > len(headers):
                 fail(422, "EXCEL_DIMENSIONS", f"Tối đa {limit} dòng và đúng số cột trong mẫu")

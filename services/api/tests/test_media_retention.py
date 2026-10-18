@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from test_mvp import ok
 from test_storage_management import completed
+
 from app import media_retention, storage, worker
 from app.models import Attempt, ExamSession, MediaCleanup, ProcessingJob, ReviewJob, Upload
 
@@ -12,7 +13,9 @@ def test_new_submission_cleans_only_older_media_and_keeps_scores(env):
         original = db.get(ExamSession, old["id"])
         latest = ExamSession(exam_id=original.exam_id, student_id=original.student_id,
             attempt_number=2, status="IN_PROGRESS")
-        db.add(latest); db.commit(); newest_id = latest.id
+        db.add(latest)
+        db.commit()
+        newest_id = latest.id
     assert not media_retention.tick(factory)  # An unfinished retake cannot erase evidence.
     with factory() as db:
         db.get(ExamSession, newest_id).status = "SUBMITTED"
@@ -40,13 +43,17 @@ def test_retention_waits_for_reviews_and_server_jobs(env):
         db.add(ExamSession(exam_id=original.exam_id, student_id=original.student_id,
                           attempt_number=2, status="COMPLETED"))
         job = ProcessingJob(attempt_id=aid, status="QUEUED_STT", policy={"provider": "local_server"})
-        db.add(job); db.commit(); jid = job.id
+        db.add(job)
+        db.commit()
+        jid = job.id
     assert not media_retention.tick(factory)
     with factory() as db:
         db.get(ProcessingJob, jid).status = "COMPLETED"
         review = ReviewJob(attempt_id=aid, requested_by=ok(clients["admin"].get("/auth/me"))["id"],
                           reason="Review original audio", policy={"provider": "google"}, original={})
-        db.add(review); db.commit(); rid = review.id
+        db.add(review)
+        db.commit()
+        rid = review.id
     assert not media_retention.tick(factory)
     with factory() as db:
         assert db.get(Upload, evidence["id"])

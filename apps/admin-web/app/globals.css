@@ -1487,3 +1487,116 @@ fieldset label {
 .results-filters > label {
   min-width: 0;
 }
+
+/* Dense management views; exam recording retains its existing layout. */
+.app-shell .sidebar {
+  padding: 20px 14px 0;
+  overflow-y: auto;
+}
+.app-shell .sidebar .brand {
+  margin-bottom: 24px;
+}
+.app-shell .nav-item {
+  padding: 10px;
+  margin: 2px 0;
+  gap: 9px;
+}
+.app-shell .sidebar-note {
+  margin-bottom: 12px;
+  padding: 10px;
+}
+.app-shell .content {
+  padding: 24px;
+}
+.app-shell .topbar {
+  height: 56px;
+  padding: 0 24px;
+}
+.app-shell .page-heading {
+  margin-bottom: 20px;
+}
+.app-shell .page-heading h1 {
+  font-size: 26px;
+}
+.app-shell .panel {
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.app-shell .tabs {
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.user-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.user-toolbar input {
+  flex: 1 1 240px;
+}
+.user-toolbar select {
+  width: auto;
+  min-width: 160px;
+}
+.compact-users td,
+.compact-users th {
+  padding: 9px 12px;
+}
+.compact-users .inline {
+  margin: 0;
+  gap: 8px;
+}
+.compact-users .inline select {
+  width: auto;
+  min-width: 135px;
+  padding: 7px;
+}
+.compact-users .inline .button {
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+.compact-users .avatar {
+  width: 28px;
+  height: 28px;
+}
+.block {
+  display: block;
+}
+.bank-filters {
+  margin: 16px 0;
+}
+@media (max-width: 680px) {
+  .app-shell .content {
+    padding: 16px;
+  }
+  .app-shell .sidebar .brand {
+    margin-bottom: 0;
+  }
+  .app-shell .panel {
+    padding: 12px;
+  }
+  .user-toolbar > * {
+    width: 100%;
+  }
+}
+
+.app-shell details.panel {
+  margin-top: 0;
+}
+.user-imports {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.app-shell .user-imports .panel {
+  padding: 12px 16px;
+}
+@media (max-width: 680px) {
+  .user-imports {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

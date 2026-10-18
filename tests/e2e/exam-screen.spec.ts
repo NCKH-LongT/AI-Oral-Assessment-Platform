@@ -11,6 +11,7 @@ for (const incident of ["WINDOW_BLUR", "DISPLAY_CHANGED"]) {
         end: 0,
         captures: 0,
         interrupt: () => eventListener?.(incident),
+        listening: () => !!eventListener,
       };
       (window as unknown as { screenProbe: typeof probe }).screenProbe = probe;
       window.oralDesktop = {
@@ -45,7 +46,7 @@ for (const incident of ["WINDOW_BLUR", "DISPLAY_CHANGED"]) {
     }, incident);
     const events: string[] = [];
     const order: string[] = [];
-    let failedUpload = false;
+    let failedUploads = 0;
     const session = {
       id: "s",
       exam_id: "e",
@@ -96,8 +97,7 @@ for (const incident of ["WINDOW_BLUR", "DISPLAY_CHANGED"]) {
         const body = r.request().postDataJSON();
         expect(body.kind).toBe("SCREEN");
         expect(body.size).toBeGreaterThan(0);
-        if (!failedUpload) {
-          failedUpload = true;
+        if (failedUploads++ < 3) {
           return r.fulfill({
             status: 503,
             json: { error: { message: "Mạng tạm lỗi" } },
@@ -124,7 +124,7 @@ for (const incident of ["WINDOW_BLUR", "DISPLAY_CHANGED"]) {
     });
     await page.goto("/");
     await expect(
-      page.getByRole("button", { name: "Môn học & đề thi", exact: true }),
+      page.getByRole("button", { name: "Môn học", exact: true }),
     ).toHaveCount(0);
     await page
       .getByRole("button", { name: "Mở bài thi →", exact: true })
@@ -142,6 +142,15 @@ for (const incident of ["WINDOW_BLUR", "DISPLAY_CHANGED"]) {
     await expect(
       page.getByText("● Đang ghi toàn màn hình", { exact: true }),
     ).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (
+            window as unknown as { screenProbe: { listening: () => boolean } }
+          ).screenProbe.listening(),
+        ),
+      )
+      .toBe(true);
     if (incident === "DISPLAY_CHANGED") await page.waitForTimeout(1200);
     await page.evaluate(() =>
       (
@@ -169,7 +178,7 @@ for (const incident of ["WINDOW_BLUR", "DISPLAY_CHANGED"]) {
       await page
         .getByRole("button", { name: "Nộp bài thi", exact: true })
         .click();
-    await expect(page.getByText("Mạng tạm lỗi", { exact: true })).toBeVisible();
+    await expect(page.getByText(/Mạng tạm lỗi.*HTTP 503/)).toBeVisible();
     expect(order).not.toContain("finish");
     await page.getByRole("button", { name: "Tải lại", exact: true }).click();
     await expect.poll(() => order).toContain("screen-complete");

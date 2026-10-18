@@ -112,10 +112,9 @@ test("admin sets limits, reviews sittings, grants extra attempts and deletes onl
   });
   await page.goto("/");
   await page
-    .getByRole("button", { name: "Môn học & đề thi", exact: true })
+    .getByRole("button", { name: "Ngân hàng đề thi", exact: true })
     .click();
   await page.getByRole("button", { name: /Retake course/ }).click();
-  await page.getByRole("button", { name: "03 · Bài thi & giao bài" }).click();
   for (const [mode, expected] of [
     ["limited", 3],
     ["unlimited", null],

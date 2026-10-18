@@ -150,3 +150,24 @@ def cookies(response, access, refresh):
         samesite="lax",
         max_age=cfg.refresh_days * 86400,
     )
+
+
+def exam_access(db, exam, user):
+    if exam.class_id:
+        from .academic import class_access
+        class_access(db, exam.class_id, user)
+    else:
+        course_access(db, exam.course_id, user)
+    return exam
+
+
+def visible_exams(user):
+    from sqlalchemy import and_, or_
+
+    from .models import Course, Exam, TeachingClass
+    if user.role != "TEACHER":
+        return True
+    return or_(
+        and_(Exam.class_id.is_(None), Exam.course_id.in_(select(Course.id).where(Course.owner_id == user.id))),
+        Exam.class_id.in_(select(TeachingClass.id).where(TeachingClass.teacher_id == user.id)),
+    )

@@ -10,11 +10,22 @@ from types import SimpleNamespace
 
 from sqlalchemy import select
 
-from . import ai, runtime_settings, speech, storage, processing, media_retention
+from . import ai, media_retention, processing, runtime_settings, speech, storage
 from .db import SessionLocal
 from .documents import process_document
 from .grading import check_config, failure, review_question, score_summary
-from .models import Attempt, Audit, Chunk, Document, Exam, ExamSession, MediaCleanup, ProcessingJob, ReviewJob, Upload
+from .models import (
+    Attempt,
+    Audit,
+    Chunk,
+    Document,
+    Exam,
+    ExamSession,
+    MediaCleanup,
+    ProcessingJob,
+    ReviewJob,
+    Upload,
+)
 
 log = logging.getLogger("oral.worker")
 

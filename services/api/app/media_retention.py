@@ -6,7 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import aliased
 
-from .models import Attempt, Audit, ExamSession, ProcessingJob, Upload
+from .models import Audit, ExamSession, ProcessingJob, Upload
 from .processing import ACTIVE
 from .storage_management import enqueue_media, load_selection
 

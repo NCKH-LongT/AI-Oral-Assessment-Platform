@@ -47,7 +47,7 @@ export default function ExamDraftReview({
   if (!draft.snapshot)
     return (
       <p>
-        Giảng viên cấu hình số câu và độ khó trong Môn học & đề thi, sau đó sinh
+        Giảng viên cấu hình số câu và độ khó trong Ngân hàng đề thi, sau đó sinh
         đề.
       </p>
     );

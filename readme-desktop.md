@@ -162,7 +162,10 @@ Bộ cài chưa có auto-update, code signing hoặc notarization. Chi tiết bu
 | STT bài thử thiết bị quá thời gian | Đóng tác vụ đang dùng nhiều CPU, thử câu trả lời ngắn hơn |
 | Có nhiều màn hình | Dùng Chuẩn bị màn hình hoặc Settings → Displays như hướng dẫn bên dưới |
 | Upload chưa xong | Giữ app mở, kiểm tra mạng và thử tải lại minh chứng |
+| Không kết nối được backend Online / kết nối bị gián đoạn khi nộp | App thử lại tối đa 3 lần cho request nộp/upload an toàn, giữ nguyên mã chống trùng. Nếu vẫn lỗi, giữ app mở và bấm Nộp câu trả lời & tiếp tục hoặc Tải lại. Gửi kèm đường dẫn request, HTTP và mã tra cứu trong thông báo để kiểm tra log |
 | Đề không xuất hiện | Kiểm tra backend, email, danh sách được giao và lịch thi |
+
+Lỗi `BACKEND_UNREACHABLE`/`BACKEND_TIMEOUT` phát sinh tại lớp proxy của desktop khi không nhận được phản hồi từ server. Log terminal chạy app hoặc web local có dòng `oral_backend_request_failed`, mã tra cứu và loại lỗi mạng; không ghi token hay nội dung câu trả lời. Bản ghi được giữ trong phiên app để thử lại nếu lấy trạng thái sau upload thất bại. Đóng cưỡng bức hoặc tải lại app có thể làm mất bản ghi chưa tải lên.
 
 ## Môn luyện nói TOEIC
 
@@ -197,3 +200,7 @@ API dành cho người làm bài (`/exams/available`, `/exam-sessions` và các 
 ### Dọn bản ghi của lần thi cũ
 
 Worker tự xóa audio/video/các đoạn màn hình của những lần cũ khi đã có lần nộp mới hơn của **cùng sinh viên và cùng đề**. Chỉ dọn khi bài cũ đã kết thúc và không còn tác vụ STT/chấm/chấm lại; bài mới đang làm chưa kích hoạt dọn. Điểm, transcript, số lượt và lịch sử đối chiếu vẫn giữ. File được xóa qua hàng đợi có thử lại khi storage lỗi. Quy tắc áp dụng cả các lần cũ đang có sau khi triển khai; bản ghi đã dọn không xem hoặc nhận dạng lại được.
+
+## Đợt thi theo lớp
+
+Từ bản cập nhật bộ môn/lớp (`0010`), admin/khảo thí phân sinh viên vào lớp và tạo đợt từ ngân hàng đề. Sinh viên chỉ thấy đợt được giao và chỉ mở bài trong lịch của đợt; đề nguồn trong ngân hàng không phải bài thi được giao. Mỗi đợt có lượt thi riêng, kể cả dùng cùng bộ câu hỏi. Thêm vào lớp sau khi đã tạo đợt không tự thêm vào danh sách đợt cũ; liên hệ khảo thí kiểm tra danh sách/lịch. Desktop tiếp tục gửi bài cho server xử lý và không hiển thị điểm. [Hướng dẫn lớp học](docs/user-guide.md#bộ-môn-lớp-học-và-đợt-thi).

@@ -84,6 +84,7 @@ export default function Admin({
     [review, setReview] = useState<Review | null>(null),
     [query, setQuery] = useState(""),
     [showCreate, setShowCreate] = useState(false);
+  const [userRole, setUserRole] = useState("");
   const [resultFilters, setResultFilters] = useState(initialResultFilters);
   const editable = user.role === "ADMIN" || user.role === "TEACHER";
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
@@ -123,10 +124,12 @@ export default function Admin({
   }, [page, load, review?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (loading) return <Empty>Đang tải dữ liệu…</Empty>;
   if (page === "settings" && user.role === "ADMIN") return <PlatformSettings />;
-  if (selected && page === "courses")
+  if (selected && ["courses", "exams"].includes(page))
     return (
       <CourseWorkspace
         course={selected}
+        bankMode={page === "exams"}
+        officer={["ADMIN", "EXAM_OFFICER"].includes(user.role)}
         students={users}
         admin={user.role === "ADMIN"}
         editable={editable}
@@ -277,18 +280,20 @@ export default function Admin({
           </section>
         </>
       )}
-      {page === "courses" && (
+      {["courses", "exams"].includes(page) && (
         <>
-          <ExcelImport kind="courses" saved={load} />
+          {page === "courses" && <ExcelImport kind="courses" saved={load} />}
           <div className="page-heading">
             <div>
               <span className="eyebrow">THIẾT KẾ VIỆC ĐÁNH GIÁ</span>
-              <h1>Môn học & đề thi</h1>
+              <h1>{page === "exams" ? "Ngân hàng đề thi" : "Môn học"}</h1>
               <p className="muted">
-                Tổ chức kiến thức, tiêu chí và bài thi trong từng môn học.
+                {page === "exams"
+                  ? "Chọn môn để quản lý đề, category và rubric."
+                  : "Quản lý tài liệu, chuẩn đầu ra và học viên theo môn."}
               </p>
             </div>
-            {editable && (
+            {editable && page === "courses" && (
               <button
                 className="button"
                 onClick={() => setShowCreate(!showCreate)}
@@ -381,12 +386,6 @@ export default function Admin({
       ) : (
         page === "users" && (
           <>
-            {user.role === "ADMIN" && (
-              <>
-                <ExcelImport kind="teachers" saved={load} />
-                <ExcelImport kind="officers" saved={load} />
-              </>
-            )}
             <div className="page-heading">
               <div>
                 <span className="eyebrow">CON NGƯỜI & VAI TRÒ</span>
@@ -405,6 +404,12 @@ export default function Admin({
                 </button>
               )}
             </div>
+            {user.role === "ADMIN" && (
+              <div className="user-imports">
+                <ExcelImport kind="teachers" saved={load} />
+                <ExcelImport kind="officers" saved={load} />
+              </div>
+            )}
             {showCreate && (
               <section className="panel">
                 <Form
@@ -452,7 +457,37 @@ export default function Admin({
                 </Form>
               </section>
             )}
-            <section className="panel table-wrap">
+            <div className="user-toolbar">
+              <input
+                aria-label="Tìm người dùng"
+                placeholder="Tìm tên, email hoặc tài khoản…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <select
+                aria-label="Lọc vai trò"
+                value={userRole}
+                onChange={(e) => setUserRole(e.target.value)}
+              >
+                <option value="">Tất cả vai trò</option>
+                {["STUDENT", "TEACHER", "EXAM_OFFICER", "ADMIN"].map((r) => (
+                  <option key={r}>{r}</option>
+                ))}
+              </select>
+              <small>
+                {
+                  users.filter(
+                    (u) =>
+                      (!userRole || u.role === userRole) &&
+                      `${u.name} ${u.email || ""} ${u.username}`
+                        .toLowerCase()
+                        .includes(query.toLowerCase()),
+                  ).length
+                }{" "}
+                tài khoản
+              </small>
+            </div>
+            <section className="panel table-wrap compact-users">
               <table>
                 <thead>
                   <tr>
@@ -462,40 +497,50 @@ export default function Admin({
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id}>
-                      <td>
-                        <span className="user-cell">
-                          <span className="avatar">
-                            <Users size={16} />
+                  {users
+                    .filter(
+                      (u) =>
+                        (!userRole || u.role === userRole) &&
+                        `${u.name} ${u.email || ""} ${u.username}`
+                          .toLowerCase()
+                          .includes(query.toLowerCase()),
+                    )
+                    .map((u) => (
+                      <tr key={u.id}>
+                        <td>
+                          <span className="user-cell">
+                            <span className="avatar">
+                              <Users size={16} />
+                            </span>
+                            {u.role === "STUDENT" ? (
+                              <button
+                                className="text-button"
+                                onClick={() => setSelectedStudent(u)}
+                              >
+                                {u.name}
+                              </button>
+                            ) : (
+                              u.name
+                            )}
                           </span>
-                          {u.role === "STUDENT" ? (
-                            <button
-                              className="text-button"
-                              onClick={() => setSelectedStudent(u)}
-                            >
-                              {u.name}
-                            </button>
-                          ) : (
-                            u.name
+                        </td>
+                        <td>{u.email || u.username}</td>
+                        <td>
+                          {user.role !== "ADMIN" && (
+                            <span className="pill">{u.role}</span>
                           )}
-                        </span>
-                      </td>
-                      <td>{u.email || u.username}</td>
-                      <td>
-                        <span className="pill">{u.role}</span>
-                        {user.role === "ADMIN" && (
-                          <RoleEditor
-                            user={u}
-                            saved={async () => {
-                              await load();
-                              if (u.id === user.id) window.location.reload();
-                            }}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                          {user.role === "ADMIN" && (
+                            <RoleEditor
+                              user={u}
+                              saved={async () => {
+                                await load();
+                                if (u.id === user.id) window.location.reload();
+                              }}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </section>
@@ -600,24 +645,30 @@ function ResultTable({
 function CourseWorkspace({
   admin,
   course,
+  bankMode = false,
+  officer = false,
   students,
   editable,
   back,
 }: {
   admin: boolean;
   course: Course;
+  bankMode?: boolean;
+  officer?: boolean;
   students: User[];
   editable: boolean;
   back: () => void;
 }) {
   const [data, setData] = useState<Workspace | null>(null),
-    [tab, setTab] = useState("knowledge"),
+    [tab, setTab] = useState(bankMode ? "exams" : "knowledge"),
     [knowledgeTab, setKnowledgeTab] = useState("textbook"),
     [rubricOpen, setRubricOpen] = useState(false),
     [examOpen, setExamOpen] = useState(false),
     [deleteCourseOpen, setDeleteCourseOpen] = useState(false),
     [error, setError] = useState(""),
     [rag, setRag] = useState<Chunk[] | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState(""),
+    [rubricFilter, setRubricFilter] = useState("");
   const [editRubric, setEditRubric] = useState<Rubric | null>(null),
     [editExam, setEditExam] = useState<Exam | null>(null),
     [formVersion, setFormVersion] = useState(0);
@@ -656,18 +707,22 @@ function CourseWorkspace({
         {[
           { id: "knowledge", label: "01 · Kiến thức" },
           { id: "rubric", label: "02 · Rubric" },
-          { id: "exams", label: "03 · Bài thi & giao bài" },
+          { id: "exams", label: "Ngân hàng đề thi" },
           { id: "students", label: "04 · Học viên" },
           { id: "settings", label: "Cài đặt" },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={tab === t.id ? "active" : ""}
-          >
-            {t.label}
-          </button>
-        ))}
+        ]
+          .filter((t) =>
+            bankMode ? ["exams", "rubric"].includes(t.id) : t.id !== "exams",
+          )
+          .map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={tab === t.id ? "active" : ""}
+            >
+              {t.label}
+            </button>
+          ))}
       </div>
       {tab === "students" && (
         <CourseStudents courseId={course.id} users={students} admin={admin} />
@@ -1013,183 +1068,269 @@ function CourseWorkspace({
           {(!data.rubrics.length || !data.topics.length) && (
             <p className="muted">Thêm chủ đề và rubric trước khi tạo đề thi.</p>
           )}
-          {data.exams.map((e) => (
-            <section className="panel" key={e.id}>
-              <div className="section-title">
-                <div>
-                  <h2>{e.name}</h2>
-                  <p className="muted">
-                    {e.blueprint.reduce((n, b) => n + b.count, 0)} câu ·{" "}
-                    {Math.round(e.time_limit / 60)} phút
-                  </p>
-                </div>
-                <Badge status={e.status} />
-              </div>
-              <p className="muted">
-                Rubric: {data.rubrics.find((r) => r.id === e.rubric_id)?.name}
-              </p>
-              <details>
-                <summary>Xem phân bổ câu hỏi</summary>
-                <ul>
-                  {e.blueprint.map((b, i) => (
-                    <li key={i}>
-                      {data.topics.find((t) => t.id === b.topic_id)?.name ||
-                        "Chủ đề đã xóa"}
-                      {" · "}
-                      {
-                        { EASY: "Dễ", MEDIUM: "Trung bình", HARD: "Khó" }[
-                          b.difficulty
-                        ]
-                      }
-                      {" · "}
-                      {b.count} câu
-                    </li>
+          <div className="form-grid bank-filters">
+            <label>
+              Category
+              <select
+                aria-label="Category"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="">Tất cả category</option>
+                {Array.from(
+                  new Set(
+                    data.exams.map((e) => e.category || "Chưa phân loại"),
+                  ),
+                )
+                  .sort()
+                  .map((c) => (
+                    <option key={c}>{c}</option>
                   ))}
-                </ul>
-              </details>
-              <p className="muted">
-                {e.max_attempts === null
-                  ? "Làm lại không giới hạn"
-                  : (e.max_attempts ?? 1) === 1
-                    ? "Không cho làm lại"
-                    : `Cho làm lại ${e.max_attempts - 1} lần`}
-              </p>
-              {admin && (
-                <AttemptPolicy
-                  key={`${e.id}-${e.max_attempts}`}
-                  examId={e.id}
-                  initial={e.max_attempts === undefined ? 1 : e.max_attempts}
-                  saved={load}
-                />
-              )}
-              {editable && e.status === "DRAFT" && (
-                <div className="inline">
-                  <Action
-                    action={() => mutate(`/admin/exams/${e.id}/generate`)}
+              </select>
+            </label>
+            <label>
+              Rubric
+              <select
+                aria-label="Rubric"
+                value={rubricFilter}
+                onChange={(e) => setRubricFilter(e.target.value)}
+              >
+                <option value="">Tất cả rubric</option>
+                {data.rubrics.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {data.exams
+            .filter(
+              (e) =>
+                (!categoryFilter ||
+                  (e.category || "Chưa phân loại") === categoryFilter) &&
+                (!rubricFilter || e.rubric_id === rubricFilter),
+            )
+            .map((e) => (
+              <section className="panel" key={e.id}>
+                <div className="section-title">
+                  <div>
+                    <h2>{e.name}</h2>
+                    <p className="muted">
+                      {e.blueprint.reduce((n, b) => n + b.count, 0)} câu ·{" "}
+                      {Math.round(e.time_limit / 60)} phút
+                    </p>
+                  </div>
+                  <Badge status={e.status} />
+                </div>
+                <p className="muted">
+                  Rubric: {data.rubrics.find((r) => r.id === e.rubric_id)?.name}
+                </p>
+                <details>
+                  <summary>Category: {e.category || "Chưa phân loại"}</summary>
+                  <Form
+                    label="Lưu category"
+                    onSubmit={async (d) => {
+                      await mutate(
+                        `/admin/exams/${e.id}/category`,
+                        { category: d.get("category") },
+                        "PUT",
+                      );
+                    }}
                   >
-                    {e.imported
-                      ? "Tạo bản nháp từ câu hỏi đã nhập"
-                      : "Sinh câu hỏi & rubric để review"}
-                  </Action>
-                  <button
+                    <Field
+                      label="Category của đề"
+                      name="category"
+                      defaultValue={e.category || ""}
+                      required={false}
+                    />
+                  </Form>
+                </details>
+                <details>
+                  <summary>Xem phân bổ câu hỏi</summary>
+                  <ul>
+                    {e.blueprint.map((b, i) => (
+                      <li key={i}>
+                        {data.topics.find((t) => t.id === b.topic_id)?.name ||
+                          "Chủ đề đã xóa"}
+                        {" · "}
+                        {
+                          { EASY: "Dễ", MEDIUM: "Trung bình", HARD: "Khó" }[
+                            b.difficulty
+                          ]
+                        }
+                        {" · "}
+                        {b.count} câu
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+                <p className="muted">
+                  {e.max_attempts === null
+                    ? "Làm lại không giới hạn"
+                    : (e.max_attempts ?? 1) === 1
+                      ? "Không cho làm lại"
+                      : `Cho làm lại ${e.max_attempts - 1} lần`}
+                </p>
+                {admin && (
+                  <AttemptPolicy
+                    key={`${e.id}-${e.max_attempts}`}
+                    examId={e.id}
+                    initial={e.max_attempts === undefined ? 1 : e.max_attempts}
+                    saved={load}
+                  />
+                )}
+                {editable && e.status === "DRAFT" && (
+                  <div className="inline">
+                    <Action
+                      action={() => mutate(`/admin/exams/${e.id}/generate`)}
+                    >
+                      {e.imported
+                        ? "Tạo bản nháp từ câu hỏi đã nhập"
+                        : "Sinh câu hỏi & rubric để review"}
+                    </Action>
+                    <button
+                      className="button secondary"
+                      onClick={() => {
+                        setEditExam(e);
+                        setExamOpen(true);
+                      }}
+                    >
+                      Sửa bản nháp
+                    </button>
+                    <Action
+                      className="text-button danger"
+                      action={async () => {
+                        if (!window.confirm(`Xóa đề nháp “${e.name}”?`)) return;
+                        await mutate(
+                          `/admin/exams/${e.id}`,
+                          undefined,
+                          "DELETE",
+                        );
+                        if (editExam?.id === e.id) setEditExam(null);
+                      }}
+                    >
+                      Xóa
+                    </Action>
+                  </div>
+                )}
+                {editable && (
+                  <Action
                     className="button secondary"
-                    onClick={() => {
-                      setEditExam(e);
+                    disabled={course.status !== "ACTIVE"}
+                    action={async () => {
+                      const copy = await send<Exam>(
+                        `/admin/exams/${e.id}/copy`,
+                      );
+                      await load();
+                      setEditExam(copy);
                       setExamOpen(true);
                     }}
                   >
-                    Sửa bản nháp
-                  </button>
-                  <Action
-                    className="text-button danger"
-                    action={async () => {
-                      if (!window.confirm(`Xóa đề nháp “${e.name}”?`)) return;
-                      await mutate(`/admin/exams/${e.id}`, undefined, "DELETE");
-                      if (editExam?.id === e.id) setEditExam(null);
-                    }}
-                  >
-                    Xóa
+                    Sao chép thành bản nháp
                   </Action>
-                </div>
-              )}
-              {editable && (
-                <Action
-                  className="button secondary"
-                  disabled={course.status !== "ACTIVE"}
-                  action={async () => {
-                    const copy = await send<Exam>(`/admin/exams/${e.id}/copy`);
-                    await load();
-                    setEditExam(copy);
-                    setExamOpen(true);
-                  }}
-                >
-                  Sao chép thành bản nháp
-                </Action>
-              )}
-              {["GENERATED", "TEACHER_APPROVED"].includes(e.status) && (
-                <ExamDraftReview
-                  key={`${e.id}-${e.status}`}
-                  examId={e.id}
-                  editable={editable}
-                  refresh={load}
-                />
-              )}
-              {e.status === "TEACHER_APPROVED" && (
-                <p>Khảo thí kiểm tra đề và xếp lịch trong Điều phối kỳ thi.</p>
-              )}
-              {e.status === "PUBLISHED" && (
-                <>
-                  <p className="muted">
-                    Đề đã công bố được giữ nguyên để bảo toàn kết quả. Sao chép
-                    thành bản nháp để chỉnh sửa.
-                  </p>
-                  <div className="generated-questions">
-                    <h3>Câu hỏi & thuật ngữ tiếng Anh gợi ý</h3>
-                    {(e.questions || []).map((question, index) => (
-                      <article key={index} className="generated-question">
-                        <h4>
-                          Câu {index + 1}: {question.text}
-                        </h4>
-                        <p className="muted">
-                          Chuẩn bị {question.preparation_seconds ?? 10} giây ·
-                          Trả lời tối đa {question.recording_seconds ?? 60} giây
-                        </p>
-                        {question.english_terms?.length ? (
-                          <ul>
-                            {question.english_terms.map(({ term, meaning }) => (
-                              <li key={term}>
-                                <strong lang="en">{term}</strong>: {meaning}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="muted">
-                            Chưa có gợi ý thuật ngữ cho câu hỏi này.
-                          </p>
-                        )}
-                      </article>
-                    ))}
-                    <p className="muted">
-                      Gợi ý do AI sinh để giảng viên kiểm tra. Đề cũ và chế độ
-                      demo có thể chưa có thuật ngữ.
+                )}
+                {["GENERATED", "TEACHER_APPROVED"].includes(e.status) && (
+                  <ExamDraftReview
+                    key={`${e.id}-${e.status}`}
+                    examId={e.id}
+                    editable={editable}
+                    refresh={load}
+                  />
+                )}
+                {e.status === "TEACHER_APPROVED" && (
+                  <div className="notice">
+                    <p>
+                      Khảo thí duyệt vào ngân hàng để sử dụng cho các lớp. Đề đã
+                      có danh sách thi tiếp tục xếp lịch trong Điều phối kỳ thi.
                     </p>
-                  </div>
-                </>
-              )}
-              {editable && e.status === "PUBLISHED" && !e.workflow && (
-                <details>
-                  <summary>Giao riêng đề này cho học viên</summary>
-                  <Form
-                    label="Giao bài cho sinh viên đã chọn"
-                    onSubmit={(d) =>
-                      mutate(`/admin/exams/${e.id}/assign`, {
-                        student_ids: d.getAll("student_ids"),
-                      })
-                    }
-                  >
-                    <label>Sinh viên</label>
-                    <div className="check-grid">
-                      {students.map((u) => (
-                        <label className="check" key={u.id}>
-                          <input
-                            type="checkbox"
-                            name="student_ids"
-                            value={u.id}
-                          />
-                          {u.name} <small>{u.username}</small>
-                        </label>
-                      ))}
-                    </div>
-                    {!students.length && (
-                      <p className="muted">
-                        Quản trị viên cần tạo tài khoản sinh viên trước.
-                      </p>
+                    {officer && (
+                      <Action
+                        action={() =>
+                          mutate(`/admin/exams/${e.id}/bank-approve`)
+                        }
+                      >
+                        Duyệt vào ngân hàng đề
+                      </Action>
                     )}
-                  </Form>
-                </details>
-              )}
-            </section>
-          ))}
+                  </div>
+                )}
+                {e.status === "PUBLISHED" && (
+                  <>
+                    <p className="muted">
+                      Đề đã công bố được giữ nguyên để bảo toàn kết quả. Sao
+                      chép thành bản nháp để chỉnh sửa.
+                    </p>
+                    <div className="generated-questions">
+                      <h3>Câu hỏi & thuật ngữ tiếng Anh gợi ý</h3>
+                      {(e.questions || []).map((question, index) => (
+                        <article key={index} className="generated-question">
+                          <h4>
+                            Câu {index + 1}: {question.text}
+                          </h4>
+                          <p className="muted">
+                            Chuẩn bị {question.preparation_seconds ?? 10} giây ·
+                            Trả lời tối đa {question.recording_seconds ?? 60}{" "}
+                            giây
+                          </p>
+                          {question.english_terms?.length ? (
+                            <ul>
+                              {question.english_terms.map(
+                                ({ term, meaning }) => (
+                                  <li key={term}>
+                                    <strong lang="en">{term}</strong>: {meaning}
+                                  </li>
+                                ),
+                              )}
+                            </ul>
+                          ) : (
+                            <p className="muted">
+                              Chưa có gợi ý thuật ngữ cho câu hỏi này.
+                            </p>
+                          )}
+                        </article>
+                      ))}
+                      <p className="muted">
+                        Gợi ý do AI sinh để giảng viên kiểm tra. Đề cũ và chế độ
+                        demo có thể chưa có thuật ngữ.
+                      </p>
+                    </div>
+                  </>
+                )}
+                {editable && e.status === "PUBLISHED" && !e.workflow && (
+                  <details>
+                    <summary>Giao riêng đề này cho học viên</summary>
+                    <Form
+                      label="Giao bài cho sinh viên đã chọn"
+                      onSubmit={(d) =>
+                        mutate(`/admin/exams/${e.id}/assign`, {
+                          student_ids: d.getAll("student_ids"),
+                        })
+                      }
+                    >
+                      <label>Sinh viên</label>
+                      <div className="check-grid">
+                        {students.map((u) => (
+                          <label className="check" key={u.id}>
+                            <input
+                              type="checkbox"
+                              name="student_ids"
+                              value={u.id}
+                            />
+                            {u.name} <small>{u.username}</small>
+                          </label>
+                        ))}
+                      </div>
+                      {!students.length && (
+                        <p className="muted">
+                          Quản trị viên cần tạo tài khoản sinh viên trước.
+                        </p>
+                      )}
+                    </Form>
+                  </details>
+                )}
+              </section>
+            ))}
           {editable && examOpen && (
             <Modal
               title="Thiết lập đề thi"
@@ -1638,7 +1779,7 @@ function ExamForm({
     </section>
   );
 }
-function ReviewPage({
+export function ReviewPage({
   canGrade,
   review,
   back,

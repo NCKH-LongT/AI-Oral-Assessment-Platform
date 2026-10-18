@@ -50,12 +50,11 @@ test("course vocabulary saves 200 terms, stays separate, and reports limits befo
   });
   const openCourse = async (name: string) => {
     await page.getByRole("button", { name: new RegExp(name) }).click();
-    await page.getByRole("button", { name: "03 · Bài thi & giao bài" }).click();
     await page.getByText("Hotword STT của môn học", { exact: true }).click();
   };
   await page.goto("/");
   await page
-    .getByRole("button", { name: "Môn học & đề thi", exact: true })
+    .getByRole("button", { name: "Ngân hàng đề thi", exact: true })
     .click();
   await openCourse("Computing");
   const input = page.getByLabel("Mỗi dòng một thuật ngữ");

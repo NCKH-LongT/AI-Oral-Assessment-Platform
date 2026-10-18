@@ -7,6 +7,7 @@ export type User = {
   requested_role?: string | null;
 };
 export type Course = {
+  department_id?: string | null;
   id: string;
   code: string;
   name: string;
@@ -42,6 +43,7 @@ export type Rubric = {
 };
 export type Blueprint = { topic_id: string; difficulty: string; count: number };
 export type Exam = {
+  category?: string;
   imported?: boolean;
   workflow?: boolean;
   max_attempts: number | null;
@@ -268,7 +270,63 @@ function backendHeaders(): Record<string, string> {
   return clientBackend ? { "X-Oral-Backend": clientBackend.mode } : {};
 }
 let refreshing: Promise<Response> | null = null;
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function canRetry(path: string, init: RequestInit) {
+  const method = (init.method || "GET").toUpperCase();
+  if (method === "GET") return true;
+  if (method === "PUT" && /^\/uploads\/[^/]+\/chunks\/\d+$/.test(path))
+    return true;
+  if (method !== "POST") return false;
+  if (/^\/question-attempts\/[^/]+\/submit$/.test(path))
+    return !!new Headers(init.headers).get("Idempotency-Key");
+  return (
+    path === "/uploads/init" ||
+    /^\/uploads\/[^/]+\/complete$/.test(path) ||
+    /^\/exam-sessions\/[^/]+\/finish$/.test(path)
+  );
+}
+
 export async function api<T>(
+  path: string,
+  init: RequestInit = {},
+  retry = true,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await requestJSON<T>(path, init, retry);
+    } catch (error) {
+      const transient =
+        error instanceof TypeError ||
+        (error instanceof ApiError &&
+          [502, 503, 504, 520, 521, 522, 523, 524].includes(error.status));
+      if (
+        !transient ||
+        init.signal?.aborted ||
+        !canRetry(path, init) ||
+        attempt >= 2
+      ) {
+        if (error instanceof TypeError)
+          throw new Error(
+            `Kết nối bị gián đoạn khi gửi ${(init.method || "GET").toUpperCase()} ${path}. Kiểm tra mạng rồi thử lại.`,
+          );
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+}
+
+async function requestJSON<T>(
   path: string,
   init: RequestInit = {},
   retry = true,
@@ -292,7 +350,7 @@ export async function api<T>(
     }).finally(() => {
       refreshing = null;
     });
-    if ((await refreshing).ok) return api<T>(path, init, false);
+    if ((await refreshing).ok) return requestJSON<T>(path, init, false);
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null);
@@ -301,8 +359,17 @@ export async function api<T>(
         (f: { field: string; message: string }) => `${f.field}: ${f.message}`,
       )
       .join("; ");
-    throw new Error(
-      fields || body?.error?.message || `Lỗi kết nối (${response.status})`,
+    const requestId =
+      response.headers.get("x-request-id") || body?.error?.details?.request_id;
+    const code = body?.error?.code;
+    const detail = [code, requestId ? `mã tra cứu ${requestId}` : ""]
+      .filter(Boolean)
+      .join(" · ");
+    throw new ApiError(
+      `${fields || body?.error?.message || `Lỗi kết nối (${response.status})`}` +
+        ` [${(init.method || "GET").toUpperCase()} ${path} · HTTP ${response.status}${detail ? ` · ${detail}` : ""}]`,
+      response.status,
+      code,
     );
   }
   return response.json();

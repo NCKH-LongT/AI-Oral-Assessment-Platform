@@ -110,6 +110,21 @@ test("user profile filters class history and drills into rounds and a submitted 
   await expect(
     page.getByRole("heading", { name: "Giảng viên chấm lại" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Người dùng", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: `Chi tiết ${student.name}` }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Giữa kỳ · Lần 1" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: `Chi tiết ${student.name}` }).click();
+  await expect(
+    page.getByRole("heading", { name: "Thông tin profile" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Người dùng", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: `Chi tiết ${student.name}` }),
+  ).toBeVisible();
 });
 
 test("admin saves independent desktop switches", async ({ page }) => {

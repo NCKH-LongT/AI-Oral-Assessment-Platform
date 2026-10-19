@@ -1,5 +1,7 @@
 # Hướng dẫn sử dụng OralAI
 
+Bấm tên menu bên trái để quay về trang gốc của mục đó. Thao tác này có hiệu lực cả khi menu đang được chọn và bạn đang xem chi tiết bên trong; các lựa chọn/bộ lọc cục bộ được đặt lại.
+
 ## Hồ sơ người dùng và quy định desktop
 
 Vào **Người dùng → Chi tiết** để xem profile và danh sách lớp. Lọc **Đã học / Đang học / Sẽ học** theo lịch lớp; bấm **Chi tiết lớp** để xem các đợt thi. Đợt chưa có lượt hiển thị **Chưa thi**; đợt đã làm có từng lượt và **Chi tiết bài thi** để mở transcript, minh chứng, điểm và chấm lại theo quyền. Lớp đã rời vẫn giữ lịch sử thi. Giáo viên chỉ thấy lớp trong phạm vi được phân công. Nút **Quản lý môn học được giao** mở phần đăng ký môn cũ.

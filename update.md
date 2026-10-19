@@ -31,3 +31,7 @@ Migration: `0010`. Đợt đã tạo giữ roster/lịch, thay đổi thành vi�
 - [x] Tắt camera: chỉ ghi/upload audio; tắt màn hình: không yêu cầu screen consent/upload; các công tắc còn lại áp dụng trong Electron/luồng thi.
 
 Migration `0011`. Cần build/cài desktop mới hoặc mở lại Electron source đã cập nhật. [Chi tiết thiết kế và ràng buộc](docs/architecture/user-profiles-desktop-policy.md); [kiểm thử](docs/validation.md).
+
+## Điều hướng menu
+
+- [x] Bấm menu luôn quay về trang gốc của mục đó, kể cả khi menu đang active và đang xem profile, lớp, đợt thi hoặc bài làm bên trong.

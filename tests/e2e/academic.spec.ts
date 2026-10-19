@@ -233,6 +233,15 @@ test("assigned teacher sees class results and grading without class management c
   await expect(
     page.getByRole("heading", { name: "Giảng viên chấm lại" }),
   ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Lớp được phân công", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Mở lớp", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Giảng viên chấm lại" }),
+  ).toHaveCount(0);
 });
 
 test("user table searches and filters roles on a compact screen", async ({

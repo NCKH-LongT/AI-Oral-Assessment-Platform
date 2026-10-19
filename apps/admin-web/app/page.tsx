@@ -25,7 +25,13 @@ import DesktopExit from "../components/desktop-exit";
 export default function Home() {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
-    [page, setPage] = useState("dashboard");
+    [page, setPage] = useState("dashboard"),
+    [navigationVersion, setNavigationVersion] = useState(0);
+  const navigate = (destination: string) => {
+    setPage(destination);
+    // A menu click always opens its root, including the currently active menu.
+    setNavigationVersion((version) => version + 1);
+  };
   useEffect(() => {
     api<User>("/auth/me")
       .then(setUser)
@@ -233,7 +239,7 @@ export default function Home() {
               className={
                 page === item.id || isStudent ? "nav-item active" : "nav-item"
               }
-              onClick={() => setPage(item.id)}
+              onClick={() => navigate(item.id)}
             >
               <item.icon size={19} />
               {item.label}
@@ -275,7 +281,7 @@ export default function Home() {
           <DesktopExit />
           <span className="pill">MVP · Giai đoạn 1</span>
         </header>
-        <div className="content">
+        <div className="content" key={`${page}:${navigationVersion}`}>
           {isStudent && (
             <details className="role-request">
               <summary>Yêu cầu quyền khảo thí</summary>
@@ -301,11 +307,11 @@ export default function Home() {
           ) : page === "storage" && user.role === "ADMIN" ? (
             <StorageManager />
           ) : page === "examination" && !isStudent ? (
-            <Examination user={user} navigate={setPage} />
+            <Examination user={user} navigate={navigate} />
           ) : isStudent ? (
             <Student />
           ) : (
-            <Admin key={page} user={user} page={page} navigate={setPage} />
+            <Admin key={page} user={user} page={page} navigate={navigate} />
           )}
         </div>
         <footer>

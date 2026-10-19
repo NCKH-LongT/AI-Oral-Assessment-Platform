@@ -4,6 +4,8 @@
 
 Tài liệu dành cho người phát triển OralAI, mô tả cấu trúc và quy tắc của source hiện hành. Cấu hình chạy, triển khai và thao tác người dùng nằm ở các hướng dẫn liên kết bên dưới.
 
+Migration `0011` thêm snapshot quy định desktop cho mỗi lượt. `user_profiles.py` cung cấp hồ sơ/lớp/đợt thi theo người dùng; `desktop_policy.py` quản lý 10 công tắc ADMIN và audit. `desktop-policy.cjs` lấy quy định có xác thực trong Electron main process. Giao diện profile mở lại ReviewPage hiện có. [Thiết kế hồ sơ và quy định desktop](docs/architecture/user-profiles-desktop-policy.md).
+
 ## Mục tiêu và phạm vi
 
 OralAI tổ chức thi vấn đáp: chuẩn bị môn và kiến thức, soạn câu hỏi/rubric, duyệt đề, xếp lịch, ghi câu trả lời, nhận dạng, chấm nội dung và giảng viên đối chiếu minh chứng. Web phục vụ admin, khảo thí và giảng viên; sinh viên dùng desktop.

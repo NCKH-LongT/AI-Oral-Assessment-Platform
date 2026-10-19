@@ -4,6 +4,14 @@
 
 OralAI Desktop dành cho sinh viên làm bài vấn đáp. App ghi audio/camera và tải minh chứng lên server. Sau khi sinh viên nộp toàn bài, server đưa từng câu vào hàng đợi **STT → chấm điểm**, theo cấu hình **STT & giọng nói**. Sinh viên không cần chờ Whisper chạy trên máy trước khi nộp. Đã bỏ chức năng Học & thi thử; desktop chỉ liệt kê các bài thi được giao.
 
+## Quy định hiển thị khi mở app
+
+Trang đăng nhập và **Bài thi của tôi** hiển thị **Quy định ứng dụng desktop**. Bấm **Xem quy định** để xem trạng thái bật/tắt và mô tả. Mở app chưa bật kiosk hay tự ghi hình; các bước cấp quyền/khóa bắt đầu khi chuẩn bị hoặc bắt đầu thi. Công tắc DevTools áp dụng ngay từ khi mở app.
+
+Admin quản lý tại **Cấu hình hệ thống → Quy định desktop**: ghi màn hình, camera, một màn hình, kiosk, phím tắt, clipboard, điều hướng, download, tạm dừng khi rời cửa sổ, DevTools. Lượt thi giữ cấu hình tại lúc tạo. Khi camera tắt, nút kết nối chỉ xin microphone và bài chỉ upload audio. Nếu cho phép nhiều màn hình nhưng vẫn yêu cầu ghi màn hình, app ghi màn hình chứa cửa sổ khi bắt đầu chia sẻ. [Mô tả từng ràng buộc và yêu cầu cố định](docs/architecture/user-profiles-desktop-policy.md).
+
+Cập nhật cần migration `0011`, API/worker/web đồng bộ và desktop mới. Với source, đóng rồi mở lại Electron; với bộ cài, build/cài lại để nạp IPC mới.
+
 ## Bắt đầu nhanh
 
 Từ thư mục gốc repository:
@@ -181,13 +189,13 @@ Tính năng tự tắt hiện cần GNOME cùng `/usr/bin/python3` và `python3-
 
 Web dành cho **ADMIN, EXAM_OFFICER (khảo thí), TEACHER**. Sinh viên đăng nhập và làm bài bằng **OralAI Desktop**. Đổi server tại nút **Cấu hình máy chủ** trước khi đăng nhập.
 
-Với mỗi lần thi mới, sinh viên phải đồng ý ghi toàn màn hình rồi cấp quyền chia sẻ trước khi bắt đầu. Đóng thông tin riêng tư, dùng một màn hình và cấp quyền ghi màn hình trong hệ điều hành nếu được yêu cầu. App ghi màn hình từ lúc bắt đầu đến khi bấm nộp, hiện trạng thái ghi rõ ràng, không thu âm hệ thống; microphone/camera câu trả lời vẫn được lưu riêng. Giao diện chia bản ghi thành các đoạn khoảng 60 giây, tải lên server khi thi và tải đoạn cuối trước khi hoàn tất nộp bài. Giữ app mở đến khi báo đã nộp; lỗi upload có nút thử lại.
+Khi lượt thi bật quy định ghi màn hình, sinh viên phải đồng ý ghi toàn màn hình rồi cấp quyền chia sẻ trước khi bắt đầu. Đóng thông tin riêng tư, dùng một màn hình và cấp quyền ghi màn hình trong hệ điều hành nếu được yêu cầu. App ghi màn hình từ lúc bắt đầu đến khi bấm nộp, hiện trạng thái ghi rõ ràng, không thu âm hệ thống; microphone/camera câu trả lời vẫn được lưu riêng. Giao diện chia bản ghi thành các đoạn khoảng 60 giây, tải lên server khi thi và tải đoạn cuối trước khi hoàn tất nộp bài. Giữ app mở đến khi báo đã nộp; lỗi upload có nút thử lại.
 
-Trong lúc thi, app bật kiosk toàn màn hình, chặn menu chuột phải, DevTools, tải file, sao chép/dán, reload và một số phím tắt điều hướng. Không đổi server hoặc đăng xuất được khi đang thi. Khi rời cửa sổ, thu nhỏ, thoát toàn màn hình, đổi màn hình hoặc ngắt ghi, app dừng câu trả lời đang ghi và yêu cầu **Khôi phục chế độ thi**. Đồng hồ thi vẫn chạy. Sự kiện giám sát được lưu và bài chuyển sang cần giảng viên xem lại; sự kiện không phải kết luận gian lận.
+Với cấu hình mặc định, trong lúc thi app bật kiosk toàn màn hình, chặn menu chuột phải, DevTools, tải file, sao chép/dán, reload và một số phím tắt điều hướng. Không đổi server hoặc đăng xuất được khi đang thi. Khi quy định tạm dừng được bật, rời cửa sổ/thu nhỏ/thoát toàn màn hình sẽ dừng trả lời. Khi đổi màn hình trong chế độ một màn hình hoặc đang ghi màn hình, hoặc ngắt bản ghi bắt buộc, app dừng câu trả lời đang ghi và yêu cầu **Khôi phục chế độ thi**. Đồng hồ thi vẫn chạy. Sự kiện giám sát được lưu và bài chuyển sang cần giảng viên xem lại; sự kiện không phải kết luận gian lận.
 
 Đây là hạn chế ở cấp ứng dụng, không khóa hoàn toàn hệ điều hành và không ngăn được thiết bị phụ hay client đã sửa. Header `X-Oral-Client: desktop` phân biệt kênh truy cập được hỗ trợ, không phải chứng thực bộ cài; một client tự viết có thể giả mạo header. Server kiểm tra quyền, đồng ý ghi và có bản ghi hoàn tất, nhưng không thể chứng minh video bao phủ toàn bộ thời gian thi. Nếu triển khai kỳ thi cần bảo đảm cao, cần máy được quản lý bằng chính sách kiosk của hệ điều hành và giám thị. Nút thoát khẩn cấp vẫn xác nhận rời ứng dụng; đoạn chưa tải lên có thể mất khi đóng cưỡng bức. Khi mở lại phiên đang thi, sự kiện khởi động lại được ghi nhận và phải khôi phục ghi màn hình.
 
-Server cần chạy đầy đủ migration đến `0009`, cập nhật đồng bộ API/worker/web. `EXAM_SCREEN_REQUIRED` mặc định `true`. Chính sách ghi màn hình được lưu theo phiên thi. Người dùng bộ cài cần phiên bản Electron tương ứng; người chạy source đóng rồi mở lại app sau khi cập nhật.
+Server cần chạy đầy đủ migration đến `0011`, cập nhật đồng bộ API/worker/web. `EXAM_SCREEN_REQUIRED` mặc định `true`, được dùng khi admin chưa lưu quy định desktop. Chính sách desktop được lưu theo phiên thi. Người dùng bộ cài cần phiên bản Electron tương ứng; người chạy source đóng rồi mở lại app sau khi cập nhật.
 
 ### Cập nhật cho chế độ thiếu model và khôi phục có thể hủy
 

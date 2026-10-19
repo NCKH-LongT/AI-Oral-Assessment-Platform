@@ -4,6 +4,8 @@ Web dành cho **ADMIN, EXAM_OFFICER và TEACHER** quản lý môn, đề, lịch
 
 Các menu **Môn học**, **Ngân hàng đề thi**, **Bộ môn** và **Lớp học** tách riêng. Admin/khảo thí quản lý bộ môn, lớp, danh sách sinh viên, phân công giáo viên và lịch từng đợt thi. Giáo viên xem/chấm lại bài trong lớp được phân công. Ngân hàng đề theo môn có lọc category và rubric. [Chi tiết lớp học và phân quyền](docs/architecture/academic-classes.md).
 
+**Người dùng → Chi tiết** mở profile, lớp đã/đang/sẽ học, các đợt thi và bài làm. **Cấu hình hệ thống → Quy định desktop** cho admin bật/tắt 10 quy định; desktop mô tả khi mở app và giữ cấu hình theo từng lượt thi. [Hồ sơ và quy định desktop](docs/architecture/user-profiles-desktop-policy.md).
+
 Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, giảng viên, khảo thí và danh sách sinh viên; đề được review/duyệt trước khi mở thi. Admin quản lý dung lượng từng lần thi, dọn bản ghi giữ điểm hoặc xóa toàn bộ lần thi được chọn.
 
 ## Hướng dẫn theo nhu cầu
@@ -115,8 +117,8 @@ docker compose up -d --no-deps --force-recreate api worker
 Chạy `npm run desktop` để dùng giao diện source. Bộ cài từ workflow **Desktop installers** chứa Whisper-small đa ngôn ngữ, runtime STT và FFmpeg; nhận dạng CPU INT8. Máy sinh viên vẫn cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận xác nhận nộp bài.
 
 1. Chọn server tại **Cấu hình máy chủ** trước khi đăng nhập.
-2. Mở bài, cấp quyền và chọn microphone/camera.
-3. Chuẩn bị một màn hình và đồng ý ghi toàn màn hình; bài thi nhận dạng theo ngôn ngữ cấu hình trên server.
+2. Mở bài, xem quy định, cấp quyền microphone và camera nếu được yêu cầu.
+3. Chuẩn bị một màn hình và đồng ý ghi toàn màn hình khi quy định yêu cầu; bài thi nhận dạng theo ngôn ngữ cấu hình trên server.
 4. Bấm **Bắt đầu thi**. Câu hỏi đếm ngược chuẩn bị mặc định 10 giây rồi tự ghi tối đa 60 giây. N/M cấu hình riêng cho từng câu trong Review câu hỏi & rubric. Có thể bấm **Kết thúc trả lời** sớm.
 5. App tự tải bản ghi, chuyển câu tiếp theo và tự nộp ở câu cuối khi đủ minh chứng. Nếu tải lỗi, thử lại rồi nộp; chỉ đóng app sau xác nhận đã nộp. Server tiếp tục nhận dạng và chấm.
 
@@ -165,7 +167,7 @@ Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn deskto
 
 Xem [các bước cập nhật và chẩn đoán lỗi Jenkins](docs/jenkins.md).
 
-Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0010` để bổ sung bộ môn/lớp/đợt thi, giữ đồng hồ chuẩn bị câu hỏi, cùng hàng đợi STT/chấm điểm bền vững, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+Cập nhật server: `docker compose up -d --build --wait`, sau đó build/cài desktop mới hoặc mở lại Electron source đã cập nhật. Compose tự chạy migration đến `0011` để bổ sung cấu hình desktop theo lượt thi và bộ môn/lớp/đợt thi, giữ đồng hồ chuẩn bị câu hỏi, cùng hàng đợi STT/chấm điểm bền vững, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
 
 Admin có trang **Lần thi & dung lượng** để lọc theo môn/người, xuất báo cáo Excel, chọn dọn bản ghi giữ điểm hoặc xóa toàn bộ dữ liệu lần thi. Có mẫu Excel và kiểm tra trước khi nhập môn, rubric, câu hỏi có sẵn, giảng viên và khảo thí. Cần cập nhật đồng bộ web, API và worker; xem [quản lý dung lượng và nhập Excel](docs/user-guide.md#quản-lý-lần-thi-và-dung-lượng).
 

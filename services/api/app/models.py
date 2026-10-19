@@ -193,6 +193,7 @@ class Assignment(Entity, Base):
 
 class ExamSession(Entity, Base):
     __tablename__ = "exam_sessions"
+    desktop_policy: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
     __table_args__ = (
         UniqueConstraint("exam_id", "student_id", "attempt_number", name="uq_exam_session_attempt"),
         Index("one_active_exam_session", "exam_id", "student_id", unique=True,

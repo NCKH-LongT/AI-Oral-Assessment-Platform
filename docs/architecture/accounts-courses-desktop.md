@@ -2,6 +2,8 @@
 
 [README / danh mục tài liệu](../../README.md#hướng-dẫn-theo-nhu-cầu)
 
+Từ bản `0011`, **Người dùng → Chi tiết** mở profile, lịch lớp và bài thi; đăng ký môn cũ nằm trong **Quản lý môn học được giao**. Các hạn chế thi desktop được admin bật/tắt tại **Cấu hình hệ thống → Quy định desktop**, chốt theo lượt. [Thiết kế và bảng ràng buộc hiện hành](user-profiles-desktop-policy.md).
+
 ## Đăng nhập và quyền
 
 - Hệ thống hỗ trợ đăng nhập bằng mật khẩu và Google. Google OIDC dùng authorization code + PKCE, scope `openid email profile`.

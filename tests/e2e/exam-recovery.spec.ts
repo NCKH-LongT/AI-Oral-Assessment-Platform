@@ -314,7 +314,7 @@ test("report failure leaves answering blocked and can be retried without restori
   apiState.reports = "fail";
   await recover.click();
   await expect(
-    page.getByText("Giám sát mất kết nối", { exact: true }),
+    page.getByText(/Giám sát mất kết nối.*HTTP 503/),
   ).toBeVisible();
   await expect(recover).toBeEnabled();
   await expect(answer).toBeDisabled();

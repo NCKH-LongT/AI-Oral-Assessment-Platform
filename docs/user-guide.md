@@ -1,5 +1,11 @@
 # Hướng dẫn sử dụng OralAI
 
+## Hồ sơ người dùng và quy định desktop
+
+Vào **Người dùng → Chi tiết** để xem profile và danh sách lớp. Lọc **Đã học / Đang học / Sẽ học** theo lịch lớp; bấm **Chi tiết lớp** để xem các đợt thi. Đợt chưa có lượt hiển thị **Chưa thi**; đợt đã làm có từng lượt và **Chi tiết bài thi** để mở transcript, minh chứng, điểm và chấm lại theo quyền. Lớp đã rời vẫn giữ lịch sử thi. Giáo viên chỉ thấy lớp trong phạm vi được phân công. Nút **Quản lý môn học được giao** mở phần đăng ký môn cũ.
+
+Chỉ admin có **Cấu hình hệ thống → Quy định desktop**. Có 10 công tắc độc lập: ghi màn hình, camera, một màn hình, kiosk, phím tắt, clipboard, điều hướng, tải xuống, tạm dừng khi rời cửa sổ và DevTools. Sau khi lưu, quy định áp dụng cho lượt tạo mới; lượt đã tạo giữ nguyên. Desktop hiển thị mô tả ở trang đăng nhập, danh sách bài và trong từng lượt thi. Tắt camera cho phép thi bằng audio; microphone vẫn bắt buộc. Cần desktop mới cùng migration `0011`. [Bảng quy định, phân quyền và giới hạn](architecture/user-profiles-desktop-policy.md).
+
 ## Quy trình khảo thí
 
 Bắt đầu tại [hướng dẫn khảo thí → giảng viên → sinh viên](architecture/examination-workflow.md). Tải [Excel mẫu](templates/danh-sach-sinh-vien.xlsx). Admin duyệt role khảo thí và cấp role giảng viên; khảo thí giao môn, nhập danh sách, kiểm tra đề đã được giảng viên duyệt, xếp lịch từng sinh viên rồi mở thi. Bài AI dưới 5 được đánh dấu để giảng viên chấm lại; khảo thí xuất điểm chính thức trong Điều phối kỳ thi.

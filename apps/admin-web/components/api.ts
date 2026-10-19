@@ -1,3 +1,4 @@
+import type { DesktopPolicy } from "./desktop-policy";
 export type User = {
   id: string;
   username: string;
@@ -232,6 +233,7 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  desktop_policy?: DesktopPolicy;
   timed_questions?: boolean;
   server_processing?: boolean;
   screen_required?: boolean;

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from sqlalchemy import select
 from test_mvp import ok, prepare, upload
 
-from app import google_login, routes_exam, worker
+from app import desktop_policy, google_login, worker
 from app.models import Assignment, Attempt, CourseEnrollment, ExamSession, OAuthFlow, User
 from app.security import digest
 
@@ -97,8 +97,8 @@ def test_student_detail_course_membership_permissions_and_history(env):
 
 def test_required_screen_consent_upload_access_and_incident_review(env, monkeypatch):
     context = prepare(env, 1)
-    config = routes_exam.settings().model_copy(update={"exam_screen_required": True})
-    monkeypatch.setattr(routes_exam, "settings", lambda: config)
+    config = desktop_policy.settings().model_copy(update={"exam_screen_required": True})
+    monkeypatch.setattr(desktop_policy, "settings", lambda: config)
     clients, factory = env
     student, admin = clients["student"], clients["admin"]
     session = ok(student.post("/exam-sessions", json={"exam_id": context["exam"]["id"]}))
@@ -142,8 +142,8 @@ def test_required_screen_consent_upload_access_and_incident_review(env, monkeypa
 
 def test_screen_can_upload_before_first_answer_and_policy_is_frozen(env, monkeypatch):
     context = prepare(env, 1)
-    config = routes_exam.settings().model_copy(update={"exam_screen_required": True})
-    monkeypatch.setattr(routes_exam, "settings", lambda: config)
+    config = desktop_policy.settings().model_copy(update={"exam_screen_required": True})
+    monkeypatch.setattr(desktop_policy, "settings", lambda: config)
     student = env[0]["student"]
     session = ok(student.post("/exam-sessions", json={"exam_id": context["exam"]["id"]}))
     config.exam_screen_required = False

@@ -20,3 +20,14 @@
 - [x] Phân công giáo viên trực tiếp hoặc nhập Excel theo mã lớp.
 
 Migration: `0010`. Đợt đã tạo giữ roster/lịch, thay đổi thành viên lớp áp dụng cho đợt tiếp theo. Xóa lớp đã có đợt thi bị chặn để giữ lịch sử. Xem [hướng dẫn sử dụng](docs/user-guide.md), [thiết kế và phân quyền](docs/architecture/academic-classes.md), [kết quả kiểm thử](docs/validation.md).
+
+## Bổ sung — 19/10/2026
+
+- [x] Người dùng → Chi tiết: profile, lớp đã/đang/sẽ học và MSSV.
+- [x] Chi tiết lớp theo người dùng: lịch các đợt, trạng thái chưa thi, từng lượt và mở chi tiết bài làm/minh chứng/chấm lại theo quyền.
+- [x] Giữ lịch sử sau khi rời lớp; lọc phạm vi lớp giáo viên phụ trách.
+- [x] Desktop mô tả các quy định ở trang đăng nhập, danh sách bài và trong lượt thi.
+- [x] Admin bật/tắt 10 quy định tại Cấu hình hệ thống → Quy định desktop; lưu audit và snapshot từng lượt.
+- [x] Tắt camera: chỉ ghi/upload audio; tắt màn hình: không yêu cầu screen consent/upload; các công tắc còn lại áp dụng trong Electron/luồng thi.
+
+Migration `0011`. Cần build/cài desktop mới hoặc mở lại Electron source đã cập nhật. [Chi tiết thiết kế và ràng buộc](docs/architecture/user-profiles-desktop-policy.md); [kiểm thử](docs/validation.md).

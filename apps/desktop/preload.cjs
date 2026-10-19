@@ -20,9 +20,10 @@ contextBridge.exposeInMainWorld(
     displayStatus: () => invokeDisplay("oral:displays-status"),
     useSingleDisplay: (keep) => invokeDisplay("oral:displays-single", keep),
     restoreDisplays: () => invokeDisplay("oral:displays-restore"),
-    beginExam: async () => {
+    policyVersion: 1,
+    beginExam: async (sessionId) => {
       try {
-        await ipcRenderer.invoke("oral:exam-begin");
+        await ipcRenderer.invoke("oral:exam-begin", sessionId);
       } catch (error) {
         throw new Error(
           error.message.replace(

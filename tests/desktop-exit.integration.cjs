@@ -4,6 +4,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
 const path = require("node:path");
+const { defaults } = require("../apps/desktop/desktop-policy.cjs");
 const { mkdtemp, rm } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
 const { _electron: electron, expect } = require("@playwright/test");
@@ -12,7 +13,21 @@ test(
   "Electron X and quit IPC respect stay/leave, then actually exit",
   { timeout: 60000 },
   async () => {
+    let rules = { ...defaults };
+    const requests = [];
     const server = http.createServer((req, res) => {
+      if (
+        req.url === "/api/desktop/policy" ||
+        req.url === "/api/exam-sessions/fixture/desktop-policy"
+      ) {
+        requests.push({
+          path: req.url,
+          cookie: req.headers.cookie,
+          client: req.headers["x-oral-client"],
+        });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ version: 1, rules }));
+      }
       if (req.url === "/api/client") {
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(
@@ -50,14 +65,19 @@ test(
         await desktop.evaluate(({ Menu }) => Menu.getApplicationMenu()),
         null,
       );
-      assert.equal(
-        await desktop.evaluate(({ BrowserWindow }) => {
-          const contents = BrowserWindow.getAllWindows()[0].webContents;
-          contents.openDevTools();
-          return contents.isDevToolsOpened();
-        }),
-        false,
+      await desktop.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0].webContents.openDevTools(),
       );
+      await expect
+        .poll(() =>
+          desktop.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened(),
+          ),
+        )
+        .toBe(false);
+      await page.evaluate(() => {
+        document.cookie = "fixture_auth=present; SameSite=Lax; path=/";
+      });
       assert.deepEqual(
         await page.evaluate(() => fetch("/api/client").then((r) => r.json())),
         { client: "desktop" },
@@ -92,7 +112,7 @@ test(
         ];
       });
       const displayError = await page.evaluate(() =>
-        window.oralDesktop.beginExam().then(
+        window.oralDesktop.beginExam("fixture").then(
           () => null,
           (e) => e.message,
         ),
@@ -102,7 +122,7 @@ test(
       await desktop.evaluate(({ screen }) => {
         screen.getAllDisplays = () => [screen.getPrimaryDisplay()];
       });
-      await page.evaluate(() => window.oralDesktop.beginExam());
+      await page.evaluate(() => window.oralDesktop.beginExam("fixture"));
       await expect
         .poll(() =>
           desktop.evaluate(({ BrowserWindow }) =>
@@ -115,6 +135,50 @@ test(
         .poll(() =>
           desktop.evaluate(({ BrowserWindow }) =>
             BrowserWindow.getAllWindows()[0].isKiosk(),
+          ),
+        )
+        .toBe(false);
+      assert.ok(
+        requests.some(
+          (request) =>
+            request.path.includes("/fixture/") &&
+            request.cookie?.includes("fixture_auth=present") &&
+            request.client === "desktop",
+        ),
+      );
+      rules = Object.fromEntries(
+        Object.keys(defaults).map((key) => [key, false]),
+      );
+      await desktop.evaluate(({ screen }) => {
+        screen.getAllDisplays = () => [
+          screen.getPrimaryDisplay(),
+          screen.getPrimaryDisplay(),
+        ];
+      });
+      await page.evaluate(() => window.oralDesktop.beginExam("fixture"));
+      assert.equal(
+        await desktop.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()[0].isKiosk(),
+        ),
+        false,
+      );
+      await desktop.evaluate(({ BrowserWindow }) => {
+        const contents = BrowserWindow.getAllWindows()[0].webContents;
+        contents.sendInputEvent({ type: "keyDown", keyCode: "F12" });
+        contents.sendInputEvent({ type: "keyUp", keyCode: "F12" });
+      });
+      await expect
+        .poll(() =>
+          desktop.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened(),
+          ),
+        )
+        .toBe(true);
+      await page.evaluate(() => window.oralDesktop.endExam());
+      await expect
+        .poll(() =>
+          desktop.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened(),
           ),
         )
         .toBe(false);

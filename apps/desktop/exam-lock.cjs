@@ -1,7 +1,10 @@
 // Application-level restrictions. OS shortcuts / a modified client are not a
 // security boundary; incidents are evidence for review, not proof of cheating.
+const { defaults } = require("./desktop-policy.cjs");
 function installExamLock(win, { screen }) {
   let active = false;
+  let rules = { ...defaults };
+  let startupRules = { ...defaults };
   const report = (type) => {
     if (active && !win.isDestroyed())
       win.webContents.send("oral:exam-event", type);
@@ -9,37 +12,39 @@ function installExamLock(win, { screen }) {
   win.webContents.on("before-input-event", (event, input) => {
     const key = input.key.toLowerCase();
     const modifier = input.control || input.meta;
-    if (
+    const devtools =
       key === "f12" ||
-      (modifier && input.shift && ["i", "j", "c"].includes(key)) ||
-      (active &&
-        (key === "f5" ||
-          key === "f11" ||
-          key === "escape" ||
-          (modifier &&
-            [
-              "r",
-              "w",
-              "q",
-              "t",
-              "n",
-              "l",
-              "p",
-              "s",
-              "c",
-              "v",
-              "x",
-              "a",
-            ].includes(key)) ||
-          (input.alt && ["left", "right", "f4"].includes(key))))
+      (modifier && input.shift && ["i", "j", "c"].includes(key));
+    if (devtools) {
+      event.preventDefault();
+      if (rules.block_devtools) report("BLOCKED_SHORTCUT");
+      else if (input.type !== "keyUp" && !input.isAutoRepeat)
+        win.webContents.toggleDevTools();
+      return;
+    }
+    const clipboard = modifier && ["c", "v", "x"].includes(key);
+    const shortcut =
+      ["f5", "f11", "escape"].includes(key) ||
+      (modifier &&
+        ["r", "w", "q", "t", "n", "l", "p", "s", "a"].includes(key)) ||
+      (input.alt && ["left", "right", "f4"].includes(key));
+    if (
+      active &&
+      ((rules.block_clipboard && clipboard) ||
+        (rules.block_shortcuts && shortcut))
     ) {
       event.preventDefault();
       report("BLOCKED_SHORTCUT");
     }
   });
-  win.webContents.on("context-menu", (event) => event.preventDefault());
+  win.webContents.on("devtools-opened", () => {
+    if (rules.block_devtools) win.webContents.closeDevTools();
+  });
+  win.webContents.on("context-menu", (event) => {
+    if (active && rules.block_clipboard) event.preventDefault();
+  });
   win.webContents.on("will-navigate", (event) => {
-    if (active) {
+    if (active && rules.block_navigation) {
       event.preventDefault();
       report("BLOCKED_NAVIGATION");
     }
@@ -59,11 +64,23 @@ function installExamLock(win, { screen }) {
     get active() {
       return active;
     },
-    async begin() {
+    get rules() {
+      return { ...rules };
+    },
+    configure(values) {
+      startupRules = { ...defaults, ...values };
+      if (!active) {
+        rules = { ...startupRules };
+        if (rules.block_devtools) win.webContents.closeDevTools?.();
+      }
+    },
+    async begin(values) {
+      if (values) rules = { ...defaults, ...values };
+      if (rules.block_devtools) win.webContents.closeDevTools?.();
       // Read the current OS configuration on every attempt. A monitor's power
       // button can leave its output enabled, so it must still count here.
       const monitors = screen.getAllDisplays();
-      if (monitors.length !== 1) {
+      if (rules.single_display && monitors.length !== 1) {
         // A failed resume must leave the user able to open display settings.
         active = false;
         win.setKiosk(false);
@@ -83,8 +100,9 @@ function installExamLock(win, { screen }) {
         // Re-entering kiosk on an already locked window can churn native focus
         // and fullscreen transitions. A retry should only restore what changed.
         if (win.isMinimized?.()) win.restore();
-        if (!(win.isKiosk?.() ?? active)) win.setKiosk(true);
-        win.setMinimizable(false);
+        if ((win.isKiosk?.() ?? active) !== rules.kiosk)
+          win.setKiosk(rules.kiosk);
+        win.setMinimizable(!rules.kiosk);
         win.show();
         win.focus();
         active = true;
@@ -97,6 +115,8 @@ function installExamLock(win, { screen }) {
     },
     end() {
       active = false;
+      rules = { ...startupRules };
+      if (rules.block_devtools) win.webContents.closeDevTools?.();
       win.setKiosk(false);
       win.setMinimizable(true);
     },

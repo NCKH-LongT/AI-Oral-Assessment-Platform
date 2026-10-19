@@ -32,6 +32,11 @@ for (const role of ["ADMIN", "EXAM_OFFICER", "TEACHER"]) {
       if (path === "/api/admin/users") json = [student];
       if (path === "/api/admin/dashboard")
         json = { courses: 1, exams: 0, sessions: 0, documents: 0 };
+      if (path === "/api/admin/users/s/profile")
+        json = {
+          user: { ...student, status: "ACTIVE", created_at: 1 },
+          classes: [],
+        };
       if (path === "/api/admin/users/s/courses")
         json = {
           student,
@@ -56,6 +61,9 @@ for (const role of ["ADMIN", "EXAM_OFFICER", "TEACHER"]) {
     await page.goto("/");
     await page.getByRole("button", { name: "Người dùng", exact: true }).click();
     await page.getByRole("button", { name: student.name, exact: true }).click();
+    await page
+      .getByRole("button", { name: "Quản lý môn học được giao" })
+      .click();
     await expect(
       page.getByRole("heading", { name: "Môn học của sinh viên" }),
     ).toBeVisible();

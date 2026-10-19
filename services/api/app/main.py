@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException
 
 from . import (
     academic,
+    desktop_policy,
     google_login,
     routes_admin,
     routes_exam,
@@ -23,6 +24,7 @@ from . import (
     speech,
     storage,
     stt,
+    user_profiles,
 )
 from .config import settings
 from .db import get_db
@@ -221,6 +223,8 @@ app.include_router(result_roster.router, tags=["Results roster"])
 app.include_router(excel_imports.router, tags=["Excel imports"])
 app.include_router(storage_management.router, tags=["Storage management"])
 app.include_router(examination.router, tags=["Examination workflow"])
+app.include_router(desktop_policy.router, tags=["Desktop policy"])
+app.include_router(user_profiles.router, tags=["User profiles"])
 app.include_router(academic.router, tags=["Academic organization"])
 app.include_router(routes_admin.router, prefix="/admin", tags=["Administration"])
 app.include_router(routes_exam.router, tags=["Exams and evidence"])

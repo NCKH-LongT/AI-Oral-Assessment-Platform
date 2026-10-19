@@ -22,6 +22,7 @@ export function useExamGuard(
   stopAnswer: () => void,
 ) {
   const capture = useRef<ScreenRecording | null>(null);
+  const [preparedSession, setPreparedSession] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [interrupted, setInterrupted] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -85,6 +86,14 @@ export function useExamGuard(
   }, [stopAnswer]);
   const inExam = session?.status === "IN_PROGRESS";
   const required = !!session?.screen_required;
+  const needsLock =
+    !!session?.desktop_policy &&
+    typeof window !== "undefined" &&
+    !!window.oralDesktop &&
+    preparedSession !== session.id;
+  const blockClipboard = session?.desktop_policy?.block_clipboard ?? true;
+  const pauseOnFocusLoss = session?.desktop_policy?.pause_on_focus_loss ?? true;
+  const singleDisplay = session?.desktop_policy?.single_display ?? true;
   const report = useCallback(
     (type: string) => {
       if (!session || session.status !== "IN_PROGRESS" || finishingRef.current)
@@ -116,6 +125,7 @@ export function useExamGuard(
     if (!inExam) return;
     const blockSwitch = (e: Event) => e.preventDefault();
     const clipboard = (e: Event) => {
+      if (!blockClipboard) return;
       e.preventDefault();
       report("CLIPBOARD_BLOCKED");
     };
@@ -126,12 +136,11 @@ export function useExamGuard(
     const unsubscribe = window.oralDesktop?.onExamEvent?.((type) => {
       report(type);
       if (
-        [
-          "WINDOW_BLUR",
-          "WINDOW_MINIMIZED",
-          "FULLSCREEN_LEFT",
-          "DISPLAY_CHANGED",
-        ].includes(type)
+        (pauseOnFocusLoss &&
+          ["WINDOW_BLUR", "WINDOW_MINIMIZED", "FULLSCREEN_LEFT"].includes(
+            type,
+          )) ||
+        (type === "DISPLAY_CHANGED" && (singleDisplay || required))
       ) {
         stop.current();
         updateInterrupted(true);
@@ -150,7 +159,15 @@ export function useExamGuard(
       for (const name of ["copy", "cut", "paste", "drop", "contextmenu"])
         document.removeEventListener(name, clipboard);
     };
-  }, [inExam, report, updateInterrupted]);
+  }, [
+    inExam,
+    report,
+    updateInterrupted,
+    blockClipboard,
+    pauseOnFocusLoss,
+    singleDisplay,
+    required,
+  ]);
   useEffect(
     () => () => {
       preparation.current?.controller.abort(new Error("Đã rời trang thi."));
@@ -187,9 +204,13 @@ export function useExamGuard(
           throw new Error(
             "Cập nhật OralAI Desktop để sử dụng chế độ thi có giám sát.",
           );
+        if (session?.desktop_policy && window.oralDesktop.policyVersion !== 1)
+          throw new Error(
+            "Cập nhật OralAI Desktop để áp dụng quy định của lượt thi này.",
+          );
         setPrepareStage("Đang bật chế độ thi…");
         await waitFor(
-          window.oralDesktop.beginExam(),
+          window.oralDesktop.beginExam(session?.id),
           attempt.controller.signal,
         );
         if (required && !capture.current?.active) {
@@ -215,7 +236,7 @@ export function useExamGuard(
           version = interruptionVersion.current;
           setPrepareStage("Đang xác nhận chế độ thi…");
           await waitFor(
-            window.oralDesktop.beginExam(),
+            window.oralDesktop.beginExam(session?.id),
             attempt.controller.signal,
           );
         }
@@ -235,6 +256,7 @@ export function useExamGuard(
           );
         finishingRef.current = false;
         setFinishing(false);
+        setPreparedSession(session?.id || null);
         // Only release the answer controls after every required step succeeds.
         updateInterrupted(false);
       } catch (error) {
@@ -287,6 +309,7 @@ export function useExamGuard(
     setPrepareStage("");
     await capture.current?.stop();
     capture.current = null;
+    setPreparedSession(null);
     lastEvent.current = {};
     setRecording(false);
     updateInterrupted(false);
@@ -299,6 +322,7 @@ export function useExamGuard(
     getRevision: () => interruptionVersion.current,
     assertReady: (revision: number) => {
       if (
+        needsLock ||
         revision !== interruptionVersion.current ||
         preparation.current ||
         interruptedRef.current ||
@@ -327,6 +351,6 @@ export function useExamGuard(
     blocked:
       inExam &&
       !finishing &&
-      (preparing || interrupted || (required && !recording)),
+      (needsLock || preparing || interrupted || (required && !recording)),
   };
 }

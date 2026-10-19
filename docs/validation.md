@@ -2,6 +2,36 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Hồ sơ người dùng và quy định desktop — 19/10/2026
+
+Kiểm tra bằng database/container tạm và máy chủ web local. Không đổi cấu hình hoặc dữ liệu production.
+
+| Nhóm | Kết quả |
+| --- | --- |
+| API PostgreSQL/pgvector | **167 đạt**, không bỏ qua; bổ sung phân quyền profile/lớp/lịch sử và policy/audit/snapshot/nộp audio-only |
+| Migration | `0010 → 0011 → 0010 → 0011` đạt trên PostgreSQL và SQLite; bài kiểm tra nâng từ MVP giữ dữ liệu, điểm/transcript và NULL policy cũ đạt |
+| Playwright Chromium | 24 ca đạt trong nhóm hồ sơ/policy, đăng ký môn, lớp học, thiết bị, screen và recovery; API/bridge giả lập, dùng MediaRecorder thật với thiết bị giả |
+| Electron thật, source | Đạt kiểm thử IPC/cookie lấy policy, một màn hình/kiosk bật/tắt, phím F12 mở DevTools khi cho phép, đóng DevTools khi hết quyền và luồng xác nhận thoát |
+| Node | 18 ca desktop và 8 ca screen đạt |
+| ESLint, TypeScript, Next production build, Ruff và cú pháp Electron | Đạt |
+
+Kiểm thử UI mới xác nhận profile → lọc lớp → đợt chưa thi/đã thi → ReviewPage, admin lưu độc lập các công tắc, audio-only không xin camera/không tạo video recorder, clipboard được phép khi tắt chặn và focus-loss có/không dừng trả lời theo policy. Mở lại bài không yêu cầu screen vẫn phải khôi phục chế độ thi. API kiểm tra lịch sử sau khi rời lớp, quyền khi đổi giáo viên, camera/screen snapshot, thiếu audio vẫn không nộp được và bật lại camera không làm đổi lượt đang thi.
+
+Các lệnh kiểm tra chính:
+
+```bash
+TEST_DATABASE_URL=postgresql+psycopg://... .venv/bin/python -m pytest services/api/tests -q
+E2E_BASE_URL=http://127.0.0.1:3100 npx playwright test \
+  tests/e2e/user-profile-policy.spec.ts tests/e2e/access-enrollment.spec.ts \
+  tests/e2e/academic.spec.ts tests/e2e/exam-recovery.spec.ts \
+  tests/e2e/desktop-devices.spec.ts tests/e2e/exam-screen.spec.ts
+npm run test:desktop
+npm run test:screen
+npm run test:desktop-exit
+```
+
+Chưa phát hành bộ cài Windows/macOS hoặc thử capture trên mọi cấu hình nhiều màn hình. Test Electron dùng server fixture và mô phỏng số màn hình; không đánh giá STT/LLM thật. Server cần migration `0011` và desktop mới; xem [triển khai và giới hạn](architecture/user-profiles-desktop-policy.md).
+
 ## Bộ môn, lớp học và ngân hàng đề — 18/10/2026
 
 Kiểm tra trên dữ liệu tạm, PostgreSQL/pgvector trong container riêng và web production build local; không thao tác dữ liệu production.

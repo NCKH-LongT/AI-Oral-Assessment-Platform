@@ -1600,3 +1600,7 @@ fieldset label {
     gap: 0;
   }
 }
+
+.profile-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.profile-details dt { color: var(--muted); font-size: 12px; }
+.profile-details dd { margin: 6px 0 0; overflow-wrap: anywhere; }

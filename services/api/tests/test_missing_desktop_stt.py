@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from test_mvp import ok, prepare, start, upload
 
-from app import routes_admin, routes_exam, speech, worker
+from app import desktop_policy, routes_admin, speech, worker
 from app.models import Attempt, Audit, ExamSession, ReviewJob, User
 from app.schemas import TranscriptIn
 
@@ -44,8 +44,8 @@ def test_missing_model_advances_exam_without_grading_and_requires_all_evidence(e
     context = prepare(env, 2)
     clients, factory = env
     student, admin = clients["student"], clients["admin"]
-    config = routes_exam.settings().model_copy(update={"exam_screen_required": True})
-    monkeypatch.setattr(routes_exam, "settings", lambda: config)
+    config = desktop_policy.settings().model_copy(update={"exam_screen_required": True})
+    monkeypatch.setattr(desktop_policy, "settings", lambda: config)
     session = ok(student.post("/exam-sessions", json={"exam_id": context["exam"]["id"]}))
     session_path = f"/exam-sessions/{session['id']}"
     session = ok(student.post(session_path + "/start", json={"screen_consent": True}))

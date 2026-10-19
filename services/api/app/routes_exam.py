@@ -14,6 +14,8 @@ from . import processing, storage
 from . import schemas as s
 from .config import settings
 from .db import get_db
+from .desktop_policy import policy as desktop_policy
+from .desktop_policy import session_policy as desktop_session_policy
 from .examination import check_schedule, schedule_for
 from .grading import GradingError, check_config
 from .models import (
@@ -78,6 +80,7 @@ def public_session(db, session):
         "status": submission_status(session.status),
         "started_at": session.started_at,
         "screen_required": session.screen_required,
+        "desktop_policy": desktop_session_policy(session),
         "screen_attempt_id": attempts[0].id if attempts else None,
         "time_limit": exam.time_limit,
         "server_time": time.time(),
@@ -185,7 +188,9 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
     session = ExamSession(exam_id=exam.id, student_id=user.id, attempt_number=last_number + 1)
     db.add(session)
     db.flush()
-    session.screen_required = user.role == "STUDENT" and settings().exam_screen_required and not exam.snapshot.get("practice", False)
+    session.desktop_policy = desktop_policy(db)
+    session.screen_required = user.role == "STUDENT" and session.desktop_policy["require_screen"] and not exam.snapshot.get("practice", False)
+    session.desktop_policy = dict(session.desktop_policy, require_screen=session.screen_required)
     for index, question in enumerate(exam.snapshot["questions"]):
         db.add(Attempt(session_id=session.id, sequence=index + 1, question=question))
     db.commit()
@@ -362,7 +367,8 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
             kinds = set(
                 db.scalars(select(Upload.kind).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED"))
             )
-            if not {"AUDIO", "VIDEO"} <= kinds:
+            required_kinds = {"AUDIO", "VIDEO"} if desktop_session_policy(session)["require_camera"] else {"AUDIO"}
+            if not required_kinds <= kinds:
                 fail(409, "EVIDENCE_PENDING", "Chờ tải đủ audio/video trước khi nộp bài")
     session.status, session.completed_at = "SUBMITTED", time.time()
     processing.queue_session(db, key)

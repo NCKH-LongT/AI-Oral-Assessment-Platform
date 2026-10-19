@@ -3,7 +3,7 @@ import ExcelImport from "./excel-import";
 import ExamScore from "./exam-score";
 import ReviewEvidence from "./review-evidence";
 import ResultsBrowser, { initialResultFilters } from "./results-browser";
-import StudentCourses from "./student-courses";
+import UserDetail from "./user-detail";
 import {
   AttemptLimitFields,
   AttemptPolicy,
@@ -378,9 +378,9 @@ export default function Admin({
         </>
       )}
       {page === "users" && selectedStudent ? (
-        <StudentCourses
-          student={selectedStudent}
-          editable={["ADMIN", "EXAM_OFFICER"].includes(user.role)}
+        <UserDetail
+          person={selectedStudent}
+          viewer={user}
           back={() => setSelectedStudent(null)}
         />
       ) : (
@@ -494,6 +494,7 @@ export default function Admin({
                     <th>Người dùng</th>
                     <th>Email / Tên đăng nhập</th>
                     <th>Vai trò</th>
+                    <th>Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -512,16 +513,12 @@ export default function Admin({
                             <span className="avatar">
                               <Users size={16} />
                             </span>
-                            {u.role === "STUDENT" ? (
-                              <button
-                                className="text-button"
-                                onClick={() => setSelectedStudent(u)}
-                              >
-                                {u.name}
-                              </button>
-                            ) : (
-                              u.name
-                            )}
+                            <button
+                              className="text-button"
+                              onClick={() => setSelectedStudent(u)}
+                            >
+                              {u.name}
+                            </button>
                           </span>
                         </td>
                         <td>{u.email || u.username}</td>
@@ -538,6 +535,15 @@ export default function Admin({
                               }}
                             />
                           )}
+                        </td>
+                        <td>
+                          <button
+                            className="text-button"
+                            onClick={() => setSelectedStudent(u)}
+                            aria-label={`Chi tiết ${u.name}`}
+                          >
+                            Chi tiết
+                          </button>
                         </td>
                       </tr>
                     ))}

@@ -4,6 +4,8 @@
 
 Bộ cài chứa Electron, helper Python được đóng gói bằng PyInstaller, faster-whisper, CTranslate2, VAD, FFmpeg và model **Whisper-small** đa ngôn ngữ. Electron tải giao diện từ máy chủ được chọn. Sinh viên chọn tiếng Việt/tiếng Anh; nhận dạng chạy bằng CPU INT8.
 
+Bản quy định desktop cần server migration `0011`, web/API/worker đồng bộ và build desktop mới. Manifest bao gồm `desktop-policy.cjs`; bridge `policyVersion: 1` truyền mã lượt thi để Electron lấy policy từ server. Khi nghiệm thu, kiểm tra cả cấu hình mặc định và cấu hình tắt camera/màn hình/kiosk; không chỉ refresh web trong Electron cũ. [Các quy định](architecture/user-profiles-desktop-policy.md).
+
 ## Thành phần bắt buộc
 
 - `resources/stt/oral-stt/`: helper native của OS/architecture đích.

@@ -19,6 +19,7 @@ import Student from "../components/student";
 import GoogleLogin from "../components/google-login";
 import Examination from "../components/examination";
 import StorageManager from "../components/storage-manager";
+import { DesktopPolicySummary } from "../components/desktop-policy";
 import DesktopExit from "../components/desktop-exit";
 
 export default function Home() {
@@ -115,6 +116,9 @@ export default function Home() {
             <Field label="Mật khẩu" name="password" type="password" />
           </Form>
           <GoogleLogin onLogin={setUser} />
+          {typeof window !== "undefined" && window.oralDesktop && (
+            <DesktopPolicySummary />
+          )}
           <p className="login-note">
             Web dành cho admin, khảo thí và giáo viên. Sinh viên sử dụng OralAI
             Desktop.

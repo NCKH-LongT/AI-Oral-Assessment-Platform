@@ -1,0 +1,34 @@
+Speaking Rubric.xlsx — sheet Rubric, A5:E11; sheet ENT Speaking: five criteria, 2 points each.
+SHA-256: d6a5432eb2d5fba0cb29b6f6493792f2aa21c4fad32c60852e2456430b6b445b
+
+Ideas (maximum 2 points)
+0 - below 0.6 — Insufficient evidence: Has no ideas at all, or all or most ideas are off-topic.
+0.6 - below 1 — Attempt made: Has few ideas but ideas are not organized. Some ideas are off-topic.
+1 - below 1.6 — Meets standard: Presents relevant ideas but some may be inadequately developed or unclear, or some supporting ideas may lack focus.
+1.6 - 2 — Exceeds standard: Presents a well-developed response with clear organization to the question with relevant, extended and supported ideas.
+
+Pronunciation (maximum 2 points)
+0 - below 0.6 — Insufficient evidence: Pronunciation makes it impossible to understand speech. Or speaks nothing.
+0.6 - below 1 — Attempt made: Speech is a little hard to be understood due to lots of errors in pronunciation.
+1 - below 1.6 — Meets standard: Speaks with a clear voice but still in L1 accent. Speech is understandable. Some errors in word pronunciation, stress and sentence intonation may be found.
+1.6 - 2 — Exceeds standard: Speaks with a clear voice and near-native pronunciation, stress and intonation. L1 accent has minimal effects.
+
+Grammar Range and Accuracy (maximum 2 points)
+0 - below 0.6 — Insufficient evidence: Speaks nothing or cannot produce basic sentence forms, or produce basic sentence forms with a lot of grammar mistakes that make it hard to understand the ideas.
+0.6 - below 1 — Attempt made: Uses only simple sentences with errors. Errors prevent understanding frequently.
+1 - below 1.6 — Meets standard: Simple sentences are mostly accurate. Some complex sentences are used, but these are limited in range, and they often have noticeable mistakes.
+1.6 - 2 — Exceeds standard: Uses a wide range of structures flexibly. The majority of sentences are error free. A few simple errors may still be present, but they have “little to no” effect on the clarity, comprehensibility, and accuracy of the sentences.
+
+Vocabulary Range and Accuracy (maximum 2 points)
+0 - below 0.6 — Insufficient evidence: Speaks nothing or only produces isolated words or memorized utterances, or uses little vocabulary related to the topic.
+0.6 - below 1 — Attempt made: Manages to talk about the topic using mainly simple vocabulary. Shows difficulty choosing vocabulary to speak. There are frequent inappropriacies and errors in word choice.
+1 - below 1.6 — Meets standard: Vocabulary use is sufficient to discuss topics at length. There may be some repetition and sometimes inappropriate word choices, but the overall meaning is clear.
+1.6 - 2 — Exceeds standard: Uses a wide vocabulary resource readily and flexibly to convey precise meaning. Uses less common and idiomatic vocabulary skillfully, with occasional inaccuracies. Uses paraphrase effectively.
+
+Fluency and coherence (maximum 2 points)
+0 - below 0.6 — Insufficient evidence: Maintains a short speech with some simple words or sentences and lots of hesitation to think, or speaks nothing.
+0.6 - below 1 — Attempt made: Speaks with noticeable effort. Pauses, word repetition, and self-correction often happen. Uses very few linking words.
+1 - below 1.6 — Meets standard: Can speak for a while and shows a readiness to talk at length. Sometimes loses track due to pausing, repeating, or correcting. Uses linking words to connect ideas when speaking, but not always in the right way.
+1.6 - 2 — Exceeds standard: Speaks fluently with no or occasional repetition or self-correction. Any pauses are just to plan what to say next, not to find the right words. Uses a wide range of appropriate linking words.
+
+Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR.

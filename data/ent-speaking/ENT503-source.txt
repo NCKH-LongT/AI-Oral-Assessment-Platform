@@ -1,0 +1,71 @@
+ENT503 — SOURCE AND EXAMINER NOTES
+Original: ENT503_Speaking Guidelines.pdf
+SHA-256: f5314618feb535c16cb3f6ca0e4d7af3bc3bf5825cf8ff03e480a7a49aee18a1
+
+Thi cá nhân. Part 1: chuẩn bị 1 phút, độc thoại 2–3 phút. Part 2: giảng viên chọn 1–2 trong 5 câu, trả lời tổng cộng 2–3 phút. Chỉ có 1 chủ đề mẫu trong tài liệu cung cấp.
+
+Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR.
+
+--- EXTRACTED SOURCE TEXT (page breaks retained) ---
+                         Speaking Test Guidelines for Examiner
+                                       General Overview
+
+   ●   Students take the test individually.
+
+   ●   Part 1: Long run: Monologue on a given topic (3-4 minutes including 1-minute
+       preparation time).
+
+   ●   Part 2: The examiner asks 1-2 questions from a list of 5 questions (connected from Part
+       1; lasts for 2-3 minutes).
+                                   Instructions for Examiner
+Before the Test Starts
+              “Good morning/afternoon. Welcome to the speaking test. There are two parts to
+              this test. In the first part, you will talk about a topic for 2-3 minutes. In the second
+              part, I will ask you 1-2 questions.”
+Part 1: Long run
+   1. Introduce Part 1: The examiner lets the student choose their topic randomly.
+              “Let’s begin with Part 1. Select a topic card. May I have the question? (Examiner
+              reads the question) You have 1 minute to prepare, and then 2-3 minutes to talk
+              about it.”
+   2. Monitor the time. If the student talks for over 3 minutes, politely stop them.
+              “Thank you. That’s enough for Part 1.”
+Part 2: Follow-up Questions
+              The examiner asks 1-2 questions (relevant to the unit from 5 given questions) to
+              the student.
+              “Now we will move to Part 2. I’m going to ask you questions related to
+              _______.”
+
+
+              “Thank you for completing the speaking test. You may leave now.”
+
+[PAGE BREAK]
+                           ENT503 - Speaking Test Sample
+
+Part 1. Description
+
+Describe a time when you successfully achieved a goal.
+
+You should say:
+    what the goal was
+    how you achieved it
+    how you felt about the success
+    what you learned from the experience.
+
+
+
+
+Part 2. Discussion Questions
+
+Choose 1-2 questions to ask the student.
+
+   1. How can setting specific goals help you achieve your dreams? Give two ways.
+   2. What are some common problems people encounter when trying to reach their goals?
+   Give two common problems.
+   3. How can having a positive attitude help you stay motivated and focused? Explain and
+   give two sample situations.
+   4. How can advice and support from family contribute to achieving your dreams? Explain
+   and give two examples.
+   5. Should parents decide on their children’s choice of major courses? Give two reasons why
+   they should or why they shouldn’t.
+
+[PAGE BREAK]

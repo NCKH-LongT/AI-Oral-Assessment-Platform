@@ -1,4 +1,15 @@
 const { contextBridge, ipcRenderer } = require("electron");
+if (location.protocol === "file:" && location.pathname.endsWith("/setup.html")) {
+  contextBridge.exposeInMainWorld("oralSetup", Object.freeze({
+    status: () => ipcRenderer.invoke("setup:status"),
+    start: () => ipcRenderer.invoke("setup:start"),
+    onProgress: (callback) => {
+      const listener = (_event, state) => callback(state);
+      ipcRenderer.on("setup:progress", listener);
+      return () => ipcRenderer.removeListener("setup:progress", listener);
+    },
+  }));
+}
 async function invokeDisplay(channel, ...args) {
   try {
     return await ipcRenderer.invoke(channel, ...args);

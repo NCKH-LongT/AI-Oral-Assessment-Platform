@@ -101,6 +101,19 @@ def build():
         / "oral-stt"
         / ("oral-stt.exe" if sys.platform == "win32" else "oral-stt")
     )
+    if sys.platform == "win32":
+        # PyInstaller can pick an old MSVC runtime from PATH. Use the installed
+        # system runtime rather than shipping a DLL that crashes CTranslate2.
+        system = Path(os.environ.get("SystemRoot", "C:/Windows")) / (
+            "System32" if sys.maxsize > 2**32 else "SysWOW64"
+        )
+        for name in (
+            "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll",
+            "msvcp140_atomic_wait.dll", "msvcp140_codecvt_ids.dll",
+            "vcruntime140.dll", "vcruntime140_1.dll",
+        ):
+            if (system / name).is_file():
+                shutil.copy2(system / name, executable.parent / "_internal" / name)
     subprocess.run([str(executable), "--capabilities"], check=True)
     env = dict(os.environ, ORAL_STT_VARIANT="whisper-small")
     env.pop("ORAL_STT_MODEL", None)

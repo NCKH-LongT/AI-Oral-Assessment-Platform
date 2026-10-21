@@ -15,7 +15,8 @@ Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, g
 | Chọn mic, nhận dạng câu trả lời hoặc thoát app | [Microphone và thoát desktop](docs/microphone-desktop.md) |
 | Đối chiếu transcript và bản ghi | [Transcript và review](docs/transcript-correction.md) |
 | Build, đóng gói và kiểm tra bộ cài Windows/Linux/macOS | [Build desktop](docs/desktop-build.md) |
-| Chuẩn bị tài nguyên STT bắt buộc trong bộ cài | [STT resources](apps/desktop/resources/stt/README.md) |
+| Build bộ cài Windows nhẹ, tự tải model lần đầu | [Bộ cài Windows nhẹ](docs/desktop-build.md#bộ-cài-windows-nhẹ-tự-tải-model-lần-đầu) |
+| Chuẩn bị helper và tài nguyên STT | [STT resources](apps/desktop/resources/stt/README.md) |
 | Hiểu luồng nhận dạng, tài liệu kiến thức và LLM chấm bài | [Kiến trúc STT/LLM](docs/architecture/knowledge-speech.md) |
 | Quản lý tài khoản, môn học và đăng nhập Google | [Tài khoản, OAuth và desktop](docs/architecture/accounts-courses-desktop.md) |
 | Quản lý dữ liệu, phân biệt audio desktop và kiểm tra/lọc nhiễu trên web | [CRUD và kiểm tra tiếng ồn](docs/architecture/crud-noise-check.md) |
@@ -26,6 +27,20 @@ Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, g
 | Xem những gì đã kiểm thử và giới hạn còn lại | [Biên bản kiểm thử](docs/validation.md) |
 
 Để bắt đầu: chạy server theo mục bên dưới, sau đó làm theo hướng dẫn desktop. Các tài liệu mô tả luồng hiện hành và phạm vi kiểm thử tương ứng.
+
+## Desktop dành cho sinh viên
+
+Bản Windows nhẹ `OralAI-0.1.0-Windows-Setup-Light.exe` khoảng **203 MB (194 MiB)**,
+chứa Electron và helper STT, không kèm trọng số Whisper. Sau khi cài, lần mở đầu
+tự tải khoảng **464 MiB** model, hiển thị tiến độ, kiểm tra SHA-256 và tự thử lại
+khi mạng lỗi. Model được lưu riêng trong dữ liệu người dùng và dùng lại ở những
+lần mở sau. Sinh viên không cần tự cài Node, Python, Docker hoặc thư viện.
+
+App mặc định kết nối `https://oral-test.paperlens.uk`; có thể đổi tại **Cấu hình
+máy chủ**. Giao diện desktop bỏ khoảng trống sidebar web, đặt câu hỏi và thiết
+bị cạnh nhau; nội dung dài cuộn trong từng vùng. Vẫn cần mạng để đăng nhập,
+lấy đề và nộp bài. Xem [cài và kết nối](readme-desktop.md#cài-và-kết-nối) và
+[hướng dẫn build](docs/desktop-build.md). Bộ cài/model không được đưa vào Git.
 
 ## Chạy server
 

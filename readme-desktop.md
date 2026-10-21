@@ -53,7 +53,7 @@ $env:ORAL_WEB_URL = "https://oral-test.paperlens.uk"
 npm run desktop:server
 ```
 
-URL phải là web gốc có `/api`, dùng HTTPS hoặc HTTP localhost; ví dụ `http://localhost:3000`. Trên máy sinh viên, localhost trỏ về chính máy đó. Bộ cài chọn URL qua **Cấu hình máy chủ** tại màn hình đăng nhập. URL không nhúng vào bộ cài lúc build; `ORAL_WEB_URL` có thể dùng khi chạy để chỉ định máy chủ.
+URL phải là domain gốc, không thêm đường dẫn `/api`, dùng HTTPS hoặc HTTP localhost; ví dụ `http://localhost:3000`. Trên máy sinh viên, localhost trỏ về chính máy đó. App mặc định kết nối `https://oral-test.paperlens.uk`. Có thể đổi qua **Cấu hình máy chủ** tại màn hình đăng nhập; lựa chọn được lưu trên máy này. `ORAL_WEB_URL` có thể dùng khi chạy để chỉ định máy chủ.
 
 ## Một lệnh mở app từ code mới — Linux/macOS
 
@@ -67,12 +67,15 @@ Backend cần chạy sẵn. Script mở UI dev và Electron, dùng bundle STT đ
 
 ## Cài và kết nối
 
-1. Tải bộ OralAI đúng hệ điều hành từ artifact **Desktop installers**, cài đặt và mở app.
-2. Chọn **Cấu hình máy chủ**, lưu URL web do đơn vị cung cấp.
-3. Đăng nhập bằng tài khoản được cấp hoặc Google đúng email trong danh sách thi.
-4. Mở **Bài thi của tôi**, chọn bài được giao theo lịch.
+1. Trên Windows x64, nhận file `OralAI-0.1.0-Windows-Setup-Light.exe` do đơn vị phát hành cung cấp, cài đặt và mở app. Bộ cài đã kiểm tra có dung lượng khoảng **203 MB (194 MiB)**.
+2. Lần mở đầu, giữ kết nối Internet để app tự tải khoảng **464 MiB** model Whisper-small. Màn hình thiết lập hiển thị tiến độ; mạng lỗi sẽ tự thử lại tối đa 3 lần cho mỗi tệp, sau đó có nút **Thử tải lại**. Các tệp đã tải xong được giữ lại; tệp đang tải dở sẽ tải lại từ đầu.
+3. App tự mở máy chủ online mặc định sau khi kiểm tra model và bộ chạy STT. Nếu đơn vị dùng máy chủ khác, chọn **Cấu hình máy chủ** và lưu domain gốc được cung cấp.
+4. Đăng nhập bằng tài khoản được cấp hoặc Google đúng email trong danh sách thi.
+5. Mở **Bài thi của tôi**, chọn bài được giao theo lịch.
 
-Bộ cài gồm helper STT, FFmpeg và Whisper-small. Máy sinh viên cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận xác nhận nộp bài. Bài thi được nhận dạng trên server.
+Bộ cài nhẹ chứa Electron, helper STT và FFmpeg; sinh viên không cần cài Python, Node, Docker hoặc package riêng. Model nằm trong thư mục dữ liệu người dùng `OralAI/stt/whisper-small`, ngoài thư mục cài đặt, nên những lần mở sau và cập nhật app có thể dùng lại. Bản cài đầy đủ vẫn kèm model và không có bước tải model lần đầu. Dung lượng sau thiết lập vẫn bao gồm cả model đã tải. Máy sinh viên cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận xác nhận nộp bài. Bài thi mới được nhận dạng trên server.
+
+Giao diện desktop dùng toàn bộ chiều ngang cửa sổ, giữ câu hỏi và camera/thiết bị cạnh nhau trên màn hình laptop. Hướng dẫn, danh sách minh chứng hoặc câu hỏi dài cuộn trong từng vùng; các bước đồng ý ghi hình và nội dung câu hỏi vẫn được giữ nguyên. Bố cục được đóng gói trong Electron nên áp dụng được với server hiện tại.
 
 ## Kết nối mic và camera trước khi thi
 
@@ -136,10 +139,12 @@ Sau khi chuẩn bị bundle STT trên đúng OS/architecture:
 ```bash
 npm run check -w apps/desktop
 npm run test:desktop
-npm run dist -w apps/desktop
+npm run dist:win:light -w apps/desktop
 ```
 
-Output tại `apps/desktop/dist`: Windows `.exe`, Linux `.deb`/AppImage, macOS `.dmg`/`.zip`. `npm run pack -w apps/desktop` tạo thư mục unpacked để kiểm tra. Có thể chạy workflow GitHub Actions **Desktop installers** và tải artifact đúng máy đích.
+Bản Windows nhẹ ở `apps/desktop/dist-light/OralAI-0.1.0-Windows-Setup-Light.exe`. Chỉ cần gửi file `.exe` này cho sinh viên. Không đưa `.env`, profile, cookie, `node_modules`, helper hoặc trọng số model vào Git.
+
+Để build bản đầy đủ trên đúng hệ điều hành, chạy `npm run dist -w apps/desktop`. Output tại `apps/desktop/dist`: Windows `.exe`, Linux `.deb`/AppImage, macOS `.dmg`/`.zip`. `npm run pack -w apps/desktop` tạo thư mục unpacked để kiểm tra. Workflow GitHub Actions **Desktop installers** hiện tạo bản đầy đủ; bản Windows nhẹ dùng lệnh riêng bên trên.
 
 - UI/API/worker: triển khai server theo [Jenkins](docs/jenkins.md) hoặc Docker Compose rồi mở lại app.
 - Electron/preload: chạy source mới hoặc cài bộ desktop mới.
@@ -155,6 +160,7 @@ Bộ cài chưa có auto-update, code signing hoặc notarization. Chi tiết bu
 
 | Hiện tượng | Cách xử lý |
 | --- | --- |
+| Bản cài nhẹ đang tải model hoặc tải lỗi | Giữ mạng và cửa sổ thiết lập mở; app tự thử lại, hoặc bấm Thử tải lại. Tệp hoàn tất được giữ lại; chưa vào màn hình đăng nhập cho tới khi model và runtime sẵn sàng |
 | Chưa có model Whisper-small trên desktop | Bài thi mới vẫn nộp bản ghi để server xử lý; model desktop chỉ cần cho bài thử/luồng cũ |
 | Khôi phục chế độ thi chờ mãi hoặc báo lỗi | Bấm Hủy khôi phục, đóng hộp chia sẻ nếu còn mở; kiểm tra một màn hình/quyền ghi/mạng rồi thử lại. App tự dừng lần khôi phục sau 30 giây; không cho trả lời khi giám sát chưa sẵn sàng |
 | Không nhận được camera/mic | Kiểm tra quyền hệ điều hành, chọn thiết bị và kết nối lại |
@@ -188,7 +194,7 @@ Server cần chạy đầy đủ migration đến `0009`, cập nhật đồng b
 
 ### Cập nhật cho chế độ thiếu model và khôi phục có thể hủy
 
-Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Luồng hàng đợi mới cần migration `0009`; cập nhật đồng bộ API/worker/web. Với bài thử/client cũ, thiếu model được ghi rõ trong lịch sử nộp. Bài thi mới nhận dạng trên server theo cấu hình hệ thống; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bộ cài phát hành vẫn yêu cầu tài nguyên STT đầy đủ khi build.
+Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Luồng hàng đợi mới cần migration `0009`; cập nhật đồng bộ API/worker/web. Với bài thử/client cũ, thiếu model được ghi rõ trong lịch sử nộp. Bài thi mới nhận dạng trên server theo cấu hình hệ thống; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bản cài đầy đủ yêu cầu bundle STT kèm model khi build; bản Windows nhẹ chỉ đóng gói helper/license và tải model theo manifest ở lần mở đầu.
 
 ### Quyền xem điểm
 

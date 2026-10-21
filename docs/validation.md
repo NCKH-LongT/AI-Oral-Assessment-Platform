@@ -2,6 +2,33 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Desktop gọn và bộ cài Windows nhẹ — 21/10/2026
+
+Kiểm tra trên Windows 10 x64. Các phiên kiểm thử dùng profile cô lập, không
+đăng nhập hoặc sửa dữ liệu bài thi production.
+
+- **18/18 ca Node desktop đạt**, gồm ba ca trình tải model: revision cố định,
+  SHA-256, dùng lại model khi offline, tệp sai checksum, lỗi mạng và thử lại.
+- **Kiểm thử Electron bố cục đạt** tại 1024×640, 1280×680 và 1366×700: đăng
+  nhập, kiểm tra thiết bị, câu hỏi, camera và nút thao tác. API được giả lập;
+  đây không phải xác minh camera/microphone vật lý.
+- **Kiểm thử đóng Electron/IPC đạt**: giữ/rời trang theo xác nhận và thoát thật.
+- **Bản Windows nhẹ thật trên profile trống đạt**: màn hình thiết lập, tải
+  khoảng 464 MiB từ Hugging Face, kiểm tra model, helper đóng gói nạp model,
+  vào đăng nhập server online với CSS desktop và khởi động lại dùng model đã
+  lưu. Lượt kiểm tra cuối hoàn tất trong khoảng 43 giây trên kết nối máy build;
+  đây không phải cam kết tốc độ tải cho máy sinh viên.
+- Build NSIS bản đầy đủ khoảng 639 MB (609 MiB), bản nhẹ khoảng 203 MB
+  (194 MiB). Xác minh bản nhẹ không chứa thư mục trọng số model và metadata
+  bật tải lần đầu; file bàn giao đã được đối chiếu SHA-256 với output build.
+- Cú pháp Electron/trình tải, cú pháp script Python build và `git diff --check`
+  đạt. Không có thay đổi web/API/worker hoặc migration trong bản desktop này.
+
+Chưa kiểm tra bộ cài mới trên máy Windows sạch thứ hai, macOS/Linux hoặc ghi
+và nộp một bài thi thật với thiết bị vật lý. Không coi việc helper nạp được
+model là phép đo chất lượng nhận dạng. Lệnh tái kiểm tra nằm trong
+[hướng dẫn build](desktop-build.md#kiểm-tra-trước-phát-hành).
+
 ## Bản sửa thiếu model và khôi phục chế độ thi — 12/10/2026
 
 Kiểm thử trên checkout cô lập; không thao tác bài thi hay dữ liệu production.

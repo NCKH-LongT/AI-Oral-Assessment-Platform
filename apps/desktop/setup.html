@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chuẩn bị OralAI</title>
+  <link rel="stylesheet" href="setup.css">
+</head>
+<body>
+  <main>
+    <span class="brand">OralAI <small>DESKTOP</small></span>
+    <span class="step">THIẾT LẬP LẦN ĐẦU</span>
+    <h1>Chuẩn bị giọng nói của bạn</h1>
+    <p>Ứng dụng tự tải bộ nhận dạng tiếng Việt và tiếng Anh. Chỉ cần thực hiện một lần trên máy này.</p>
+    <section>
+      <div class="row"><strong>Whisper-small</strong><span id="percent">0%</span></div>
+      <progress id="progress" max="100" value="0" aria-label="Tiến độ tải model"></progress>
+      <div class="row muted"><span id="amount">Khoảng 464 MB</span><span id="file">Đang chuẩn bị…</span></div>
+    </section>
+    <p id="status" role="status" aria-live="polite">Đang kiểm tra model đã có trên máy…</p>
+    <button id="retry" hidden>Thử tải lại</button>
+    <p class="note">Giữ kết nối Internet trong lúc tải. Nếu đóng ứng dụng, các tệp đã tải xong sẽ được giữ lại. Sau bước này, model chạy trên máy; bạn vẫn cần Internet để đăng nhập và nộp bài.</p>
+  </main>
+  <script src="setup.js"></script>
+</body>
+</html>

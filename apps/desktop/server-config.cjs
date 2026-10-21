@@ -1,4 +1,4 @@
-const DEFAULT_URL = "http://localhost:3000";
+const DEFAULT_URL = "https://oral-test.paperlens.uk";
 function hasSameOrigin(value, origin) {
   try {
     return new URL(value).origin === origin;

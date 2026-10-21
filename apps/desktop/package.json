@@ -9,6 +9,7 @@
     "pack": "electron-builder --dir --publish never",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
+    "dist:win:light": "electron-builder --config electron-builder.light.cjs --win --publish never",
     "dist:linux": "electron-builder --linux --publish never",
     "dist:mac": "electron-builder --mac --publish never"
   },
@@ -28,6 +29,12 @@
     },
     "files": [
       "main.cjs",
+      "desktop.css",
+      "model-installer.cjs",
+      "model-manifest.json",
+      "setup.html",
+      "setup.css",
+      "setup.js",
       "preload.cjs",
       "server-config.cjs",
       "server-preload.cjs",

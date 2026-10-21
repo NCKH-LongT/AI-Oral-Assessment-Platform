@@ -5,15 +5,19 @@ module.exports = async function (context) {
   const root = path.join(__dirname, "resources/stt");
   const binary =
     context.electronPlatformName === "win32" ? "oral-stt.exe" : "oral-stt";
-  for (const file of [
+  const required = [
     path.join("oral-stt", binary),
+    "WHISPER-LICENSE.txt",
+  ];
+  if (!context.packager?.config.extraMetadata?.modelDownloadOnFirstRun) required.push(
     "whisper-small/model.bin",
     "whisper-small/config.json",
     "whisper-small/tokenizer.json",
     "whisper-small/vocabulary.txt",
     "whisper-small/oral-model.json",
     "whisper-small/LICENSE.txt",
-  ]) {
+  );
+  for (const file of required) {
     if (!existsSync(path.join(root, file)))
       throw new Error(
         "Offline STT bundle missing: " +

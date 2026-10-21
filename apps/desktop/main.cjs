@@ -26,6 +26,9 @@ const { installUnloadGuard } = require("./unload-guard.cjs");
 const { fetchPolicy } = require("./desktop-policy.cjs");
 const { installExamLock } = require("./exam-lock.cjs");
 const { createDisplayManager } = require("./display-manager.cjs");
+const { createModelInstaller } = require("./model-installer.cjs");
+const downloadModel = require("./package.json").modelDownloadOnFirstRun || process.env.ORAL_MODEL_DOWNLOAD === "1";
+let modelInstaller;
 const {
   validHotwords,
   validModel,
@@ -34,6 +37,15 @@ const {
   missingModelResult,
 } = require("./stt-policy.cjs");
 const runFile = promisify(execFile);
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+app.on("second-instance", () => {
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  }
+});
 
 function sttRoot() {
   return path.join(
@@ -44,6 +56,7 @@ function sttRoot() {
 function sttModelPath(model) {
   return (
     process.env.ORAL_WHISPER_MODEL ||
+    (downloadModel && modelInstaller?.target) ||
     path.join(sttRoot(), STT_MODELS[model].folder)
   );
 }
@@ -132,6 +145,7 @@ async function restoreDisplays() {
   }
 }
 const configPage = pathToFileURL(path.join(__dirname, "server.html")).href;
+const setupPage = pathToFileURL(path.join(__dirname, "setup.html")).href;
 function trustedConfig(event) {
   if (
     !configWindow ||
@@ -179,8 +193,9 @@ async function checkServer(value) {
   return origin;
 }
 app.whenReady().then(async () => {
+  if (!primaryInstance) return;
   const configPath = path.join(app.getPath("userData"), "server.json");
-  let configured = false;
+  let configured = true;
   try {
     const stored = JSON.parse(await readFile(configPath, "utf8"));
     webURL = new URL(normalizeServerURL(stored.url));
@@ -224,12 +239,13 @@ app.whenReady().then(async () => {
       contents === win?.webContents &&
       hasSameOrigin(origin, webURL.origin),
   );
+  const area = screen.getPrimaryDisplay().workAreaSize;
   win = new BrowserWindow({
     show: configured || !app.isPackaged,
-    width: 1360,
-    height: 900,
-    minWidth: 800,
-    minHeight: 600,
+    width: Math.min(1360, area.width),
+    height: Math.min(900, area.height),
+    minWidth: Math.min(800, area.width),
+    minHeight: Math.min(580, area.height),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -239,6 +255,42 @@ app.whenReady().then(async () => {
       spellcheck: false,
     },
   });
+  const desktopCSS = await readFile(path.join(__dirname, "desktop.css"), "utf8");
+  win.webContents.on("dom-ready", () => {
+    if (hasSameOrigin(win.webContents.getURL(), webURL.origin))
+      void win.webContents.insertCSS(desktopCSS, { cssOrigin: "user" }).catch(console.error);
+  });
+  if (downloadModel) {
+    modelInstaller = createModelInstaller({
+      directory: path.join(app.getPath("userData"), "stt"),
+      license: path.join(sttRoot(), "WHISPER-LICENSE.txt"),
+      onProgress: (state) => {
+        if (!win.isDestroyed() && win.webContents.getURL() === setupPage)
+          win.webContents.send("setup:progress", state);
+      },
+    });
+    function trustedSetup(event) {
+      if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame.url !== setupPage)
+        throw new Error("Forbidden");
+    }
+    ipcMain.handle("setup:status", (event) => { trustedSetup(event); return modelInstaller.status(); });
+    ipcMain.handle("setup:start", async (event) => {
+      trustedSetup(event);
+      await modelInstaller.start();
+      const helper = await checkSttRuntime();
+      try {
+        await runFile(helper.command, [...helper.args, "--check"], {
+          timeout: 60000,
+          windowsHide: true,
+          env: { ...process.env, ORAL_STT_MODEL: modelInstaller.target, HF_HUB_OFFLINE: "1" },
+        });
+      } catch {
+        throw new Error("Chưa nạp được model. Thử lại hoặc cài lại OralAI nếu lỗi tiếp tục.");
+      }
+      setImmediate(() => { if (!win.isDestroyed()) void win.loadURL(webURL.href).catch(() => {}); });
+      return { ready: true };
+    });
+  }
   installUnloadGuard(win, dialog);
   examLock = installExamLock(win, { screen });
   win.webContents.on("did-finish-load", () => {
@@ -306,6 +358,7 @@ app.whenReady().then(async () => {
     },
   );
   win.on("closed", () => {
+    modelInstaller?.cancel();
     sttChild?.kill();
     configWindow?.destroy();
   });
@@ -565,7 +618,9 @@ app.whenReady().then(async () => {
       if (folder) await rm(folder, { recursive: true, force: true });
     }
   });
-  if (configured || !app.isPackaged)
+  if (downloadModel && !(await modelInstaller.ready()))
+    await win.loadURL(setupPage);
+  else if (configured || !app.isPackaged)
     void win.loadURL(webURL.href).catch(() => {});
   else {
     await win.loadURL("about:blank");

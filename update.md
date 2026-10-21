@@ -1,38 +1,40 @@
-# Speaking Test — dữ liệu đã nhập trên domain chính
+# Speaking Test — 6 môn ENT độc lập trên domain chính
 
-Ngày cập nhật: **20/10/2026**.
+Ngày cập nhật: **21/10/2026**. Đã thực hiện trên `https://oral-test.paperlens.uk`.
 
-Đã bổ sung vào **một môn Speaking Test**, giữ mã có sẵn **SE102**, trên
-`https://oral-test.paperlens.uk`. Không tạo sáu môn riêng. Course ID:
-`25c3d679-dc4e-4dec-862a-1acfea978b53`.
+Đã thay môn gộp bằng **6 môn riêng: ENT001, ENT104, ENT203, ENT303, ENT403,
+ENT503**. Mỗi môn có một bộ đề mẫu gồm hai phần, một rubric riêng, một chủ đề,
+mô tả mục tiêu học tập và tài liệu riêng. Vào **Môn học** hoặc **Ngân hàng đề
+thi** rồi chọn mã ENT tương ứng.
 
-- **6 nhóm đề:** ENT001, ENT104, ENT203, ENT303, ENT403, ENT503.
-- **6 đề mẫu, 12 phần thi**, giữ câu hỏi từ các PDF, đặt thời lượng từng phần.
-  Mỗi nhóm có chủ đề và mô tả mục tiêu học tập tổng hợp từ hướng dẫn.
-- **1 rubric chung, tổng 10 điểm:** Ideas, Pronunciation, Grammar Range and
-  Accuracy, Vocabulary Range and Accuracy, Fluency and coherence; mỗi tiêu chí
-  tối đa 2 điểm. Giữ đủ mô tả bốn mức điểm từ `Speaking Rubric.xlsx`.
-- **13 tài liệu READY:** 6 PDF gốc, 6 TXT trích xuất/ghi chú theo nhóm và 1 TXT
-  rubric. Dùng lại PDF ENT001 đã có sau khi so sánh checksum; không tạo trùng.
-- Đã đọc lại backend để đối chiếu category, nội dung, rubric, thời lượng,
-  nguồn tham chiếu và SHA-256 của toàn bộ 13 tài liệu. STT tại thời điểm kiểm
-  tra đã cấu hình tiếng Anh.
+- **6 đề mẫu, 12 phần thi:** giữ nội dung PDF và thời lượng từng phần.
+- **6 rubric độc lập:** mỗi môn có bản ghi/ID riêng, chỉnh sửa riêng. Nội dung
+  ban đầu cùng lấy từ `Speaking Rubric.xlsx`: Ideas, Pronunciation, Grammar
+  Range and Accuracy, Vocabulary Range and Accuracy, Fluency and coherence;
+  mỗi tiêu chí 2 điểm, tổng 10 điểm. Giữ đủ bốn mức mô tả từ nguồn.
+- **18 tài liệu READY:** mỗi môn có 1 PDF giáo trình, 1 TXT trích xuất/ghi chú
+  và 1 TXT rubric. Đã so sánh checksum với nguồn và kiểm tra snapshot tham
+  chiếu tài liệu của chính môn đó.
+- **Đã xóa 3 môn cũ:** `IELTS4.0` (Speaking English), `SE102` (Speaking Test),
+  `ENGLISH-ORAL-03` (Tiếng Anh giao tiếp — Vấn đáp 3 câu), cùng dữ liệu thi
+  thuộc các môn này.
+- **Đã xóa 2 lớp cũ:** `IELTS4.0-01` (Band 4.0), `SE1` (Test01), gồm các liên
+  kết ghi danh của lớp. Tài khoản sinh viên và bộ môn được giữ lại.
+- Đã đọc lại backend: còn đúng sáu môn ENT nêu trên, không còn môn/lớp cũ.
+  Không tự tạo lớp mới hoặc ghi danh lại sinh viên.
 
-Các đề đang ở **GENERATED — bản nháp chờ duyệt**, chưa công bố hoặc giao thi.
-ENT203/303 là thi theo cặp, trong khi desktop hiện có phiên cá nhân. Ảnh của
-ENT001/104 và thẻ vai ENT203 nằm trong PDF gốc, cần giảng viên cung cấp khi thi.
-Các phần thảo luận giữ đủ 5 câu để giảng viên chọn 1–2, không yêu cầu trả lời
-cả 5. ENT001 dùng thời lượng ở trang đề mẫu và đã ghi chú sự khác biệt với
-trang tổng quan.
+Các đề giữ trạng thái **GENERATED — bản nháp chờ duyệt**. ENT203/303 vẫn cần
+thi theo cặp; ảnh/thẻ vai cần giảng viên cung cấp từ PDF. Part 2 thảo luận
+cho giảng viên chọn 1–2 trong 5 câu, không bắt trả lời tất cả. Khác biệt thời
+lượng ENT001 giữa trang tổng quan và trang mẫu đã được ghi chú, nhập theo mẫu.
+Rubric đánh giá toàn bộ phần thể hiện; điểm trung bình các câu của app không
+thay thế điểm rubric tổng thể. Chấm phát âm và nhịp nói cần nghe audio.
+Phương án Azure bên dưới vẫn là **đề xuất, chưa triển khai**.
 
-Rubric đánh giá toàn bộ phần thể hiện của từng sinh viên; cách lấy trung bình
-điểm các câu hiện tại của app không thay thế điểm tổng thể đó. Phát âm và một
-phần độ trôi chảy cần nghe audio. Phương án Azure bên dưới vẫn là **đề xuất,
-chưa triển khai**.
-
-Chi tiết: [Bộ dữ liệu và cách nhập](data/ent-speaking/README.md),
-[biên bản đối chiếu backend](data/ent-speaking/import-report.json),
-[nội dung đề/rubric](data/ent-speaking/assessment.json).
+Tài liệu: [cấu trúc và importer](data/ent-speaking/README.md),
+[đối chiếu 6 môn mới](data/ent-speaking/import-report.json),
+[biên bản xóa môn/lớp cũ](data/ent-speaking/migration-report.json),
+[nội dung đề và nguồn rubric](data/ent-speaking/assessment.json).
 
 ---
 

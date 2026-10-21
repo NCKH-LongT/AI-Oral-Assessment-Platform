@@ -1,0 +1,228 @@
+{
+  "verified_at": "2026-10-20T14:03:10.247345+00:00",
+  "backend": "https://oral-test.paperlens.uk/api",
+  "course": {
+    "id": "25c3d679-dc4e-4dec-862a-1acfea978b53",
+    "code": "SE102",
+    "name": "Speaking Test",
+    "description": "Môn thi Speaking Test gồm 6 nhóm đề: ENT001 (Activities), ENT104 (Getting acquainted), ENT203 (Getting Acquainted — Role-play), ENT303 (Etiquette), ENT403 (Personality), ENT503 (Achieving a goal). Mỗi nhóm hiện có một đề mẫu gồm 2 phần theo tài liệu hướng dẫn. ENT001/104/403/503 thi cá nhân; ENT203/303 thi theo cặp. Rubric chung: Ideas, Pronunciation, Grammar Range and Accuracy, Vocabulary Range and Accuracy, Fluency and coherence; mỗi tiêu chí tối đa 2 điểm, tổng 10 điểm. Các đề ở trạng thái chờ duyệt. Giảng viên cần cung cấp ảnh/thẻ vai từ PDF, tổ chức thi cặp và nghe bản ghi để chấm phát âm/độ trôi chảy; chưa dùng điểm tự động làm điểm rubric tổng thể chính thức."
+  },
+  "assessment_sha256": "75932f3290370813c46d1e1b73718b3e31596eee67b58fc784267a238b321ef0",
+  "rubric_id": "071276c8-9758-4622-85f3-ced70ea3d354",
+  "criteria_count": 5,
+  "rubric_total": 10,
+  "exams": [
+    {
+      "category": "ENT001",
+      "exam_id": "3dac2dfd-70a3-4922-8e71-42f9bc7c969c",
+      "name": "ENT001 — Speaking Test Sample — Activities",
+      "topic_id": "f6e31d13-5ad8-41c2-a801-9f775d992a24",
+      "mode": "INDIVIDUAL",
+      "status": "GENERATED",
+      "parts": 2,
+      "time_limit_seconds": 420,
+      "timing": [
+        {
+          "preparation_seconds": 0,
+          "recording_seconds": 180
+        },
+        {
+          "preparation_seconds": 120,
+          "recording_seconds": 120
+        }
+      ]
+    },
+    {
+      "category": "ENT104",
+      "exam_id": "dec0e5d8-f6b1-4072-9f78-17c35c2423c3",
+      "name": "ENT104 — Speaking Test Sample — Getting acquainted",
+      "topic_id": "6372a3a7-5eb6-435d-b969-4b7df4225365",
+      "mode": "INDIVIDUAL",
+      "status": "GENERATED",
+      "parts": 2,
+      "time_limit_seconds": 420,
+      "timing": [
+        {
+          "preparation_seconds": 0,
+          "recording_seconds": 120
+        },
+        {
+          "preparation_seconds": 120,
+          "recording_seconds": 180
+        }
+      ]
+    },
+    {
+      "category": "ENT203",
+      "exam_id": "ad487378-0a90-4242-a261-ceb879698fce",
+      "name": "ENT203 — Speaking Test Sample — Getting Acquainted — Role-play",
+      "topic_id": "56b711b1-0331-4242-a218-0b9f0fc31dad",
+      "mode": "PAIR",
+      "status": "GENERATED",
+      "parts": 2,
+      "time_limit_seconds": 600,
+      "timing": [
+        {
+          "preparation_seconds": 120,
+          "recording_seconds": 240
+        },
+        {
+          "preparation_seconds": 0,
+          "recording_seconds": 120
+        }
+      ]
+    },
+    {
+      "category": "ENT303",
+      "exam_id": "c327a0b6-2f2c-4161-87d2-4644d5d3006f",
+      "name": "ENT303 — Speaking Test Sample — Etiquette",
+      "topic_id": "81164557-2962-4c1e-a7cc-78a492a9ba1d",
+      "mode": "PAIR",
+      "status": "GENERATED",
+      "parts": 2,
+      "time_limit_seconds": 600,
+      "timing": [
+        {
+          "preparation_seconds": 120,
+          "recording_seconds": 240
+        },
+        {
+          "preparation_seconds": 0,
+          "recording_seconds": 120
+        }
+      ]
+    },
+    {
+      "category": "ENT403",
+      "exam_id": "da5c42d4-fb0d-4930-b8ae-78bec5fc92ef",
+      "name": "ENT403 — Speaking Test Sample — Personality",
+      "topic_id": "c943c0ac-9066-4462-a208-19f757aee84e",
+      "mode": "INDIVIDUAL",
+      "status": "GENERATED",
+      "parts": 2,
+      "time_limit_seconds": 420,
+      "timing": [
+        {
+          "preparation_seconds": 60,
+          "recording_seconds": 180
+        },
+        {
+          "preparation_seconds": 0,
+          "recording_seconds": 180
+        }
+      ]
+    },
+    {
+      "category": "ENT503",
+      "exam_id": "9964d474-9c84-44ed-9433-4c1fa79ec1c8",
+      "name": "ENT503 — Speaking Test Sample — Achieving a goal",
+      "topic_id": "41723dcb-2c41-482c-8745-848063573bed",
+      "mode": "INDIVIDUAL",
+      "status": "GENERATED",
+      "parts": 2,
+      "time_limit_seconds": 420,
+      "timing": [
+        {
+          "preparation_seconds": 60,
+          "recording_seconds": 180
+        },
+        {
+          "preparation_seconds": 0,
+          "recording_seconds": 180
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "id": "c11d6727-f553-454c-8d24-12aee95fad18",
+      "filename": "ENT001_Speaking Test Guidelines and Sample.pdf",
+      "sha256": "b79cf8d838030814ef657a16c777cfb1b7e96170ae7339798eda94864edc4578",
+      "status": "READY"
+    },
+    {
+      "id": "c825b06c-b8db-49ae-ba71-bcaae007ae09",
+      "filename": "ENT001-source.txt",
+      "sha256": "c1e9692911ae7186eee903d491c00e0a8df45308f5c255855c267e862660b6d0",
+      "status": "READY"
+    },
+    {
+      "id": "a8abe9ea-0cd3-485b-9946-a10a89f1d7c1",
+      "filename": "ENT104_Speaking Guidelines and Sample.pdf",
+      "sha256": "d2038d99208776a9dc1eea41ef38b5322ed29825fc29411e389b549de245b398",
+      "status": "READY"
+    },
+    {
+      "id": "a9c4ae1c-0f59-445d-88ae-e177a01c54fe",
+      "filename": "ENT104-source.txt",
+      "sha256": "8f3c0d4d8162765bc2ad25f2652d519ed73ed0ad7d0f6f389405364f6db858ea",
+      "status": "READY"
+    },
+    {
+      "id": "ea3e87f1-679a-4a88-801f-3484af5f8f0a",
+      "filename": "ENT203_Speaking Test Guidelines and Sample.pdf",
+      "sha256": "5bea40f2b7765ef04c72f0b36bd4a0c233ff8b1e39ca2b4cd8e66746167f7930",
+      "status": "READY"
+    },
+    {
+      "id": "2126437a-5e2f-4089-958a-d14e870a5a10",
+      "filename": "ENT203-source.txt",
+      "sha256": "c89d1fc419455376eb6698aa860b1563c9e3d2e949fde4947d7e2184dd6cf58c",
+      "status": "READY"
+    },
+    {
+      "id": "9ade7c47-bd51-421f-a010-2e7778034a0a",
+      "filename": "ENT303_Speaking Test Guidelines and Sample.pdf",
+      "sha256": "72e629b0d2d77797ce19c44f23f5af8b034a745efee72bd82c01f2d740784b4a",
+      "status": "READY"
+    },
+    {
+      "id": "ad946957-5069-4c6e-8fa0-3c3f4fe3c760",
+      "filename": "ENT303-source.txt",
+      "sha256": "6fc4f0979632cb433c32814a01c4b1bd32392f8c70026b119dd46aac307e11ac",
+      "status": "READY"
+    },
+    {
+      "id": "6f286660-70ad-48ab-8eeb-6e094141561a",
+      "filename": "ENT403_Speaking Guidelines.pdf",
+      "sha256": "52f4a310b341d8f97a0e260c014f1a047c1a0b1905d4aa96d71943b377c5785e",
+      "status": "READY"
+    },
+    {
+      "id": "10e6c9b5-2625-4b93-83d9-ba8e09f3a97b",
+      "filename": "ENT403-source.txt",
+      "sha256": "8a1e099633fb5cff719262b3058b3ed792f7e16a7ec2a37332117b5f9fe78c3e",
+      "status": "READY"
+    },
+    {
+      "id": "c591c16e-c92d-4862-822b-608a84def3f1",
+      "filename": "ENT503_Speaking Guidelines.pdf",
+      "sha256": "f5314618feb535c16cb3f6ca0e4d7af3bc3bf5825cf8ff03e480a7a49aee18a1",
+      "status": "READY"
+    },
+    {
+      "id": "2895fe5a-1bba-4f60-bea4-cbb6430ad888",
+      "filename": "ENT503-source.txt",
+      "sha256": "032ee16fdc3a9fff8599ab71e549bac4369e954be7876083041eca13c6c62eef",
+      "status": "READY"
+    },
+    {
+      "id": "b0d0c078-52f8-4bb5-85c3-11d5cd060a1d",
+      "filename": "Speaking-Rubric-source.txt",
+      "sha256": "4c5d49eae29038764276ebe547ef9ab6f46f8286738c23286ddee8f9818e70de",
+      "status": "READY"
+    }
+  ],
+  "published": false,
+  "assigned": false,
+  "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR.",
+  "previous_course_description": "General Overview  • Students take the test individually.  • A student chooses a speaking topic randomly (using https://wheelofnames.com/ )  • Part 1: The examiner asks the student 5 questions from the list. (2 minutes)  • Part 2: The student describes a picture using the prompt questions. (2 minutes for  preparation, 2-3 minutes for speaking)",
+  "speech_language_checked": "en",
+  "counts": {
+    "topics": 6,
+    "outcomes": 6,
+    "exams": 6,
+    "rubrics": 1,
+    "documents": 13
+  }
+}

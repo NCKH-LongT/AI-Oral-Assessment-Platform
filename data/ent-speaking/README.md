@@ -1,15 +1,15 @@
-# Speaking Test — 6 nhóm đề ENT
+# Speaking Test — 6 môn ENT độc lập
 
-Bộ nhập sử dụng **một môn Speaking Test**, mã hiện có **SE102**, trên
-[domain chính](https://oral-test.paperlens.uk). Course ID:
-`25c3d679-dc4e-4dec-862a-1acfea978b53`. Mã môn được giữ nguyên để không tạo trùng
-với môn và giáo trình ENT001 đã có.
+Cấu trúc cập nhật ngày **21/10/2026** trên [domain chính](https://oral-test.paperlens.uk):
+**ENT001, ENT104, ENT203, ENT303, ENT403, ENT503** là sáu môn riêng.
+Mỗi môn có một đề mẫu gồm hai phần, một rubric riêng, một chủ đề, mục tiêu
+học tập và ba tài liệu riêng. Vào **Môn học** hoặc **Ngân hàng đề thi** rồi chọn
+môn ENT tương ứng. ID từng môn/đề/rubric nằm trong [import-report.json](import-report.json).
 
-Vào **Ngân hàng đề thi → Speaking Test**, lọc theo category ENT001, ENT104,
-ENT203, ENT303, ENT403 hoặc ENT503. Mỗi nhóm có một đề mẫu gồm hai phần,
-một chủ đề và một mô tả mục tiêu học tập tổng hợp từ tài liệu.
+Các rubric có cùng tiêu chí từ workbook nguồn nhưng có bản ghi và ID độc lập,
+cho phép chỉnh từng môn riêng. Tài liệu và snapshot không tham chiếu môn cũ.
 
-| Nhóm | Chủ đề mẫu | Hình thức trong nguồn | Part 1: chuẩn bị / nói | Part 2: chuẩn bị / nói |
+| Môn | Chủ đề mẫu | Hình thức trong nguồn | Part 1: chuẩn bị / nói | Part 2: chuẩn bị / nói |
 | --- | --- | --- | --- | --- |
 | ENT001 | Activities | Cá nhân | 0 / tối đa 3 phút | 2 / tối đa 2 phút |
 | ENT104 | Getting acquainted | Cá nhân | 0 / 2 phút | 2 / tối đa 3 phút |
@@ -33,7 +33,7 @@ hay coi danh sách này là ngân hàng đầy đủ để bốc thăm.
 
 ## Rubric và nguồn
 
-Rubric `ENT Speaking Rubric — 5 criteria / 10 points` giữ mô tả của sheet
+Mỗi môn có rubric tên `<mã môn> — Speaking Rubric / 10 points`, giữ mô tả của sheet
 `Rubric`, ô A5:E11, trong **Speaking Rubric.xlsx**. Năm tiêu chí:
 Ideas; Pronunciation; Grammar Range and Accuracy; Vocabulary Range and Accuracy;
 Fluency and coherence. Mỗi tiêu chí tối đa 2 điểm, trọng số bằng nhau.
@@ -43,14 +43,15 @@ Sheet `ENT Speaking` là mẫu ghi điểm, không có danh sách sinh viên c�
 API tài liệu không nhận XLSX nên nội dung rubric được đưa vào rubric có cấu trúc
 và `Speaking-Rubric-source.txt`; không đổi đuôi workbook để giả thành PDF/TXT.
 
-Sáu PDF gốc được lưu trên backend, giữ nguyên hình và nội dung; ENT001 dùng lại
-giáo trình đã tồn tại sau khi so sánh SHA-256. Mỗi mã có thêm một TXT trích xuất,
+Mỗi môn có PDF hướng dẫn tương ứng làm giáo trình, giữ nguyên hình/nội dung và
+kiểm tra SHA-256 với bản gốc. Mỗi môn có thêm một TXT rubric và một TXT trích xuất,
 ghi nguồn, lưu ngắt trang, giải thích cách triển khai. Thẻ thông tin A/B trong
 ảnh ENT203 trang 2 được chép lại sau khi kiểm tra trực quan; giảng viên vẫn phải
 phát riêng thẻ tương ứng cho từng vai. Các ngày tháng/email trong thẻ là nội dung
 tình huống, không phải lịch thi hay yêu cầu liên hệ.
 
-`assessment.json` lưu câu hỏi, thời lượng, tiêu chí và SHA-256 của nguồn.
+`assessment.json` phiên bản 2 lưu sáu định nghĩa môn, câu hỏi, thời lượng,
+nguồn tiêu chí rubric và SHA-256. Importer tạo rubric riêng theo mã từng môn.
 `*-source.txt` tách nội dung nguồn khỏi ghi chú triển khai. Mô tả LO,
 `expected_concepts` và độ khó `MEDIUM` là dữ liệu tổ chức do người nhập bổ sung,
 không phải CLO, đáp án cố định hay quy đổi CEFR chính thức.
@@ -100,7 +101,8 @@ Credentials lấy từ `BOOTSTRAP_ADMIN` và `BOOTSTRAP_PASSWORD` trong `.env`,
 chỉ dùng trong bộ nhớ, không đưa vào bundle/report. Có thể chỉ định
 `--env-file` nhưng không truyền mật khẩu trên dòng lệnh.
 
-Importer kiểm tra đúng course ID/mã/tên, SHA-256 của nguồn, trùng tên và nội dung;
+Importer tìm môn theo mã ENT chính xác, tạo khi chưa có, kiểm tra tên/trạng thái,
+SHA-256 của nguồn, trùng tên và nội dung;
 tái sử dụng tài liệu giống hệt. Câu hỏi được nhập qua Excel API có preview,
 giữ nguyên nội dung thay vì gọi AI soạn lại. Sau khi tài liệu READY,
 API tạo snapshot nguồn và importer đặt thời lượng từng phần, category.
@@ -113,5 +115,35 @@ giảng viên đã duyệt hoặc sửa dữ liệu.
 
 Kết quả đối chiếu lưu tại [import-report.json](import-report.json), gồm ID
 thực tế trên backend, thời điểm kiểm tra UTC, trạng thái, thời lượng và checksum
-13 tài liệu (6 PDF, 6 TXT theo nhóm, 1 TXT rubric). File nguồn PDF/XLSX không
+18 tài liệu (6 PDF giáo trình, 6 TXT theo môn, 6 bản TXT rubric độc lập). File nguồn PDF/XLSX không
 được sao chép vào Git; cần giữ bản gốc để chạy lại kiểm tra checksum.
+
+
+Có thể dùng `--course-code ENT203` để chỉ nhập/kiểm tra một môn. Báo cáo từng
+môn được lưu tại `reports/<mã môn>.json`; báo cáo tổng được cập nhật khi chạy
+đủ sáu môn. Importer thông thường không xóa dữ liệu cũ.
+
+## Chuyển đổi và xóa môn/lớp cũ
+
+Theo yêu cầu ngày 21/10/2026, đã thay cấu trúc môn gộp SE102 bằng sáu môn ENT,
+xóa các môn tiếng Anh cũ `IELTS4.0`, `SE102`, `ENGLISH-ORAL-03` cùng lớp và dữ
+liệu thi thuộc chúng. Đã xóa hai lớp `IELTS4.0-01` (Band 4.0) và `SE1` (Test01). Đọc lại backend
+xác nhận còn sáu môn ENT và không còn lớp cũ. Tài khoản người dùng và bộ môn
+không thuộc thao tác xóa.
+Báo cáo cấu trúc cũ được giữ tại `history/2026-10-20-single-course.json` chỉ để
+đối chiếu lịch sử; các ID trong đó không còn là dữ liệu đang sử dụng.
+
+Script `remove_legacy_courses.py` giới hạn bằng đúng ba ID/mã cũ, kiểm tra trực
+tiếp sáu môn thay thế, rubric, đề và nguồn độc lập trước khi xóa. API xóa toàn
+bộ cây dữ liệu môn học cũng xóa lớp, ghi danh, đề, lượt thi, kết quả; worker dọn
+tệp vật lý sau giao dịch. Báo cáo [migration-report.json](migration-report.json) ghi đối tượng đã xóa
+và kết quả đọc lại danh sách môn/lớp. Script không chọn đối tượng bằng tìm tên
+chứa “English” hay “Speaking”.
+
+```bash
+# Chỉ kiểm tra các môn thay thế và hiển thị đúng ba đối tượng cũ.
+.venv/bin/python data/ent-speaking/remove_legacy_courses.py
+
+# Thực hiện yêu cầu xóa đã chốt, sau khi tất cả môn mới đã được kiểm tra.
+.venv/bin/python data/ent-speaking/remove_legacy_courses.py --apply
+```

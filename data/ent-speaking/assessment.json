@@ -1,10 +1,5 @@
 {
-  "schema_version": 1,
-  "course": {
-    "id": "25c3d679-dc4e-4dec-862a-1acfea978b53",
-    "code": "SE102",
-    "name": "Speaking Test"
-  },
+  "schema_version": 2,
   "rubric": {
     "name": "ENT Speaking Rubric — 5 criteria / 10 points",
     "criteria": [
@@ -342,6 +337,38 @@
           ]
         }
       ]
+    }
+  ],
+  "courses": [
+    {
+      "code": "ENT001",
+      "name": "ENT001 — Speaking Test",
+      "description": "Thi cá nhân. Bản mẫu trang 2 ghi Part 1: 2–3 phút, trang 3 ghi Part 2: chuẩn bị 2 phút + trả lời tối đa 2 phút; nhập theo bản mẫu (tối đa 7 phút). Trang tổng quan ghi Part 1: 2 phút, Part 2: 2–3 phút nói; giảng viên cần thống nhất trước khi duyệt. Ảnh gốc nằm ở trang 3, phải được giảng viên trình chiếu/cung cấp khi thi. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy."
+    },
+    {
+      "code": "ENT104",
+      "name": "ENT104 — Speaking Test",
+      "description": "Thi cá nhân. Part 1: 5 câu trong 2 phút; Part 2: chuẩn bị 2 phút, mô tả ảnh 2–3 phút. Ảnh gốc nằm ở trang 2, phải được giảng viên trình chiếu/cung cấp khi thi. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy."
+    },
+    {
+      "code": "ENT203",
+      "name": "ENT203 — Speaking Test",
+      "description": "Thi THEO CẶP, 10 phút/cặp. Part 1: chuẩn bị 2 phút, diễn cả hai tình huống và đổi vai trong 3–4 phút. Part 2: hỏi mỗi sinh viên 1–2 câu, 2 phút/người. Phát riêng thẻ A/B trang 2; ngày tháng trên thẻ là dữ liệu tình huống, không phải lịch thi. Desktop hiện có phiên thi cá nhân, chưa tự ghép cặp/tách giọng; không giao đề này như bài cá nhân tự động. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy."
+    },
+    {
+      "code": "ENT303",
+      "name": "ENT303 — Speaking Test",
+      "description": "Thi THEO CẶP, 10 phút/cặp. Part 1: chuẩn bị 2 phút, hội thoại 3–4 phút. Part 2: mỗi sinh viên trả lời 1–2 câu trong 2 phút, không chuẩn bị. Desktop hiện có phiên thi cá nhân, chưa tự ghép cặp/tách giọng; giảng viên phải tổ chức và nhận diện từng sinh viên. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy."
+    },
+    {
+      "code": "ENT403",
+      "name": "ENT403 — Speaking Test",
+      "description": "Thi cá nhân. Part 1: chuẩn bị 1 phút, độc thoại 2–3 phút. Part 2: giảng viên chọn 1–2 trong 5 câu, trả lời tổng cộng 2–3 phút. Chỉ có 1 chủ đề mẫu trong tài liệu cung cấp. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy."
+    },
+    {
+      "code": "ENT503",
+      "name": "ENT503 — Speaking Test",
+      "description": "Thi cá nhân. Part 1: chuẩn bị 1 phút, độc thoại 2–3 phút. Part 2: giảng viên chọn 1–2 trong 5 câu, trả lời tổng cộng 2–3 phút. Chỉ có 1 chủ đề mẫu trong tài liệu cung cấp. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy."
     }
   ]
 }

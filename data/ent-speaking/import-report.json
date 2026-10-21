@@ -1,228 +1,368 @@
 {
-  "verified_at": "2026-10-20T14:03:10.247345+00:00",
+  "verified_at": "2026-10-21T14:18:21.986270+00:00",
   "backend": "https://oral-test.paperlens.uk/api",
-  "course": {
-    "id": "25c3d679-dc4e-4dec-862a-1acfea978b53",
-    "code": "SE102",
-    "name": "Speaking Test",
-    "description": "Môn thi Speaking Test gồm 6 nhóm đề: ENT001 (Activities), ENT104 (Getting acquainted), ENT203 (Getting Acquainted — Role-play), ENT303 (Etiquette), ENT403 (Personality), ENT503 (Achieving a goal). Mỗi nhóm hiện có một đề mẫu gồm 2 phần theo tài liệu hướng dẫn. ENT001/104/403/503 thi cá nhân; ENT203/303 thi theo cặp. Rubric chung: Ideas, Pronunciation, Grammar Range and Accuracy, Vocabulary Range and Accuracy, Fluency and coherence; mỗi tiêu chí tối đa 2 điểm, tổng 10 điểm. Các đề ở trạng thái chờ duyệt. Giảng viên cần cung cấp ảnh/thẻ vai từ PDF, tổ chức thi cặp và nghe bản ghi để chấm phát âm/độ trôi chảy; chưa dùng điểm tự động làm điểm rubric tổng thể chính thức."
-  },
-  "assessment_sha256": "75932f3290370813c46d1e1b73718b3e31596eee67b58fc784267a238b321ef0",
-  "rubric_id": "071276c8-9758-4622-85f3-ced70ea3d354",
-  "criteria_count": 5,
-  "rubric_total": 10,
-  "exams": [
+  "structure": "six_independent_courses",
+  "courses": [
     {
-      "category": "ENT001",
-      "exam_id": "3dac2dfd-70a3-4922-8e71-42f9bc7c969c",
-      "name": "ENT001 — Speaking Test Sample — Activities",
-      "topic_id": "f6e31d13-5ad8-41c2-a801-9f775d992a24",
-      "mode": "INDIVIDUAL",
-      "status": "GENERATED",
-      "parts": 2,
-      "time_limit_seconds": 420,
-      "timing": [
+      "verified_at": "2026-10-21T14:16:18.010562+00:00",
+      "backend": "https://oral-test.paperlens.uk/api",
+      "course": {
+        "code": "ENT001",
+        "name": "ENT001 — Speaking Test",
+        "description": "Thi cá nhân. Bản mẫu trang 2 ghi Part 1: 2–3 phút, trang 3 ghi Part 2: chuẩn bị 2 phút + trả lời tối đa 2 phút; nhập theo bản mẫu (tối đa 7 phút). Trang tổng quan ghi Part 1: 2 phút, Part 2: 2–3 phút nói; giảng viên cần thống nhất trước khi duyệt. Ảnh gốc nằm ở trang 3, phải được giảng viên trình chiếu/cung cấp khi thi. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy.",
+        "id": "4a85693b-caa0-40c1-a2c1-a3f0eb95ec50"
+      },
+      "assessment_sha256": "d3ad7a593f65a0710ba3a38ff6b58d3e227fa58f5d8b57d2b64eb65cfff37d35",
+      "rubric_id": "883f9499-5062-4f8f-b4fa-7b099d4a299c",
+      "criteria_count": 5,
+      "rubric_total": 10,
+      "exams": [
         {
-          "preparation_seconds": 0,
-          "recording_seconds": 180
+          "category": "ENT001",
+          "exam_id": "90c8bba0-8103-4ef5-a026-fe6ad4d12b3a",
+          "name": "ENT001 — Speaking Test Sample — Activities",
+          "topic_id": "be1c3b89-39c8-4b75-8f08-c31fd05f2a2d",
+          "mode": "INDIVIDUAL",
+          "status": "GENERATED",
+          "parts": 2,
+          "time_limit_seconds": 420,
+          "timing": [
+            {
+              "preparation_seconds": 0,
+              "recording_seconds": 180
+            },
+            {
+              "preparation_seconds": 120,
+              "recording_seconds": 120
+            }
+          ]
+        }
+      ],
+      "documents": [
+        {
+          "id": "0c45da4e-a9c4-4c6d-9a5e-421719185a18",
+          "filename": "ENT001_Speaking Test Guidelines and Sample.pdf",
+          "sha256": "b79cf8d838030814ef657a16c777cfb1b7e96170ae7339798eda94864edc4578",
+          "status": "READY"
         },
         {
-          "preparation_seconds": 120,
-          "recording_seconds": 120
+          "id": "3f3c3ed8-a434-4d2a-bdca-0e8260d7cb91",
+          "filename": "ENT001-source.txt",
+          "sha256": "c1e9692911ae7186eee903d491c00e0a8df45308f5c255855c267e862660b6d0",
+          "status": "READY"
+        },
+        {
+          "id": "39f76ae5-70dc-4bbe-a64e-aae38377c65d",
+          "filename": "Speaking-Rubric-source.txt",
+          "sha256": "4c5d49eae29038764276ebe547ef9ab6f46f8286738c23286ddee8f9818e70de",
+          "status": "READY"
         }
-      ]
+      ],
+      "published": false,
+      "assigned": false,
+      "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR."
     },
     {
-      "category": "ENT104",
-      "exam_id": "dec0e5d8-f6b1-4072-9f78-17c35c2423c3",
-      "name": "ENT104 — Speaking Test Sample — Getting acquainted",
-      "topic_id": "6372a3a7-5eb6-435d-b969-4b7df4225365",
-      "mode": "INDIVIDUAL",
-      "status": "GENERATED",
-      "parts": 2,
-      "time_limit_seconds": 420,
-      "timing": [
+      "verified_at": "2026-10-21T14:16:41.367503+00:00",
+      "backend": "https://oral-test.paperlens.uk/api",
+      "course": {
+        "code": "ENT104",
+        "name": "ENT104 — Speaking Test",
+        "description": "Thi cá nhân. Part 1: 5 câu trong 2 phút; Part 2: chuẩn bị 2 phút, mô tả ảnh 2–3 phút. Ảnh gốc nằm ở trang 2, phải được giảng viên trình chiếu/cung cấp khi thi. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy.",
+        "id": "3075f226-b6ad-48cc-a78f-def033975e30"
+      },
+      "assessment_sha256": "d3ad7a593f65a0710ba3a38ff6b58d3e227fa58f5d8b57d2b64eb65cfff37d35",
+      "rubric_id": "1b454256-cad6-4d64-bc77-dc48b048715f",
+      "criteria_count": 5,
+      "rubric_total": 10,
+      "exams": [
         {
-          "preparation_seconds": 0,
-          "recording_seconds": 120
+          "category": "ENT104",
+          "exam_id": "53c52c33-db8e-4b38-893e-51b106d385cf",
+          "name": "ENT104 — Speaking Test Sample — Getting acquainted",
+          "topic_id": "c74d89c6-fcca-4d29-a43b-a206553b8e7e",
+          "mode": "INDIVIDUAL",
+          "status": "GENERATED",
+          "parts": 2,
+          "time_limit_seconds": 420,
+          "timing": [
+            {
+              "preparation_seconds": 0,
+              "recording_seconds": 120
+            },
+            {
+              "preparation_seconds": 120,
+              "recording_seconds": 180
+            }
+          ]
+        }
+      ],
+      "documents": [
+        {
+          "id": "f1b21f7f-b484-4d7f-9fc8-6002650e2a05",
+          "filename": "ENT104_Speaking Guidelines and Sample.pdf",
+          "sha256": "d2038d99208776a9dc1eea41ef38b5322ed29825fc29411e389b549de245b398",
+          "status": "READY"
         },
         {
-          "preparation_seconds": 120,
-          "recording_seconds": 180
+          "id": "fa2bb3b8-9be0-4bde-b136-85c642cffcc0",
+          "filename": "ENT104-source.txt",
+          "sha256": "8f3c0d4d8162765bc2ad25f2652d519ed73ed0ad7d0f6f389405364f6db858ea",
+          "status": "READY"
+        },
+        {
+          "id": "9151efa8-ddfb-4445-800d-dd0892f06884",
+          "filename": "Speaking-Rubric-source.txt",
+          "sha256": "4c5d49eae29038764276ebe547ef9ab6f46f8286738c23286ddee8f9818e70de",
+          "status": "READY"
         }
-      ]
+      ],
+      "published": false,
+      "assigned": false,
+      "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR."
     },
     {
-      "category": "ENT203",
-      "exam_id": "ad487378-0a90-4242-a261-ceb879698fce",
-      "name": "ENT203 — Speaking Test Sample — Getting Acquainted — Role-play",
-      "topic_id": "56b711b1-0331-4242-a218-0b9f0fc31dad",
-      "mode": "PAIR",
-      "status": "GENERATED",
-      "parts": 2,
-      "time_limit_seconds": 600,
-      "timing": [
+      "verified_at": "2026-10-21T14:17:08.402514+00:00",
+      "backend": "https://oral-test.paperlens.uk/api",
+      "course": {
+        "code": "ENT203",
+        "name": "ENT203 — Speaking Test",
+        "description": "Thi THEO CẶP, 10 phút/cặp. Part 1: chuẩn bị 2 phút, diễn cả hai tình huống và đổi vai trong 3–4 phút. Part 2: hỏi mỗi sinh viên 1–2 câu, 2 phút/người. Phát riêng thẻ A/B trang 2; ngày tháng trên thẻ là dữ liệu tình huống, không phải lịch thi. Desktop hiện có phiên thi cá nhân, chưa tự ghép cặp/tách giọng; không giao đề này như bài cá nhân tự động. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy.",
+        "id": "85c8102d-5f33-4da6-a29c-a39ed802aa8a"
+      },
+      "assessment_sha256": "d3ad7a593f65a0710ba3a38ff6b58d3e227fa58f5d8b57d2b64eb65cfff37d35",
+      "rubric_id": "0777b860-c319-4930-8453-b2050cbe1564",
+      "criteria_count": 5,
+      "rubric_total": 10,
+      "exams": [
         {
-          "preparation_seconds": 120,
-          "recording_seconds": 240
+          "category": "ENT203",
+          "exam_id": "27888f19-9bf0-4b70-98cd-e4f426a38831",
+          "name": "ENT203 — Speaking Test Sample — Getting Acquainted — Role-play",
+          "topic_id": "4a838147-2c85-47b3-8776-007712277c74",
+          "mode": "PAIR",
+          "status": "GENERATED",
+          "parts": 2,
+          "time_limit_seconds": 600,
+          "timing": [
+            {
+              "preparation_seconds": 120,
+              "recording_seconds": 240
+            },
+            {
+              "preparation_seconds": 0,
+              "recording_seconds": 120
+            }
+          ]
+        }
+      ],
+      "documents": [
+        {
+          "id": "e03c9415-f5b3-479a-9370-a1eb35b033ac",
+          "filename": "ENT203_Speaking Test Guidelines and Sample.pdf",
+          "sha256": "5bea40f2b7765ef04c72f0b36bd4a0c233ff8b1e39ca2b4cd8e66746167f7930",
+          "status": "READY"
         },
         {
-          "preparation_seconds": 0,
-          "recording_seconds": 120
+          "id": "f3d3ce5d-d05f-43a8-813f-b876a45334a7",
+          "filename": "ENT203-source.txt",
+          "sha256": "c89d1fc419455376eb6698aa860b1563c9e3d2e949fde4947d7e2184dd6cf58c",
+          "status": "READY"
+        },
+        {
+          "id": "6504cd3c-f4be-4b8e-86c4-e97f6b94471c",
+          "filename": "Speaking-Rubric-source.txt",
+          "sha256": "4c5d49eae29038764276ebe547ef9ab6f46f8286738c23286ddee8f9818e70de",
+          "status": "READY"
         }
-      ]
+      ],
+      "published": false,
+      "assigned": false,
+      "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR."
     },
     {
-      "category": "ENT303",
-      "exam_id": "c327a0b6-2f2c-4161-87d2-4644d5d3006f",
-      "name": "ENT303 — Speaking Test Sample — Etiquette",
-      "topic_id": "81164557-2962-4c1e-a7cc-78a492a9ba1d",
-      "mode": "PAIR",
-      "status": "GENERATED",
-      "parts": 2,
-      "time_limit_seconds": 600,
-      "timing": [
+      "verified_at": "2026-10-21T14:17:27.435501+00:00",
+      "backend": "https://oral-test.paperlens.uk/api",
+      "course": {
+        "code": "ENT303",
+        "name": "ENT303 — Speaking Test",
+        "description": "Thi THEO CẶP, 10 phút/cặp. Part 1: chuẩn bị 2 phút, hội thoại 3–4 phút. Part 2: mỗi sinh viên trả lời 1–2 câu trong 2 phút, không chuẩn bị. Desktop hiện có phiên thi cá nhân, chưa tự ghép cặp/tách giọng; giảng viên phải tổ chức và nhận diện từng sinh viên. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy.",
+        "id": "cd76d9d3-14ef-438b-a0ee-fcfd50eb57a1"
+      },
+      "assessment_sha256": "d3ad7a593f65a0710ba3a38ff6b58d3e227fa58f5d8b57d2b64eb65cfff37d35",
+      "rubric_id": "bc86f2e1-24eb-4c72-a1b3-2447698762e9",
+      "criteria_count": 5,
+      "rubric_total": 10,
+      "exams": [
         {
-          "preparation_seconds": 120,
-          "recording_seconds": 240
+          "category": "ENT303",
+          "exam_id": "c64b1947-d868-4650-97fe-9c192e13c439",
+          "name": "ENT303 — Speaking Test Sample — Etiquette",
+          "topic_id": "3c6bcd00-e9d6-4e60-96c8-0c128962074e",
+          "mode": "PAIR",
+          "status": "GENERATED",
+          "parts": 2,
+          "time_limit_seconds": 600,
+          "timing": [
+            {
+              "preparation_seconds": 120,
+              "recording_seconds": 240
+            },
+            {
+              "preparation_seconds": 0,
+              "recording_seconds": 120
+            }
+          ]
+        }
+      ],
+      "documents": [
+        {
+          "id": "2649356b-09a5-428f-9135-21520cca80d0",
+          "filename": "ENT303_Speaking Test Guidelines and Sample.pdf",
+          "sha256": "72e629b0d2d77797ce19c44f23f5af8b034a745efee72bd82c01f2d740784b4a",
+          "status": "READY"
         },
         {
-          "preparation_seconds": 0,
-          "recording_seconds": 120
+          "id": "b5943eca-f864-4442-b188-5bb3c8a99e04",
+          "filename": "ENT303-source.txt",
+          "sha256": "6fc4f0979632cb433c32814a01c4b1bd32392f8c70026b119dd46aac307e11ac",
+          "status": "READY"
+        },
+        {
+          "id": "63e045fb-dfba-4bba-87f1-37bfd7c79cff",
+          "filename": "Speaking-Rubric-source.txt",
+          "sha256": "4c5d49eae29038764276ebe547ef9ab6f46f8286738c23286ddee8f9818e70de",
+          "status": "READY"
         }
-      ]
+      ],
+      "published": false,
+      "assigned": false,
+      "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR."
     },
     {
-      "category": "ENT403",
-      "exam_id": "da5c42d4-fb0d-4930-b8ae-78bec5fc92ef",
-      "name": "ENT403 — Speaking Test Sample — Personality",
-      "topic_id": "c943c0ac-9066-4462-a208-19f757aee84e",
-      "mode": "INDIVIDUAL",
-      "status": "GENERATED",
-      "parts": 2,
-      "time_limit_seconds": 420,
-      "timing": [
+      "verified_at": "2026-10-21T14:18:01.523782+00:00",
+      "backend": "https://oral-test.paperlens.uk/api",
+      "course": {
+        "code": "ENT403",
+        "name": "ENT403 — Speaking Test",
+        "description": "Thi cá nhân. Part 1: chuẩn bị 1 phút, độc thoại 2–3 phút. Part 2: giảng viên chọn 1–2 trong 5 câu, trả lời tổng cộng 2–3 phút. Chỉ có 1 chủ đề mẫu trong tài liệu cung cấp. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy.",
+        "id": "8c9b7f63-7beb-4c88-9b31-5758683a00a2"
+      },
+      "assessment_sha256": "d3ad7a593f65a0710ba3a38ff6b58d3e227fa58f5d8b57d2b64eb65cfff37d35",
+      "rubric_id": "166ce500-af6b-442b-b2d9-b20b6b5520e7",
+      "criteria_count": 5,
+      "rubric_total": 10,
+      "exams": [
         {
-          "preparation_seconds": 60,
-          "recording_seconds": 180
+          "category": "ENT403",
+          "exam_id": "3bbd48ea-d4b0-45f0-987d-6f1396835c63",
+          "name": "ENT403 — Speaking Test Sample — Personality",
+          "topic_id": "85581be8-716d-4df6-8b1f-971c14de29c7",
+          "mode": "INDIVIDUAL",
+          "status": "GENERATED",
+          "parts": 2,
+          "time_limit_seconds": 420,
+          "timing": [
+            {
+              "preparation_seconds": 60,
+              "recording_seconds": 180
+            },
+            {
+              "preparation_seconds": 0,
+              "recording_seconds": 180
+            }
+          ]
+        }
+      ],
+      "documents": [
+        {
+          "id": "4b7d876c-7834-447b-a499-0a3173fda95c",
+          "filename": "ENT403_Speaking Guidelines.pdf",
+          "sha256": "52f4a310b341d8f97a0e260c014f1a047c1a0b1905d4aa96d71943b377c5785e",
+          "status": "READY"
         },
         {
-          "preparation_seconds": 0,
-          "recording_seconds": 180
+          "id": "99b813a9-6dea-4b36-ae58-1f51ad0911d4",
+          "filename": "ENT403-source.txt",
+          "sha256": "8a1e099633fb5cff719262b3058b3ed792f7e16a7ec2a37332117b5f9fe78c3e",
+          "status": "READY"
+        },
+        {
+          "id": "13b16150-e990-422e-b8b1-71a91b5bebe9",
+          "filename": "Speaking-Rubric-source.txt",
+          "sha256": "4c5d49eae29038764276ebe547ef9ab6f46f8286738c23286ddee8f9818e70de",
+          "status": "READY"
         }
-      ]
+      ],
+      "published": false,
+      "assigned": false,
+      "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR."
     },
     {
-      "category": "ENT503",
-      "exam_id": "9964d474-9c84-44ed-9433-4c1fa79ec1c8",
-      "name": "ENT503 — Speaking Test Sample — Achieving a goal",
-      "topic_id": "41723dcb-2c41-482c-8745-848063573bed",
-      "mode": "INDIVIDUAL",
-      "status": "GENERATED",
-      "parts": 2,
-      "time_limit_seconds": 420,
-      "timing": [
+      "verified_at": "2026-10-21T14:18:21.985872+00:00",
+      "backend": "https://oral-test.paperlens.uk/api",
+      "course": {
+        "code": "ENT503",
+        "name": "ENT503 — Speaking Test",
+        "description": "Thi cá nhân. Part 1: chuẩn bị 1 phút, độc thoại 2–3 phút. Part 2: giảng viên chọn 1–2 trong 5 câu, trả lời tổng cộng 2–3 phút. Chỉ có 1 chủ đề mẫu trong tài liệu cung cấp. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy.",
+        "id": "96f047f4-03de-498c-a8c8-f9faef544e4d"
+      },
+      "assessment_sha256": "d3ad7a593f65a0710ba3a38ff6b58d3e227fa58f5d8b57d2b64eb65cfff37d35",
+      "rubric_id": "d7417b83-5d55-410c-af8b-aceb8c370395",
+      "criteria_count": 5,
+      "rubric_total": 10,
+      "exams": [
         {
-          "preparation_seconds": 60,
-          "recording_seconds": 180
+          "category": "ENT503",
+          "exam_id": "1fba5a32-fe92-405e-966b-0ef6630eca30",
+          "name": "ENT503 — Speaking Test Sample — Achieving a goal",
+          "topic_id": "c77c3e56-7e5e-4529-9112-e9f4ba75a8fd",
+          "mode": "INDIVIDUAL",
+          "status": "GENERATED",
+          "parts": 2,
+          "time_limit_seconds": 420,
+          "timing": [
+            {
+              "preparation_seconds": 60,
+              "recording_seconds": 180
+            },
+            {
+              "preparation_seconds": 0,
+              "recording_seconds": 180
+            }
+          ]
+        }
+      ],
+      "documents": [
+        {
+          "id": "400b764e-bccf-431a-9abb-3a9c970becd4",
+          "filename": "ENT503_Speaking Guidelines.pdf",
+          "sha256": "f5314618feb535c16cb3f6ca0e4d7af3bc3bf5825cf8ff03e480a7a49aee18a1",
+          "status": "READY"
         },
         {
-          "preparation_seconds": 0,
-          "recording_seconds": 180
+          "id": "b3da191d-8181-47b6-925e-f308721e2cf7",
+          "filename": "ENT503-source.txt",
+          "sha256": "032ee16fdc3a9fff8599ab71e549bac4369e954be7876083041eca13c6c62eef",
+          "status": "READY"
+        },
+        {
+          "id": "393c4afc-0ed8-4c37-ad90-d7c9528f7bf8",
+          "filename": "Speaking-Rubric-source.txt",
+          "sha256": "4c5d49eae29038764276ebe547ef9ab6f46f8286738c23286ddee8f9818e70de",
+          "status": "READY"
         }
-      ]
+      ],
+      "published": false,
+      "assigned": false,
+      "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR."
     }
   ],
-  "documents": [
-    {
-      "id": "c11d6727-f553-454c-8d24-12aee95fad18",
-      "filename": "ENT001_Speaking Test Guidelines and Sample.pdf",
-      "sha256": "b79cf8d838030814ef657a16c777cfb1b7e96170ae7339798eda94864edc4578",
-      "status": "READY"
-    },
-    {
-      "id": "c825b06c-b8db-49ae-ba71-bcaae007ae09",
-      "filename": "ENT001-source.txt",
-      "sha256": "c1e9692911ae7186eee903d491c00e0a8df45308f5c255855c267e862660b6d0",
-      "status": "READY"
-    },
-    {
-      "id": "a8abe9ea-0cd3-485b-9946-a10a89f1d7c1",
-      "filename": "ENT104_Speaking Guidelines and Sample.pdf",
-      "sha256": "d2038d99208776a9dc1eea41ef38b5322ed29825fc29411e389b549de245b398",
-      "status": "READY"
-    },
-    {
-      "id": "a9c4ae1c-0f59-445d-88ae-e177a01c54fe",
-      "filename": "ENT104-source.txt",
-      "sha256": "8f3c0d4d8162765bc2ad25f2652d519ed73ed0ad7d0f6f389405364f6db858ea",
-      "status": "READY"
-    },
-    {
-      "id": "ea3e87f1-679a-4a88-801f-3484af5f8f0a",
-      "filename": "ENT203_Speaking Test Guidelines and Sample.pdf",
-      "sha256": "5bea40f2b7765ef04c72f0b36bd4a0c233ff8b1e39ca2b4cd8e66746167f7930",
-      "status": "READY"
-    },
-    {
-      "id": "2126437a-5e2f-4089-958a-d14e870a5a10",
-      "filename": "ENT203-source.txt",
-      "sha256": "c89d1fc419455376eb6698aa860b1563c9e3d2e949fde4947d7e2184dd6cf58c",
-      "status": "READY"
-    },
-    {
-      "id": "9ade7c47-bd51-421f-a010-2e7778034a0a",
-      "filename": "ENT303_Speaking Test Guidelines and Sample.pdf",
-      "sha256": "72e629b0d2d77797ce19c44f23f5af8b034a745efee72bd82c01f2d740784b4a",
-      "status": "READY"
-    },
-    {
-      "id": "ad946957-5069-4c6e-8fa0-3c3f4fe3c760",
-      "filename": "ENT303-source.txt",
-      "sha256": "6fc4f0979632cb433c32814a01c4b1bd32392f8c70026b119dd46aac307e11ac",
-      "status": "READY"
-    },
-    {
-      "id": "6f286660-70ad-48ab-8eeb-6e094141561a",
-      "filename": "ENT403_Speaking Guidelines.pdf",
-      "sha256": "52f4a310b341d8f97a0e260c014f1a047c1a0b1905d4aa96d71943b377c5785e",
-      "status": "READY"
-    },
-    {
-      "id": "10e6c9b5-2625-4b93-83d9-ba8e09f3a97b",
-      "filename": "ENT403-source.txt",
-      "sha256": "8a1e099633fb5cff719262b3058b3ed792f7e16a7ec2a37332117b5f9fe78c3e",
-      "status": "READY"
-    },
-    {
-      "id": "c591c16e-c92d-4862-822b-608a84def3f1",
-      "filename": "ENT503_Speaking Guidelines.pdf",
-      "sha256": "f5314618feb535c16cb3f6ca0e4d7af3bc3bf5825cf8ff03e480a7a49aee18a1",
-      "status": "READY"
-    },
-    {
-      "id": "2895fe5a-1bba-4f60-bea4-cbb6430ad888",
-      "filename": "ENT503-source.txt",
-      "sha256": "032ee16fdc3a9fff8599ab71e549bac4369e954be7876083041eca13c6c62eef",
-      "status": "READY"
-    },
-    {
-      "id": "b0d0c078-52f8-4bb5-85c3-11d5cd060a1d",
-      "filename": "Speaking-Rubric-source.txt",
-      "sha256": "4c5d49eae29038764276ebe547ef9ab6f46f8286738c23286ddee8f9818e70de",
-      "status": "READY"
-    }
-  ],
-  "published": false,
-  "assigned": false,
-  "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR.",
-  "previous_course_description": "General Overview  • Students take the test individually.  • A student chooses a speaking topic randomly (using https://wheelofnames.com/ )  • Part 1: The examiner asks the student 5 questions from the list. (2 minutes)  • Part 2: The student describes a picture using the prompt questions. (2 minutes for  preparation, 2-3 minutes for speaking)",
-  "speech_language_checked": "en",
   "counts": {
-    "topics": 6,
-    "outcomes": 6,
+    "courses": 6,
+    "rubrics": 6,
     "exams": 6,
-    "rubrics": 1,
-    "documents": 13
+    "parts": 12,
+    "documents": 18
   }
 }

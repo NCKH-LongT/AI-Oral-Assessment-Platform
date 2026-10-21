@@ -1,0 +1,59 @@
+{
+  "verified_at": "2026-10-21T14:16:41.367503+00:00",
+  "backend": "https://oral-test.paperlens.uk/api",
+  "course": {
+    "code": "ENT104",
+    "name": "ENT104 — Speaking Test",
+    "description": "Thi cá nhân. Part 1: 5 câu trong 2 phút; Part 2: chuẩn bị 2 phút, mô tả ảnh 2–3 phút. Ảnh gốc nằm ở trang 2, phải được giảng viên trình chiếu/cung cấp khi thi. Rubric riêng cho môn: 5 tiêu chí, mỗi tiêu chí 2 điểm, tổng 10 điểm. Đề mẫu chờ giảng viên duyệt; cần nghe bản ghi để chấm phát âm và độ trôi chảy.",
+    "id": "3075f226-b6ad-48cc-a78f-def033975e30"
+  },
+  "assessment_sha256": "d3ad7a593f65a0710ba3a38ff6b58d3e227fa58f5d8b57d2b64eb65cfff37d35",
+  "rubric_id": "1b454256-cad6-4d64-bc77-dc48b048715f",
+  "criteria_count": 5,
+  "rubric_total": 10,
+  "exams": [
+    {
+      "category": "ENT104",
+      "exam_id": "53c52c33-db8e-4b38-893e-51b106d385cf",
+      "name": "ENT104 — Speaking Test Sample — Getting acquainted",
+      "topic_id": "c74d89c6-fcca-4d29-a43b-a206553b8e7e",
+      "mode": "INDIVIDUAL",
+      "status": "GENERATED",
+      "parts": 2,
+      "time_limit_seconds": 420,
+      "timing": [
+        {
+          "preparation_seconds": 0,
+          "recording_seconds": 120
+        },
+        {
+          "preparation_seconds": 120,
+          "recording_seconds": 180
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "id": "f1b21f7f-b484-4d7f-9fc8-6002650e2a05",
+      "filename": "ENT104_Speaking Guidelines and Sample.pdf",
+      "sha256": "d2038d99208776a9dc1eea41ef38b5322ed29825fc29411e389b549de245b398",
+      "status": "READY"
+    },
+    {
+      "id": "fa2bb3b8-9be0-4bde-b136-85c642cffcc0",
+      "filename": "ENT104-source.txt",
+      "sha256": "8f3c0d4d8162765bc2ad25f2652d519ed73ed0ad7d0f6f389405364f6db858ea",
+      "status": "READY"
+    },
+    {
+      "id": "9151efa8-ddfb-4445-800d-dd0892f06884",
+      "filename": "Speaking-Rubric-source.txt",
+      "sha256": "4c5d49eae29038764276ebe547ef9ab6f46f8286738c23286ddee8f9818e70de",
+      "status": "READY"
+    }
+  ],
+  "published": false,
+  "assigned": false,
+  "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR."
+}

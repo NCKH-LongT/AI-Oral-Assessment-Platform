@@ -1,4 +1,4 @@
-"""Import the supplied ENT samples through the main backend's authenticated API.
+"""Import six independent ENT courses through the main backend's authenticated API.
 
 Default: validate sources and show the plan, without writing to the backend.
 --apply creates missing content; --verify checks imported content read-only.
@@ -64,11 +64,37 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", required=True, type=Path)
     parser.add_argument("--env-file", type=Path, default=ROOT.parents[1] / ".env")
+    parser.add_argument("--course-code", choices=["ENT001", "ENT104", "ENT203", "ENT303", "ENT403", "ENT503"])
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--apply", action="store_true")
     mode.add_argument("--verify", action="store_true")
     args = parser.parse_args()
-    pack = json.loads((ROOT / "assessment.json").read_text())
+    bundle = json.loads((ROOT / "assessment.json").read_text())
+    require(bundle["schema_version"] == 2 and len(bundle["courses"]) == 6, "Expected six independent courses")
+    reports = []
+    for spec in bundle["courses"]:
+        if args.course_code and spec["code"] != args.course_code:
+            continue
+        pack = bundle | {
+            "course": dict(spec),
+            "groups": [g for g in bundle["groups"] if g["code"] == spec["code"]],
+            "rubric": bundle["rubric"] | {"name": spec["code"] + " — Speaking Rubric / 10 points"},
+        }
+        reports.append(import_one(args, pack))
+    if (args.apply or args.verify) and not args.course_code:
+        require(len({r["course"]["id"] for r in reports}) == 6, "Course IDs must be independent")
+        require(len({r["rubric_id"] for r in reports}) == 6, "Rubric IDs must be independent")
+        require(len({e["exam_id"] for r in reports for e in r["exams"]}) == 6, "Exam IDs must be independent")
+        report = {
+            "verified_at": datetime.now(timezone.utc).isoformat(), "backend": BASE_URL,
+            "structure": "six_independent_courses", "courses": reports,
+            "counts": {"courses": 6, "rubrics": 6, "exams": 6, "parts": 12, "documents": 18},
+        }
+        (ROOT / "import-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        print("Verified six independent courses, rubrics and sample exams", flush=True)
+
+
+def import_one(args, pack):
     sources = {}
     for group in pack["groups"]:
         source = group["source"]
@@ -85,14 +111,14 @@ def main():
     require(digest((args.source_root / rubric_source["filename"]).read_bytes()) == rubric_source["sha256"],
             "Changed rubric workbook")
     sources["Speaking-Rubric-source.txt"] = (ROOT / "Speaking-Rubric-source.txt").read_bytes()
-    require(len(pack["groups"]) == 6, "Expected six groups")
+    require(len(pack["groups"]) == 1, "Expected one sample group per course")
     require(len(pack["rubric"]["criteria"]) == 5, "Expected five criteria")
     require(sum(c["max_score"] for c in pack["rubric"]["criteria"]) == 10, "Expected total 10")
     if not args.apply and not args.verify:
         print(json.dumps({
             "backend": BASE_URL, "course": pack["course"], "source_documents": len(sources),
             "categories": [g["code"] for g in pack["groups"]],
-            "exams": len(pack["groups"]), "parts": 12, "target_status": "GENERATED",
+            "exams": len(pack["groups"]), "parts": 2, "target_status": "GENERATED",
             "rubric_total": 10, "writes": False,
         }, ensure_ascii=False, indent=2))
         return
@@ -121,7 +147,16 @@ def main():
         request("POST", "/auth/login", json={
             "username": cfg["BOOTSTRAP_ADMIN"], "password": cfg["BOOTSTRAP_PASSWORD"],
         })
-        cid = pack["course"]["id"]
+        course = one(request("GET", "/admin/courses").json(), "code", pack["course"]["code"])
+        if course is None:
+            require(args.apply, "Missing ENT course")
+            course = request("POST", "/admin/courses", json=pack["course"]).json()
+            print(f"Created course {course['code']}", flush=True)
+        require(all(course[k] == pack["course"][k] for k in ("code", "name")),
+                "Target course identity changed")
+        require(course.get("status", "ACTIVE") == "ACTIVE", "Course is archived")
+        cid = course["id"]
+        pack["course"]["id"] = cid
         course_path = f"/admin/courses/{cid}"
 
         def workspace():
@@ -130,13 +165,7 @@ def main():
         def get_document(filename):
             return one(workspace()["documents"], "filename", filename)
 
-        course = one(request("GET", "/admin/courses").json(), "id", cid)
-        require(course is not None, "Expected existing Speaking Test course")
-        require(all(course[k] == pack["course"][k] for k in ("id", "code", "name")),
-                "Target course identity changed")
-        require(course.get("status", "ACTIVE") == "ACTIVE", "Course is archived")
-
-        # Fail on conflicting existing content before the first write.
+        # Fail on conflicting existing content before adding course content.
         initial = workspace()
         for filename, content in sources.items():
             doc = one(initial["documents"], "filename", filename)
@@ -174,6 +203,24 @@ def main():
             print(f"Uploaded {filename}", flush=True)
             return get_document(filename)
 
+        def wait_ready(filenames):
+            deadline = time.monotonic() + 600
+            retries = {}
+            while True:
+                docs = [d for d in workspace()["documents"] if d["filename"] in filenames]
+                pending = [d for d in docs if d["status"] != "READY"]
+                if not pending:
+                    break
+                require(args.apply, "Some documents are not READY")
+                require(time.monotonic() < deadline, "Timed out waiting for document ingestion")
+                for doc in pending:
+                    count, last = retries.get(doc["id"], (0, 0))
+                    if doc["status"] == "FAILED" and count < 3 and time.monotonic() - last >= 30:
+                        request("POST", f"/admin/documents/{doc['id']}/retry")
+                        retries[doc["id"]] = (count + 1, time.monotonic())
+                print("Indexing: " + ", ".join(f"{d['filename']}={d['status']}" for d in pending), flush=True)
+                time.sleep(5)
+
         rubric = existing_rubric
         if not rubric:
             require(args.apply, "Missing rubric")
@@ -200,11 +247,11 @@ def main():
             filename = group["source"]["filename"]
             original = get_document(filename)
             if not original:
-                # Reuse the existing ENT001 textbook; never replace the course textbook.
-                original = ensure_document(filename, tid)
+                original = ensure_document(filename, kind="TEXTBOOK")
             companion = ensure_document(group["code"] + "-source.txt", tid)
             body["document_ids"] = [rubric_doc["id"], companion["id"]]
             if original["kind"] == "TEXTBOOK":
+                wait_ready({filename})
                 body["chapter_ids"] = [c["id"] for c in workspace()["chapters"]
                                        if c["document_id"] == original["id"]]
                 require(body["chapter_ids"], "Textbook chapters are required")
@@ -220,23 +267,7 @@ def main():
                 request("PUT", f"/admin/topics/{tid}", json=body)
             print(f"Sources mapped: {group['code']}", flush=True)
 
-        # Worker ingestion is asynchronous. Only use all successfully indexed sources.
-        deadline = time.monotonic() + 600
-        retries = {}
-        while True:
-            docs = [d for d in workspace()["documents"] if d["filename"] in sources]
-            pending = [d for d in docs if d["status"] != "READY"]
-            if not pending:
-                break
-            require(args.apply, "Some documents are not READY")
-            require(time.monotonic() < deadline, "Timed out waiting for document ingestion")
-            for doc in pending:
-                count, last = retries.get(doc["id"], (0, 0))
-                if doc["status"] == "FAILED" and count < 3 and time.monotonic() - last >= 30:
-                    request("POST", f"/admin/documents/{doc['id']}/retry")
-                    retries[doc["id"]] = (count + 1, time.monotonic())
-            print("Indexing: " + ", ".join(f"{d['filename']}={d['status']}" for d in pending), flush=True)
-            time.sleep(5)
+        wait_ready(set(sources))
 
         current = workspace()
         missing = [g for g in pack["groups"] if not one(current["exams"], "name", g["exam_name"])]
@@ -324,9 +355,12 @@ def main():
             "exams": verified, "documents": checked_documents,
             "published": False, "assigned": False, "policy": pack["policy"],
         }
-        (ROOT / "import-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-        print(json.dumps({"verified_exams": len(verified), "verified_documents": len(checked_documents),
-                          "report": str(ROOT / "import-report.json")}, ensure_ascii=False))
+        report_dir = ROOT / "reports"
+        report_dir.mkdir(exist_ok=True)
+        (report_dir / (course["code"] + ".json")).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        print(json.dumps({"course": course["code"], "verified_exams": len(verified),
+                          "verified_documents": len(checked_documents)}, ensure_ascii=False))
+        return report
 
 
 if __name__ == "__main__":

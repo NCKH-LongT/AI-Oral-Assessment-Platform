@@ -1,0 +1,88 @@
+{
+  "started_at": "2026-10-21T14:18:47.299182+00:00",
+  "backend": "https://oral-test.paperlens.uk/api",
+  "replacement_course_ids": [
+    "3075f226-b6ad-48cc-a78f-def033975e30",
+    "4a85693b-caa0-40c1-a2c1-a3f0eb95ec50",
+    "85c8102d-5f33-4da6-a29c-a39ed802aa8a",
+    "8c9b7f63-7beb-4c88-9b31-5758683a00a2",
+    "96f047f4-03de-498c-a8c8-f9faef544e4d",
+    "cd76d9d3-14ef-438b-a0ee-fcfd50eb57a1"
+  ],
+  "selected": [
+    {
+      "id": "5107eb6d-d3ad-44bc-b0ae-37389c687b75",
+      "code": "IELTS4.0",
+      "name": "Speaking English",
+      "counts": {
+        "exams": 0,
+        "rubrics": 1,
+        "topics": 0,
+        "documents": 1
+      },
+      "classes": [
+        {
+          "id": "c1bd1944-cd46-440d-a73e-76d82ce4468b",
+          "code": "IELTS4.0-01",
+          "name": "Band 4.0",
+          "student_count": 0
+        }
+      ]
+    },
+    {
+      "id": "25c3d679-dc4e-4dec-862a-1acfea978b53",
+      "code": "SE102",
+      "name": "Speaking Test",
+      "counts": {
+        "exams": 6,
+        "rubrics": 1,
+        "topics": 6,
+        "documents": 13
+      },
+      "classes": [
+        {
+          "id": "e83a1366-2a47-4458-b09a-9a7527c524bb",
+          "code": "SE1",
+          "name": "Test01",
+          "student_count": 7
+        }
+      ]
+    },
+    {
+      "id": "973610ab-47a6-49a8-807b-2b0d83905ae6",
+      "code": "ENGLISH-ORAL-03",
+      "name": "Tiếng Anh giao tiếp — Vấn đáp 3 câu",
+      "counts": {
+        "exams": 1,
+        "rubrics": 4,
+        "topics": 3,
+        "documents": 3
+      },
+      "classes": []
+    }
+  ],
+  "deleted": [
+    {
+      "id": "5107eb6d-d3ad-44bc-b0ae-37389c687b75",
+      "code": "IELTS4.0"
+    },
+    {
+      "id": "25c3d679-dc4e-4dec-862a-1acfea978b53",
+      "code": "SE102"
+    },
+    {
+      "id": "973610ab-47a6-49a8-807b-2b0d83905ae6",
+      "code": "ENGLISH-ORAL-03"
+    }
+  ],
+  "verified_at": "2026-10-21T14:18:51.393904+00:00",
+  "remaining_course_codes": [
+    "ENT001",
+    "ENT104",
+    "ENT203",
+    "ENT303",
+    "ENT403",
+    "ENT503"
+  ],
+  "remaining_class_count": 0
+}

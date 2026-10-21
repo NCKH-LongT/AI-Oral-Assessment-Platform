@@ -28,7 +28,7 @@ Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, g
 | Cấu hình số lần thi, cấp thêm lượt và xem lịch sử | [Làm lại bài thi](docs/architecture/exam-retakes.md) |
 | Hiểu độ tin cậy AI và thao tác chấm lại | [Độ tin cậy và chấm lại](docs/architecture/grading-confidence.md) |
 | Nạp bộ câu hỏi mẫu môn Kiểm thử phần mềm | [Bộ dữ liệu Software Testing](data/software-testing-istqb/README.md) |
-| Xem 6 nhóm đề Speaking Test ENT001–ENT503, rubric và giới hạn tổ chức thi | [Bộ dữ liệu ENT Speaking](data/ent-speaking/README.md) |
+| Xem 6 môn ENT001–ENT503, đề và rubric riêng cho từng môn | [Bộ dữ liệu ENT Speaking](data/ent-speaking/README.md) |
 | Hiểu kiến trúc và quy tắc phát triển | [Tổng quan kiến trúc](docs/architecture/phase-1.md), [Project Guide](AI_Oral_Assessment_PROJECT_GUIDE.md) |
 | Xem những gì đã kiểm thử và giới hạn còn lại | [Biên bản kiểm thử](docs/validation.md) |
 

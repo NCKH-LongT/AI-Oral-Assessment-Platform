@@ -25,6 +25,7 @@ from .models import (
     User,
     uid,
 )
+from .permissions import has_role, role_filter, teacher_scope
 from .runtime_settings import settings
 from .schemas import ReviewIn, RubricIn
 from .security import (
@@ -62,7 +63,7 @@ def check_schedule(db, exam, user):
     if not exam.workflow:
         return
     row = schedule_for(db, exam, user.id)
-    if user.role != "STUDENT" or not row:
+    if not has_role(user, "STUDENT") or not row:
         fail(403, "NOT_ASSIGNED", "Bạn không có tên trong danh sách kỳ thi")
     now = time.time()
     if exam.status != "PUBLISHED" or row.opens_at is None or row.closes_at is None or not row.opens_at <= now < row.closes_at:
@@ -71,8 +72,8 @@ def check_schedule(db, exam, user):
 
 @router.post("/auth/request-exam-officer")
 def request_role(db: Session = Depends(get_db), user=Depends(current_user)):
-    if user.role != "STUDENT":
-        fail(409, "INVALID_ROLE", "Chỉ tài khoản sinh viên gửi yêu cầu chuyển sang khảo thí")
+    if not has_role(user, "STUDENT") or has_role(user, "EXAM_OFFICER"):
+        fail(409, "INVALID_ROLE", "Chỉ sinh viên chưa có quyền khảo thí gửi yêu cầu bổ sung vai trò")
     user.requested_role = "EXAM_OFFICER"
     audit(db, user, "EXAM_OFFICER_REQUESTED")
     db.commit()
@@ -82,13 +83,13 @@ def request_role(db: Session = Depends(get_db), user=Depends(current_user)):
 @router.get("/admin/examination/teachers")
 def teachers(db: Session = Depends(get_db), user=Depends(exam_officer)):
     return [{"id": u.id, "name": u.name, "email": u.email} for u in db.scalars(
-        select(User).where(User.role == "TEACHER", User.status == "ACTIVE").order_by(User.name)
+        select(User).where(role_filter("TEACHER"), User.status == "ACTIVE").order_by(User.name)
     )]
 
 
 def assign_teacher(db, course, teacher_id):
     teacher = by_id(db, User, teacher_id)
-    if teacher.role != "TEACHER" or teacher.status != "ACTIVE":
+    if not has_role(teacher, "TEACHER") or teacher.status != "ACTIVE":
         fail(422, "NOT_TEACHER", "Chọn giảng viên đang hoạt động do admin phân quyền")
     course.owner_id = teacher.id
 
@@ -120,7 +121,7 @@ def save_hotwords(key: str, body: HotwordsIn, db: Session = Depends(get_db), use
 @router.get("/admin/examination/exams")
 def exam_list(db: Session = Depends(get_db), user=Depends(staff)):
     query = select(Exam, Course).join(Course).where(Exam.workflow.is_(True), Exam.class_id.is_(None))
-    if user.role == "TEACHER":
+    if teacher_scope(user):
         query = query.where(visible_exams(user))
     return [{"id": e.id, "name": e.name, "status": e.status, "course_id": c.id,
              "course_name": c.name, "teacher_id": c.owner_id, "imported": bool(e.imported_questions), "time_limit": e.time_limit}
@@ -174,7 +175,7 @@ def import_students(key: str, file: UploadFile = File(), db: Session = Depends(g
     created, added = 0, 0
     for row in rows:
         matches = db.scalars(select(User).where(func.lower(User.email) == row["email"])).all()
-        if len(matches) > 1 or (matches and (matches[0].role != "STUDENT" or matches[0].status != "ACTIVE")):
+        if len(matches) > 1 or (matches and (not has_role(matches[0], "STUDENT") or matches[0].status != "ACTIVE")):
             fail(422, "EMAIL_CONFLICT", f"Email {row['email']} không thuộc duy nhất một sinh viên hoạt động")
         learner = matches[0] if matches else None
         if not learner:
@@ -269,7 +270,7 @@ def teacher_approve(key: str, db: Session = Depends(get_db), user=Depends(editor
 @router.post("/admin/exams/{key}/return-draft")
 def return_draft(key: str, body: ReviewIn, db: Session = Depends(get_db), user=Depends(staff)):
     exam = scoped_exam(db, key, user)
-    if user.role == "REVIEWER" or exam.status not in {"GENERATED", "TEACHER_APPROVED"}:
+    if exam.status not in {"GENERATED", "TEACHER_APPROVED"}:
         fail(409, "INVALID_STATE", "Không thể trả đề về bản nháp")
     exam.status, exam.snapshot = "DRAFT", None
     audit(db, user, "EXAM_RETURNED", exam_id=key, reason=body.reason)

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import Audit, ExamSession, SystemSetting, User
+from .permissions import role_filter
 from .runtime_settings import settings
 from .schemas import Input
 from .security import admin, by_id, current_user, fail
@@ -49,7 +50,7 @@ def get_policy(db: Session = Depends(get_db), user=Depends(admin)):
 
 @router.put("/admin/settings/desktop")
 def save_policy(body: DesktopPolicy, db: Session = Depends(get_db), user=Depends(admin)):
-    db.scalars(select(User).where(User.role == "ADMIN").order_by(User.id).with_for_update()).all()
+    db.scalars(select(User).where(role_filter("ADMIN")).order_by(User.id).with_for_update()).all()
     before = policy(db)
     db.merge(SystemSetting(key="desktop_policy", value=body.model_dump()))
     db.add(Audit(user_id=user.id, event="DESKTOP_POLICY_UPDATED", details={"before": before, "after": body.model_dump()}))

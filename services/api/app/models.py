@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
 
@@ -38,6 +38,13 @@ class User(Entity, Base):
     password_hash: Mapped[str] = mapped_column(Text)
     role: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
+    role_grants: Mapped[list["UserRole"]] = relationship(cascade="all, delete-orphan", lazy="selectin")
+
+
+class UserRole(Base):
+    __tablename__ = "user_roles"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role: Mapped[str] = mapped_column(String(20), primary_key=True)
 
 
 class AuthSession(Entity, Base):

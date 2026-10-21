@@ -1,4 +1,6 @@
 "use client";
+import { hasRole } from "./api";
+import styles from "./examination.module.css";
 import { useCallback, useEffect, useState } from "react";
 import { api, send, errorText, Course, User } from "./api";
 import { Action, Badge, Empty, Field, Form } from "./shared";
@@ -39,7 +41,10 @@ export default function Examination({
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const officer = ["ADMIN", "EXAM_OFFICER"].includes(user.role);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const officer = hasRole(user, "ADMIN", "EXAM_OFFICER");
   const load = useCallback(async () => {
     const [list, c, t] = await Promise.all([
       api<ExamRow[]>("/admin/examination/exams"),
@@ -51,21 +56,28 @@ export default function Examination({
     setExams(list);
     setCourses(c);
     setTeachers(t);
+    setError("");
   }, [officer]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Updates follow completed API requests.
-    void load().catch((e) => setError(errorText(e)));
+    void load()
+      .catch((e) => setError(errorText(e)))
+      .finally(() => setLoading(false));
   }, [load]);
   const exam = exams.find((e) => e.id === selected);
+  const visible = exams.filter(
+    (e) =>
+      (!status || e.status === status) &&
+      `${e.name} ${e.course_name}`
+        .toLocaleLowerCase("vi")
+        .includes(query.toLocaleLowerCase("vi")),
+  );
   return (
-    <>
+    <div className={styles.workspace}>
       <div className="page-heading">
         <div>
           <h1>Điều phối kỳ thi</h1>
-          <p>
-            Giao giảng viên → nhập danh sách → duyệt đề → xếp lịch → mở thi →
-            xuất điểm.
-          </p>
+          <p>Quản lý đề, danh sách sinh viên và lịch thi trong một nơi.</p>
         </div>
       </div>
       {error && (
@@ -82,98 +94,153 @@ export default function Examination({
             key={exam.id}
             exam={exam}
             officer={officer}
-            editable={["ADMIN", "TEACHER"].includes(user.role)}
+            editable={hasRole(user, "ADMIN", "TEACHER")}
             refresh={load}
             navigate={navigate}
           />
         </>
       ) : (
         <>
-          <ExcelImport kind="exams" saved={load} />
-          {officer && (
-            <section className="panel">
-              <h2>Tạo kỳ thi & giao giảng viên</h2>
-              <p>
-                Mỗi môn có một giảng viên phụ trách. Phân công ở đây áp dụng cho
-                toàn bộ đề và bài chấm của môn đó.
-              </p>
-              {!teachers.length && (
+          <div className={styles.tools}>
+            {officer && (
+              <details className="panel">
+                <summary>Tạo kỳ thi & giao giảng viên</summary>
                 <p>
-                  Admin cần cấp role TEACHER cho giảng viên trong Người dùng.
+                  Mỗi môn có một giảng viên phụ trách. Phân công ở đây áp dụng
+                  cho toàn bộ đề và bài chấm của môn đó.
                 </p>
-              )}
-              <Form
-                label="Tạo kỳ thi"
-                onSubmit={async (d) => {
-                  const created = await send<{ id: string }>(
-                    "/admin/examination/exams",
-                    {
-                      course_id: d.get("course_id"),
-                      teacher_id: d.get("teacher_id"),
-                      name: d.get("name"),
-                      time_limit: Number(d.get("minutes")) * 60,
-                    },
-                  );
-                  await load();
-                  setSelected(created.id);
-                }}
-              >
-                <Field label="Tên kỳ thi" name="name" />
-                <label>
-                  Môn học
-                  <select name="course_id" required defaultValue="">
-                    <option value="" disabled>
-                      Chọn môn học
-                    </option>
-                    {courses
-                      .filter((c) => c.status === "ACTIVE")
-                      .map((c) => (
-                        <option value={c.id} key={c.id}>
-                          {c.code} · {c.name}
+                {!teachers.length && (
+                  <p>
+                    Cấp vai trò giảng viên trong Người dùng để thêm người phụ
+                    trách.
+                  </p>
+                )}
+                <Form
+                  className={`form ${styles.createForm}`}
+                  label="Tạo kỳ thi"
+                  onSubmit={async (d) => {
+                    const created = await send<{ id: string }>(
+                      "/admin/examination/exams",
+                      {
+                        course_id: d.get("course_id"),
+                        teacher_id: d.get("teacher_id"),
+                        name: d.get("name"),
+                        time_limit: Number(d.get("minutes")) * 60,
+                      },
+                    );
+                    await load();
+                    setSelected(created.id);
+                  }}
+                >
+                  <Field label="Tên kỳ thi" name="name" />
+                  <label>
+                    Môn học
+                    <select name="course_id" required defaultValue="">
+                      <option value="" disabled>
+                        Chọn môn học
+                      </option>
+                      {courses
+                        .filter((c) => c.status === "ACTIVE")
+                        .map((c) => (
+                          <option value={c.id} key={c.id}>
+                            {c.code} · {c.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label>
+                    Giảng viên
+                    <select name="teacher_id" required defaultValue="">
+                      <option value="" disabled>
+                        Chọn giảng viên
+                      </option>
+                      {teachers.map((t) => (
+                        <option value={t.id} key={t.id}>
+                          {t.name}
                         </option>
                       ))}
-                  </select>
-                </label>
-                <label>
-                  Giảng viên
-                  <select name="teacher_id" required defaultValue="">
-                    <option value="" disabled>
-                      Chọn giảng viên
-                    </option>
-                    {teachers.map((t) => (
-                      <option value={t.id} key={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <Field
-                  label="Thời lượng (phút)"
-                  name="minutes"
-                  type="number"
-                  min={1}
-                  max={180}
-                  defaultValue={15}
-                />
-              </Form>
-            </section>
-          )}
-          <div className="course-grid">
-            {exams.map((e) => (
-              <section className="panel" key={e.id}>
-                <Badge status={e.status} />
-                <h2>{e.name}</h2>
-                <p>{e.course_name}</p>
-                <button className="button" onClick={() => setSelected(e.id)}>
-                  Mở kỳ thi
-                </button>
-              </section>
-            ))}
+                    </select>
+                  </label>
+                  <Field
+                    label="Thời lượng (phút)"
+                    name="minutes"
+                    type="number"
+                    min={1}
+                    max={180}
+                    defaultValue={15}
+                  />
+                </Form>
+              </details>
+            )}
+            <ExcelImport kind="exams" saved={load} />
           </div>
-          {!exams.length && <Empty>Chưa có kỳ thi được giao.</Empty>}
+          <section aria-label="Danh sách kỳ thi" className={styles.examList}>
+            <div className={styles.listHeading}>
+              <h2>
+                Kỳ thi <span className="muted">({exams.length})</span>
+              </h2>
+              <small>{visible.length} kết quả</small>
+            </div>
+            <div className={styles.filters}>
+              <label>
+                Tìm kỳ thi
+                <input
+                  type="search"
+                  placeholder="Tên kỳ thi hoặc môn học…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </label>
+              <label>
+                Trạng thái
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="DRAFT">Bản nháp</option>
+                  <option value="GENERATED">Chờ giảng viên duyệt</option>
+                  <option value="TEACHER_APPROVED">
+                    Chờ khảo thí kiểm tra
+                  </option>
+                  <option value="PUBLISHED">Đã công bố</option>
+                </select>
+              </label>
+            </div>
+            {loading ? (
+              <Empty>Đang tải kỳ thi…</Empty>
+            ) : (
+              <div className={styles.examGrid}>
+                {visible.map((e) => (
+                  <article className={`panel ${styles.examCard}`} key={e.id}>
+                    <div className={styles.cardMeta}>
+                      <Badge status={e.status} />
+                      <span>{e.time_limit / 60} phút</span>
+                    </div>
+                    <h3>{e.name}</h3>
+                    <p>{e.course_name}</p>
+                    <button
+                      className="button secondary"
+                      onClick={() => setSelected(e.id)}
+                      aria-label={`Mở kỳ thi ${e.name}`}
+                    >
+                      Mở kỳ thi →
+                    </button>
+                  </article>
+                ))}
+              </div>
+            )}
+            {!loading && !visible.length && (
+              <Empty>
+                {exams.length
+                  ? "Không có kỳ thi phù hợp với bộ lọc."
+                  : "Chưa có kỳ thi được giao."}
+              </Empty>
+            )}
+          </section>
         </>
       )}
-    </>
+    </div>
   );
 }
 
@@ -190,25 +257,60 @@ function ExamOperations({
   refresh: () => Promise<unknown>;
   navigate: (page: string) => void;
 }) {
+  const [activePanel, setActivePanel] = useState<"content" | "roster">(
+    "content",
+  );
+  const [rosterLoading, setRosterLoading] = useState(true);
   const [roster, setRoster] = useState<Candidate[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const loadRoster = useCallback(async () => {
-    setRoster(await api<Candidate[]>(`/admin/exams/${exam.id}/roster`));
+    const rows = await api<Candidate[]>(`/admin/exams/${exam.id}/roster`);
+    setRoster(rows);
+    setSelected((ids) =>
+      ids.filter((id) => rows.some((r) => r.student_id === id)),
+    );
+    setError("");
   }, [exam.id]);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Updates follow completed API requests.
-    void loadRoster().catch((e) => setError(errorText(e)));
+    void loadRoster()
+      .catch((e) => setError(errorText(e)))
+      .finally(() => setRosterLoading(false));
   }, [loadRoster]);
   return (
-    <>
-      <section className="panel">
-        <h2>{exam.name}</h2>
-        <p>
-          {exam.course_name} · {exam.time_limit / 60} phút
-        </p>
+    <div className={styles.operations}>
+      <header className={`panel ${styles.summary}`}>
+        <div>
+          <h2>{exam.name}</h2>
+          <p>
+            {exam.course_name} · {exam.time_limit / 60} phút
+          </p>
+        </div>
         <Badge status={exam.status} />
+      </header>
+      <nav className={styles.tabBar} aria-label="Thao tác kỳ thi">
+        <button
+          type="button"
+          aria-pressed={activePanel === "content"}
+          onClick={() => setActivePanel("content")}
+        >
+          Đề thi & duyệt
+        </button>
+        <button
+          type="button"
+          aria-pressed={activePanel === "roster"}
+          onClick={() => setActivePanel("roster")}
+        >
+          Sinh viên & lịch thi ({roster.length})
+        </button>
+      </nav>
+      <section
+        className="panel"
+        hidden={activePanel !== "content"}
+        aria-label="Đề thi và phê duyệt"
+      >
         {error && (
           <p role="alert" className="error">
             {error}
@@ -267,10 +369,14 @@ function ExamOperations({
             </details>
           )}
       </section>
-      <section className="panel">
+      <section
+        className="panel"
+        hidden={activePanel !== "roster"}
+        aria-label="Sinh viên và lịch thi"
+      >
         <h2>Danh sách sinh viên ({roster.length})</h2>
         {officer && (
-          <>
+          <div className={styles.actions}>
             <a
               className="button secondary"
               href="/api/admin/examination/template.xlsx"
@@ -285,7 +391,7 @@ function ExamOperations({
             >
               Xuất điểm Excel
             </a>
-          </>
+          </div>
         )}
         {officer && exam.status !== "PUBLISHED" && (
           <>
@@ -317,10 +423,23 @@ function ExamOperations({
             </Form>
           </>
         )}
-        {message && <p role="status">{message}</p>}
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        {message && (
+          <p role="status" className={styles.notice}>
+            {message}
+          </p>
+        )}
+        {rosterLoading && <Empty>Đang tải danh sách sinh viên…</Empty>}
+        {!rosterLoading && !roster.length && (
+          <Empty>Chưa có sinh viên trong kỳ thi.</Empty>
+        )}
         {!!roster.length && (
           <>
-            <label>
+            <label className={styles.selectAll}>
               <input
                 type="checkbox"
                 checked={selected.length === roster.length}
@@ -381,10 +500,16 @@ function ExamOperations({
               khoảng này và có đủ thời lượng bài thi kể từ lúc bắt đầu.
             </p>
             <Form
+              className={`form ${styles.createForm}`}
               label="Lưu lịch thi"
               onSubmit={async (d) => {
                 if (!selected.length)
                   throw new Error("Chọn ít nhất một sinh viên");
+                if (
+                  new Date(String(d.get("closes_at"))) <=
+                  new Date(String(d.get("opens_at")))
+                )
+                  throw new Error("Giờ đóng phải sau giờ mở vào thi");
                 await send(
                   `/admin/exams/${exam.id}/schedule`,
                   {
@@ -422,6 +547,6 @@ function ExamOperations({
           </>
         )}
       </section>
-    </>
+    </div>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { hasRole, roleNames } from "../components/api";
 import { useEffect, useState } from "react";
 import {
   AudioLines,
@@ -137,13 +138,13 @@ export default function Home() {
         </section>
       </main>
     );
-  const isStudent = user.role === "STUDENT";
   const desktop = !!window.oralDesktop;
+  const isStudent = desktop && hasRole(user, "STUDENT");
   const logout = async () => {
     await send("/auth/logout");
     setUser(null);
   };
-  if (!desktop && !["ADMIN", "EXAM_OFFICER", "TEACHER"].includes(user.role))
+  if (!desktop && !hasRole(user, "ADMIN", "EXAM_OFFICER", "TEACHER"))
     return (
       <main className="main">
         <h1>Vui lòng sử dụng OralAI Desktop</h1>
@@ -192,15 +193,17 @@ export default function Home() {
         { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
         { id: "courses", label: "Môn học", icon: BookOpen },
         { id: "exams", label: "Ngân hàng đề thi", icon: ClipboardCheck },
-        ...(["ADMIN", "EXAM_OFFICER"].includes(user.role)
+        ...(hasRole(user, "ADMIN", "EXAM_OFFICER")
           ? [{ id: "departments", label: "Bộ môn", icon: BookOpen }]
           : []),
         {
           id: "classes",
-          label: user.role === "TEACHER" ? "Lớp được phân công" : "Lớp học",
+          label: hasRole(user, "ADMIN", "EXAM_OFFICER")
+            ? "Lớp học"
+            : "Lớp được phân công",
           icon: GraduationCap,
         },
-        ...(["ADMIN", "EXAM_OFFICER", "TEACHER"].includes(user.role)
+        ...(hasRole(user, "ADMIN", "EXAM_OFFICER", "TEACHER")
           ? [
               {
                 id: "examination",
@@ -211,7 +214,7 @@ export default function Home() {
           : []),
         { id: "users", label: "Người dùng", icon: Users },
         { id: "results", label: "Kết quả & xem lại", icon: ClipboardCheck },
-        ...(user.role === "ADMIN"
+        ...(hasRole(user, "ADMIN")
           ? [
               {
                 id: "storage",
@@ -256,7 +259,7 @@ export default function Home() {
           <span className="avatar">{user.name.slice(0, 1)}</span>
           <div>
             <strong>{user.name}</strong>
-            <small>{user.role}</small>
+            <small>{roleNames(user)}</small>
           </div>
           <button
             className="icon-button"
@@ -304,7 +307,7 @@ export default function Home() {
           )}
           {["classes", "departments"].includes(page) ? (
             <Academic key={page} user={user} page={page} />
-          ) : page === "storage" && user.role === "ADMIN" ? (
+          ) : page === "storage" && hasRole(user, "ADMIN") ? (
             <StorageManager />
           ) : page === "examination" && !isStudent ? (
             <Examination user={user} navigate={navigate} />

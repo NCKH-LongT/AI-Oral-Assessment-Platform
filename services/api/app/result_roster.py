@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import Assignment, Attempt, CourseEnrollment, Exam, ExamSession, ProcessingJob, User
+from .permissions import role_filter
 from .processing import summarize
 from .retakes import history_row
 from .security import course_access, fail, staff, visible_exams
@@ -47,7 +48,7 @@ def roster(course_id: str, exam_id: str | None = None, exam_date: date | None = 
     if not exam_id or any(not e.workflow for e in selected):
         candidates.update(db.scalars(select(CourseEnrollment.student_id).where(CourseEnrollment.course_id == course.id)))
     # Retain historical test takers even if their account/enrollment was subsequently disabled.
-    students = db.scalars(select(User).where(User.id.in_(candidates), User.role == "STUDENT").order_by(User.name, User.id)).all()
+    students = db.scalars(select(User).where(User.id.in_(candidates), role_filter("STUDENT")).order_by(User.name, User.id)).all()
     chosen = {}
     for sitting in sessions:
         if exam_date and day(sitting.started_at or sitting.created_at) != exam_date.isoformat():

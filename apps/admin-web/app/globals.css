@@ -1604,3 +1604,13 @@ fieldset label {
 .profile-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
 .profile-details dt { color: var(--muted); font-size: 12px; }
 .profile-details dd { margin: 6px 0 0; overflow-wrap: anywhere; }
+
+.role-options { min-width: 0; border: 1px solid #dfe6e9; border-radius: 8px; padding: 12px; display: grid; gap: 10px; }
+.role-options legend { padding: 0 4px; font-size: 12px; }
+.role-options label { flex-direction: row; align-items: center; gap: 8px; font-size: 12px; color: var(--ink); }
+.role-options input { flex: 0 0 auto; margin: 0; }
+.role-options small { white-space: normal; color: var(--muted); }
+.role-editor { min-width: 200px; max-width: 340px; }
+.role-editor summary { cursor: pointer; white-space: normal; line-height: 1.5; }
+.role-editor fieldset { margin: 12px 0; }
+.role-editor .action-wrap { margin: 0; }

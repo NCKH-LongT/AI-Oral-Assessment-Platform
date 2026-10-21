@@ -3,6 +3,7 @@
 from sqlalchemy import select
 
 from .models import Audit, Course, Exam, LearningOutcome, Rubric, Topic, TopicOutcome, User
+from .permissions import role_filter
 
 COURSE_ID = "00000000-0000-4000-8000-000000000001"
 EXAM_ID = "00000000-0000-4000-8000-000000000002"
@@ -17,7 +18,7 @@ def ensure_practice(db):
         Audit.details["course_id"].as_string() == COURSE_ID,
     ).limit(1)):
         return
-    owner = db.scalar(select(User).where(User.role == "ADMIN").order_by(User.created_at))
+    owner = db.scalar(select(User).where(role_filter("ADMIN")).order_by(User.created_at))
     if not owner:
         return
     course = Course(

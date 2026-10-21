@@ -1,4 +1,5 @@
 "use client";
+import { hasRole } from "./api";
 import { useCallback, useEffect, useState } from "react";
 import { api, send, errorText, Course, User, Review } from "./api";
 import { Action, Badge, Empty, Field, Form, Modal } from "./shared";
@@ -99,7 +100,7 @@ function ImportFile({
 }
 
 export default function Academic({ user, page }: { user: User; page: string }) {
-  const manager = ["ADMIN", "EXAM_OFFICER"].includes(user.role);
+  const manager = hasRole(user, "ADMIN", "EXAM_OFFICER");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [classes, setClasses] = useState<ClassRow[]>([]);
@@ -124,7 +125,7 @@ export default function Academic({ user, page }: { user: User; page: string }) {
     setCourses(c);
     setClasses(cl);
     setTeachers(t);
-    setStudents(s.filter((u) => u.role === "STUDENT"));
+    setStudents(s.filter((u) => hasRole(u, "STUDENT")));
     setError("");
   }, [manager]);
   useEffect(() => {
@@ -487,7 +488,7 @@ function ClassDetail({
   students: User[];
   back: () => void;
 }) {
-  const manager = ["ADMIN", "EXAM_OFFICER"].includes(user.role);
+  const manager = hasRole(user, "ADMIN", "EXAM_OFFICER");
   const [data, setData] = useState<Detail | null>(null);
   const [error, setError] = useState("");
   const [round, setRound] = useState("");
@@ -525,8 +526,8 @@ function ClassDetail({
     return (
       <ReviewPage
         review={review}
-        admin={user.role === "ADMIN"}
-        canGrade={["ADMIN", "TEACHER"].includes(user.role)}
+        admin={hasRole(user, "ADMIN")}
+        canGrade={hasRole(user, "ADMIN", "TEACHER")}
         back={() => setReview(null)}
         refresh={async () => open(review.id)}
         open={open}

@@ -7,22 +7,30 @@ Hướng dẫn này mô tả kỳ thi được tạo trong **Điều phối kỳ
 | Role | Quyền |
 | --- | --- |
 | ADMIN | Cấp/thu hồi role; quản trị hệ thống và hỗ trợ mọi bước |
-| EXAM_OFFICER | Tạo kỳ thi, phân công giảng viên đã có role TEACHER, nhập Excel, xem đề đã duyệt, trả đề, xếp lịch, mở thi, xuất điểm |
-| TEACHER | Chỉ quản lý môn được phân công; cấu hình đề, sinh/sửa câu hỏi và rubric, duyệt gửi khảo thí; chấm lại bài thuộc môn |
-| STUDENT | Đăng nhập email/mật khẩu hoặc Google trên desktop, xem bài được giao, thi đúng lịch, xem điểm chính thức |
+| EXAM_OFFICER | Tạo kỳ thi, phân công tài khoản có quyền TEACHER (gồm ADMIN), nhập Excel, xem đề đã duyệt, trả đề, xếp lịch, mở thi, xuất điểm |
+| TEACHER | Khi không có ADMIN/EXAM_OFFICER, chỉ quản lý môn được phân công; cấu hình đề, sinh/sửa câu hỏi và rubric, duyệt gửi khảo thí; chấm lại bài thuộc môn |
+| STUDENT | Đăng nhập email/mật khẩu hoặc Google trên desktop, xem bài được giao, thi đúng lịch, xem xác nhận nộp bài |
 
-Admin mở **Người dùng** để tạo tài khoản hoặc phân role EXAM_OFFICER cho nhân sự khảo thí. Mọi role được kiểm tra trên server ở mỗi request. Có mẫu Excel nhập giảng viên/khảo thí tại trang quản lý người dùng.
+Admin mở **Người dùng** để tạo tài khoản hoặc phân role EXAM_OFFICER cho nhân sự khảo thí. Một tài khoản có thể có nhiều vai trò; quyền được cộng gộp, ADMIN có mọi quyền. Vai trò được kiểm tra ở mỗi request; danh sách, lịch và trạng thái đề vẫn áp dụng. [Chi tiết phân quyền](multi-role-access.md). Có mẫu Excel nhập giảng viên/khảo thí tại trang quản lý người dùng.
+
+## Bố cục Điều phối kỳ thi
+
+Danh sách có tìm kiếm theo tên/môn và lọc trạng thái. Mở phần tạo kỳ thi hoặc
+nhập Excel khi cần; bấm **Mở kỳ thi** để xem chi tiết. Tab **Đề thi & duyệt**
+chứa cấu hình, soạn, duyệt và mở thi; tab **Sinh viên & lịch thi** chứa nhập
+sinh viên, chọn danh sách, xếp lịch và xuất điểm. Nút tự xuống dòng trên màn
+hình nhỏ; bảng rộng cuộn ngang trong vùng riêng.
 
 ## Tổ chức một kỳ thi
 
 1. Admin tạo môn học và phân role TEACHER cho giảng viên.
-2. Khảo thí mở **Điều phối kỳ thi**, nhập tên kỳ thi, môn, giảng viên và thời lượng. Hệ thống tạo đề DRAFT cùng rubric tạm; giảng viên cần cấu hình trước khi sinh đề.
-3. Khảo thí tải [Excel mẫu](../templates/danh-sach-sinh-vien.xlsx), sửa dữ liệu rồi nhập vào kỳ thi. Có thể nhập trước khi giảng viên soạn đề.
+2. Khảo thí mở **Điều phối kỳ thi → Tạo kỳ thi**, nhập tên kỳ thi, môn, giảng viên và thời lượng. Hệ thống tạo đề DRAFT cùng rubric tạm; giảng viên cần cấu hình trước khi sinh đề.
+3. Khảo thí tải [Excel mẫu](../templates/danh-sach-sinh-vien.xlsx), sửa dữ liệu rồi nhập trong tab **Sinh viên & lịch thi** của kỳ thi. Có thể nhập trước khi giảng viên soạn đề.
 4. Giảng viên vào **Môn học → môn được giao** để bổ sung giáo trình, chủ đề và LO. Trong **Ngân hàng đề thi → chọn môn → Sửa bản nháp**, chọn rubric, số câu và độ khó EASY/MEDIUM/HARD. Mỗi hàng blueprint có chủ đề, độ khó, số lượng; chọn số lượng 1 để cấu hình từng câu. Tối đa 20 câu.
 5. Cấu hình **Hotword STT của môn học** nếu cần, rồi bấm **Sinh câu hỏi & rubric để review**. AI tạo bản GENERATED, chưa mở cho sinh viên. Demo tạo nội dung mẫu, không chấm điểm AI thật.
 6. Giảng viên sửa câu hỏi, ý chính mong đợi, tên/mô tả/điểm tối đa/trọng số rubric; bấm **Lưu nội dung đã review**, sau đó **Duyệt đề & gửi khảo thí**. Trạng thái TEACHER_APPROVED. Các nguồn tham chiếu phải nằm trong tài liệu của chủ đề; server kiểm tra điều này.
-7. Khảo thí xem toàn bộ đề/rubric trong **Điều phối kỳ thi**. Nếu cần sửa, nhập lý do **Trả về bản nháp**; hệ thống hủy bản sinh và dấu duyệt, giảng viên cấu hình/sinh/review lại.
-8. Khảo thí chọn một, nhiều hoặc tất cả sinh viên, nhập giờ mở/đóng vào thi rồi **Lưu lịch thi**. Chỉ xếp lịch sau khi giảng viên duyệt. Mỗi sinh viên có thể có khung giờ riêng; thời gian nhập theo múi giờ máy, lưu dưới dạng Unix timestamp.
+7. Khảo thí xem toàn bộ đề/rubric trong **Điều phối kỳ thi → Đề thi & duyệt**. Nếu cần sửa, nhập lý do **Trả về bản nháp**; hệ thống hủy bản sinh và dấu duyệt, giảng viên cấu hình/sinh/review lại.
+8. Trong tab **Sinh viên & lịch thi**, khảo thí chọn một, nhiều hoặc tất cả sinh viên, nhập giờ mở/đóng vào thi rồi **Lưu lịch thi**. Chỉ xếp lịch sau khi giảng viên duyệt. Mỗi sinh viên có thể có khung giờ riêng; thời gian nhập theo múi giờ máy, lưu dưới dạng Unix timestamp.
 9. Khi tất cả sinh viên có lịch hợp lệ, khảo thí bấm **Xác nhận đã kiểm tra đề & mở kỳ thi**. Trạng thái PUBLISHED, khóa đề, danh sách và lịch. Bản snapshot lưu câu hỏi, rubric, nguồn kiến thức, cấu hình AI, hotword môn học và dấu duyệt.
 10. Sinh viên mở desktop, đăng nhập bằng email trong Excel, vào **Bài thi của tôi**, chọn bài khi đến giờ. Server kiểm tra danh sách và lịch ở cả bước tạo phiên và bắt đầu thi. Quyền thi kỳ thi dựa trên danh sách và lịch được khảo thí xác nhận.
 11. Sau khi nộp, worker server chấm AI. Bài có điểm AI trung bình **< 5/10**, thiếu điểm hoặc cần kiểm tra độ tin cậy chuyển REVIEW_REQUIRED; sinh viên chưa thấy điểm chính thức.

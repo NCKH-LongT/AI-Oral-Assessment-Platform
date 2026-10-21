@@ -25,6 +25,7 @@ from .models import (
     User,
     uid,
 )
+from .permissions import has_role, role_filter, teacher_scope
 from .retakes import history_row
 from .schemas import Input
 from .security import by_id, course_access, exam_officer, fail, hasher, staff
@@ -77,7 +78,7 @@ def audit(db, user, event, **details):
 
 def class_access(db, key, user, lock=False):
     row = by_id(db, TeachingClass, key, lock=lock)
-    if user.role not in {"ADMIN", "EXAM_OFFICER"} and not (user.role == "TEACHER" and row.teacher_id == user.id):
+    if not has_role(user, "ADMIN", "EXAM_OFFICER") and not (teacher_scope(user) and row.teacher_id == user.id):
         fail(403, "FORBIDDEN", "Bạn không được phân công lớp này")
     return row
 
@@ -86,7 +87,7 @@ def teacher(db, key):
     if key is None:
         return
     row = by_id(db, User, key)
-    if row.role != "TEACHER" or row.status != "ACTIVE":
+    if not has_role(row, "TEACHER") or row.status != "ACTIVE":
         fail(422, "INVALID_TEACHER", "Chọn giảng viên đang hoạt động")
 
 
@@ -147,7 +148,7 @@ def set_department(key: str, body: DepartmentIn, db: Session = Depends(get_db), 
 @router.get("/classes")
 def classes(db: Session = Depends(get_db), user=Depends(staff)):
     query = select(TeachingClass).order_by(TeachingClass.created_at.desc())
-    if user.role == "TEACHER":
+    if teacher_scope(user):
         query = query.where(TeachingClass.teacher_id == user.id)
     return [class_data(db, c) for c in db.scalars(query)]
 
@@ -225,7 +226,7 @@ def student_template(user=Depends(exam_officer)):
 
 
 def add_member(db, key, learner, number=None):
-    if learner.role != "STUDENT" or learner.status != "ACTIVE":
+    if not has_role(learner, "STUDENT") or learner.status != "ACTIVE":
         fail(422, "INVALID_STUDENT", "Chọn sinh viên đang hoạt động")
     member = db.scalar(select(ClassStudent).where(ClassStudent.class_id == key, ClassStudent.student_id == learner.id))
     if number:
@@ -309,7 +310,7 @@ def create_round(key: str, body: RoundIn, db: Session = Depends(get_db), user=De
         fail(409, "INVALID_COURSE", "Môn học hoặc đề không dùng cho kỳ thi chính thức")
     if body.closes_at - body.opens_at < source.time_limit or body.closes_at <= time.time():
         fail(422, "SCHEDULE_LENGTH", "Khoảng thi phải đủ thời lượng bài và chưa kết thúc")
-    members = db.scalars(select(ClassStudent).join(User, User.id == ClassStudent.student_id).where(ClassStudent.class_id == key, User.status == "ACTIVE", User.role == "STUDENT")).all()
+    members = db.scalars(select(ClassStudent).join(User, User.id == ClassStudent.student_id).where(ClassStudent.class_id == key, User.status == "ACTIVE", role_filter("STUDENT"))).all()
     if not members:
         fail(422, "EMPTY_CLASS", "Thêm sinh viên vào lớp trước khi tạo đợt thi")
     exam = Exam(course_id=row.course_id, class_id=key, source_exam_id=source.id, category=source.category,

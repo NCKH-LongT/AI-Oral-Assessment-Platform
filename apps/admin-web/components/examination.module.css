@@ -1,0 +1,251 @@
+.workspace {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.workspace :global(.page-heading),
+.workspace :global(.panel) {
+  margin-bottom: 0;
+}
+.workspace :global(.page-heading) p {
+  max-width: 70ch;
+}
+.workspace :global(.panel) {
+  min-width: 0;
+}
+.workspace :global(.panel) p {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.workspace :global(.button) {
+  white-space: normal;
+  text-align: center;
+  max-width: 100%;
+}
+.workspace :global(.action-wrap) {
+  max-width: 100%;
+  margin: 8px 8px 0 0;
+}
+.workspace :global(.form) {
+  margin: 16px 0;
+}
+.workspace :global(fieldset) {
+  min-width: 0;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #dfe6e9;
+  border-radius: 10px;
+  display: grid;
+  gap: 14px;
+}
+.workspace :global(legend) {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  max-width: 100%;
+}
+.workspace :global(textarea) {
+  min-height: 112px;
+  line-height: 1.6;
+}
+.workspace :global(small) {
+  overflow-wrap: anywhere;
+}
+.workspace :global(.inline) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  margin: 0;
+  gap: 14px;
+}
+.workspace :global(.table-wrap) {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-top: 16px;
+}
+.workspace :global(.table-wrap table) {
+  min-width: 620px;
+}
+.tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.tools summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.tools :global(.panel) {
+  padding: 16px;
+}
+.tools :global(.panel) > label {
+  margin: 16px 0 8px;
+}
+.workspace .createForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+.createForm > :global(.button),
+.createForm > :global(.error) {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.examList {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.listHeading,
+.cardMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.listHeading h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.listHeading small,
+.cardMeta {
+  color: var(--muted);
+  font-size: 12px;
+}
+.filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 260px);
+  gap: 14px;
+}
+.examGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.workspace .examCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+.examCard h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.examCard p {
+  margin: 0;
+  color: var(--muted);
+}
+.examCard button {
+  margin-top: auto;
+  align-self: start;
+}
+.operations {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.summary h2 {
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+.summary p {
+  margin: 6px 0 0;
+}
+.summary > div {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.tabBar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px;
+  border-radius: 10px;
+  background: #eaf0f2;
+}
+.tabBar button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  color: #536970;
+  line-height: 1.5;
+}
+.tabBar button[aria-pressed="true"] {
+  background: white;
+  color: var(--ink);
+  box-shadow: 0 1px 4px #17323d15;
+  font-weight: 600;
+}
+.operations :global(.panel .panel) {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+.selectAll {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.selectAll input {
+  margin: 0;
+}
+.notice {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #edf7f1;
+  color: #235b41;
+}
+@media (min-width: 1500px) {
+  .examGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .workspace {
+    gap: 16px;
+  }
+  .examGrid,
+  .filters,
+  .workspace .createForm,
+  .workspace :global(.inline) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tabBar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .actions > a {
+    flex: 1 1 160px;
+  }
+  .workspace :global(fieldset) {
+    padding: 12px;
+  }
+}

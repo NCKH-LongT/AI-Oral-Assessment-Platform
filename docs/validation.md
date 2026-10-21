@@ -2,6 +2,26 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Điều phối kỳ thi và nhiều vai trò — 21/10/2026
+
+Kiểm thử trên server local, database tạm và API giả lập cho trình duyệt;
+không thay đổi dữ liệu production.
+
+| Nhóm | Kết quả |
+| --- | --- |
+| API SQLite | **163 đạt, 8 bỏ qua** |
+| PostgreSQL: nhiều vai trò, tài khoản, lớp học | **19 đạt**, gồm hai admin đồng thời tự gỡ quyền, luôn còn một admin |
+| Migration PostgreSQL | `0011 → 0012` đạt; tài khoản ADMIN cũ giữ quyền khi bảng grants mới trống |
+| Playwright: lớp, điều phối, profile/policy, nhiều vai trò | **14 đạt**; chạy lại 6 ca điều phối/nhiều vai trò sau chỉnh CSS cuối, đều đạt |
+| Kiểm tra tĩnh và build | Ruff, ESLint, TypeScript và Next production build đạt |
+
+Đã kiểm tra ảnh và độ tràn ngang ở chiều rộng 1440px/390px; kiểm thử bộ lọc,
+form tạo, hai tab chi tiết, chọn danh sách sinh viên và lưu nhiều vai trò.
+Backend kiểm tra cộng gộp quyền, thu hồi quyền với token hiện có, chặn tự
+nâng quyền, quyền admin, hồ sơ gồm cả lớp dạy/lớp học và migration. Chưa xác
+nhận bản này trên domain chính; kiểm thử trình duyệt không thay thế kiểm
+tra thiết bị desktop vật lý.
+
 ## Desktop gọn và bộ cài Windows nhẹ — 21/10/2026
 
 Kiểm tra trên Windows 10 x64. Các phiên kiểm thử dùng profile cô lập, không

@@ -20,6 +20,7 @@ from app.db import SessionLocal
 from app.documents import process_document
 from app.knowledge import topic_data
 from app.models import Audit, Chunk, Course, Document, Exam, LearningOutcome, Rubric, Topic, TopicDocument, TopicOutcome, User
+from app.permissions import role_filter
 from app.runtime_settings import snapshot as runtime_snapshot
 from app.schemas import CourseIn, ExamIn, LOIn, QuestionOutput, RubricIn
 
@@ -49,7 +50,7 @@ def main():
         if db.bind.dialect.name == "postgresql":
             from sqlalchemy import text
             db.execute(text("SELECT pg_advisory_xact_lock(73290142)"))
-        owner = db.scalar(select(User).where(User.role == "ADMIN", User.status == "ACTIVE").order_by(User.created_at))
+        owner = db.scalar(select(User).where(role_filter("ADMIN"), User.status == "ACTIVE").order_by(User.created_at))
         if owner is None:
             raise RuntimeError("Cần một tài khoản ADMIN đang hoạt động")
         course = db.scalar(select(Course).where(Course.code == course_input.code))

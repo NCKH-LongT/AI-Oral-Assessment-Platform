@@ -132,7 +132,8 @@ def test_missing_model_keeps_ownership_state_deadline_and_idempotency_guards(env
     assert student.post(f"/exam-sessions/{session['id']}/finish").json()["error"]["code"] == "EVIDENCE_PENDING"
 
 
-def test_staff_web_and_desktop_cannot_use_student_missing_model_exception(env):
+@pytest.mark.parametrize("actor, desktop_status", [("teacher", 403), ("admin", 200)])
+def test_staff_missing_model_exception_requires_student_capability_and_desktop(env, actor, desktop_status):
     context = prepare(env, 1)
     clients, factory = env
     session = start(env, context)
@@ -141,12 +142,13 @@ def test_staff_web_and_desktop_cannot_use_student_missing_model_exception(env):
     ok(clients["student"].post(path + "/start"))
     with factory() as db:
         # Exercise the skip channel/role check separately from ownership.
-        db.get(ExamSession, session["id"]).student_id = db.scalar(select(User.id).where(User.role == "ADMIN"))
+        db.get(ExamSession, session["id"]).student_id = db.scalar(select(User.id).where(User.username == actor))
         db.commit()
     for client_header in ({}, {"X-Oral-Client": "desktop"}):
-        response = clients["admin"].post(path + "/submit", json=MISSING_STT, headers=HEADERS | client_header)
-        assert response.status_code == 403
-        assert response.json()["error"]["code"] == "DESKTOP_STT_SKIP_REQUIRED"
+        response = clients[actor].post(path + "/submit", json=MISSING_STT, headers=HEADERS | client_header)
+        assert response.status_code == (desktop_status if client_header else 403)
+        if response.status_code == 403:
+            assert response.json()["error"]["code"] == "DESKTOP_STT_SKIP_REQUIRED"
 
 
 def test_admin_can_explicitly_retranscribe_original_audio_and_preserve_skip_history(env, monkeypatch):

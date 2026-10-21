@@ -4,6 +4,11 @@
 
 OralAI Desktop dành cho sinh viên làm bài vấn đáp. App ghi audio/camera và tải minh chứng lên server. Sau khi sinh viên nộp toàn bài, server đưa từng câu vào hàng đợi **STT → chấm điểm**, theo cấu hình **STT & giọng nói**. Sinh viên không cần chờ Whisper chạy trên máy trước khi nộp. Đã bỏ chức năng Học & thi thử; desktop chỉ liệt kê các bài thi được giao.
 
+Tài khoản có **STUDENT** hoặc **ADMIN** dùng được luồng thi desktop. Tài khoản
+vừa STUDENT vừa TEACHER/EXAM_OFFICER quản lý trên web và thi trên desktop bằng
+cùng tài khoản. Admin không tự được ghi danh; danh sách, lịch và điều kiện
+thi vẫn áp dụng. Hỗ trợ nhiều vai trò cần API/web cùng migration `0012`.
+
 ## Quy định hiển thị khi mở app
 
 Trang đăng nhập và **Bài thi của tôi** hiển thị **Quy định ứng dụng desktop**. Bấm **Xem quy định** để xem trạng thái bật/tắt và mô tả. Mở app chưa bật kiosk hay tự ghi hình; các bước cấp quyền/khóa bắt đầu khi chuẩn bị hoặc bắt đầu thi. Công tắc DevTools áp dụng ngay từ khi mở app.

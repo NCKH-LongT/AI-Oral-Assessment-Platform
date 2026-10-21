@@ -37,6 +37,7 @@ from .models import (
     User,
     uid,
 )
+from .permissions import has_role, role_filter, set_user_roles, teacher_scope, user_roles
 from .retakes import allowance, history_row, sessions_for
 from .runtime_settings import settings
 from .security import (
@@ -65,7 +66,7 @@ def data(row, *fields):
 
 def course_list(db, user):
     query = select(Course).order_by(Course.created_at.desc())
-    if user.role == "TEACHER":
+    if teacher_scope(user):
         query = query.where(Course.owner_id == user.id)
     return db.scalars(query).all()
 
@@ -87,8 +88,8 @@ def dashboard(db: Session = Depends(get_db), user=Depends(staff)):
 @router.get("/users")
 def users(db: Session = Depends(get_db), user=Depends(staff)):
     query = select(User).order_by(User.created_at.desc())
-    if user.role != "ADMIN":
-        query = query.where(User.role == "STUDENT")
+    if not has_role(user, "ADMIN"):
+        query = query.where(role_filter("STUDENT", include_admin=False))
     return [public_user(u) for u in db.scalars(query)]
 
 
@@ -98,7 +99,8 @@ def create_user(body: s.UserIn, db: Session = Depends(get_db), user=Depends(admi
         body.email = body.email.lower()
         if "@" not in body.email or db.scalar(select(User.id).where(func.lower(User.email) == body.email)):
             fail(422, "EMAIL_CONFLICT", "Email không hợp lệ hoặc đã được sử dụng")
-    row = User(**body.model_dump(exclude={"password"}), password_hash=hasher.hash(body.password))
+    row = User(**body.model_dump(exclude={"password", "roles"}), password_hash=hasher.hash(body.password))
+    set_user_roles(row, body.roles or [body.role])
     db.add(row)
     db.add(Audit(user_id=user.id, event="USER_CREATED", details={"username": row.username}))
     db.commit()
@@ -108,7 +110,7 @@ def create_user(body: s.UserIn, db: Session = Depends(get_db), user=Depends(admi
 @router.get("/users/{key}/courses")
 def student_courses(key: str, db: Session = Depends(get_db), user=Depends(staff)):
     learner = by_id(db, User, key)
-    if learner.role != "STUDENT":
+    if not has_role(learner, "STUDENT"):
         fail(422, "NOT_STUDENT", "Chọn tài khoản sinh viên")
     enrolled = set(db.scalars(select(CourseEnrollment.course_id).where(CourseEnrollment.student_id == key)))
     assigned = set(db.scalars(select(Exam.course_id).join(Assignment).where(Assignment.student_id == key)))
@@ -122,7 +124,7 @@ def student_courses(key: str, db: Session = Depends(get_db), user=Depends(staff)
 def add_student_course(key: str, course_id: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
     learner = by_id(db, User, key, lock=True)
     course = course_access(db, course_id, user)
-    if learner.role != "STUDENT" or learner.status != "ACTIVE" or course.status != "ACTIVE":
+    if not has_role(learner, "STUDENT") or learner.status != "ACTIVE" or course.status != "ACTIVE":
         fail(422, "INVALID_ENROLLMENT", "Cần sinh viên và môn học đang hoạt động")
     if not db.scalar(select(CourseEnrollment.id).where(CourseEnrollment.student_id == key, CourseEnrollment.course_id == course_id)):
         db.add(CourseEnrollment(student_id=key, course_id=course_id))
@@ -135,7 +137,7 @@ def add_student_course(key: str, course_id: str, db: Session = Depends(get_db), 
 def remove_student_course(key: str, course_id: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
     learner = by_id(db, User, key, lock=True)
     course_access(db, course_id, user)
-    if learner.role != "STUDENT":
+    if not has_role(learner, "STUDENT"):
         fail(422, "NOT_STUDENT", "Chọn tài khoản sinh viên")
     if course_id == "00000000-0000-4000-8000-000000000001":
         fail(409, "PRACTICE_COURSE", "Môn thử thiết bị luôn có sẵn")
@@ -180,7 +182,7 @@ def delete_course(
     db: Session = Depends(get_db), user=Depends(editor),
 ):
     if body is not None:
-        if user.role != "ADMIN":
+        if not has_role(user, "ADMIN"):
             fail(403, "FORBIDDEN", "Chỉ admin được xóa toàn bộ môn học và dữ liệu liên quan")
         return delete_course_tree(db, course_id, body.confirm_code, user)
     row = course_access(db, course_id, user)
@@ -503,9 +505,9 @@ def validate_exam(db, body, user):
 @router.post("/exams", status_code=201)
 def create_exam(body: s.ExamIn, db: Session = Depends(get_db), user=Depends(editor)):
     validate_exam(db, body, user)
-    if user.role != "ADMIN" and body.max_attempts != 1:
+    if not has_role(user, "ADMIN") and body.max_attempts != 1:
         fail(403, "FORBIDDEN", "Chỉ admin được cấu hình số lượt làm bài")
-    row = Exam(**body.model_dump(), workflow=user.role != "ADMIN")
+    row = Exam(**body.model_dump(), workflow=not has_role(user, "ADMIN"))
     db.add(row)
     db.commit()
     return data(row, "name", "status")
@@ -520,7 +522,7 @@ def update_exam(key: str, body: s.ExamIn, db: Session = Depends(get_db), user=De
     if body.course_id != row.course_id:
         fail(422, "CROSS_COURSE", "Không chuyển đề thi sang môn học khác")
     validate_exam(db, body, user)
-    if user.role != "ADMIN" and body.max_attempts != row.max_attempts:
+    if not has_role(user, "ADMIN") and body.max_attempts != row.max_attempts:
         fail(403, "FORBIDDEN", "Chỉ admin được cấu hình số lượt làm bài")
     if row.imported_questions and body.model_dump()["blueprint"] != row.blueprint:
         fail(422, "IMPORTED_QUESTIONS", "Đề có câu hỏi nhập sẵn. Sửa nội dung trong bản nháp hoặc nhập một đề mới để đổi cấu trúc.")
@@ -556,7 +558,7 @@ def copy_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
         max_attempts=source.max_attempts,
     )
     validate_exam(db, body, user)
-    row = Exam(**body.model_dump(), workflow=user.role != "ADMIN", imported_questions=deepcopy(source.imported_questions))
+    row = Exam(**body.model_dump(), workflow=not has_role(user, "ADMIN"), imported_questions=deepcopy(source.imported_questions))
     db.add(row)
     db.commit()
     return data(row, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts")
@@ -568,7 +570,7 @@ def publish(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     exam_access(db, exam, user)
     if exam.status == "PUBLISHED":
         return {"status": exam.status}
-    if exam.workflow or user.role != "ADMIN":
+    if exam.workflow or not has_role(user, "ADMIN"):
         fail(409, "APPROVAL_REQUIRED", "Sinh bản nháp, giảng viên duyệt và khảo thí kiểm tra trước khi mở thi")
     exam.snapshot = build_snapshot(db, exam)
     exam.status = "PUBLISHED"
@@ -587,7 +589,7 @@ def assign(key: str, body: s.AssignIn, db: Session = Depends(get_db), user=Depen
         fail(409, "NOT_PUBLISHED", "Công bố đề trước khi giao bài")
     for student_id in set(body.student_ids):
         target = by_id(db, User, student_id)
-        if target.role != "STUDENT" or target.status != "ACTIVE":
+        if not has_role(target, "STUDENT") or target.status != "ACTIVE":
             fail(422, "NOT_STUDENT", "Chỉ giao bài cho sinh viên đang hoạt động")
         if not db.scalar(
             select(Assignment).where(Assignment.exam_id == key, Assignment.student_id == student_id)
@@ -605,7 +607,7 @@ def results(db: Session = Depends(get_db), user=Depends(staff)):
         .join(User, User.id == ExamSession.student_id)
         .where(ExamSession.deleted_at.is_(None))
     )
-    if user.role == "TEACHER":
+    if teacher_scope(user):
         query = query.where(visible_exams(user))
     return [
         history_row(session)
@@ -645,7 +647,7 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
                     select(ProcessingJob).where(ProcessingJob.attempt_id == a.id))), None),
                 "assessment": assessment_view(a.assessment, exam),
                 "stt_skipped_reason": stt_skipped_reason(db, a.id),
-                "grading_targets": grading_targets(db, exam, a) if user.role == "ADMIN" else [],
+                "grading_targets": grading_targets(db, exam, a) if has_role(user, "ADMIN") else [],
                 "evidence": [
                     data(e, "kind", "status", "sha256", "size", "created_at")
                     for e in db.scalars(
@@ -802,22 +804,28 @@ def request_transcription_review(key, body, db, user, provider):
     return data(job, "status")
 
 
+@router.put("/users/{key}/roles")
 @router.put("/users/{key}/role")
 def change_role(key: str, body: s.RoleIn, db: Session = Depends(get_db), user=Depends(admin)):
-    admins = db.scalars(
-        select(User).where(User.role == "ADMIN", User.status == "ACTIVE").order_by(User.id).with_for_update()
+    db.scalars(
+        select(User).where(role_filter("ADMIN"), User.status == "ACTIVE").order_by(User.id).with_for_update()
     ).all()
-    row = by_id(db, User, key, lock=True)
-    if row.role == "ADMIN" and body.role != "ADMIN" and row.status == "ACTIVE" and len(admins) <= 1:
+    # Re-read after acquiring the locks: another request may have removed a role
+    # while this transaction waited. Do not count the earlier query's snapshot.
+    row = db.scalar(select(User).where(User.id == key).with_for_update().execution_options(populate_existing=True))
+    if row is None:
+        fail(404, "NOT_FOUND", "Không tìm thấy dữ liệu")
+    admin_count = db.scalar(select(func.count()).select_from(User).where(role_filter("ADMIN"), User.status == "ACTIVE"))
+    if has_role(row, "ADMIN") and "ADMIN" not in body.roles and row.status == "ACTIVE" and admin_count <= 1:
         fail(409, "LAST_ADMIN", "Cần giữ ít nhất một quản trị viên đang hoạt động")
-    before = row.role
-    row.role = body.role
+    before = user_roles(row)
+    set_user_roles(row, body.roles)
     row.requested_role = None
     db.add(
         Audit(
             user_id=user.id,
             event="USER_ROLE_CHANGED",
-            details={"user_id": row.id, "before": before, "after": body.role},
+            details={"user_id": row.id, "before": before, "after": user_roles(row)},
         )
     )
     db.commit()

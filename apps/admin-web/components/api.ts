@@ -1,12 +1,34 @@
 import type { DesktopPolicy } from "./desktop-policy";
+export type Role = "ADMIN" | "TEACHER" | "STUDENT" | "EXAM_OFFICER";
 export type User = {
   id: string;
   username: string;
   email?: string | null;
   name: string;
-  role: "ADMIN" | "TEACHER" | "STUDENT" | "REVIEWER" | "EXAM_OFFICER";
+  role: Role | "REVIEWER";
+  roles?: Role[];
   requested_role?: string | null;
 };
+export const roleLabels: Record<Role, string> = {
+  ADMIN: "Quản trị viên",
+  EXAM_OFFICER: "Khảo thí",
+  TEACHER: "Giảng viên",
+  STUDENT: "Sinh viên",
+};
+export function userRoles(user: User): Role[] {
+  return (user.roles ?? [user.role]).filter((r): r is Role => r in roleLabels);
+}
+export function hasRole(user: User, ...allowed: Role[]): boolean {
+  const roles = userRoles(user);
+  return (
+    roles.includes("ADMIN") || roles.some((role) => allowed.includes(role))
+  );
+}
+export function roleNames(user: User): string {
+  return userRoles(user)
+    .map((role) => roleLabels[role])
+    .join(" · ");
+}
 export type Course = {
   department_id?: string | null;
   id: string;

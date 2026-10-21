@@ -1,4 +1,5 @@
 "use client";
+import { hasRole, roleNames } from "./api";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorText, type User, type Review } from "./api";
 import { Action, Badge, Empty } from "./shared";
@@ -70,8 +71,8 @@ export default function UserDetail({
     return (
       <ReviewPage
         review={review}
-        admin={viewer.role === "ADMIN"}
-        canGrade={["ADMIN", "TEACHER"].includes(viewer.role)}
+        admin={hasRole(viewer, "ADMIN")}
+        canGrade={hasRole(viewer, "ADMIN", "TEACHER")}
         back={() => {
           setReview(null);
           if (detail)
@@ -89,7 +90,7 @@ export default function UserDetail({
     return (
       <StudentCourses
         student={person}
-        editable={["ADMIN", "EXAM_OFFICER"].includes(viewer.role)}
+        editable={hasRole(viewer, "ADMIN", "EXAM_OFFICER")}
         back={() => setEnrollments(false)}
       />
     );
@@ -114,7 +115,8 @@ export default function UserDetail({
         <div>
           <h1>{profile.user.name}</h1>
           <p>
-            {profile.user.role} · {profile.user.email || profile.user.username}
+            {roleNames(profile.user)} ·{" "}
+            {profile.user.email || profile.user.username}
           </p>
         </div>
         <Badge status={profile.user.status} />
@@ -208,14 +210,14 @@ export default function UserDetail({
               </div>
               <div>
                 <dt>Vai trò</dt>
-                <dd>{profile.user.role}</dd>
+                <dd>{roleNames(profile.user)}</dd>
               </div>
               <div>
                 <dt>Ngày tạo tài khoản</dt>
                 <dd>{date(profile.user.created_at)}</dd>
               </div>
             </dl>
-            {person.role === "STUDENT" && (
+            {hasRole(person, "STUDENT") && (
               <button
                 className="text-button"
                 onClick={() => setEnrollments(true)}
@@ -225,11 +227,7 @@ export default function UserDetail({
             )}
           </section>
           <div className="section-title">
-            <h2>
-              {person.role === "TEACHER"
-                ? "Lớp phụ trách"
-                : "Danh sách lớp học"}
-            </h2>
+            <h2>Lớp học liên quan</h2>
             <label>
               Thời gian lớp
               <select

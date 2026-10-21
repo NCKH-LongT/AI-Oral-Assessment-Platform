@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from .academic import class_data
 from .db import get_db
 from .models import Assignment, ClassStudent, Course, CourseEnrollment, Exam, ExamSession, TeachingClass, User
+from .permissions import has_role, teacher_scope
 from .retakes import history_row
 from .security import by_id, fail, public_user, staff
 
@@ -15,15 +16,13 @@ router = APIRouter(prefix="/admin/users")
 
 
 def user_classes(db, person, actor):
-    if person.role == "TEACHER":
-        query = select(TeachingClass).where(TeachingClass.teacher_id == person.id)
-    else:
-        query = select(TeachingClass).where(or_(
-            TeachingClass.id.in_(select(ClassStudent.class_id).where(ClassStudent.student_id == person.id)),
-            TeachingClass.id.in_(select(Exam.class_id).join(Assignment).where(Assignment.student_id == person.id)),
-            TeachingClass.id.in_(select(Exam.class_id).join(ExamSession).where(ExamSession.student_id == person.id, ExamSession.deleted_at.is_(None))),
-        ))
-    if actor.role == "TEACHER":
+    query = select(TeachingClass).where(or_(
+        TeachingClass.teacher_id == person.id,
+        TeachingClass.id.in_(select(ClassStudent.class_id).where(ClassStudent.student_id == person.id)),
+        TeachingClass.id.in_(select(Exam.class_id).join(Assignment).where(Assignment.student_id == person.id)),
+        TeachingClass.id.in_(select(Exam.class_id).join(ExamSession).where(ExamSession.student_id == person.id, ExamSession.deleted_at.is_(None))),
+    ))
+    if teacher_scope(actor) and actor.id != person.id:
         query = query.where(TeachingClass.teacher_id == actor.id)
     return db.scalars(query.order_by(TeachingClass.starts_at.desc(), TeachingClass.code)).all()
 
@@ -31,13 +30,13 @@ def user_classes(db, person, actor):
 def scoped_person(db, key, actor):
     person = by_id(db, User, key)
     classes = user_classes(db, person, actor)
-    if actor.role == "TEACHER" and person.id != actor.id and not classes:
+    if teacher_scope(actor) and person.id != actor.id and not classes:
         legacy = db.scalar(select(Course.id).where(Course.owner_id == actor.id, or_(
             Course.id.in_(select(CourseEnrollment.course_id).where(CourseEnrollment.student_id == key)),
             Course.id.in_(select(Exam.course_id).join(Assignment).where(Assignment.student_id == key, Exam.class_id.is_(None))),
             Course.id.in_(select(Exam.course_id).join(ExamSession).where(ExamSession.student_id == key, Exam.class_id.is_(None), ExamSession.deleted_at.is_(None))),
         )))
-        if not legacy or person.role != "STUDENT":
+        if not legacy or not has_role(person, "STUDENT"):
             fail(403, "FORBIDDEN", "Bạn không phụ trách người dùng này")
     return person, classes
 
@@ -46,7 +45,7 @@ def class_view(db, row, person, now):
     member = db.scalar(select(ClassStudent).where(ClassStudent.class_id == row.id, ClassStudent.student_id == person.id))
     return class_data(db, row) | {
         "phase": "COMPLETED" if row.ends_at <= now else "UPCOMING" if row.starts_at > now else "ONGOING",
-        "membership": "TEACHER" if person.role == "TEACHER" else "ENROLLED" if member else "HISTORY",
+        "membership": "TEACHER" if row.teacher_id == person.id else "ENROLLED" if member else "HISTORY",
         "student_number": member.student_number if member else None,
     }
 
@@ -70,7 +69,7 @@ def user_class(key: str, class_id: str, db: Session = Depends(get_db), actor=Dep
         assignment = db.scalar(select(Assignment).where(Assignment.exam_id == exam.id, Assignment.student_id == key))
         sessions = db.scalars(select(ExamSession).where(ExamSession.exam_id == exam.id, ExamSession.student_id == key,
                              ExamSession.deleted_at.is_(None)).order_by(ExamSession.attempt_number.desc())).all()
-        if person.role != "TEACHER" and not assignment and not sessions:
+        if row.teacher_id != person.id and not assignment and not sessions:
             continue
         rounds.append({"id": exam.id, "name": exam.name, "status": exam.status,
                        "opens_at": assignment.opens_at if assignment else None,

@@ -1,3 +1,27 @@
+# Điều phối kỳ thi và nhiều vai trò — 21/10/2026
+
+Đã sửa mã nguồn, kiểm thử local và cập nhật tài liệu:
+
+- **Điều phối kỳ thi:** thu gọn phần tạo/nhập Excel, thêm tìm kiếm và lọc trạng
+  thái. Chi tiết chia thành **Đề thi & duyệt** và **Sinh viên & lịch thi**;
+  form, nút thao tác và bảng danh sách thích ứng màn hình nhỏ.
+- **Người dùng:** tạo hoặc sửa một tài khoản với nhiều vai trò bằng checkbox.
+  Quyền được cộng gộp; **ADMIN có mọi quyền**. Thay đổi có hiệu lực với phiên
+  đang đăng nhập; luôn giữ ít nhất một admin đang hoạt động.
+- STUDENT cùng vai trò quản lý dùng được web và desktop. Admin cũng dùng
+  được luồng sinh viên; danh sách giao bài, lịch và điều kiện thi vẫn áp dụng.
+- Migration **0012** thêm `user_roles`, giữ vai trò cũ và API tương thích.
+  Khi triển khai cần nâng migration và cập nhật API/web cùng phiên bản.
+- Kiểm thử: 163 API đạt trên SQLite (8 bỏ qua), 19 API đạt trên PostgreSQL,
+  migration 0011 → 0012 đạt; 14 ca giao diện đạt. Lint, TypeScript và build
+  đạt. Chưa xác nhận triển khai phiên bản này trên domain chính.
+
+Chi tiết: [nhiều vai trò](docs/architecture/multi-role-access.md),
+[quy trình khảo thí](docs/architecture/examination-workflow.md),
+[kiểm thử](docs/validation.md).
+
+---
+
 # Speaking Test — 6 môn ENT độc lập trên domain chính
 
 Ngày cập nhật: **21/10/2026**. Đã thực hiện trên `https://oral-test.paperlens.uk`.

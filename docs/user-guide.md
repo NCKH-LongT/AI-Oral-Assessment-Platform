@@ -2,6 +2,18 @@
 
 Bấm tên menu bên trái để quay về trang gốc của mục đó. Thao tác này có hiệu lực cả khi menu đang được chọn và bạn đang xem chi tiết bên trong; các lựa chọn/bộ lọc cục bộ được đặt lại.
 
+## Cấp nhiều vai trò
+
+Admin vào **Người dùng**, mở **Vai trò**, tích các vai trò và bấm **Lưu quyền**.
+Khi tạo tài khoản mới cũng chọn được nhiều vai trò. Phải giữ ít nhất một vai
+trò cho tài khoản và một admin đang hoạt động trong hệ thống. Bộ lọc tìm
+trên tất cả vai trò của tài khoản.
+
+Quyền được cộng gộp: TEACHER + EXAM_OFFICER có quyền soạn đề và điều phối;
+STUDENT + TEACHER quản lý trên web và làm bài được giao trên desktop. ADMIN
+có mọi quyền; vẫn cần được giao bài và đủ điều kiện thi.
+[Chi tiết](architecture/multi-role-access.md).
+
 ## Hồ sơ người dùng và quy định desktop
 
 Vào **Người dùng → Chi tiết** để xem profile và danh sách lớp. Lọc **Đã học / Đang học / Sẽ học** theo lịch lớp; bấm **Chi tiết lớp** để xem các đợt thi. Đợt chưa có lượt hiển thị **Chưa thi**; đợt đã làm có từng lượt và **Chi tiết bài thi** để mở transcript, minh chứng, điểm và chấm lại theo quyền. Lớp đã rời vẫn giữ lịch sử thi. Giáo viên chỉ thấy lớp trong phạm vi được phân công. Nút **Quản lý môn học được giao** mở phần đăng ký môn cũ.

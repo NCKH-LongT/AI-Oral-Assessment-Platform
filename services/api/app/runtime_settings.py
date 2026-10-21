@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from .config import settings as base_settings
 from .db import get_db
 from .models import Audit
+from .permissions import role_filter
 from .schemas import Input
 from .security import admin, fail
 
@@ -117,7 +118,7 @@ def save_settings(body: PlatformIn, db: Session = Depends(get_db), user=Depends(
 
     from .models import User
 
-    db.scalars(select(User).where(User.role == "ADMIN").order_by(User.id).with_for_update()).all()
+    db.scalars(select(User).where(role_filter("ADMIN")).order_by(User.id).with_for_update()).all()
     cfg = settings(fresh=True)
     values = body.model_dump(
         exclude={"gemini_api_key", "google_client_secret", "clear_gemini_key", "clear_google_secret"}

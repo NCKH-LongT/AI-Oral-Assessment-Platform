@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import get_db
 from .models import AuthSession, Course, User
+from .permissions import has_role, teacher_scope, user_roles
 
 hasher = PasswordHasher()
 
@@ -23,8 +24,8 @@ WEB_ROLES = {"ADMIN", "EXAM_OFFICER", "TEACHER"}
 def check_client_access(user, request):
     # Client identification enforces the supported UI channel, not hardware
     # attestation. A modified client can forge this header; see desktop docs.
-    if user.role not in WEB_ROLES:
-        if user.role != "STUDENT" or request.headers.get("x-oral-client") != "desktop":
+    if not has_role(user, *WEB_ROLES):
+        if not has_role(user, "STUDENT") or request.headers.get("x-oral-client") != "desktop":
             fail(403, "DESKTOP_REQUIRED", "Web chỉ dành cho admin, khảo thí và giáo viên. Sinh viên vui lòng dùng ứng dụng OralAI Desktop.")
 
 
@@ -97,7 +98,7 @@ def current_user(request: Request, db: Session = Depends(get_db)):
 
 def roles(*allowed):
     def guard(user: User = Depends(current_user)):
-        if user.role not in allowed:
+        if not has_role(user, *allowed):
             fail(403, "FORBIDDEN", "Bạn không có quyền thực hiện thao tác này")
         return user
 
@@ -115,13 +116,13 @@ def course_access(db, course_id, user):
     course = db.get(Course, course_id)
     if not course:
         fail(404, "NOT_FOUND", "Không tìm thấy môn học")
-    if user.role not in {"ADMIN", "EXAM_OFFICER"} and course.owner_id != user.id:
+    if not has_role(user, "ADMIN", "EXAM_OFFICER") and course.owner_id != user.id:
         fail(403, "FORBIDDEN", "Bạn không phụ trách môn học này")
     return course
 
 
 def public_user(user):
-    return {k: getattr(user, k) for k in ("id", "username", "name", "role", "status", "email", "requested_role")}
+    return {k: getattr(user, k) for k in ("id", "username", "name", "role", "status", "email", "requested_role")} | {"roles": user_roles(user)}
 
 
 def by_id(db, model, key, lock=False):
@@ -165,7 +166,7 @@ def visible_exams(user):
     from sqlalchemy import and_, or_
 
     from .models import Course, Exam, TeachingClass
-    if user.role != "TEACHER":
+    if not teacher_scope(user):
         return True
     return or_(
         and_(Exam.class_id.is_(None), Exam.course_id.in_(select(Course.id).where(Course.owner_id == user.id))),

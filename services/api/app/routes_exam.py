@@ -29,6 +29,7 @@ from .models import (
     ProcessingJob,
     Upload,
 )
+from .permissions import has_role
 from .practice import COURSE_ID
 from .retakes import ACTIVE, allowance, sessions_for, submission_history_row, submission_status
 from .security import by_id, current_user, exam_access, fail
@@ -124,7 +125,7 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
         if exam.course_id == COURSE_ID or exam.snapshot.get("practice"):
             continue
         assignment = schedule_for(db, exam, user.id)
-        if exam.workflow and (user.role != "STUDENT" or assignment is None):
+        if exam.workflow and (not has_role(user, "STUDENT") or assignment is None):
             continue
         sessions = sessions_for(db, exam.id, user.id)
         session = next((s for s in sessions if s.status in ACTIVE), sessions[0] if sessions else None)
@@ -165,7 +166,7 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
             select(Assignment.id).where(Assignment.exam_id == exam.id, Assignment.student_id == user.id)
         )
     )
-    if exam.workflow and (user.role != "STUDENT" or not schedule_for(db, exam, user.id)):
+    if exam.workflow and (not has_role(user, "STUDENT") or not schedule_for(db, exam, user.id)):
         fail(403, "NOT_ASSIGNED", "Bạn không có tên trong danh sách kỳ thi")
     if exam.status != "PUBLISHED" or not allowed:
         fail(403, "NOT_ASSIGNED", "Bạn chưa được giao bài thi này")
@@ -189,7 +190,7 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
     db.add(session)
     db.flush()
     session.desktop_policy = desktop_policy(db)
-    session.screen_required = user.role == "STUDENT" and session.desktop_policy["require_screen"] and not exam.snapshot.get("practice", False)
+    session.screen_required = has_role(user, "STUDENT") and session.desktop_policy["require_screen"] and not exam.snapshot.get("practice", False)
     session.desktop_policy = dict(session.desktop_policy, require_screen=session.screen_required)
     for index, question in enumerate(exam.snapshot["questions"]):
         db.add(Attempt(session_id=session.id, sequence=index + 1, question=question))
@@ -295,7 +296,7 @@ def submit(
     user=Depends(current_user),
 ):
     attempt, session = owned_attempt(db, key, user, lock=True)
-    if body.stt_skipped_reason and (user.role != "STUDENT" or request.headers.get("x-oral-client") != "desktop"):
+    if body.stt_skipped_reason and (not has_role(user, "STUDENT") or request.headers.get("x-oral-client") != "desktop"):
         # This identifies the supported channel, not trusted device attestation.
         # A skipped answer can only require review; it cannot earn an AI score.
         fail(403, "DESKTOP_STT_SKIP_REQUIRED", "Chỉ hỗ trợ bỏ qua model cục bộ khi sinh viên thi trên desktop")
@@ -498,7 +499,7 @@ def evidence(key: str, request: Request, db: Session = Depends(get_db), user=Dep
     if exam.course_id == COURSE_ID or (exam.snapshot or {}).get("practice"):
         fail(410, "PRACTICE_DISABLED", "Chức năng học và thi thử đã ngừng sử dụng")
     if session.student_id != user.id:
-        if user.role == "STUDENT":
+        if not has_role(user, "ADMIN", "TEACHER", "EXAM_OFFICER"):
             fail(403, "FORBIDDEN", "Minh chứng không thuộc tài khoản")
         exam_access(db, exam, user)
     if row.status != "COMPLETED":

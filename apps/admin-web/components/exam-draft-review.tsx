@@ -194,7 +194,9 @@ export default function ExamDraftReview({
                   .join(" · ")}
               </p>
             )}
-            <small>Nguồn tài liệu: {q.reference_chunk_ids.join(", ")}</small>
+            <small>
+              Nguồn tham chiếu: {q.reference_chunk_ids.length} đoạn tài liệu
+            </small>
           </fieldset>
         ))}
         <h4>Rubric chấm điểm</h4>

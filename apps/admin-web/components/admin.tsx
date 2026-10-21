@@ -1,4 +1,5 @@
 "use client";
+import { hasRole, userRoles, roleNames, roleLabels, Role } from "./api";
 import ExcelImport from "./excel-import";
 import ExamScore from "./exam-score";
 import ReviewEvidence from "./review-evidence";
@@ -86,7 +87,7 @@ export default function Admin({
     [showCreate, setShowCreate] = useState(false);
   const [userRole, setUserRole] = useState("");
   const [resultFilters, setResultFilters] = useState(initialResultFilters);
-  const editable = user.role === "ADMIN" || user.role === "TEACHER";
+  const editable = hasRole(user, "ADMIN") || hasRole(user, "TEACHER");
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
   const load = useCallback(async () => {
     try {
@@ -123,15 +124,16 @@ export default function Admin({
     return () => clearInterval(timer);
   }, [page, load, review?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (loading) return <Empty>Đang tải dữ liệu…</Empty>;
-  if (page === "settings" && user.role === "ADMIN") return <PlatformSettings />;
+  if (page === "settings" && hasRole(user, "ADMIN"))
+    return <PlatformSettings />;
   if (selected && ["courses", "exams"].includes(page))
     return (
       <CourseWorkspace
         course={selected}
         bankMode={page === "exams"}
-        officer={["ADMIN", "EXAM_OFFICER"].includes(user.role)}
+        officer={hasRole(user, "ADMIN", "EXAM_OFFICER")}
         students={users}
-        admin={user.role === "ADMIN"}
+        admin={hasRole(user, "ADMIN")}
         editable={editable}
         back={() => {
           setSelected(null);
@@ -145,7 +147,7 @@ export default function Admin({
       <ReviewPage
         review={review}
         canGrade={editable}
-        admin={user.role === "ADMIN"}
+        admin={hasRole(user, "ADMIN")}
         refresh={async () =>
           setReview(await api<Review>(`/admin/results/${review.id}`))
         }
@@ -394,7 +396,7 @@ export default function Admin({
                   Tài khoản được quản trị viên cấp trước khi giao bài thi.
                 </p>
               </div>
-              {user.role === "ADMIN" && (
+              {hasRole(user, "ADMIN") && (
                 <button
                   className="button"
                   onClick={() => setShowCreate(!showCreate)}
@@ -404,7 +406,7 @@ export default function Admin({
                 </button>
               )}
             </div>
-            {user.role === "ADMIN" && (
+            {hasRole(user, "ADMIN") && (
               <div className="user-imports">
                 <ExcelImport kind="teachers" saved={load} />
                 <ExcelImport kind="officers" saved={load} />
@@ -420,7 +422,7 @@ export default function Admin({
                       email: d.get("email") || null,
                       name: d.get("name"),
                       password: d.get("password"),
-                      role: d.get("role"),
+                      roles: d.getAll("roles"),
                     });
                     setShowCreate(false);
                     await load();
@@ -444,15 +446,21 @@ export default function Admin({
                         required
                       />
                     </label>
-                    <label>
-                      Vai trò
-                      <select name="role" defaultValue="STUDENT">
-                        <option value="EXAM_OFFICER">Khảo thí</option>
-                        <option value="STUDENT">Sinh viên</option>
-                        <option value="TEACHER">Giảng viên</option>
-                        <option value="ADMIN">Quản trị viên</option>
-                      </select>
-                    </label>
+                    <fieldset className="role-options">
+                      <legend>Vai trò (có thể chọn nhiều)</legend>
+                      {(Object.keys(roleLabels) as Role[]).map((role) => (
+                        <label key={role}>
+                          <input
+                            type="checkbox"
+                            name="roles"
+                            value={role}
+                            defaultChecked={role === "STUDENT"}
+                          />
+                          {roleLabels[role]}
+                        </label>
+                      ))}
+                      <small>Quản trị viên có mọi quyền.</small>
+                    </fieldset>
                   </div>
                 </Form>
               </section>
@@ -478,7 +486,7 @@ export default function Admin({
                 {
                   users.filter(
                     (u) =>
-                      (!userRole || u.role === userRole) &&
+                      (!userRole || userRoles(u).some((r) => r === userRole)) &&
                       `${u.name} ${u.email || ""} ${u.username}`
                         .toLowerCase()
                         .includes(query.toLowerCase()),
@@ -501,7 +509,8 @@ export default function Admin({
                   {users
                     .filter(
                       (u) =>
-                        (!userRole || u.role === userRole) &&
+                        (!userRole ||
+                          userRoles(u).some((r) => r === userRole)) &&
                         `${u.name} ${u.email || ""} ${u.username}`
                           .toLowerCase()
                           .includes(query.toLowerCase()),
@@ -523,11 +532,12 @@ export default function Admin({
                         </td>
                         <td>{u.email || u.username}</td>
                         <td>
-                          {user.role !== "ADMIN" && (
-                            <span className="pill">{u.role}</span>
+                          {!hasRole(user, "ADMIN") && (
+                            <span className="pill">{roleNames(u)}</span>
                           )}
-                          {user.role === "ADMIN" && (
+                          {hasRole(user, "ADMIN") && (
                             <RoleEditor
+                              key={`${u.id}-${userRoles(u).join("-")}-${u.requested_role || ""}`}
                               user={u}
                               saved={async () => {
                                 await load();
@@ -2084,33 +2094,52 @@ function RoleEditor({
   user: User;
   saved: () => Promise<void>;
 }) {
-  const [role, setRole] = useState<User["role"]>(
-    user.requested_role === "EXAM_OFFICER" ? "EXAM_OFFICER" : user.role,
+  const initial = userRoles(user);
+  const [roles, setRoles] = useState<Role[]>(
+    user.requested_role === "EXAM_OFFICER" && !initial.includes("EXAM_OFFICER")
+      ? [...initial, "EXAM_OFFICER"]
+      : initial,
   );
+  const unchanged =
+    initial.length === roles.length && initial.every((r) => roles.includes(r));
   return (
-    <div className="inline">
+    <details className="role-editor">
+      <summary>{roleNames(user)}</summary>
       {user.requested_role && (
-        <span className="badge pending">Yêu cầu: {user.requested_role}</span>
+        <span className="badge pending">
+          Yêu cầu bổ sung: {user.requested_role}
+        </span>
       )}
-      <select
-        aria-label={`Vai trò của ${user.name}`}
-        value={role}
-        onChange={(e) => setRole(e.target.value as User["role"])}
-      >
-        {["STUDENT", "TEACHER", "EXAM_OFFICER", "ADMIN"].map((r) => (
-          <option key={r}>{r}</option>
+      <fieldset className="role-options">
+        <legend>Vai trò của {user.name}</legend>
+        {(Object.keys(roleLabels) as Role[]).map((role) => (
+          <label key={role}>
+            <input
+              type="checkbox"
+              checked={roles.includes(role)}
+              onChange={(e) =>
+                setRoles(
+                  e.target.checked
+                    ? [...roles, role]
+                    : roles.filter((r) => r !== role),
+                )
+              }
+            />
+            {roleLabels[role]}
+          </label>
         ))}
-      </select>
+        <small>Quản trị viên có mọi quyền. Chọn ít nhất một vai trò.</small>
+      </fieldset>
       <Action
-        className="text-button"
-        disabled={role === user.role && !user.requested_role}
+        className="button secondary"
+        disabled={!roles.length || (unchanged && !user.requested_role)}
         action={async () => {
-          await send(`/admin/users/${user.id}/role`, { role }, "PUT");
+          await send(`/admin/users/${user.id}/roles`, { roles }, "PUT");
           await saved();
         }}
       >
         Lưu quyền
       </Action>
-    </div>
+    </details>
   );
 }

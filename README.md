@@ -8,6 +8,11 @@ Các menu **Môn học**, **Ngân hàng đề thi**, **Bộ môn** và **Lớp h
 
 Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, giảng viên, khảo thí và danh sách sinh viên; đề được review/duyệt trước khi mở thi. Admin quản lý dung lượng từng lần thi, dọn bản ghi giữ điểm hoặc xóa toàn bộ lần thi được chọn.
 
+Một tài khoản có thể giữ nhiều vai trò; **ADMIN có mọi quyền**. Admin chọn
+checkbox tại **Người dùng → Vai trò**. Điều phối kỳ thi có bộ lọc, phần tạo
+thu gọn và hai tab **Đề thi & duyệt / Sinh viên & lịch thi**. Cần migration
+`0012`. [Phân quyền nhiều vai trò](docs/architecture/multi-role-access.md).
+
 ## Hướng dẫn theo nhu cầu
 
 | Bạn muốn làm gì? | Tài liệu |

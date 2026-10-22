@@ -2,6 +2,31 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Editor câu hỏi, camera và audio từng câu — 22/10/2026
+
+Kiểm thử local với database tạm; không thay đổi môn, đề hoặc bài làm trên
+production. Không cần migration mới.
+
+| Nhóm | Kết quả |
+| --- | --- |
+| API SQLite toàn bộ | **174 đạt, 9 bỏ qua**; sau đó bổ sung và kiểm tra riêng ca cấu trúc JSON sai kiểu |
+| Playwright Chromium | **38 ca khác nhau đạt** qua các lượt kiểm tra; 8 ca editor/điều hướng/ghi âm theo giờ chạy lại cuối đều đạt |
+| Electron thật từ source | Đạt tại 1024×640, 1280×680, 1366×700; camera giả lập có tỉ lệ khung khớp kích thước video và không cắt ảnh |
+| Node screen recording/recovery | **8 đạt** |
+| Kiểm tra tĩnh và build | Ruff, ESLint, TypeScript và Next production build đạt |
+
+Backend xác minh ba vai trò được sửa trong phạm vi quyền, chặn sinh viên và
+đề đã duyệt/công bố, giữ ảnh qua sao chép và lượt thi, không đổi đề nguồn,
+chặn nội dung HTML/script/ảnh ngoài/ảnh quá giới hạn. Nộp bài cần audio mỗi
+câu và SCREEN nếu bật; không cần VIDEO camera. Media cũ vẫn xem được.
+
+Trình duyệt kiểm tra chèn ảnh, đậm, xem trước, hủy/lưu/tải lại, chỉ một câu
+mở editor, layout 390px, mở đúng sinh viên/lượt thi ở tổng quan, recorder chỉ
+thu audio, thử lại upload và khôi phục ghi màn hình. Đã xem ảnh chụp editor
+và camera Electron. API và bridge trong kiểm thử UI được giả lập; media dùng
+MediaRecorder với thiết bị giả. Chưa kiểm tra camera/microphone vật lý hoặc
+bộ cài Windows mới; chưa xác nhận triển khai phiên bản này trên domain chính.
+
 ## Điều phối kỳ thi và nhiều vai trò — 21/10/2026
 
 Kiểm thử trên server local, database tạm và API giả lập cho trình duyệt;

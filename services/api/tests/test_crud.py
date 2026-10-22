@@ -86,7 +86,9 @@ def test_crud_rejects_other_teachers_and_cross_course_changes(env):
     assert other.delete(exam_path).status_code == 403
     assert other.post(exam_path + "/copy").status_code == 403
     assert other.put(exam_path, json=context["payload"]).status_code == 403
-    assert clients["reviewer"].post(exam_path + "/copy").status_code == 403
+    assert clients["student"].post(exam_path + "/copy").status_code == 403
+    # Examination officers can now copy questions for editing without changing the source.
+    assert clients["reviewer"].post(exam_path + "/copy?preserve_content=true").status_code == 201
     admin = clients["admin"]
     copy = ok(admin.post(exam_path + "/copy"), 201)
     course = ok(admin.post("/admin/courses", json={"code": "OTHER", "name": "Other course"}), 201)

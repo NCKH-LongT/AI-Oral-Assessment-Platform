@@ -1,6 +1,6 @@
 # OralAI — Thi vấn đáp
 
-Web dành cho **ADMIN, EXAM_OFFICER và TEACHER** quản lý môn, đề, lịch thi, kết quả và dung lượng. Sinh viên làm bài qua **OralAI Desktop**: ghi audio/camera, ghi toàn màn hình theo chính sách thi và tải bản ghi gốc lên server. Sau khi nộp toàn bài, server chạy hàng đợi **STT → chấm điểm** với trạng thái theo dõi; dùng nhà cung cấp STT trong cấu hình hệ thống và LLM Ollama/Gemini để chấm theo rubric/RAG.
+Web dành cho **ADMIN, EXAM_OFFICER và TEACHER** quản lý môn, đề, lịch thi, kết quả và dung lượng. Sinh viên làm bài qua **OralAI Desktop**: ghi audio từng câu, hiển thị camera và ghi toàn màn hình theo chính sách thi và tải bản ghi gốc lên server. Sau khi nộp toàn bài, server chạy hàng đợi **STT → chấm điểm** với trạng thái theo dõi; dùng nhà cung cấp STT trong cấu hình hệ thống và LLM Ollama/Gemini để chấm theo rubric/RAG.
 
 Các menu **Môn học**, **Ngân hàng đề thi**, **Bộ môn** và **Lớp học** tách riêng. Admin/khảo thí quản lý bộ môn, lớp, danh sách sinh viên, phân công giáo viên và lịch từng đợt thi. Giáo viên xem/chấm lại bài trong lớp được phân công. Ngân hàng đề theo môn có lọc category và rubric. [Chi tiết lớp học và phân quyền](docs/architecture/academic-classes.md).
 
@@ -12,6 +12,12 @@ Một tài khoản có thể giữ nhiều vai trò; **ADMIN có mọi quyền**
 checkbox tại **Người dùng → Vai trò**. Điều phối kỳ thi có bộ lọc, phần tạo
 thu gọn và hai tab **Đề thi & duyệt / Sinh viên & lịch thi**. Cần migration
 `0012`. [Phân quyền nhiều vai trò](docs/architecture/multi-role-access.md).
+
+Câu hỏi hỗ trợ editor định dạng và chèn ảnh, có nút sửa riêng từng câu cho
+admin/khảo thí/giảng viên. Desktop chỉ upload audio từng câu và video màn
+hình cho cả lượt thi khi bật; camera nằm trong khung hiển thị đúng tỉ lệ.
+**Lượt thi gần đây → Xem bài** mở đúng lượt sinh viên được chọn.
+[Editor và ghi hình](docs/architecture/question-editor-recording.md).
 
 ## Hướng dẫn theo nhu cầu
 

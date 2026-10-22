@@ -1,3 +1,4 @@
+import type { RichContent } from "./question-content";
 import type { DesktopPolicy } from "./desktop-policy";
 export type Role = "ADMIN" | "TEACHER" | "STUDENT" | "EXAM_OFFICER";
 export type User = {
@@ -80,6 +81,7 @@ export type Exam = {
     preparation_seconds?: number;
     recording_seconds?: number;
     text: string;
+    rich_content?: RichContent | null;
     english_terms: { term: string; meaning: string }[];
   }[];
 };
@@ -211,7 +213,7 @@ export type Review = Result & {
     id: string;
     sequence: number;
     status: string;
-    question: { text: string };
+    question: { text: string; rich_content?: RichContent | null };
     transcript: string | null;
     stt_confidence: number | null;
     assessment: Assessment | null;
@@ -278,6 +280,7 @@ export type ExamSession = {
     recording_seconds?: number;
     prompt_image?: string | null;
     text: string;
+    rich_content?: RichContent | null;
     status: string;
   } | null;
 };

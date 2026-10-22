@@ -21,6 +21,11 @@ chứa cấu hình, soạn, duyệt và mở thi; tab **Sinh viên & lịch thi*
 sinh viên, chọn danh sách, xếp lịch và xuất điểm. Nút tự xuống dòng trên màn
 hình nhỏ; bảng rộng cuộn ngang trong vùng riêng.
 
+Câu hỏi có nút **Sửa câu N**, editor định dạng/chèn ảnh cho admin, giảng
+viên và khảo thí trên bản GENERATED. **Xong câu** xem trước, **Lưu nội dung
+đã review** mới lưu server. Đề đã duyệt/công bố cần sao chép giữ nội dung để
+sửa và duyệt lại. [Editor và minh chứng mới](question-editor-recording.md).
+
 ## Tổ chức một kỳ thi
 
 1. Admin tạo môn học và phân role TEACHER cho giảng viên.

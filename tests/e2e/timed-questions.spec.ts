@@ -158,7 +158,7 @@ for (const scenario of [
           json: { error: { message: "Không kết nối được backend online." } },
         });
       if (path === "/api/exam-sessions/s/finish") {
-        expect(uploaded).toEqual(["a1", "a1", "a2", "a2"]);
+        expect(uploaded).toEqual(["a1", "a2"]);
         if (session.status !== "SUBMITTED") {
           finishes++;
           session.status = "SUBMITTED";
@@ -184,13 +184,13 @@ for (const scenario of [
     await expect(
       page.getByRole("button", { name: "Bắt đầu trả lời", exact: true }),
     ).toHaveCount(0);
-    await expect(page.getByText(/Đang ghi âm và ghi hình/)).toBeVisible();
+    await expect(page.getByText(/Đang ghi âm câu trả lời/)).toBeVisible();
     await page.waitForTimeout(1100); // Capture nonempty original WebM evidence.
     await page
       .getByRole("button", { name: "Kết thúc trả lời", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Second timed question" }),
+      page.getByText("Second timed question", { exact: true }),
     ).toBeVisible();
     await expect.poll(() => submissions.length).toBe(2);
     expect(recordings).toEqual(["a1", "a2"]);
@@ -205,28 +205,13 @@ for (const scenario of [
         .click();
     }
     if (uploadFails) {
-      await expect(
-        page.getByRole("button", { name: "Tải lại", exact: true }),
-      ).toHaveCount(2);
+      await expect(page.getByRole("button", { name: "Tải lại", exact: true })).toHaveCount(1);
       expect(finishes).toBe(0);
-      await expect(
-        page.getByRole("button", { name: "Nộp bài thi", exact: true }),
-      ).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Nộp bài thi", exact: true })).toBeDisabled();
       failUpload = false;
-      await page
-        .getByRole("button", { name: "Tải lại", exact: true })
-        .first()
-        .click();
-      await expect(
-        page.getByRole("button", { name: "Tải lại", exact: true }),
-      ).toHaveCount(1);
-      await page
-        .getByRole("button", { name: "Tải lại", exact: true })
-        .first()
-        .click();
-      await page
-        .getByRole("button", { name: "Nộp bài thi", exact: true })
-        .click();
+      await page.getByRole("button", { name: "Tải lại", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Tải lại", exact: true })).toHaveCount(0);
+      await page.getByRole("button", { name: "Nộp bài thi", exact: true }).click();
     }
     await expect(page.locator(".finished")).toContainText("Đã nộp bài thi");
     expect(finishes).toBe(1);

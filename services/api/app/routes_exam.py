@@ -92,6 +92,7 @@ def public_session(db, session):
                 "id": first.id,
                 "sequence": first.sequence,
                 "text": first.question["text"],
+                "rich_content": first.question.get("rich_content"),
                 "prompt_image": first.question.get("prompt_image") if first.question.get("prompt_image") in {
                     "/practice/toeic-speaking/office.svg", "/practice/toeic-speaking/cafe.svg"
                 } else None,
@@ -368,9 +369,9 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
             kinds = set(
                 db.scalars(select(Upload.kind).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED"))
             )
-            required_kinds = {"AUDIO", "VIDEO"} if desktop_session_policy(session)["require_camera"] else {"AUDIO"}
+            required_kinds = {"AUDIO"}
             if not required_kinds <= kinds:
-                fail(409, "EVIDENCE_PENDING", "Chờ tải đủ audio/video trước khi nộp bài")
+                fail(409, "EVIDENCE_PENDING", "Chờ tải audio từng câu trước khi nộp bài")
     session.status, session.completed_at = "SUBMITTED", time.time()
     processing.queue_session(db, key)
     db.flush()

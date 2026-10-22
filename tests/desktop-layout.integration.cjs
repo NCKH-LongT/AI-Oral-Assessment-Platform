@@ -38,6 +38,8 @@ test("desktop login, device check and question fit a laptop viewport", { timeout
   await expect(page.getByRole("combobox", { name: "Ngôn ngữ nói", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Bắt đầu thi", exact: true })).toBeInViewport();
   await expect(page.getByRole("button", { name: "Cho phép camera & mic", exact: true })).toBeInViewport();
+  await page.getByRole("button", { name: "Cho phép camera & mic", exact: true }).click();
+  await expect.poll(() => page.locator(".camera-preview video").evaluate(video => video.videoWidth > 0)).toBe(true);
   for (const [width, height] of [[1280, 680], [1024, 640], [1366, 700]]) {
     await desktop.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setContentSize(...size), [width, height]);
     await expect.poll(async () => page.evaluate(() => {
@@ -46,6 +48,12 @@ test("desktop login, device check and question fit a laptop viewport", { timeout
       const camera = document.querySelector(".device-panel").getBoundingClientRect();
       return root.scrollWidth <= innerWidth && root.scrollHeight <= innerHeight + 1 && question.right <= camera.left && camera.right <= innerWidth;
     })).toBe(true);
+    await expect.poll(() => page.locator(".camera-preview").evaluate(frame => {
+      const video = frame.querySelector("video");
+      const rect = frame.getBoundingClientRect();
+      return Math.abs(rect.width / rect.height - video.videoWidth / video.videoHeight) < 0.02 && getComputedStyle(video).objectFit === "contain";
+    })).toBe(true);
+    await expect(page.locator(".camera-preview")).toBeInViewport();
     await page.screenshot({ path: `.data/review/desktop-device-${width}.png` });
   }
   session.status = "IN_PROGRESS";

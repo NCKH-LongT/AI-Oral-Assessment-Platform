@@ -74,9 +74,7 @@ def test_missing_model_advances_exam_without_grading_and_requires_all_evidence(e
             upload(student, session["screen_attempt_id"], "SCREEN")
             assert student.post(session_path + "/finish").json()["error"]["code"] == "EVIDENCE_PENDING"
         evidence.append(upload(student, attempt_id, "AUDIO"))
-        if sequence == 2:
-            assert student.post(session_path + "/finish").json()["error"]["code"] == "EVIDENCE_PENDING"
-        upload(student, attempt_id, "VIDEO")
+        # Camera is previewed inside the session screen recording; no per-answer VIDEO.
 
     final = ok(student.post(session_path + "/finish"))
     assert final["status"] == "SUBMITTED"

@@ -1,3 +1,24 @@
+# Editor câu hỏi, ghi màn hình và mở đúng bài thi — 22/10/2026
+
+- Câu hỏi có editor định dạng chữ, danh sách và chèn ảnh. Mỗi câu có **Sửa
+  câu**, **Xong câu**, **Hủy sửa**; bấm **Lưu nội dung đã review** để lưu lên
+  server. Admin, khảo thí và giảng viên được chỉnh sửa trong phạm vi quyền.
+- Đề đã duyệt/công bố được sao chép giữ nguyên nội dung, ảnh và rubric để
+  sửa, không thay đề hoặc bài làm cũ. Ảnh hiển thị cả trên desktop và khi
+  xem bài; câu hỏi văn bản cũ vẫn tương thích.
+- Chỉ ghi/upload **audio từng câu**; video chỉ ghi màn hình cho cả lượt khi
+  quy định bật, bao gồm khung camera trên app. Bỏ video camera riêng từng
+  câu. Camera hiển thị đúng tỉ lệ nguồn, không cắt hình.
+- **Tổng quan → Lượt thi gần đây → Xem bài** mở đúng lượt của sinh viên đã
+  chọn, không chuyển vào danh sách kết quả.
+- Cần triển khai API/web đồng bộ và cập nhật desktop để nhận CSS mới; không
+  cần migration mới. Chưa xác nhận triển khai bản này trên domain chính.
+
+Chi tiết: [editor và ghi hình](docs/architecture/question-editor-recording.md),
+[kiểm thử](docs/validation.md).
+
+---
+
 # Điều phối kỳ thi và nhiều vai trò — 21/10/2026
 
 Đã sửa mã nguồn, kiểm thử local và cập nhật tài liệu:

@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { QuestionContent } from "./question-content";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -58,7 +59,9 @@ declare global {
       restoreDisplays?: () => Promise<DesktopDisplayStatus>;
       onExamEvent?: (callback: (type: string) => void) => () => void;
       quit?: () => Promise<void>;
-      downloadModel?: (backendMode: "local" | "online") => Promise<{ ready: boolean }>;
+      downloadModel?: (
+        backendMode: "local" | "online",
+      ) => Promise<{ ready: boolean }>;
       sttModels?: () => Promise<DesktopModel[]>;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
     };
@@ -69,7 +72,6 @@ type PendingAnswer = {
   audio: Blob;
   filteredAudio: Blob | null;
   sttSource: "original" | "filtered";
-  video: Blob;
   transcript: string;
   confidence: number | null;
   sttSkippedReason?: "MODEL_MISSING";
@@ -79,7 +81,7 @@ type PendingAnswer = {
 type UploadJob = {
   id: string;
   attemptId: string;
-  kind: "AUDIO" | "VIDEO" | "SCREEN";
+  kind: "AUDIO" | "SCREEN";
   blob: Blob;
   progress: number;
   status: "pending" | "uploading" | "done" | "failed";
@@ -93,11 +95,10 @@ const hash = async (blob: Blob) =>
   )
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
-const mime = (kind: "audio" | "video") =>
-  (kind === "audio"
-    ? ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
-    : ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
-  ).find((t) => MediaRecorder.isTypeSupported(t));
+const audioMime = () =>
+  ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) =>
+    MediaRecorder.isTypeSupported(t),
+  );
 
 function submissionBadge(status: string) {
   return ["SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"].includes(status)
@@ -106,6 +107,7 @@ function submissionBadge(status: string) {
 }
 
 export default function Student() {
+  const [cameraRatio, setCameraRatio] = useState(4 / 3);
   const [displayBusy, setDisplayBusy] = useState(false);
   const [screenConsent, setScreenConsent] = useState(false);
   const screenJobs = useRef(
@@ -514,11 +516,10 @@ export default function Student() {
       );
     if (!session?.current_attempt || !stream || deviceError || connecting)
       throw new Error("Kiểm tra camera và microphone trước.");
-    const am = mime("audio"),
-      vm = mime("video");
-    if (!am || (cameraRequired && !vm))
+    const am = audioMime();
+    if (!am)
       throw new Error(
-        "Trình duyệt chưa hỗ trợ định dạng ghi âm/video. Dùng Chrome hoặc Electron.",
+        "Trình duyệt chưa hỗ trợ định dạng ghi âm. Dùng Chrome hoặc Electron.",
       );
     if (!window.oralDesktop && denoise && (!filterRef.current || filterError))
       throw new Error(
@@ -530,26 +531,18 @@ export default function Student() {
         ? stream
         : gainRef.current?.stream || stream
       ).getAudioTracks(),
-      ...stream.getVideoTracks(),
     ]);
     const audioRecorder = new MediaRecorder(
       new MediaStream(capture.getAudioTracks()),
       { mimeType: am },
     );
-    const videoRecorder = cameraRequired
-      ? new MediaRecorder(capture, {
-          mimeType: vm,
-          videoBitsPerSecond: 650000,
-        })
-      : null;
     const filterVersion = filterFailures.current;
     const cleanRecorder =
       !window.oralDesktop && filterRef.current && !filterError
         ? new MediaRecorder(filterRef.current.stream, { mimeType: am })
         : null;
     const audioChunks: BlobPart[] = [],
-      cleanChunks: BlobPart[] = [],
-      videoChunks: BlobPart[] = [];
+      cleanChunks: BlobPart[] = [];
     if (cleanRecorder)
       cleanRecorder.ondataavailable = (e) => {
         if (e.data.size) cleanChunks.push(e.data);
@@ -557,10 +550,6 @@ export default function Student() {
     audioRecorder.ondataavailable = (e) => {
       if (e.data.size) audioChunks.push(e.data);
     };
-    if (videoRecorder)
-      videoRecorder.ondataavailable = (e) => {
-        if (e.data.size) videoChunks.push(e.data);
-      };
     const guardRevision = guard.getRevision();
     setStartingRecording(true);
     let timing: QuestionClock | undefined;
@@ -576,7 +565,6 @@ export default function Student() {
     }
     const activeRecorders = [
       audioRecorder,
-      ...(videoRecorder ? [videoRecorder] : []),
       ...(cleanRecorder ? [cleanRecorder] : []),
     ];
     let stops = 0;
@@ -596,9 +584,6 @@ export default function Student() {
             ? new Blob(cleanChunks, { type: am.split(";")[0] })
             : null,
         sttSource: "original",
-        video: new Blob(videoChunks, {
-          type: vm?.split(";")[0] || "video/webm",
-        }),
         transcript: "",
         originalText: "",
         confidence: 0,
@@ -738,8 +723,7 @@ export default function Student() {
       !answer.sttSkippedReason
     )
       throw new Error("Nhận dạng câu trả lời trước khi nộp.");
-    if (!answer.audio.size || (cameraRequired && !answer.video.size))
-      throw new Error("Media rỗng. Vui lòng ghi âm lại.");
+    if (!answer.audio.size) throw new Error("Media rỗng. Vui lòng ghi âm lại.");
     setSubmitting(true);
     try {
       const confidence =
@@ -758,13 +742,11 @@ export default function Student() {
       });
       let added = answerUploads.current.get(answer.key);
       if (!added) {
-        added = (
-          ["AUDIO", ...(cameraRequired ? ["VIDEO" as const] : [])] as const
-        ).map((kind) => ({
+        added = (["AUDIO"] as const).map((kind) => ({
           id: crypto.randomUUID(),
           attemptId: answer.attemptId,
           kind,
-          blob: kind === "AUDIO" ? answer.audio : answer.video,
+          blob: answer.audio,
           progress: 0,
           status: "pending",
         }));
@@ -1154,9 +1136,9 @@ export default function Student() {
                   )}
                 </ol>
                 <p className="muted">
-                  Audio/video được lưu để giảng viên xem lại. Chưa hỗ trợ khôi
-                  phục bản ghi khi đóng ứng dụng; giữ cửa sổ mở đến khi nộp bài
-                  thành công.
+                  Audio từng câu và video màn hình (khi bật) được lưu để giảng
+                  viên xem lại. Chưa hỗ trợ khôi phục bản ghi khi đóng ứng dụng;
+                  giữ cửa sổ mở đến khi nộp bài thành công.
                 </p>
                 {!desktopSpeech.desktop && (
                   <>
@@ -1176,7 +1158,7 @@ export default function Student() {
                       </p>
                     )}
                     <p className="muted">
-                      Mặc định STT dùng bản gốc. Audio/video gốc được giữ để đối
+                      Mặc định STT dùng bản gốc. Audio gốc được giữ để đối
                       chiếu. Lựa chọn lọc chỉ áp dụng cho audio dùng STT.
                     </p>
                     {stream && !deviceError && (
@@ -1191,10 +1173,10 @@ export default function Student() {
                 )}
                 {desktopSpeech.desktop && !serverProcessing && (
                   <p className="muted">
-                    STT dùng bản ghi gốc từ microphone. Audio/video gốc được giữ
-                    để đối chiếu. Nếu vẫn nhận nhiều màn hình dù đã tắt nguồn,
-                    dùng nút Tắt màn hình phụ trong mục Chuẩn bị màn hình, rồi
-                    bấm Bắt đầu thi.
+                    STT dùng bản ghi gốc từ microphone. Audio gốc được giữ để
+                    đối chiếu. Nếu vẫn nhận nhiều màn hình dù đã tắt nguồn, dùng
+                    nút Tắt màn hình phụ trong mục Chuẩn bị màn hình, rồi bấm
+                    Bắt đầu thi.
                   </p>
                 )}
                 {session.screen_required && (
@@ -1250,9 +1232,12 @@ export default function Student() {
                   CÂU {session.current_attempt.sequence} /{" "}
                   {session.question_count}
                 </span>
-                <h2 className="question-text">
-                  {session.current_attempt.text}
-                </h2>
+                <div className="question-text">
+                  <QuestionContent
+                    text={session.current_attempt.text}
+                    content={session.current_attempt.rich_content}
+                  />
+                </div>
                 {session.current_attempt.prompt_image && (
                   <Image
                     unoptimized
@@ -1271,7 +1256,7 @@ export default function Student() {
                   {recording ? (
                     <>
                       <span className="record-dot" />
-                      Đang ghi âm và ghi hình
+                      Đang ghi âm câu trả lời
                       {timedQuestions
                         ? ` · Còn ${questionTimer.seconds} giây`
                         : ""}
@@ -1511,8 +1496,21 @@ export default function Student() {
                 </span>
               </div>
               {cameraRequired && (
-                <div className="camera-preview">
-                  <video ref={preview} autoPlay playsInline muted />
+                <div
+                  className="camera-preview"
+                  style={{ aspectRatio: cameraRatio }}
+                >
+                  <video
+                    ref={preview}
+                    autoPlay
+                    playsInline
+                    muted
+                    onLoadedMetadata={(e) => {
+                      const video = e.currentTarget;
+                      if (video.videoWidth && video.videoHeight)
+                        setCameraRatio(video.videoWidth / video.videoHeight);
+                    }}
+                  />
                   {!stream && (
                     <span>
                       <Camera size={34} />
@@ -1582,8 +1580,8 @@ export default function Student() {
                     </label>
                     <p className="muted">
                       0 dB giữ nguyên mức mic. Tăng từng ít một nếu giọng nhỏ;
-                      giảm nếu rè. Áp dụng cho bản thu mới, video và STT. Thu
-                      thử lại sau khi chỉnh.
+                      giảm nếu rè. Áp dụng cho bản thu audio mới và STT. Thu thử
+                      lại sau khi chỉnh.
                     </p>
                   </>
                 )}
@@ -1674,7 +1672,8 @@ export default function Student() {
               </h3>
               {!jobs.length ? (
                 <p className="muted">
-                  Audio và video sẽ tải lên sau khi nộp mỗi câu.
+                  Chỉ audio được tải lên sau mỗi câu. Video màn hình được lưu
+                  cho cả lượt thi khi bật ghi màn hình.
                 </p>
               ) : (
                 jobs.map((j) => (

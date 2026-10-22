@@ -41,6 +41,7 @@ import { Action, Badge, Empty, Field, Form, Modal } from "./shared";
 import { TextbookPanel, TopicPanel } from "./knowledge";
 import PlatformSettings from "./platform-settings";
 import CourseStudents from "./course-students";
+import { QuestionContent } from "./question-content";
 import ExamDraftReview from "./exam-draft-review";
 import CourseHotwords from "./course-hotwords";
 import { TranscriptionReview } from "./transcription-review";
@@ -113,7 +114,7 @@ export default function Admin({
     void load();
   }, [load]);
   useEffect(() => {
-    if (page !== "results") return;
+    if (page !== "results" && !review) return;
     const timer = setInterval(() => {
       void load();
       if (review)
@@ -142,7 +143,7 @@ export default function Admin({
         }}
       />
     );
-  if (review && page === "results")
+  if (review)
     return (
       <ReviewPage
         review={review}
@@ -153,7 +154,8 @@ export default function Admin({
         }
         back={() => {
           setReview(null);
-          void load();
+          if (page === "dashboard") navigate("results");
+          else void load();
         }}
         open={async (id) =>
           setReview(await api<Review>(`/admin/results/${id}`))
@@ -277,7 +279,9 @@ export default function Admin({
             </div>
             <ResultTable
               rows={results.slice(0, 5)}
-              open={async () => navigate("results")}
+              open={async (id) =>
+                setReview(await api<Review>(`/admin/results/${id}`))
+              }
             />
           </section>
         </>
@@ -1230,17 +1234,19 @@ function CourseWorkspace({
                     </Action>
                   </div>
                 )}
-                {editable && (
+                {(editable || officer) && (
                   <Action
                     className="button secondary"
                     disabled={course.status !== "ACTIVE"}
                     action={async () => {
                       const copy = await send<Exam>(
-                        `/admin/exams/${e.id}/copy`,
+                        `/admin/exams/${e.id}/copy?preserve_content=true`,
                       );
                       await load();
-                      setEditExam(copy);
-                      setExamOpen(true);
+                      if (copy.status === "DRAFT") {
+                        setEditExam(copy);
+                        setExamOpen(true);
+                      }
                     }}
                   >
                     Sao chép thành bản nháp
@@ -1250,7 +1256,8 @@ function CourseWorkspace({
                   <ExamDraftReview
                     key={`${e.id}-${e.status}`}
                     examId={e.id}
-                    editable={editable}
+                    editable={editable || officer}
+                    canApprove={editable}
                     refresh={load}
                   />
                 )}
@@ -1281,9 +1288,11 @@ function CourseWorkspace({
                       <h3>Câu hỏi & thuật ngữ tiếng Anh gợi ý</h3>
                       {(e.questions || []).map((question, index) => (
                         <article key={index} className="generated-question">
-                          <h4>
-                            Câu {index + 1}: {question.text}
-                          </h4>
+                          <h4>Câu {index + 1}</h4>
+                          <QuestionContent
+                            text={question.text}
+                            content={question.rich_content}
+                          />
                           <p className="muted">
                             Chuẩn bị {question.preparation_seconds ?? 10} giây ·
                             Trả lời tối đa {question.recording_seconds ?? 60}{" "}
@@ -1973,7 +1982,10 @@ export function ReviewPage({
             <h2>Câu {a.sequence}</h2>
             <Badge status={a.status} />
           </div>
-          <h3>{a.question.text}</h3>
+          <QuestionContent
+            text={a.question.text}
+            content={a.question.rich_content}
+          />
           {a.processing && (
             <div className="notice">
               <Badge status={a.processing.status} />

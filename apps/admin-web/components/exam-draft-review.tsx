@@ -1,10 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api, send, errorText, Criterion } from "./api";
+import dynamic from "next/dynamic";
+import { QuestionContent, type RichContent } from "./question-content";
 import { Action, Badge, Empty, Form } from "./shared";
+
+const QuestionEditor = dynamic(() => import("./question-editor"), {
+  ssr: false,
+  loading: () => <p>Đang tải editor…</p>,
+});
 
 type Question = {
   text: string;
+  rich_content?: RichContent | null;
   preparation_seconds?: number;
   recording_seconds?: number;
   expected_concepts: string[];
@@ -20,14 +28,19 @@ type Draft = {
 export default function ExamDraftReview({
   examId,
   editable,
+  canApprove = editable,
   refresh,
 }: {
   examId: string;
   editable: boolean;
+  canApprove?: boolean;
   refresh: () => Promise<unknown>;
 }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState("");
+  const [imageBusy, setImageBusy] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [original, setOriginal] = useState<Question | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
@@ -89,12 +102,20 @@ export default function ExamDraftReview({
         label={canEdit ? "Lưu nội dung đã review" : "Tải lại nội dung"}
         onSubmit={async () => {
           if (canEdit) {
+            if (imageBusy) throw new Error("Chờ xử lý ảnh xong trước khi lưu.");
+            if (
+              snapshot.questions.some(
+                (q) => q.text.trim().length < 10 || q.text.length > 4000,
+              )
+            )
+              throw new Error("Mỗi câu cần từ 10 đến 4000 ký tự nội dung chữ.");
             await send(
               `/admin/exams/${examId}/draft`,
               {
                 questions: snapshot.questions.map(
                   ({
                     text,
+                    rich_content,
                     expected_concepts,
                     reference_chunk_ids,
                     english_terms,
@@ -102,6 +123,7 @@ export default function ExamDraftReview({
                     recording_seconds = 60,
                   }) => ({
                     text,
+                    rich_content,
                     expected_concepts,
                     reference_chunk_ids,
                     english_terms,
@@ -113,6 +135,8 @@ export default function ExamDraftReview({
               },
               "PUT",
             );
+            setEditing(null);
+            setOriginal(null);
             setDirty(false);
             setSaved(true);
           } else setDraft(await api<Draft>(`/admin/exams/${examId}/draft`));
@@ -131,62 +155,112 @@ export default function ExamDraftReview({
                 )[q.difficulty]
               }
             </legend>
-            <label>
-              Nội dung câu hỏi
-              <textarea
-                required
-                minLength={10}
-                maxLength={4000}
-                value={q.text}
-                onChange={(e) => updateQuestion(i, { text: e.target.value })}
+            {editing === i ? (
+              <QuestionEditor
+                text={q.text}
+                onBusy={setImageBusy}
+                content={q.rich_content}
+                onChange={(text, rich_content) =>
+                  updateQuestion(i, { text, rich_content })
+                }
               />
-            </label>
-            <div className="inline">
+            ) : (
+              <QuestionContent text={q.text} content={q.rich_content} />
+            )}
+            {canEdit &&
+              (editing === i ? (
+                <div className="inline">
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={imageBusy}
+                    onClick={() => {
+                      setEditing(null);
+                      setOriginal(null);
+                    }}
+                  >
+                    Xong câu {i + 1}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={imageBusy}
+                    onClick={() => {
+                      if (original) updateQuestion(i, original);
+                      setEditing(null);
+                      setOriginal(null);
+                    }}
+                  >
+                    Hủy sửa câu {i + 1}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={editing !== null}
+                  onClick={() => {
+                    setOriginal(structuredClone(q));
+                    setEditing(i);
+                  }}
+                >
+                  Sửa câu {i + 1}
+                </button>
+              ))}
+            {editing !== i && (
+              <p className="muted">
+                Chuẩn bị {q.preparation_seconds ?? 10} giây · Trả lời tối đa{" "}
+                {q.recording_seconds ?? 60} giây
+              </p>
+            )}
+            <div hidden={editing !== i}>
+              <div className="inline">
+                <label>
+                  Thời gian chuẩn bị (giây)
+                  <input
+                    type="number"
+                    min={0}
+                    max={600}
+                    step={1}
+                    required
+                    value={q.preparation_seconds ?? 10}
+                    onChange={(e) =>
+                      updateQuestion(i, {
+                        preparation_seconds: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Thời gian trả lời tối đa (giây)
+                  <input
+                    type="number"
+                    min={1}
+                    max={1800}
+                    step={1}
+                    required
+                    value={q.recording_seconds ?? 60}
+                    onChange={(e) =>
+                      updateQuestion(i, {
+                        recording_seconds: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+              </div>
               <label>
-                Thời gian chuẩn bị (giây)
-                <input
-                  type="number"
-                  min={0}
-                  max={600}
-                  step={1}
+                Ý chính mong đợi (mỗi dòng một ý)
+                <textarea
                   required
-                  value={q.preparation_seconds ?? 10}
+                  value={q.expected_concepts.join("\n")}
                   onChange={(e) =>
                     updateQuestion(i, {
-                      preparation_seconds: Number(e.target.value),
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Thời gian trả lời tối đa (giây)
-                <input
-                  type="number"
-                  min={1}
-                  max={1800}
-                  step={1}
-                  required
-                  value={q.recording_seconds ?? 60}
-                  onChange={(e) =>
-                    updateQuestion(i, {
-                      recording_seconds: Number(e.target.value),
+                      expected_concepts: e.target.value.split("\n"),
                     })
                   }
                 />
               </label>
             </div>
-            <label>
-              Ý chính mong đợi (mỗi dòng một ý)
-              <textarea
-                required
-                value={q.expected_concepts.join("\n")}
-                onChange={(e) =>
-                  updateQuestion(i, {
-                    expected_concepts: e.target.value.split("\n"),
-                  })
-                }
-              />
-            </label>
             {!!q.english_terms.length && (
               <p>
                 {q.english_terms
@@ -256,7 +330,7 @@ export default function ExamDraftReview({
         ))}
       </Form>
       {saved && <p role="status">Đã lưu nội dung review.</p>}
-      {canEdit && (
+      {canEdit && canApprove && (
         <Action
           disabled={dirty}
           action={async () => {
@@ -268,7 +342,12 @@ export default function ExamDraftReview({
           Duyệt đề & gửi khảo thí
         </Action>
       )}
-      {dirty && <p>Lưu các thay đổi trước khi duyệt đề.</p>}
+      {dirty && (
+        <p>
+          Bấm Lưu nội dung đã review để lưu các thay đổi trước khi rời trang
+          hoặc duyệt đề.
+        </p>
+      )}
     </section>
   );
 }

@@ -20,6 +20,18 @@ Vào **Người dùng → Chi tiết** để xem profile và danh sách lớp. L
 
 Chỉ admin có **Cấu hình hệ thống → Quy định desktop**. Có 10 công tắc độc lập: ghi màn hình, camera, một màn hình, kiosk, phím tắt, clipboard, điều hướng, tải xuống, tạm dừng khi rời cửa sổ và DevTools. Sau khi lưu, quy định áp dụng cho lượt tạo mới; lượt đã tạo giữ nguyên. Desktop hiển thị mô tả ở trang đăng nhập, danh sách bài và trong từng lượt thi. Tắt camera cho phép thi bằng audio; microphone vẫn bắt buộc. Cần desktop mới cùng migration `0011`. [Bảng quy định, phân quyền và giới hạn](architecture/user-profiles-desktop-policy.md).
 
+## Câu hỏi có định dạng và hình ảnh
+
+Trong ngân hàng đề hoặc phần review của Điều phối kỳ thi, bấm **Sửa câu N**
+để mở editor riêng. Dùng thanh công cụ định dạng chữ, danh sách và **Chèn
+ảnh**. **Xong câu** là xem trước; bấm **Lưu nội dung đã review** để lưu lên
+server. Admin, khảo thí và giảng viên được sửa bản GENERATED theo phạm vi
+quyền. Với đề đã duyệt/công bố, **Sao chép thành bản nháp** giữ nội dung và
+ảnh để sửa, sau đó duyệt lại. [Giới hạn ảnh và hướng dẫn](architecture/question-editor-recording.md).
+
+**Tổng quan → Lượt thi gần đây → Xem bài** mở đúng bài của sinh viên ở hàng
+đã chọn; có thể đổi lượt trong lịch sử của sinh viên đó.
+
 ## Quy trình khảo thí
 
 Bắt đầu tại [hướng dẫn khảo thí → giảng viên → sinh viên](architecture/examination-workflow.md). Tải [Excel mẫu](templates/danh-sach-sinh-vien.xlsx). Admin duyệt role khảo thí và cấp role giảng viên; khảo thí giao môn, nhập danh sách, kiểm tra đề đã được giảng viên duyệt, xếp lịch từng sinh viên rồi mở thi. Bài AI dưới 5 được đánh dấu để giảng viên chấm lại; khảo thí xuất điểm chính thức trong Điều phối kỳ thi.
@@ -190,7 +202,7 @@ Trong **Người dùng**, bấm tên sinh viên để mở chi tiết và danh s
 
 ## Xem bản ghi màn hình và sự kiện giám sát
 
-Lần thi mới trên Desktop bắt buộc ghi toàn màn hình sau khi sinh viên đồng ý (bài thử thiết bị và phiên cũ trước migration không áp dụng). App chỉ hoàn tất nộp khi tải xong bằng chứng. Trong **Kết quả & xem lại → Xem bài**, mở các video có nhãn **Bản ghi màn hình bài thi** ở câu đầu tiên; các đoạn được sắp theo thứ tự tạo. Camera và âm thanh câu trả lời có nhãn riêng. Giáo viên chỉ xem bằng chứng môn mình phụ trách; admin/khảo thí xem theo quyền quản lý.
+Lần thi mới trên Desktop bắt buộc ghi toàn màn hình sau khi sinh viên đồng ý (bài thử thiết bị và phiên cũ trước migration không áp dụng). App chỉ hoàn tất nộp khi tải xong bằng chứng. Trong **Kết quả & xem lại → Xem bài**, mở các video có nhãn **Bản ghi màn hình bài thi** ở câu đầu tiên; các đoạn được sắp theo thứ tự tạo. Audio từng câu có nhãn riêng; bản mới không lưu video camera từng câu. Camera hiển thị trong video màn hình khi bật. Video camera cũ vẫn xem được. Giáo viên chỉ xem bằng chứng môn mình phụ trách; admin/khảo thí xem theo quyền quản lý.
 
 Mục **Sự kiện giám sát bài thi** ghi thời điểm server nhận các sự kiện như rời cửa sổ, thay màn hình, ngắt ghi hoặc khởi động lại. Bài có sự kiện cần giảng viên xem lại trước khi công bố điểm. Đối chiếu bản ghi và hoàn cảnh thực tế trước khi chấm lại, không coi một sự kiện là bằng chứng chắc chắn của gian lận. Độ trễ mạng có thể làm thời điểm nhận sự kiện khác thời điểm xảy ra.
 

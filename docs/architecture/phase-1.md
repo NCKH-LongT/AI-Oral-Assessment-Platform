@@ -9,7 +9,7 @@ Hệ thống tổ chức luồng tài liệu → rubric → đề thi → trả 
 1. **Nền tảng:** monorepo, PostgreSQL/pgvector, MinIO, Redis, migration, JWT và phân quyền.
 2. **Dữ liệu môn học:** bộ môn → môn học, lớp theo môn và giáo viên được phân công, LO, chủ đề; nhập PDF/PPTX/DOCX/TXT, tách văn bản theo trang/slide/nhóm đoạn, tạo embedding.
 3. **Thiết kế đề:** ngân hàng theo môn/category, rubric nhiều tiêu chí có trọng số, blueprint chủ đề/độ khó/số câu. Câu hỏi có thể nhập sẵn qua Excel hoặc sinh theo RAG. Quy trình khảo thí gồm giảng viên review và duyệt, khảo thí xếp lịch và mở thi.
-4. **Thực hiện bài thi:** giao bài theo sinh viên, kết nối thiết bị, ghi toàn màn hình theo chính sách thi và audio/video từng câu, tải minh chứng, nộp bài và theo dõi xử lý trên server.
+4. **Thực hiện bài thi:** giao bài theo sinh viên, kết nối thiết bị, ghi toàn màn hình theo chính sách thi và audio từng câu (camera hiển thị trong bản ghi màn hình), tải minh chứng, nộp bài và theo dõi xử lý trên server.
 5. **Đánh giá:** worker truy xuất đúng môn/chủ đề/tập tài liệu đã công bố, kiểm tra JSON từ AI, tính điểm server và confidence gate.
 6. **Đối chiếu:** giảng viên xem transcript, điểm tiêu chí, tài liệu RAG và audio/video; nhập điểm chính thức cùng nhận xét cho bài cần chấm lại.
 

@@ -2,12 +2,16 @@
 
 [README / danh mục tài liệu](README.md#hướng-dẫn-theo-nhu-cầu)
 
-OralAI Desktop dành cho sinh viên làm bài vấn đáp. App ghi audio/camera và tải minh chứng lên server. Sau khi sinh viên nộp toàn bài, server đưa từng câu vào hàng đợi **STT → chấm điểm**, theo cấu hình **STT & giọng nói**. Sinh viên không cần chờ Whisper chạy trên máy trước khi nộp. Đã bỏ chức năng Học & thi thử; desktop chỉ liệt kê các bài thi được giao.
+OralAI Desktop dành cho sinh viên làm bài vấn đáp. App ghi audio từng câu, hiển thị camera và ghi màn hình theo quy định, rồi tải minh chứng lên server. Sau khi sinh viên nộp toàn bài, server đưa từng câu vào hàng đợi **STT → chấm điểm**, theo cấu hình **STT & giọng nói**. Sinh viên không cần chờ Whisper chạy trên máy trước khi nộp. Đã bỏ chức năng Học & thi thử; desktop chỉ liệt kê các bài thi được giao.
 
 Tài khoản có **STUDENT** hoặc **ADMIN** dùng được luồng thi desktop. Tài khoản
 vừa STUDENT vừa TEACHER/EXAM_OFFICER quản lý trên web và thi trên desktop bằng
 cùng tài khoản. Admin không tự được ghi danh; danh sách, lịch và điều kiện
 thi vẫn áp dụng. Hỗ trợ nhiều vai trò cần API/web cùng migration `0012`.
+
+Từ bản editor/ghi hình ngày 22/10/2026, triển khai API/web đồng bộ và đóng/mở
+lại Electron source hoặc build/cài desktop mới để nhận CSS camera. Câu hỏi
+có ảnh hiển thị trực tiếp trong bài thi. [Chi tiết](docs/architecture/question-editor-recording.md).
 
 ## Quy định hiển thị khi mở app
 
@@ -104,7 +108,7 @@ Rút thiết bị đang dùng sẽ chặn ghi tiếp; chọn lại thiết bị 
 1. Bấm **Bắt đầu thi** khi thiết bị và điều kiện phiên thi đã sẵn sàng.
 2. Mỗi câu xuất hiện với đếm ngược **N giây chuẩn bị**, mặc định **10 giây**; hết thời gian, app tự ghi audio/camera.
 3. Đồng hồ ghi âm giới hạn **M giây**, mặc định **60 giây**. Có thể bấm **Kết thúc trả lời** sớm; hết M giây app tự dừng.
-4. App tự nộp câu trả lời và tải audio/video. Khi tải xong sẽ chuyển câu tiếp theo; câu cuối tự nộp toàn bài sau khi tải đủ cả minh chứng màn hình.
+4. App tự nộp câu trả lời và tải audio, không tải video camera riêng. Khi tải xong sẽ chuyển câu tiếp theo; câu cuối tự nộp toàn bài sau khi tải đủ cả minh chứng màn hình.
 5. Nếu mạng/storage lỗi, bản ghi còn trong app và có **Tải lại** / **Nộp bài thi** để hoàn tất. Không đóng app trước xác nhận đã nộp.
 
 Giáo viên/admin chỉnh N và M riêng cho từng câu trong **Review câu hỏi & rubric** trước khi duyệt đề: **Thời gian chuẩn bị (giây)** (0–600), **Thời gian trả lời tối đa (giây)** (1–1800). Đề đã công bố cần sao chép thành bản nháp để đổi; câu cũ thiếu cấu hình dùng 10/60 giây. Thời lượng toàn bài vẫn là giới hạn trên. Đồng hồ chuẩn bị/bắt đầu ghi được lưu trên server để mở lại app không được cấp lại toàn bộ thời gian.
@@ -127,7 +131,7 @@ Sinh viên xem **Xem lần N** để mở kết quả cũ, hoặc **Làm lại b
 
 Trên web, admin/khảo thí/giáo viên có quyền mở **Kết quả & xem lại → chọn môn**, có thể lọc thêm đề hoặc ngày thi (giờ Việt Nam). Chỉ chọn môn là có danh sách. Danh sách gồm sinh viên được giao bài/ghi danh chưa thi và người đã thi, trạng thái xử lý, điểm chính thức khi đã hoàn tất. Mỗi sinh viên hiển thị lần gần nhất trong bộ lọc; không có bộ lọc số lần làm bài; **Xem bài** mở chi tiết đúng sinh viên/lần thi, quay lại giữ bộ lọc. Transcript từ server được đối chiếu với audio/video gốc. Admin có thể yêu cầu nhận dạng lại hoặc chấm lại, có lý do và lịch sử. [Chi tiết review](docs/transcript-correction.md).
 
-Mỗi câu trả lời có một audio và một video camera. Gửi lại đúng file tiếp tục upload cũ; server từ chối file khác cùng loại cho câu đó. Các đoạn ghi màn hình được xem riêng tại **Giám sát màn hình toàn bài thi**, chọn từng đoạn trong một khung phát. Bản ghi màn hình không phải video trả lời của câu đầu. Dữ liệu cũ có nhiều camera/audio vẫn xem được bằng bộ chọn bản ghi.
+Mỗi câu trả lời mới chỉ có một audio. Video SCREEN ghi cho cả lượt thi khi bật quy định; khung camera hiển thị đúng tỉ lệ nguồn, nằm trong video màn hình, không có recorder VIDEO riêng từng câu. Gửi lại đúng file tiếp tục upload cũ; server từ chối file khác cùng loại cho câu đó. Các đoạn ghi màn hình được xem riêng tại **Giám sát màn hình toàn bài thi**, chọn từng đoạn trong một khung phát. Bản ghi màn hình không phải video trả lời của câu đầu. Dữ liệu cũ có nhiều camera/audio vẫn xem được bằng bộ chọn bản ghi.
 
 ## Chạy từ source
 
@@ -210,7 +214,7 @@ Server cần chạy đầy đủ migration đến `0011`, cập nhật đồng b
 
 ### Cập nhật cho chế độ thiếu model và khôi phục có thể hủy
 
-Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Luồng hàng đợi mới cần migration `0009`; cập nhật đồng bộ API/worker/web. Với bài thử/client cũ, thiếu model được ghi rõ trong lịch sử nộp. Bài thi mới nhận dạng trên server theo cấu hình hệ thống; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bộ cài chỉ đóng gói helper/license; tải model theo manifest là tùy chọn, cần admin cho phép.
+Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Luồng hàng đợi mới cần migration `0009`; cập nhật đồng bộ API/worker/web. Với bài thử/client cũ, thiếu model được ghi rõ trong lịch sử nộp. Bài thi mới nhận dạng trên server theo cấu hình hệ thống; yêu cầu audio từng câu và màn hình theo chính sách vẫn được kiểm tra, không bắt buộc VIDEO camera từng câu. Bộ cài chỉ đóng gói helper/license; tải model theo manifest là tùy chọn, cần admin cho phép.
 
 ### Quyền xem điểm
 

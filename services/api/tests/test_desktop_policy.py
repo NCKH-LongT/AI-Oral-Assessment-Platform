@@ -56,3 +56,23 @@ def test_audio_only_submission_and_new_session_requirements(env):
         db.commit()
     fresh = ok(student.post("/exam-sessions", json={"exam_id": context["exam"]["id"]}))
     assert fresh["desktop_policy"]["require_camera"] and fresh["screen_required"]
+
+
+def test_camera_preview_needs_audio_and_session_screen_not_question_video(env):
+    clients, _ = env
+    admin, student = clients["admin"], clients["student"]
+    rules = ok(admin.get("/admin/settings/desktop"))["rules"] | {"require_camera": True, "require_screen": True}
+    ok(admin.put("/admin/settings/desktop", json=rules))
+    context = prepare(env, 1)
+    sitting = ok(student.post("/exam-sessions", json={"exam_id": context["exam"]["id"]}))
+    key = sitting["id"]
+    sitting = ok(student.post(f"/exam-sessions/{key}/start", json={"screen_consent": True}))
+    attempt = sitting["current_attempt"]["id"]
+    ok(student.post(f"/question-attempts/{attempt}/start"))
+    ok(student.post(f"/question-attempts/{attempt}/submit", json={"transcript": "Dependency injection passes dependencies externally.", "stt_confidence": .95}, headers={"Idempotency-Key": "screen-plus-audio"}))
+    upload(student, attempt, "AUDIO")
+    response = student.post(f"/exam-sessions/{key}/finish")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "SCREEN_EVIDENCE_PENDING"
+    upload(student, attempt, "SCREEN")
+    ok(student.post(f"/exam-sessions/{key}/finish"))

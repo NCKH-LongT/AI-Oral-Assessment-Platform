@@ -69,7 +69,8 @@ for (const mode of ["missing", "disappears", "installed-later"] as const) {
           ],
         });
       if (path === "/api/stt/config") {
-        configCalls++;
+        if (new URL(route.request().url()).searchParams.has("session_id"))
+          configCalls++;
         return route.fulfill({
           json: {
             provider: "local",
@@ -161,11 +162,8 @@ for (const mode of ["missing", "disappears", "installed-later"] as const) {
       ).toBeVisible();
     }
     await submit.click();
-    await expect.poll(() => uploads.length).toBe(2);
-    expect(uploads.map((upload) => upload.kind).sort()).toEqual([
-      "AUDIO",
-      "VIDEO",
-    ]);
+    await expect.poll(() => uploads.length).toBe(1);
+    expect(uploads.map((upload) => upload.kind).sort()).toEqual(["AUDIO"]);
     for (const upload of uploads) {
       expect(upload.size).toBeGreaterThan(0);
       expect(upload.sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -182,9 +180,7 @@ for (const mode of ["missing", "disappears", "installed-later"] as const) {
     await page
       .getByRole("button", { name: "Nộp bài thi", exact: true })
       .click();
-    await expect(page.locator(".finished")).toContainText(
-      "Đã nộp bài thi",
-    );
+    await expect(page.locator(".finished")).toContainText("Đã nộp bài thi");
     await expect(page.locator(".finished")).not.toContainText("0/10");
     expect(serverSttCalls).toBe(0);
     if (mode === "missing") {

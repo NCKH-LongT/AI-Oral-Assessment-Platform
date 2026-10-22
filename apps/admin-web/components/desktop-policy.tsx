@@ -10,7 +10,7 @@ export const desktopRules = {
   ],
   require_camera: [
     "Bắt buộc camera",
-    "Yêu cầu camera và video cho mỗi câu trả lời. Khi tắt, chỉ yêu cầu microphone và audio.",
+    "Yêu cầu camera để hiển thị trên màn hình thi. Khung camera nằm trong video màn hình khi bật ghi màn hình; không lưu video riêng từng câu. Khi tắt, chỉ yêu cầu microphone.",
   ],
   single_display: [
     "Chỉ dùng một màn hình",

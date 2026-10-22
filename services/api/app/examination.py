@@ -10,9 +10,32 @@ from sqlalchemy.orm import Session
 from . import ai
 from .db import get_db
 from .exam_generation import build_snapshot
-from .examination_schemas import CommissionIn, DraftReviewIn, HotwordsIn, ManualGradeIn, RosterSelectionIn, ScheduleIn, TeacherIn
+from .examination_schemas import (
+    CommissionIn,
+    DraftReviewIn,
+    HotwordsIn,
+    ManualGradeIn,
+    RosterSelectionIn,
+    ScheduleIn,
+    TeacherIn,
+)
 from .excel import parse_roster, template_bytes, workbook_bytes
-from .models import Assignment, Attempt, Audit, ClassStudent, Course, CourseEnrollment, Exam, ExamSession, ProcessingJob, ReviewJob, Rubric, TeachingClass, User, uid
+from .models import (
+    Assignment,
+    Attempt,
+    Audit,
+    ClassStudent,
+    Course,
+    CourseEnrollment,
+    Exam,
+    ExamSession,
+    ProcessingJob,
+    ReviewJob,
+    Rubric,
+    TeachingClass,
+    User,
+    uid,
+)
 from .permissions import has_role, role_filter, teacher_scope
 from .runtime_settings import settings
 from .schemas import ReviewIn, RubricIn
@@ -278,7 +301,7 @@ def generate(key: str, db: Session = Depends(get_db), user=Depends(editor)):
 
 
 @router.put("/admin/exams/{key}/draft")
-def edit_draft(key: str, body: DraftReviewIn, db: Session = Depends(get_db), user=Depends(editor)):
+def edit_draft(key: str, body: DraftReviewIn, db: Session = Depends(get_db), user=Depends(staff)):
     exam = scoped_exam(db, key, user)
     if exam.status != "GENERATED" or not exam.snapshot:
         fail(409, "DRAFT_REQUIRED", "Chỉ sửa nội dung đề đã sinh và chưa duyệt")

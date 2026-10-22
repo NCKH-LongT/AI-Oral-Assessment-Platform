@@ -122,6 +122,7 @@ for (const width of [1440, 390]) {
       ),
     ).toBeTruthy();
     await page.getByRole("button", { name: /^Mở kỳ thi ENT001/ }).click();
+    await page.getByRole("button", { name: "Sửa câu 1", exact: true }).click();
     await expect(page.getByLabel("Nội dung câu hỏi")).toBeEditable();
     await expect(
       page.getByRole("button", {

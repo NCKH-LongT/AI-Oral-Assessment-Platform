@@ -154,7 +154,7 @@ export default function DesktopSpeechSettings({
         ) && (
           <p role="alert">
             Chưa có bộ nhận dạng Whisper-small trên máy. Bạn vẫn có thể thi và
-            nộp audio/video gốc. App bỏ qua STT; câu trả lời chưa có transcript
+            nộp audio gốc và bản ghi màn hình (nếu bật). App bỏ qua STT; câu trả lời chưa có transcript
             hoặc điểm AI và cần giảng viên xem lại. Cài model rồi bấm Thử STT
             lại nếu muốn nhận dạng bản ghi trước khi nộp.
           </p>

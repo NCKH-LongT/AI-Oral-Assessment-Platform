@@ -351,7 +351,8 @@ function ExamOperations({
           <ExamDraftReview
             key={`${exam.id}-${exam.status}`}
             examId={exam.id}
-            editable={editable}
+            editable={editable || officer}
+            canApprove={editable}
             refresh={refresh}
           />
         )}

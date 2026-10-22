@@ -246,7 +246,7 @@ def workspace(course_id: str, db: Session = Depends(get_db), user=Depends(staff)
         "exams": [
             data(exam, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts", "workflow", "category")
             | {"imported": bool(exam.imported_questions), "questions": [
-                {"text": q["text"], "english_terms": q.get("english_terms", []),
+                {"text": q["text"], "rich_content": q.get("rich_content"), "english_terms": q.get("english_terms", []),
                  "preparation_seconds": q.get("preparation_seconds", 10), "recording_seconds": q.get("recording_seconds", 60)}
                 for q in (exam.snapshot or {}).get("questions", exam.imported_questions or [])
             ]}
@@ -546,7 +546,7 @@ def delete_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
 
 
 @router.post("/exams/{key}/copy", status_code=201)
-def copy_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
+def copy_exam(key: str, preserve_content: bool = False, db: Session = Depends(get_db), user=Depends(staff)):
     source = by_id(db, Exam, key)
     exam_access(db, source, user)
     body = s.ExamIn(
@@ -558,7 +558,14 @@ def copy_exam(key: str, db: Session = Depends(get_db), user=Depends(editor)):
         max_attempts=source.max_attempts,
     )
     validate_exam(db, body, user)
-    row = Exam(**body.model_dump(), workflow=not has_role(user, "ADMIN"), imported_questions=deepcopy(source.imported_questions))
+    row = Exam(**body.model_dump(), workflow=not has_role(user, "ADMIN") or preserve_content, imported_questions=deepcopy(source.imported_questions))
+    row.category = source.category
+    if preserve_content and source.snapshot:
+        row.snapshot = deepcopy(source.snapshot)
+        for field in ("published_at", "teacher_approved_by", "teacher_approved_at", "office_approved_by", "office_approved_at"):
+            row.snapshot.pop(field, None)
+        row.snapshot["generated_at"] = time.time()
+        row.status = "GENERATED"
     db.add(row)
     db.commit()
     return data(row, "name", "status", "blueprint", "time_limit", "rubric_id", "max_attempts")

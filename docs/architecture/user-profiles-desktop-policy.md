@@ -25,7 +25,7 @@ Admin vào **Cấu hình hệ thống → Quy định desktop**, bật/tắt t�
 | Công tắc | Khi bật | Khi tắt |
 | --- | --- | --- |
 | Ghi toàn màn hình | Cần đồng ý, quyền chia sẻ màn hình và bản ghi hoàn tất trước khi nộp | Không yêu cầu chia sẻ/upload màn hình |
-| Bắt buộc camera | Xin quyền camera, ghi video theo câu và yêu cầu video khi nộp | Chỉ xin microphone, chỉ ghi/upload audio |
+| Bắt buộc camera | Xin quyền và hiển thị camera đúng tỉ lệ; camera nằm trong video màn hình khi bật ghi màn hình, không ghi VIDEO riêng từng câu | Chỉ xin microphone, chỉ ghi/upload audio |
 | Chỉ dùng một màn hình | Kiểm tra số màn hình khi bắt đầu/khôi phục; có công cụ chuẩn bị màn hình | Cho phép nhiều màn hình; nếu vẫn ghi màn hình, chỉ ghi màn hình chứa app khi bắt đầu chia sẻ |
 | Khóa toàn màn hình (kiosk) | Kiosk, không thu nhỏ cửa sổ | Cửa sổ thông thường |
 | Chặn phím tắt khi thi | Chặn reload, đóng cửa sổ, điều hướng, thoát fullscreen bằng các phím app xử lý | Không chặn nhóm phím này; kiosk và cảnh báo dữ liệu vẫn áp dụng nếu có |
@@ -38,6 +38,11 @@ Admin vào **Cấu hình hệ thống → Quy định desktop**, bật/tắt t�
 Thay đổi màn hình khi đang ghi hoặc khi quy định một màn hình bật vẫn yêu cầu khôi phục. Dừng chia sẻ, lỗi ghi hoặc mất thiết bị bắt buộc vẫn chặn trả lời vì không thể tạo minh chứng hợp lệ. Đồng hồ không dừng theo gián đoạn. Microphone, kết nối server, đăng nhập/quyền bài thi, lịch/số lượt thi, sandbox/context isolation, IPC kiểm tra nguồn, giới hạn server, cảnh báo bản ghi chưa nộp và kiểm tra tính toàn vẹn upload là các yêu cầu kỹ thuật cố định. Chính sách STT/LLM nằm ở các tab cấu hình tương ứng, không thuộc nhóm công tắc khóa desktop.
 
 Các công tắc kiểm soát ứng dụng, không khóa toàn hệ điều hành. Header desktop không chứng thực được bộ cài và sự kiện giám sát không tự kết luận gian lận.
+
+Từ 22/10/2026, audio từng câu và SCREEN theo chính sách là minh chứng cần
+nộp; `require_camera` kiểm soát camera preview, không yêu cầu VIDEO camera.
+Nếu tắt ghi màn hình thì preview camera không được lưu thành video.
+[Thiết kế editor/ghi hình](question-editor-recording.md).
 
 ## Lưu cấu hình và tương thích
 

@@ -1,17 +1,17 @@
-# Build desktop: bản đầy đủ và bản Windows nhẹ
+# Build desktop và tải Whisper tùy chọn
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Chạy desktop từ source](../readme-desktop.md#chạy-từ-source)
 
-Bộ cài chứa Electron, helper Python được đóng gói bằng PyInstaller, faster-whisper, CTranslate2, VAD và FFmpeg. Bản đầy đủ kèm model **Whisper-small** đa ngôn ngữ; bản Windows nhẹ tải model ở lần mở đầu. Electron tải giao diện từ máy chủ được chọn. Luồng STT local hỗ trợ tiếng Việt/tiếng Anh, chạy bằng CPU INT8; bài thi mới được nhận dạng/chấm trên server sau khi nộp.
+Bộ cài chứa Electron, helper Python được đóng gói bằng PyInstaller, faster-whisper, CTranslate2, VAD và FFmpeg. Các bản cài mặc định không chứa model và không tự tải khi mở app. Electron tải giao diện từ máy chủ được chọn. Whisper local dùng cho bài thử thiết bị; bài thi mới được nhận dạng/chấm trên server sau khi nộp.
 
 Bản quy định desktop cần server migration `0011`, web/API/worker đồng bộ và build desktop mới. Manifest bao gồm `desktop-policy.cjs`; bridge `policyVersion: 1` truyền mã lượt thi để Electron lấy policy từ server. Khi nghiệm thu, kiểm tra cả cấu hình mặc định và cấu hình tắt camera/màn hình/kiosk; không chỉ refresh web trong Electron cũ. [Các quy định](architecture/user-profiles-desktop-policy.md).
 
 ## Thành phần bắt buộc
 
 - `resources/stt/oral-stt/`: helper native của OS/architecture đích.
-- `resources/stt/whisper-small/`: model CTranslate2 từ `Systran/faster-whisper-small`, config, tokenizer, vocabulary, license và metadata.
+- `resources/stt/whisper-small/`: tùy chọn cho phát triển local, không đóng gói mặc định.
 - `scripts/build_desktop_stt.py` ghim revision model, giữ trọng số FP16 và chạy CPU INT8. Model/binary sinh ra được Git bỏ qua. File trung gian PyInstaller nằm trong thư mục tạm của hệ điều hành, tự dọn khi build kết thúc hoặc báo lỗi.
-- `check-stt-bundle.cjs` kiểm tra helper/license trước khi đóng gói; bản đầy đủ còn yêu cầu các tệp model. Trên cùng OS, hook kiểm tra protocol 2, Whisper-small và hotword của helper.
+- `check-stt-bundle.cjs` kiểm tra helper/license trước khi đóng gói. Trên cùng OS, hook kiểm tra protocol 2, Whisper-small và hotword của helper.
 
 ## Build trên OS đích
 
@@ -21,18 +21,26 @@ Cần Node 22.12+ và Python 3.12. Tại gốc repository:
 npm ci
 python3.12 -m venv .venv-stt
 .venv-stt/bin/pip install -r scripts/requirements-desktop-stt.txt
-.venv-stt/bin/python scripts/build_desktop_stt.py
+.venv-stt/bin/python scripts/build_desktop_stt.py --runtime-only
 npm run check -w apps/desktop
 npm run dist -w apps/desktop
 ```
 
 Windows dùng `.venv-stt\Scripts\python` và `.venv-stt\Scripts\pip`. Helper phải được build trên đúng OS/architecture. Workflow **Desktop installers** thực hiện trên Linux, Windows và macOS. `npm run pack -w apps/desktop` tạo thư mục unpacked để kiểm tra.
 
-Output ở `apps/desktop/dist`: NSIS `.exe`, Linux `.deb`/AppImage, macOS `.dmg`/`.zip`. Bộ cài chưa code-sign/notarize và chưa có auto-update. Máy sinh viên dùng model đi kèm, không cần cài Python riêng.
+Output ở `apps/desktop/dist`: NSIS `.exe`, Linux `.deb`/AppImage, macOS `.dmg`/`.zip`. Bộ cài chưa có auto-update. Máy sinh viên không cần cài Python riêng.
 
 URL server chọn khi chạy app, qua **Cấu hình máy chủ** hoặc `ORAL_WEB_URL`; xem [cấu hình URL](../readme-desktop.md#đổi-url-máy-chủ-khi-chạy-hoặc-build).
 
-## Bộ cài Windows nhẹ, tự tải model lần đầu
+## Cảnh báo Windows và ký số
+
+Kiểm tra chữ ký bằng `Get-AuthenticodeSignature .\release\OralAI-0.1.0-Windows-Setup-Light.exe`. Bản build không có chứng thư sẽ hiện `NotSigned`; SmartScreen có thể cảnh báo vì chưa nhận diện nhà phát hành hoặc ứng dụng chưa đủ uy tín. Đây không phải bằng chứng kết luận có mã độc. Nếu Defender báo tên mối đe dọa cụ thể, cần kiểm tra cảnh báo đó riêng.
+
+Để phát hành có tên nhà phát hành xác thực, cấu hình chứng thư Authenticode hợp lệ qua `CSC_LINK` (đường dẫn PFX hoặc secret CI) và `CSC_KEY_PASSWORD` trước khi chạy electron-builder. Không commit chứng thư/mật khẩu. Ký số không bảo đảm bản phát hành mới hết cảnh báo ngay; Microsoft còn đánh giá uy tín. Xem [hướng dẫn SmartScreen của Microsoft](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation). Không cần tắt Defender/SmartScreen để build. Chưa có chứng thư trong môi trường build thì bản xuất vẫn chưa ký số.
+
+Phải triển khai API và admin-web mới cùng desktop để có công tắc quyền tải. Desktop kết nối server cũ thiếu trường quyền sẽ từ chối tải, vẫn mở app và nộp bài bình thường.
+
+## Bộ cài Windows nhẹ, tải model theo quyền admin
 
 Sau khi chuẩn bị helper STT, chạy `npm run dist:win:light -w apps/desktop`.
 File phát hành nằm tại `apps/desktop/dist-light/OralAI-0.1.0-Windows-Setup-Light.exe`.
@@ -41,17 +49,14 @@ so với bản đầy đủ khoảng 639 MB (609 MiB); dung lượng thay đổi
 Bộ cài chứa Electron và helper STT; không chứa trọng số Whisper. Sinh viên không
 cần cài Node, Python, Docker hoặc thư viện riêng, không cần quyền admin mặc định.
 
-Khi mở lần đầu, app tự tải khoảng 464 MiB model từ Hugging Face theo revision
-được ghim trong `model-manifest.json`, hiển thị tiến độ và kiểm tra SHA-256 cho
-từng tệp trước khi sử dụng. Mỗi tệp tự thử lại tối đa 3 lần khi mạng lỗi; nút
-Thử tải lại tiếp tục giữ các tệp đã hoàn tất. Tệp lớn đang tải dở sẽ tải lại.
+App mở thẳng giao diện máy chủ, không bắt tải model. Admin bật **Cho phép học sinh tải Whisper để thử STT trên desktop** trong cấu hình giọng nói (mặc định tắt). Học sinh bấm **Tải Whisper-small** trong phần thử thiết bị để tải khoảng 464 MiB từ Hugging Face theo revision được ghim trong `model-manifest.json`. Desktop kiểm tra quyền lại bằng phiên đăng nhập hiện tại trước mỗi yêu cầu tải và không cho tải trong lúc thi. Trình tải kiểm tra kích thước/SHA-256 trước khi sử dụng, tự thử lại tối đa 3 lần và giữ các tệp đã hoàn tất khi thử lại.
 Model nằm tại thư mục dữ liệu người dùng `OralAI/stt/whisper-small`, ngoài thư
 mục cài đặt, nên cập nhật app không cần tải lại model. Không chia sẻ profile
 hoặc cookie của máy build trong bộ cài. Lần chạy đầu mặc định kết nối
 `https://oral-test.paperlens.uk`; có thể đổi tại Cấu hình máy chủ.
 
 Dung lượng bộ cài giảm nhưng tổng dung lượng sau khi tải model vẫn cần cho
-Electron, helper và khoảng 464 MiB model. Cần Internet để thiết lập lần đầu,
+Electron, helper và khoảng 464 MiB model nếu học sinh chọn tải. Cần Internet để
 đăng nhập, lấy đề và nộp bài. Đây không phải bản thi hoàn toàn offline.
 
 `desktop.css` được đóng gói cùng Electron và áp dụng cho server đã chọn: bỏ
@@ -67,14 +72,13 @@ Build trên Windows PowerShell sau khi cài Node 22.12+ và Python 3.12:
 npm ci
 py -3.12 -m venv .venv-stt
 .venv-stt\Scripts\pip install -r scripts/requirements-desktop-stt.txt
-.venv-stt\Scripts\python scripts/build_desktop_stt.py
+.venv-stt\Scripts\python scripts/build_desktop_stt.py --runtime-only
 npm run check -w apps/desktop
 npm run test:desktop
 npm run dist:win:light -w apps/desktop
 ```
 
-Script chuẩn bị hiện vẫn tải model trên máy build để kiểm tra helper thật; cấu
-hình `electron-builder.light.cjs` loại trọng số model khỏi bộ cài. Trên Windows,
+Tùy chọn `--runtime-only` không tải model trên máy build. Bỏ tùy chọn để chuẩn bị model và kiểm tra nạp model khi phát triển local. Trên Windows,
 script chọn DLL Visual C++ hệ thống để tránh đóng gói runtime cũ từ `PATH` gây
 lỗi khi nạp CTranslate2. Bộ cài không chứa `.env`, profile hoặc cookie.
 
@@ -95,17 +99,14 @@ npm run dev -w apps/admin-web -- --hostname 127.0.0.1 --port 3100
 npm run test:desktop-layout
 ```
 
-Kiểm tra bản Windows nhẹ thật trên profile trống (có tải khoảng 464 MiB):
+Kiểm tra bản Windows nhẹ thật trên profile trống (không tải model):
 
 ```powershell
-$env:ORAL_TEST_DOWNLOAD = "1"
 $env:ORAL_TEST_DESKTOP_EXE = (Resolve-Path "apps/desktop/dist-light/win-unpacked/oralai.exe").Path
 npm run test:desktop-first-run
 ```
 
-Test xác minh màn hình tiến độ, tải và kiểm tra model thật, nạp model bằng
-helper đóng gói, mở đăng nhập online với bố cục gọn và khởi động lại không tải
-lại model. Test này mặc định bỏ qua nếu chưa đặt `ORAL_TEST_DOWNLOAD=1`.
+Test dùng server HTTP cục bộ, xác minh app mở thẳng giao diện và không tải model, rồi kiểm tra IPC từ chối tải khi server không cho phép. Test không cần kết nối server thật hoặc tải 464 MiB.
 Xem kết quả và giới hạn kiểm chứng tại [biên bản kiểm thử](validation.md).
 
 Kiểm thử UI giả lập bridge STT: model cố định dù profile lưu lựa chọn khác, ngôn ngữ và khóa lựa chọn khi bận, nhận dạng lỗi/thử lại, transcript ẩn và payload nộp vẫn đúng. Camera/mic dùng thiết bị giả lập Chromium. Kiểm thử Python kiểm tra JSON tiếng Việt qua pipe Windows, ngôn ngữ, hotword và model mặc định.

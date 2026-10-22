@@ -133,6 +133,8 @@ test("examination office schedules candidates and publishes the reviewed exam", 
       json = { courses: 1, documents: 1, exams: 1, sessions: 0 };
     else if (path === "/api/admin/examination/exams") json = [row];
     else if (path.endsWith("/roster")) json = [candidate];
+    else if (path.endsWith("/roster-candidates") || path.endsWith("/classes"))
+      json = [];
     else if (path.endsWith("/draft")) json = { status: row.status, snapshot };
     else if (path.endsWith("/schedule")) {
       const data = route.request().postDataJSON();

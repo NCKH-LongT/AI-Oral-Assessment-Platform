@@ -67,7 +67,6 @@
         "to": "stt",
         "filter": [
           "oral-stt/**/*",
-          "whisper-small/**/*",
           "WHISPER-LICENSE.txt"
         ]
       }
@@ -103,7 +102,10 @@
       }
     },
     "executableName": "oralai",
-    "beforePack": "./check-stt-bundle.cjs"
+    "beforePack": "./check-stt-bundle.cjs",
+    "extraMetadata": {
+      "optionalDesktopModel": true
+    }
   },
   "desktopName": "oralai",
   "homepage": "https://github.com/NCKH-LongT/AI-Oral-Assessment-Platform"

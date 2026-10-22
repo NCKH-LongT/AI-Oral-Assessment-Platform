@@ -58,6 +58,7 @@ declare global {
       restoreDisplays?: () => Promise<DesktopDisplayStatus>;
       onExamEvent?: (callback: (type: string) => void) => () => void;
       quit?: () => Promise<void>;
+      downloadModel?: (backendMode: "local" | "online") => Promise<{ ready: boolean }>;
       sttModels?: () => Promise<DesktopModel[]>;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
     };

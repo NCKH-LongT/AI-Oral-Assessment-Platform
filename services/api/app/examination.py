@@ -10,21 +10,9 @@ from sqlalchemy.orm import Session
 from . import ai
 from .db import get_db
 from .exam_generation import build_snapshot
-from .examination_schemas import CommissionIn, DraftReviewIn, HotwordsIn, ManualGradeIn, ScheduleIn, TeacherIn
+from .examination_schemas import CommissionIn, DraftReviewIn, HotwordsIn, ManualGradeIn, RosterSelectionIn, ScheduleIn, TeacherIn
 from .excel import parse_roster, template_bytes, workbook_bytes
-from .models import (
-    Assignment,
-    Attempt,
-    Audit,
-    Course,
-    Exam,
-    ExamSession,
-    ProcessingJob,
-    ReviewJob,
-    Rubric,
-    User,
-    uid,
-)
+from .models import Assignment, Attempt, Audit, ClassStudent, Course, CourseEnrollment, Exam, ExamSession, ProcessingJob, ReviewJob, Rubric, TeachingClass, User, uid
 from .permissions import has_role, role_filter, teacher_scope
 from .runtime_settings import settings
 from .schemas import ReviewIn, RubricIn
@@ -159,6 +147,60 @@ def roster(key: str, db: Session = Depends(get_db), user=Depends(staff)):
     return [{"student_id": u.id, "student_number": a.student_number, "name": u.name, "email": u.email,
              "opens_at": a.opens_at, "closes_at": a.closes_at}
             for a, u in db.execute(select(Assignment, User).join(User).where(Assignment.exam_id == key).order_by(User.name))]
+
+
+@router.get("/admin/courses/{course_id}/classes")
+def course_classes(course_id: str, db: Session = Depends(get_db), user=Depends(staff)):
+    course_access(db, course_id, user)
+    return [{"id": c.id, "name": c.name, "student_count": count} for c, count in db.execute(
+        select(TeachingClass, func.count(ClassStudent.id)).outerjoin(
+            ClassStudent, ClassStudent.class_id == TeachingClass.id
+        ).where(TeachingClass.course_id == course_id).group_by(TeachingClass.id).order_by(TeachingClass.name)
+    )]
+
+
+def roster_source(db, course_id, class_id, user):
+    course_access(db, course_id, user)
+    enrolled = select(CourseEnrollment.student_id).where(CourseEnrollment.course_id == course_id)
+    members = select(ClassStudent.student_id).join(TeachingClass).where(TeachingClass.course_id == course_id)
+    query = select(User).where(User.id.in_(enrolled.union(members)), role_filter("STUDENT", include_admin=False), User.status == "ACTIVE")
+    if class_id:
+        section = by_id(db, TeachingClass, class_id)
+        if section.course_id != course_id:
+            fail(422, "CLASS_COURSE", "Lớp không thuộc môn đã chọn")
+        query = query.where(User.id.in_(select(ClassStudent.student_id).where(ClassStudent.class_id == class_id)))
+    return query
+
+
+@router.get("/admin/exams/{key}/roster-candidates")
+def roster_candidates(key: str, course_id: str, class_id: str | None = None,
+                      db: Session = Depends(get_db), user=Depends(exam_officer)):
+    scoped_exam(db, key, user)
+    assigned = set(db.scalars(select(Assignment.student_id).where(Assignment.exam_id == key)))
+    return [{"id": u.id, "name": u.name, "username": u.username, "email": u.email,
+             "assigned": u.id in assigned} for u in db.scalars(
+        roster_source(db, course_id, class_id, user).order_by(User.name, User.id)
+    )]
+
+
+@router.post("/admin/exams/{key}/select-students")
+def select_students(key: str, body: RosterSelectionIn, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    exam = scoped_exam(db, key, user)
+    if not exam.workflow or exam.status == "PUBLISHED":
+        fail(409, "ROSTER_LOCKED", "Chỉ thêm danh sách cho kỳ thi chưa mở")
+    ids = set(body.student_ids)
+    learners = db.scalars(roster_source(db, body.course_id, body.class_id, user).where(User.id.in_(ids))).all()
+    if len(learners) != len(ids):
+        fail(422, "INVALID_ROSTER_SOURCE", "Học viên phải đang hoạt động và thuộc môn/lớp đã chọn")
+    existing = set(db.scalars(select(Assignment.student_id).where(Assignment.exam_id == key)))
+    for learner in learners:
+        if learner.id not in existing:
+            db.add(Assignment(exam_id=key, student_id=learner.id))
+    added = len(ids - existing)
+    audit(db, user, "EXAM_ROSTER_SELECTED", exam_id=key, course_id=body.course_id,
+          class_id=body.class_id, student_ids=sorted(ids), added=added)
+    db.commit()
+    return {"added": added, "skipped": len(ids) - added}
 
 
 @router.post("/admin/exams/{key}/import-students")

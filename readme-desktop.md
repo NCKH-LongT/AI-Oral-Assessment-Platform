@@ -81,12 +81,12 @@ Backend cần chạy sẵn. Script mở UI dev và Electron, dùng bundle STT đ
 ## Cài và kết nối
 
 1. Trên Windows x64, nhận file `OralAI-0.1.0-Windows-Setup-Light.exe` do đơn vị phát hành cung cấp, cài đặt và mở app. Bộ cài đã kiểm tra có dung lượng khoảng **203 MB (194 MiB)**.
-2. Lần mở đầu, giữ kết nối Internet để app tự tải khoảng **464 MiB** model Whisper-small. Màn hình thiết lập hiển thị tiến độ; mạng lỗi sẽ tự thử lại tối đa 3 lần cho mỗi tệp, sau đó có nút **Thử tải lại**. Các tệp đã tải xong được giữ lại; tệp đang tải dở sẽ tải lại từ đầu.
-3. App tự mở máy chủ online mặc định sau khi kiểm tra model và bộ chạy STT. Nếu đơn vị dùng máy chủ khác, chọn **Cấu hình máy chủ** và lưu domain gốc được cung cấp.
+2. App không bắt tải Whisper. Nếu admin bật quyền trong **Cấu hình giọng nói**, học sinh có thể bấm **Tải Whisper-small (~464 MiB)** tại phần thử thiết bị. Không có model vẫn làm bài thi qua STT server.
+3. App mở máy chủ online mặc định. Nếu đơn vị dùng máy chủ khác, chọn **Cấu hình máy chủ** và lưu domain gốc được cung cấp.
 4. Đăng nhập bằng tài khoản được cấp hoặc Google đúng email trong danh sách thi.
 5. Mở **Bài thi của tôi**, chọn bài được giao theo lịch.
 
-Bộ cài nhẹ chứa Electron, helper STT và FFmpeg; sinh viên không cần cài Python, Node, Docker hoặc package riêng. Model nằm trong thư mục dữ liệu người dùng `OralAI/stt/whisper-small`, ngoài thư mục cài đặt, nên những lần mở sau và cập nhật app có thể dùng lại. Bản cài đầy đủ vẫn kèm model và không có bước tải model lần đầu. Dung lượng sau thiết lập vẫn bao gồm cả model đã tải. Máy sinh viên cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận xác nhận nộp bài. Bài thi mới được nhận dạng trên server.
+Bộ cài chứa Electron, helper STT và FFmpeg; sinh viên không cần cài Python, Node, Docker hoặc package riêng. Model tùy chọn nằm trong thư mục dữ liệu người dùng `OralAI/stt/whisper-small`, ngoài thư mục cài đặt, nên những lần mở sau và cập nhật app có thể dùng lại. Các bản cài mặc định không kèm model. Máy sinh viên cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận xác nhận nộp bài. Bài thi mới được nhận dạng trên server. Xem [ký số và cảnh báo Windows](docs/desktop-build.md#cảnh-báo-windows-và-ký-số).
 
 Giao diện desktop dùng toàn bộ chiều ngang cửa sổ, giữ câu hỏi và camera/thiết bị cạnh nhau trên màn hình laptop. Hướng dẫn, danh sách minh chứng hoặc câu hỏi dài cuộn trong từng vùng; các bước đồng ý ghi hình và nội dung câu hỏi vẫn được giữ nguyên. Bố cục được đóng gói trong Electron nên áp dụng được với server hiện tại.
 
@@ -210,7 +210,7 @@ Server cần chạy đầy đủ migration đến `0011`, cập nhật đồng b
 
 ### Cập nhật cho chế độ thiếu model và khôi phục có thể hủy
 
-Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Luồng hàng đợi mới cần migration `0009`; cập nhật đồng bộ API/worker/web. Với bài thử/client cũ, thiếu model được ghi rõ trong lịch sử nộp. Bài thi mới nhận dạng trên server theo cấu hình hệ thống; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bản cài đầy đủ yêu cầu bundle STT kèm model khi build; bản Windows nhẹ chỉ đóng gói helper/license và tải model theo manifest ở lần mở đầu.
+Cần cập nhật đồng bộ web/API và chạy lại Electron source mới (hoặc cài desktop mới) để dùng đầy đủ hai luồng này. Luồng hàng đợi mới cần migration `0009`; cập nhật đồng bộ API/worker/web. Với bài thử/client cũ, thiếu model được ghi rõ trong lịch sử nộp. Bài thi mới nhận dạng trên server theo cấu hình hệ thống; yêu cầu audio/video và màn hình theo chính sách vẫn giữ nguyên. Bộ cài chỉ đóng gói helper/license; tải model theo manifest là tùy chọn, cần admin cho phép.
 
 ### Quyền xem điểm
 

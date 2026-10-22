@@ -58,7 +58,8 @@ def prepare_whisper():
 
 
 def build():
-    prepare_whisper()
+    if "--runtime-only" not in sys.argv:
+        prepare_whisper()
     with tempfile.TemporaryDirectory(prefix="oral-stt-build-") as workdir:
         subprocess.run(
             [
@@ -117,7 +118,8 @@ def build():
     subprocess.run([str(executable), "--capabilities"], check=True)
     env = dict(os.environ, ORAL_STT_VARIANT="whisper-small")
     env.pop("ORAL_STT_MODEL", None)
-    subprocess.run([str(executable), "--check"], env=env, check=True)
+    if "--runtime-only" not in sys.argv:
+        subprocess.run([str(executable), "--check"], env=env, check=True)
 
 
 if __name__ == "__main__":

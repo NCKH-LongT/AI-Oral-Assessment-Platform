@@ -24,7 +24,7 @@ thu gọn và hai tab **Đề thi & duyệt / Sinh viên & lịch thi**. Cần m
 | Chọn mic, nhận dạng câu trả lời hoặc thoát app | [Microphone và thoát desktop](docs/microphone-desktop.md) |
 | Đối chiếu transcript và bản ghi | [Transcript và review](docs/transcript-correction.md) |
 | Build, đóng gói và kiểm tra bộ cài Windows/Linux/macOS | [Build desktop](docs/desktop-build.md) |
-| Build bộ cài Windows nhẹ, tự tải model lần đầu | [Bộ cài Windows nhẹ](docs/desktop-build.md#bộ-cài-windows-nhẹ-tự-tải-model-lần-đầu) |
+| Build bộ cài Windows nhẹ, tải model tùy chọn | [Bộ cài Windows nhẹ](docs/desktop-build.md#bộ-cài-windows-nhẹ-tải-model-theo-quyền-admin) |
 | Chuẩn bị helper và tài nguyên STT | [STT resources](apps/desktop/resources/stt/README.md) |
 | Hiểu luồng nhận dạng, tài liệu kiến thức và LLM chấm bài | [Kiến trúc STT/LLM](docs/architecture/knowledge-speech.md) |
 | Quản lý bộ môn, lớp, ngân hàng đề và phân công giáo viên | [Bộ môn và lớp học](docs/architecture/academic-classes.md) |
@@ -39,11 +39,17 @@ thu gọn và hai tab **Đề thi & duyệt / Sinh viên & lịch thi**. Cần m
 
 Để bắt đầu: chạy server theo mục bên dưới, sau đó làm theo hướng dẫn desktop. Các tài liệu mô tả luồng hiện hành và phạm vi kiểm thử tương ứng.
 
+## Chọn học viên cho kỳ thi trên web
+
+Trong **Điều phối kỳ thi → Mở kỳ thi → Danh sách sinh viên**, ngoài nhập Excel, khảo thí/admin có thể **Thêm học viên từ môn / lớp học phần**: chọn môn nguồn, chọn một lớp hoặc toàn môn, tìm và chọn từng học viên hoặc chọn tất cả rồi thêm. Học viên đã có sẽ được bỏ qua; lịch thi và MSSV đã lưu không thay đổi. Sau đó xếp lịch như bình thường. Danh sách thêm là bản chụp tại thời điểm chọn, không tự đồng bộ khi lớp thay đổi.
+
+Lớp học phần dùng chung dữ liệu tại **Quản lý lớp học**; danh sách toàn môn gồm cả học viên ghi danh trực tiếp và học viên trong các lớp của môn. Không tạo thêm cấu trúc lớp hoặc migration mới; giữ chuỗi migration hiện có đến `0012`. Cập nhật đồng bộ API/web để dùng bộ chọn này.
+
 ## Desktop dành cho sinh viên
 
 Bản Windows nhẹ `OralAI-0.1.0-Windows-Setup-Light.exe` khoảng **203 MB (194 MiB)**,
-chứa Electron và helper STT, không kèm trọng số Whisper. Sau khi cài, lần mở đầu
-tự tải khoảng **464 MiB** model, hiển thị tiến độ, kiểm tra SHA-256 và tự thử lại
+chứa Electron và helper STT, không kèm trọng số Whisper và không bắt tải model khi mở app.
+Admin bật quyền tải trong cấu hình giọng nói thì học sinh có thể bấm tải khoảng **464 MiB** Whisper cho bài thử thiết bị. Trình tải kiểm tra SHA-256 và tự thử lại
 khi mạng lỗi. Model được lưu riêng trong dữ liệu người dùng và dùng lại ở những
 lần mở sau. Sinh viên không cần tự cài Node, Python, Docker hoặc thư viện.
 

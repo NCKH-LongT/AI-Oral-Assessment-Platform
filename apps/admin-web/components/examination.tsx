@@ -6,6 +6,7 @@ import { api, send, errorText, Course, User } from "./api";
 import { Action, Badge, Empty, Field, Form } from "./shared";
 import ExcelImport from "./excel-import";
 import ExamDraftReview from "./exam-draft-review";
+import ExamRosterPicker from "./exam-roster-picker";
 
 type ExamRow = {
   imported?: boolean;
@@ -93,6 +94,7 @@ export default function Examination({
           <ExamOperations
             key={exam.id}
             exam={exam}
+            courses={courses}
             officer={officer}
             editable={hasRole(user, "ADMIN", "TEACHER")}
             refresh={load}
@@ -246,12 +248,14 @@ export default function Examination({
 
 function ExamOperations({
   exam,
+  courses,
   officer,
   editable,
   refresh,
   navigate,
 }: {
   exam: ExamRow;
+  courses: Course[];
   officer: boolean;
   editable: boolean;
   refresh: () => Promise<unknown>;
@@ -395,6 +399,15 @@ function ExamOperations({
         )}
         {officer && exam.status !== "PUBLISHED" && (
           <>
+            <ExamRosterPicker
+              examId={exam.id}
+              courseId={exam.course_id}
+              courses={courses}
+              added={async (message) => {
+                setMessage(message);
+                await loadRoster();
+              }}
+            />
             <p>
               Nhập .xlsx tối đa 5000 sinh viên. Mật khẩu ban đầu tùy chọn: điền
               tối thiểu 12 ký tự để đăng nhập email/mật khẩu; để trống nếu dùng

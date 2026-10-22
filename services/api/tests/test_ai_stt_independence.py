@@ -32,7 +32,7 @@ def test_enable_gemini_preserves_whisper_policy_and_grades_text(env, monkeypatch
             ),
         )
     )
-    assert ok(student.get("/stt/config")) == policy
+    assert ok(student.get("/stt/config")) == policy | {"desktop_download_allowed": False}
     assert not ok(admin.get("/admin/settings/speech"))["google_configured"]
 
     transcript = "Dependency injection provides dependencies externally and improves testing."
@@ -125,7 +125,7 @@ def test_stt_environment_default_and_saved_policy_precedence(env, monkeypatch, p
             SystemSetting(key="speech", value={"provider": "local", "language": "en", "preprocessing": "off"})
         )
         db.commit()
-    assert ok(student.get("/stt/config")) == {"provider": "local", "language": "en", "preprocessing": "off"}
+    assert ok(student.get("/stt/config")) == {"provider": "local", "language": "en", "preprocessing": "off", "desktop_download_allowed": False}
 
 
 def test_whisper_failure_does_not_request_google_credentials(env, monkeypatch):
@@ -149,3 +149,16 @@ def test_google_credentials_required_only_for_explicit_google_policy(env):
     assert response.json()["error"]["code"] == "GOOGLE_NOT_CONFIGURED"
     ok(clients["admin"].put("/admin/settings/speech", json={"provider": "local_server"}))
     assert ok(clients["student"].get("/stt/config"))["provider"] == "local_server"
+
+
+def test_desktop_download_requires_admin_opt_in(env):
+    clients, _ = env
+    endpoint = "/admin/settings/speech"
+    assert ok(clients["student"].get("/stt/config"))["desktop_download_allowed"] is False
+    body = {"provider": "local_server", "desktop_download_allowed": True}
+    assert clients["student"].put(endpoint, json=body).status_code == 403
+    assert ok(clients["admin"].put(endpoint, json=body))["desktop_download_allowed"] is True
+    assert ok(clients["student"].get("/stt/config"))["desktop_download_allowed"] is True
+    body["desktop_download_allowed"] = False
+    ok(clients["admin"].put(endpoint, json=body))
+    assert ok(clients["student"].get("/stt/config"))["desktop_download_allowed"] is False

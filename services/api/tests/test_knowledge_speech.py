@@ -199,6 +199,7 @@ def test_speech_policy_permissions_and_routing(env, monkeypatch):
     assert clients["admin"].put(path, json={"provider": "google"}).status_code == 422
     ok(clients["admin"].put(path, json={"provider": "local", "preprocessing": "off", "language": "en"}))
     assert ok(clients["student"].get("/stt/config")) == {
+        "desktop_download_allowed": False,
         "provider": "local",
         "preprocessing": "off",
         "language": "en",

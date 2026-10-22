@@ -42,6 +42,7 @@ export default function SpeechSettings() {
           const next = await send<Settings>(
             "/admin/settings/speech",
             {
+              desktop_download_allowed: !!value.desktop_download_allowed,
               provider: value.provider,
               language: value.language,
               preprocessing: "off",
@@ -52,6 +53,24 @@ export default function SpeechSettings() {
           setSaved(true);
         }}
       >
+        <label>
+          <input
+            type="checkbox"
+            checked={!!value.desktop_download_allowed}
+            onChange={(e) => {
+              setValue({
+                ...value,
+                desktop_download_allowed: e.target.checked,
+              });
+              setSaved(false);
+            }}
+          />
+          Cho phép học sinh tải Whisper để thử STT trên desktop
+        </label>
+        <p>
+          Không bắt buộc tải khi cài hoặc mở ứng dụng. Bài thi vẫn gửi bản ghi
+          lên server để nhận dạng và chấm điểm.
+        </p>
         <label>
           Nhà cung cấp STT cho hàng đợi và trình duyệt web
           <select

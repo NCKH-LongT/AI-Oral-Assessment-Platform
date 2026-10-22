@@ -9,7 +9,7 @@ module.exports = async function (context) {
     path.join("oral-stt", binary),
     "WHISPER-LICENSE.txt",
   ];
-  if (!context.packager?.config.extraMetadata?.modelDownloadOnFirstRun) required.push(
+  if (!context.packager?.config.extraMetadata?.optionalDesktopModel) required.push(
     "whisper-small/model.bin",
     "whisper-small/config.json",
     "whisper-small/tokenizer.json",

@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { errorText } from "./api";
+import { api, clientBackend, errorText, type SpeechPolicy } from "./api";
 
 export const DESKTOP_STT_MODEL = "whisper-small";
 type ModelId = typeof DESKTOP_STT_MODEL;
@@ -16,6 +16,14 @@ export function useDesktopSpeech() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [storageError, setStorageError] = useState("");
+  const [downloadAllowed, setDownloadAllowed] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  useEffect(() => {
+    if (window.oralDesktop)
+      api<SpeechPolicy>("/stt/config")
+        .then((policy) => setDownloadAllowed(!!policy.desktop_download_allowed))
+        .catch(() => setDownloadAllowed(false));
+  }, []);
   const inspect = useCallback(async () => {
     const bridge = window.oralDesktop;
     if (!bridge?.sttModels)
@@ -28,6 +36,20 @@ export function useDesktopSpeech() {
     setError("");
     return available;
   }, []);
+  async function download() {
+    setDownloading(true);
+    setError("");
+    try {
+      if (!window.oralDesktop?.downloadModel)
+        throw new Error("Cập nhật ứng dụng desktop để tải model.");
+      await window.oralDesktop.downloadModel(clientBackend?.mode || "online");
+      await inspect();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setDownloading(false);
+    }
+  }
   useEffect(() => {
     const bridge = window.oralDesktop;
     if (!bridge) return;
@@ -80,6 +102,9 @@ export function useDesktopSpeech() {
     storageError,
     update,
     inspect,
+    downloadAllowed,
+    downloading,
+    download,
   };
 }
 
@@ -93,7 +118,7 @@ export default function DesktopSpeechSettings({
   if (!settings.desktop) return null;
   const { preferences, models, ready, error, update } = settings;
   return (
-    <fieldset disabled={disabled || !ready}>
+    <fieldset disabled={disabled || settings.downloading}>
       <legend>Nhận dạng giọng nói trên desktop</legend>
       <label>
         Ngôn ngữ nói
@@ -134,6 +159,20 @@ export default function DesktopSpeechSettings({
             lại nếu muốn nhận dạng bản ghi trước khi nộp.
           </p>
         )}
+      {ready &&
+        !models.some((model) => model.available) &&
+        (settings.downloadAllowed ? (
+          <button type="button" onClick={() => void settings.download()}>
+            {settings.downloading
+              ? "Đang tải và kiểm tra Whisper…"
+              : "Tải Whisper-small (~464 MiB)"}
+          </button>
+        ) : (
+          <p>
+            Admin chưa cho phép tải Whisper trên desktop. Bài thi được xử lý
+            trên server.
+          </p>
+        ))}
       {settings.storageError && <p role="status">{settings.storageError}</p>}
     </fieldset>
   );

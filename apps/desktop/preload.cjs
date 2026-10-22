@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld(
       return () => ipcRenderer.removeListener("oral:exam-event", listener);
     },
     quit: () => ipcRenderer.invoke("oral:quit"),
+    downloadModel: (backendMode) => ipcRenderer.invoke("oral:download-model", backendMode),
     sttModels: () => ipcRenderer.invoke("oral:stt-models"),
     transcribe: (audio, policy) =>
       ipcRenderer.invoke("oral:transcribe", audio, policy),

@@ -69,6 +69,7 @@ class SectionIn(Input):
 
 
 class SpeechPolicy(Input):
+    desktop_download_allowed: bool = False
     provider: Literal["local", "google", "gemini", "local_server"] = "local_server"
     preprocessing: Literal["off", "denoise"] = "denoise"
     language: Literal["vi", "en"] = "vi"

@@ -28,6 +28,12 @@ Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, g
 
 Để bắt đầu: chạy server theo mục bên dưới, sau đó làm theo hướng dẫn desktop. Các tài liệu mô tả luồng hiện hành và phạm vi kiểm thử tương ứng.
 
+## Chọn học viên cho kỳ thi trên web
+
+Trong **Điều phối kỳ thi → Mở kỳ thi → Danh sách sinh viên**, ngoài nhập Excel, khảo thí/admin có thể **Thêm học viên từ môn / lớp học phần**: chọn môn nguồn, chọn một lớp hoặc toàn môn, tìm và chọn từng học viên hoặc chọn tất cả rồi thêm. Học viên đã có sẽ được bỏ qua; lịch thi và MSSV đã lưu không thay đổi. Sau đó xếp lịch như bình thường. Danh sách thêm là bản chụp tại thời điểm chọn, không tự đồng bộ khi lớp thay đổi.
+
+Admin tạo lớp học phần tại **Môn học → Học viên → Lớp học phần trong môn**, đặt tên lớp và chọn học viên đã ghi danh. Mỗi học viên thuộc tối đa một lớp trong từng môn. Cần cập nhật API/web và chạy migration `0010` (`alembic upgrade head`); dữ liệu ghi danh cũ vẫn thuộc môn và chưa xếp lớp. Bộ Docker Compose có bước migration trong service khởi tạo.
+
 ## Desktop dành cho sinh viên
 
 Bản Windows nhẹ `OralAI-0.1.0-Windows-Setup-Light.exe` khoảng **203 MB (194 MiB)**,

@@ -37,6 +37,70 @@ def import_roster(client, key, rows=None):
     return client.post(f"/admin/exams/{key}/import-students", files={"file": ("students.xlsx", raw)})
 
 
+def test_select_course_and_class_roster(env):
+    clients, factory, key, context = setup_workflow(env)
+    office, admin = clients["reviewer"], clients["admin"]
+    course_id = context["course"]["id"]
+    sid = ok(clients["student"].get("/auth/me"))["id"]
+    other = ok(clients["outsider"].get("/auth/me"))["id"]
+    ok(admin.post(f"/admin/courses/{course_id}/students", json={"student_ids": [sid, other]}))
+    section = ok(admin.post(f"/admin/courses/{course_id}/classes", json={"name": "SE1801", "student_ids": [sid]}))
+    assert ok(office.get(f"/admin/courses/{course_id}/classes"))[0]["student_count"] == 1
+    endpoint = f"/admin/exams/{key}/roster-candidates"
+    students = ok(office.get(endpoint, params={"course_id": course_id}))
+    assert {s["id"] for s in students} == {sid, other}
+    params = {"course_id": course_id, "class_id": section["id"]}
+    assert [s["id"] for s in ok(office.get(endpoint, params=params))] == [sid]
+    body = params | {"student_ids": [sid, other]}
+    assert office.post(f"/admin/exams/{key}/select-students", json=body).status_code == 422
+    assert ok(office.get(f"/admin/exams/{key}/roster")) == []
+    body["student_ids"] = [sid, sid]
+    assert ok(office.post(f"/admin/exams/{key}/select-students", json=body)) == {"added": 1, "skipped": 0}
+    assert ok(office.get(endpoint, params=params))[0]["assigned"] is True
+    ok(import_roster(office, key))  # Excel can supply MSSV for an existing selection.
+    with factory() as db:
+        row = db.scalar(select(Assignment).where(Assignment.exam_id == key))
+        row.opens_at, row.closes_at = 100, 200
+        db.commit()
+    assert ok(office.post(f"/admin/exams/{key}/select-students", json=body)) == {"added": 0, "skipped": 1}
+    row = ok(office.get(f"/admin/exams/{key}/roster"))[0]
+    assert (row["student_number"], row["opens_at"], row["closes_at"]) == ("0001", 100, 200)
+    body = {"course_id": course_id, "student_ids": [other]}
+    assert ok(office.post(f"/admin/exams/{key}/select-students", json=body))["added"] == 1
+    for role in ("teacher", "student"):
+        assert clients[role].get(endpoint, params=params).status_code == 403
+        assert clients[role].post(f"/admin/exams/{key}/select-students", json=body).status_code == 403
+    with factory() as db:
+        db.get(Exam, key).status = "PUBLISHED"
+        db.commit()
+    assert office.post(f"/admin/exams/{key}/select-students", json=body).status_code == 409
+
+
+def test_class_and_roster_validate_active_membership(env):
+    clients, factory, key, context = setup_workflow(env)
+    office, admin = clients["reviewer"], clients["admin"]
+    course_id = context["course"]["id"]
+    sid = ok(clients["student"].get("/auth/me"))["id"]
+    class_url = f"/admin/courses/{course_id}/classes"
+    body = {"name": "SE1801", "student_ids": [sid]}
+    assert admin.post(class_url, json=body).status_code == 422
+    ok(admin.post(f"/admin/courses/{course_id}/students", json={"student_ids": [sid]}))
+    first = ok(admin.post(class_url, json=body))
+    assert ok(admin.post(class_url, json=body))["id"] == first["id"]
+    moved = ok(admin.post(class_url, json=body | {"name": "SE1802"}))
+    counts = {c["name"]: c["student_count"] for c in ok(office.get(class_url))}
+    assert counts == {"SE1801": 0, "SE1802": 1}
+    other_course = ok(admin.post("/admin/courses", json={"code": "OTHER", "name": "Other", "description": ""}), 201)
+    assert office.get(f"/admin/exams/{key}/roster-candidates", params={
+        "course_id": other_course["id"], "class_id": moved["id"],
+    }).status_code == 422
+    with factory() as db:
+        db.get(User, sid).status = "DISABLED"
+        db.commit()
+    assert ok(office.get(f"/admin/exams/{key}/roster-candidates", params={"course_id": course_id})) == []
+    assert office.post(f"/admin/exams/{key}/select-students", json={"course_id": course_id, "student_ids": [sid]}).status_code == 422
+
+
 def approve_and_schedule(clients, key, opens=None):
     teacher, office = clients["teacher"], clients["reviewer"]
     ok(teacher.post(f"/admin/exams/{key}/generate"))

@@ -51,6 +51,9 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
         db.execute(
             "INSERT INTO question_attempts (id,created_at,session_id,sequence,question,status,transcript) VALUES ('a',1,'s',1,'{}','GRADED','Original answer')"
         )
+    subprocess.run(command + ["0009"], cwd=root, env=environment, check=True, capture_output=True)
+    with sqlite3.connect(database) as db:
+        db.execute("INSERT INTO course_enrollments (id,created_at,course_id,student_id) VALUES ('enrollment',1,'c','u')")
     subprocess.run(command + ["head"], cwd=root, env=environment, check=True, capture_output=True)
     # A second upgrade must be a no-op.
     subprocess.run(command + ["head"], cwd=root, env=environment, check=True, capture_output=True)
@@ -63,7 +66,9 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
             "original-key",
         )
         assert db.execute("SELECT content FROM document_chunks").fetchone() == ("Original knowledge",)
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0009",)
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0010",)
+        assert db.execute("SELECT course_id,student_id,class_id FROM course_enrollments").fetchone() == ("c", "u", None)
+        assert db.execute("SELECT COUNT(*) FROM course_classes").fetchone() == (0,)
         assert db.execute("SELECT screen_required,screen_consent_at FROM exam_sessions WHERE id='s'").fetchone() == (0, None)
 
         assert db.execute(

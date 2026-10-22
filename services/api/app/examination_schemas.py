@@ -28,6 +28,17 @@ class TeacherIn(Input):
     teacher_id: str
 
 
+class RosterSelectionIn(Input):
+    course_id: str
+    class_id: str | None = None
+    student_ids: list[str] = Field(min_length=1, max_length=5000)
+
+
+class CourseClassIn(Input):
+    name: str = Field(min_length=1, max_length=100)
+    student_ids: list[str] = Field(min_length=1, max_length=5000)
+
+
 class CommissionIn(TeacherIn):
     course_id: str
     name: str = Field(min_length=1, max_length=200)

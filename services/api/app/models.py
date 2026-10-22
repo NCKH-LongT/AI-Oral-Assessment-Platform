@@ -58,11 +58,19 @@ class Course(Entity, Base):
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
 
 
+class CourseClass(Entity, Base):
+    __tablename__ = "course_classes"
+    __table_args__ = (UniqueConstraint("course_id", "name"),)
+    course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
+    name: Mapped[str] = mapped_column(String(100))
+
+
 class CourseEnrollment(Entity, Base):
     __tablename__ = "course_enrollments"
     __table_args__ = (UniqueConstraint("course_id", "student_id"),)
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
     student_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    class_id: Mapped[str | None] = mapped_column(ForeignKey("course_classes.id"))
 
 
 class OAuthFlow(Entity, Base):

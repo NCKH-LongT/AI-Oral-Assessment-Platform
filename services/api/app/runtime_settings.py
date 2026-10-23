@@ -42,6 +42,15 @@ def settings(fresh=False):
 
 
 @contextmanager
+def override(**values):
+    token = _current.set(settings().model_copy(update=values))
+    try:
+        yield
+    finally:
+        _current.reset(token)
+
+
+@contextmanager
 def snapshot():
     token = _current.set(settings(fresh=True))
     try:

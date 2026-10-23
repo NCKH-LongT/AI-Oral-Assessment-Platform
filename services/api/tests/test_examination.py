@@ -68,14 +68,14 @@ def test_select_course_and_class_roster(env):
     row = ok(office.get(f"/admin/exams/{key}/roster"))[0]
     assert (row["student_number"], row["opens_at"], row["closes_at"]) == ("0001", 100, 200)
     body = {"course_id": course_id, "student_ids": [other]}
-    assert ok(office.post(f"/admin/exams/{key}/select-students", json=body))["added"] == 1
     for role in ("teacher", "student"):
         assert clients[role].get(endpoint, params=params).status_code == 403
         assert clients[role].post(f"/admin/exams/{key}/select-students", json=body).status_code == 403
     with factory() as db:
         db.get(Exam, key).status = "PUBLISHED"
         db.commit()
-    assert office.post(f"/admin/exams/{key}/select-students", json=body).status_code == 409
+    assert ok(office.post(f"/admin/exams/{key}/select-students", json=body))["added"] == 1
+    assert ok(office.post(f"/admin/exams/{key}/select-students", json=body))["skipped"] == 1
 
 
 @pytest.mark.parametrize("membership", ["course", "class"])
@@ -163,7 +163,7 @@ def test_workflow_permissions_review_and_schedule(env):
         db.scalar(select(Assignment).where(Assignment.exam_id == key)).closes_at = time.time() - 1
         db.commit()
     assert student.post(f"/exam-sessions/{session['id']}/start").status_code == 409
-    assert import_roster(office, key).status_code == 409
+    assert ok(import_roster(office, key))["added"] == 0
 
 
 def test_excel_atomicity_email_login_and_export(env):

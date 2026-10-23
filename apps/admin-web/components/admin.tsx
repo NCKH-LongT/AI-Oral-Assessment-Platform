@@ -1812,6 +1812,7 @@ export function ReviewPage({
   admin,
   refresh,
   open,
+  backLabel = "Tất cả kết quả",
 }: {
   review: Review;
   canGrade: boolean;
@@ -1819,6 +1820,7 @@ export function ReviewPage({
   admin: boolean;
   refresh: () => Promise<void>;
   open: (id: string) => Promise<unknown>;
+  backLabel?: string;
 }) {
   const screens = review.attempts
     .flatMap((attempt) => attempt.evidence)
@@ -1831,7 +1833,7 @@ export function ReviewPage({
     <>
       <button className="text-button back" onClick={back}>
         <ArrowLeft size={16} />
-        Tất cả kết quả
+        {backLabel}
       </button>
       <div className="page-heading">
         <div>

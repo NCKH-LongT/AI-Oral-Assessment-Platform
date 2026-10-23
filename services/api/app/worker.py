@@ -5,6 +5,7 @@ import logging
 import shutil
 import tempfile
 import time
+from contextlib import closing
 from pathlib import Path
 from threading import Lock
 from types import SimpleNamespace
@@ -14,7 +15,7 @@ from sqlalchemy import select, text
 from . import ai, media_retention, processing, pronunciation, runtime_settings, speech, storage
 from .db import SessionLocal
 from .documents import process_document
-from .grading import check_config, failure, review_question, score_summary
+from .grading import GradingError, check_config, failure, review_question, score_summary
 from .models import (
     Attempt,
     Audit,
@@ -84,7 +85,7 @@ def frozen_chunks(db, exam, attempt):
     )
 
 
-def grade_answer(db, exam, session, attempt, transcript, confidence):
+def grade_answer(db, exam, session, attempt, transcript, confidence, local_review=False):
     snapshot = exam.snapshot
     if snapshot.get("practice"):
         return {
@@ -99,22 +100,36 @@ def grade_answer(db, exam, session, attempt, transcript, confidence):
             "knowledge_version": snapshot["knowledge_version"],
             "reasoning_summary": "Đã hoàn thành câu luyện tập. Bài này không tính điểm chính thức.",
         }
-    check_config(exam)
-    chunks = ai.retrieve(
-        db,
-        exam.course_id,
-        attempt.question["topic_id"],
-        attempt.question["text"] + "\n" + (transcript or ""),
-        snapshot["document_ids"],
-        frozen_chunks(db, exam, attempt),
-    )
+    if not local_review:
+        check_config(exam)
+    content_criteria = [criterion for criterion in snapshot["criteria"] if not pronunciation.is_criterion(criterion)]
+    chunks = []
+    if content_criteria:
+        chunks = ai.retrieve_frozen(
+            db, exam.course_id, attempt.question["text"] + "\n" + (transcript or ""),
+            snapshot["document_ids"], frozen_chunks(db, exam, attempt),
+        ) if local_review else ai.retrieve(
+            db,
+            exam.course_id,
+            attempt.question["topic_id"],
+            attempt.question["text"] + "\n" + (transcript or ""),
+            snapshot["document_ids"],
+            frozen_chunks(db, exam, attempt),
+        )
     assessment = ai.grade(
         attempt.question,
         transcript,
-        snapshot["criteria"],
+        content_criteria,
         chunks,
         confidence if attempt.finished_at <= session.started_at + exam.time_limit else 0,
-    ) | {"rubric_version": snapshot["rubric_version"], "knowledge_version": snapshot["knowledge_version"]}
+    ) if content_criteria else {
+        "score": None, "status": "COMPLETED", "criteria": [], "confidence": None,
+        "review_required": True, "model": "gopt-librispeech", "prompt_version": ai.PROMPT_VERSION,
+        "retrieved_chunks": chunks, "reasoning_summary": "Rubric phát âm được chấm từ audio bằng GOPT.",
+    }
+    assessment |= {"rubric_version": snapshot["rubric_version"], "knowledge_version": snapshot["knowledge_version"]}
+    if local_review:
+        assessment |= {"grading_provider": "local", "retrieval": "frozen-lexical-v1", "review_required": True}
     return pronunciation.assess(db, exam, attempt, transcript, assessment)
 
 
@@ -153,22 +168,42 @@ def process_review(db, job):
 
 
 def process_transcription_review(db, job, exam, session, attempt):
+    if job.policy["provider"] == "local_server":
+        if job.policy.get("prompt_version") != ai.PROMPT_VERSION:
+            raise GradingError("AI_CONFIG_MISMATCH", "Phiên bản chấm local đã đổi; gửi lại yêu cầu chấm từ audio.")
+        with runtime_settings.override(ai_provider="local", llm_model=job.policy["llm_model"],
+                                       stt_model=job.policy["stt_model"], local_llm_cpu_only=True):
+            return transcribe_and_grade(db, job, exam, session, attempt, local_review=True)
     check_config(exam)
+    return transcribe_and_grade(db, job, exam, session, attempt)
+
+
+def transcribe_and_grade(db, job, exam, session, attempt, local_review=False):
     audio = db.get(Upload, job.original["audio_id"])
-    if not audio or audio.sha256 != job.original["audio_sha256"] or audio.status != "COMPLETED":
+    if (not audio or audio.sha256 != job.original["audio_sha256"] or audio.status != "COMPLETED"
+            or audio.attempt_id != attempt.id or audio.kind != "AUDIO"):
         raise ValueError("Original evidence changed")
     with tempfile.TemporaryDirectory(prefix="oral-review-") as folder:
         path = Path(folder) / "original.webm"
-        original = storage.get(audio.storage_key)
-        if hashlib.sha256(original).hexdigest() != audio.sha256:
+        digest, size = hashlib.sha256(), 0
+        limit = runtime_settings.settings().max_media_mb * 1024 * 1024
+        with closing(storage.open_stream(audio.storage_key)) as source, path.open("wb") as target:
+            while chunk := source.read(1024 * 1024):
+                size += len(chunk)
+                if size > limit or size > audio.size:
+                    raise ValueError("Original audio too large")
+                digest.update(chunk)
+                target.write(chunk)
+        if size != audio.size or digest.hexdigest() != audio.sha256:
             raise ValueError("Original audio checksum mismatch")
-        path.write_bytes(original)
         transcript = speech.transcribe_file(path, job.policy)
     reviewed = SimpleNamespace(id=attempt.id, question=attempt.question, finished_at=attempt.finished_at,
-                               pronunciation_audio_id=audio.id)
+                               pronunciation_audio_id=audio.id, pronunciation_language=job.policy["language"])
     assessment = grade_answer(
-        db, exam, session, reviewed, transcript["transcript"], transcript["stt_confidence"]
+        db, exam, session, reviewed, transcript["transcript"], transcript["stt_confidence"], local_review=local_review,
     )
+    if assessment.get("pronunciation", {}).get("status") == "FAILED":
+        raise GradingError("PRONUNCIATION_FAILED", "Chưa chấm được phát âm; kiểm tra GOPT, audio và ngôn ngữ tiếng Anh của đề.")
     job.result = transcript | {"assessment": assessment}
     # The submitted transcript and idempotency payload remain immutable.
     attempt.assessment = assessment

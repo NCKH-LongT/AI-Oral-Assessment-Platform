@@ -13,7 +13,9 @@ export function TranscriptionReview({
   enabled: boolean;
   refresh: () => Promise<void>;
 }) {
-  const [provider, setProvider] = useState<"gemini" | "google">("gemini");
+  const [provider, setProvider] = useState<"local" | "gemini" | "google">(
+    "local",
+  );
   const pending = attempt.reviews.some((r) => r.status === "PENDING");
   const latest = attempt.reviews.find((r) => r.status === "COMPLETED");
   return (
@@ -30,7 +32,8 @@ export function TranscriptionReview({
             {latest.result.confidence_source === "unavailable"
               ? "Nhà cung cấp không trả độ tin cậy STT"
               : `STT ${Math.round(latest.result.stt_confidence * 100)}%`}{" "}
-            · Xử lý audio: {latest.result.preprocessing}
+            · Xử lý audio: {latest.result.preprocessing} · Model chấm:{" "}
+            {latest.result.assessment.model}
           </small>
         </div>
       )}
@@ -44,15 +47,19 @@ export function TranscriptionReview({
           <details>
             <summary>Nhận dạng lại & chấm lại</summary>
             <p>
-              Gửi audio gốc đến nhà cung cấp đã chọn để nhận dạng lại (có thể
-              phát sinh phí). Transcript đã nộp và lịch sử được giữ; LLM chấm
-              vẫn theo cấu hình đề.
-              {provider === "gemini"
-                ? " Gemini dùng API key, không cần JSON; không trả độ tin cậy âm học nên kết quả cần giảng viên kiểm tra."
-                : " Google Cloud STT dùng JSON service account đã upload trong Cấu hình hệ thống → STT & giọng nói."}
+              Chạy lại toàn bộ từ audio gốc; giữ transcript đã nộp và lịch sử.
+              GOPT chấm tiêu chí “Phát âm” / “Pronunciation” trong rubric tiếng
+              Anh theo đúng trọng số.
+              {provider === "local"
+                ? " Xử lý tuần tự trên server: Whisper → Ollama → GOPT. Không gửi audio hay câu trả lời đến dịch vụ AI cloud; cần cấu hình model Ollama trên server."
+                : provider === "gemini"
+                  ? " Gemini dùng API key, không cần JSON; không trả độ tin cậy âm học nên kết quả cần giảng viên kiểm tra."
+                  : " Google Cloud STT dùng JSON service account đã upload trong Cấu hình hệ thống → STT & giọng nói."}
+              {provider !== "local" &&
+                " Có thể phát sinh phí; LLM chấm theo cấu hình đề."}
             </p>
             <Form
-              label="Nhận dạng và chấm lại"
+              label="Chấm lại toàn bộ từ audio"
               onSubmit={async (d) => {
                 await send(`/admin/attempts/${attempt.id}/${provider}-review`, {
                   reason: d.get("reason"),
@@ -65,9 +72,12 @@ export function TranscriptionReview({
                 <select
                   value={provider}
                   onChange={(e) =>
-                    setProvider(e.target.value as "gemini" | "google")
+                    setProvider(e.target.value as "local" | "gemini" | "google")
                   }
                 >
+                  <option value="local">
+                    Local: Whisper + Ollama + GOPT theo rubric
+                  </option>
                   <option value="gemini">Gemini STT (API key)</option>
                   <option value="google">
                     Google Cloud STT (JSON service account)
@@ -78,38 +88,6 @@ export function TranscriptionReview({
             </Form>
           </details>
         )
-      )}
-      {enabled && !pending && !!attempt.grading_targets?.length && (
-        <details>
-          <summary>Chấm lại transcript đã nộp</summary>
-          <p>
-            Dùng nguyên câu trả lời đã nộp, giữ câu hỏi và rubric gốc. Chọn
-            phiên bản đề có cấu hình AI phù hợp. Có thể phát sinh phí LLM; kết
-            quả cần giảng viên xem lại, lịch sử cũ được giữ.
-          </p>
-          <Form
-            label="Chấm lại transcript"
-            onSubmit={async (d) => {
-              await send(`/admin/attempts/${attempt.id}/grade-review`, {
-                target_exam_id: d.get("target_exam_id"),
-                reason: d.get("reason"),
-              });
-              await refresh();
-            }}
-          >
-            <label>
-              Phiên bản dùng để chấm
-              <select name="target_exam_id" required>
-                {attempt.grading_targets.map((target) => (
-                  <option key={target.id} value={target.id}>
-                    {target.name} · {target.model} · {target.id.slice(0, 8)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Field label="Lý do chấm lại" name="reason" />
-          </Form>
-        </details>
       )}
       {!!attempt.reviews.length && (
         <details>
@@ -127,11 +105,13 @@ export function TranscriptionReview({
                   Xử lý:{" "}
                   {r.policy.provider === "grading"
                     ? "Chấm transcript đã nộp"
-                    : r.policy.provider === "gemini"
-                      ? "Gemini STT"
-                      : r.policy.provider === "google"
-                        ? "Google Cloud STT"
-                        : r.policy.provider}
+                    : r.policy.provider === "local_server"
+                      ? "Local: Whisper → Ollama → GOPT theo rubric"
+                      : r.policy.provider === "gemini"
+                        ? "Gemini STT"
+                        : r.policy.provider === "google"
+                          ? "Google Cloud STT"
+                          : r.policy.provider}
                 </p>
               )}
               <p>{r.reason}</p>

@@ -138,6 +138,8 @@ export function Field({
   placeholder,
   min,
   max,
+  minLength,
+  maxLength,
 }: {
   label: string;
   name: string;
@@ -147,6 +149,8 @@ export function Field({
   placeholder?: string;
   min?: number;
   max?: number;
+  minLength?: number;
+  maxLength?: number;
 }) {
   return (
     <label>
@@ -159,6 +163,8 @@ export function Field({
         placeholder={placeholder}
         min={min}
         max={max}
+        minLength={minLength}
+        maxLength={maxLength}
       />
     </label>
   );

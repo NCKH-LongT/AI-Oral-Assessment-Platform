@@ -186,7 +186,8 @@ def test_admin_can_explicitly_retranscribe_original_audio_and_preserve_skip_hist
         assert config["provider"] == "google"
         return {"transcript": "Recovered spoken answer", "stt_confidence": 0.95, "preprocessing": "off"}
 
-    def grade(db, exam, current_session, attempt, transcript, confidence):
+    def grade(db, exam, current_session, attempt, transcript, confidence, local_review=False):
+        assert local_review is False
         assert transcript == "Recovered spoken answer" and confidence == 0.95
         return {"score": 8, "confidence": 0.9, "review_required": True, "status": "COMPLETED"}
 

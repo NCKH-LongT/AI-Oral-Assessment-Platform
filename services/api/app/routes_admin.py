@@ -744,13 +744,31 @@ def gemini_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), use
     return request_transcription_review(key, body, db, user, "gemini")
 
 
+@router.post("/attempts/{key}/local-review", status_code=202)
+def local_review(key: str, body: s.ReviewIn, db: Session = Depends(get_db), user=Depends(admin)):
+    return request_transcription_review(key, body, db, user, "local_server")
+
+
 def request_transcription_review(key, body, db, user, provider):
     attempt = by_id(db, Attempt, key, lock=True)
     session = by_id(db, ExamSession, attempt.session_id, lock=True)
     exam = by_id(db, Exam, session.exam_id)
     exam_access(db, exam, user)
+    local_policy = {}
+    if session.deleted_at is not None:
+        fail(404, "NOT_FOUND", "Bài thi đã bị xóa")
+    if provider == "local_server":
+        cfg = settings()
+        model = cfg.local_review_llm_model or (cfg.llm_model if cfg.ai_provider == "local" else "")
+        if not model:
+            fail(422, "LOCAL_REVIEW_NOT_CONFIGURED", "Cấu hình LOCAL_REVIEW_LLM_MODEL với tên model đã cài trong Ollama trên server")
+        if exam.snapshot.get("practice"):
+            fail(409, "GRADING_UNAVAILABLE", "Bài luyện tập không tính điểm")
+        local_policy = {"llm_model": model, "stt_model": cfg.stt_model,
+                        "retrieval": "frozen-lexical-v1", "prompt_version": ai.PROMPT_VERSION}
     try:
-        check_config(exam)
+        if provider != "local_server":
+            check_config(exam)
     except GradingError as exc:
         fail(409, exc.code, str(exc))
     if session.status not in {"SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"} or attempt.status != "GRADED":
@@ -770,6 +788,7 @@ def request_transcription_review(key, body, db, user, provider):
         return data(existing, "status")
     audio = db.scalar(
         select(Upload).where(Upload.attempt_id == key, Upload.kind == "AUDIO", Upload.status == "COMPLETED")
+        .order_by(Upload.created_at, Upload.id)
     )
     if not audio:
         fail(409, "AUDIO_NOT_READY", "Chưa có audio gốc đã tải lên hoàn tất")
@@ -785,6 +804,7 @@ def request_transcription_review(key, body, db, user, provider):
         reason=body.reason,
         policy=exam_policy(db, exam)
         | {"provider": provider}
+        | local_policy
         | ({"model": settings().gemini_stt_model, "preprocessing": "off"} if provider == "gemini" else {}),
         original={
             "transcript": previous.result["transcript"] if previous else attempt.transcript,

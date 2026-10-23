@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     gemini_stt_model: str = "gemini-2.5-flash"
     local_llm_url: str = "http://127.0.0.1:11434"
     local_llm_timeout: int = Field(default=180, ge=10, le=900)
+    local_review_llm_model: str = Field(default="", max_length=150, pattern=r"^[a-zA-Z0-9._:/-]*$")
+    local_llm_cpu_only: bool = False
     llm_model: str = "gemini-2.5-flash"
     embedding_model: str = "gemini-embedding-001"
     top_k: int = Field(default=5, ge=1, le=20)

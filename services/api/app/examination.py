@@ -15,6 +15,7 @@ from .examination_schemas import (
     DraftReviewIn,
     HotwordsIn,
     ManualGradeIn,
+    ManualStudentIn,
     RosterSelectionIn,
     ScheduleIn,
     TeacherIn,
@@ -167,8 +168,16 @@ def template(user=Depends(exam_officer)):
 @router.get("/admin/exams/{key}/roster")
 def roster(key: str, db: Session = Depends(get_db), user=Depends(staff)):
     scoped_exam(db, key, user)
+    sessions = {}
+    for sitting in db.scalars(select(ExamSession).where(
+        ExamSession.exam_id == key, ExamSession.deleted_at.is_(None),
+    ).order_by(ExamSession.created_at.desc(), ExamSession.id)):
+        sessions.setdefault(sitting.student_id, []).append({
+            "id": sitting.id, "status": sitting.status, "attempt_number": sitting.attempt_number,
+            "created_at": sitting.created_at, "final_score": sitting.final_score,
+        })
     return [{"student_id": u.id, "student_number": a.student_number, "name": u.name, "email": u.email,
-             "opens_at": a.opens_at, "closes_at": a.closes_at}
+             "opens_at": a.opens_at, "closes_at": a.closes_at, "sessions": sessions.get(u.id, [])}
             for a, u in db.execute(select(Assignment, User).join(User).where(Assignment.exam_id == key).order_by(User.name))]
 
 
@@ -209,8 +218,8 @@ def roster_candidates(key: str, course_id: str, class_id: str | None = None,
 @router.post("/admin/exams/{key}/select-students")
 def select_students(key: str, body: RosterSelectionIn, db: Session = Depends(get_db), user=Depends(exam_officer)):
     exam = scoped_exam(db, key, user)
-    if not exam.workflow or exam.status == "PUBLISHED":
-        fail(409, "ROSTER_LOCKED", "Chỉ thêm danh sách cho kỳ thi chưa mở")
+    if not exam.workflow:
+        fail(409, "ROSTER_LOCKED", "Chỉ thêm danh sách cho kỳ thi điều phối")
     ids = set(body.student_ids)
     learners = db.scalars(roster_source(db, body.course_id, body.class_id, user).where(User.id.in_(ids))).all()
     if len(learners) != len(ids):
@@ -229,14 +238,27 @@ def select_students(key: str, body: RosterSelectionIn, db: Session = Depends(get
 @router.post("/admin/exams/{key}/import-students")
 def import_students(key: str, file: UploadFile = File(), db: Session = Depends(get_db), user=Depends(exam_officer)):
     exam = scoped_exam(db, key, user)
-    if not exam.workflow or exam.status == "PUBLISHED":
-        fail(409, "ROSTER_LOCKED", "Chỉ nhập danh sách cho kỳ thi chưa mở")
+    if not exam.workflow:
+        fail(409, "ROSTER_LOCKED", "Chỉ nhập danh sách cho kỳ thi điều phối")
     raw = file.file.read(2 * 1024 * 1024 + 1)
     if len(raw) > 2 * 1024 * 1024:
         fail(413, "EXCEL_SIZE", "File Excel tối đa 2 MB")
     if not (file.filename or "").lower().endswith(".xlsx"):
         fail(422, "EXCEL_TYPE", "Chọn file .xlsx theo mẫu")
     rows = parse_roster(raw)
+    return add_roster_rows(db, exam, rows, user, "EXAM_ROSTER_IMPORTED")
+
+
+@router.post("/admin/exams/{key}/students")
+def manual_student(key: str, body: ManualStudentIn, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    exam = scoped_exam(db, key, user)
+    if not exam.workflow:
+        fail(409, "ROSTER_LOCKED", "Chỉ thêm danh sách cho kỳ thi điều phối")
+    return add_roster_rows(db, exam, [body.model_dump()], user, "EXAM_ROSTER_MANUAL")
+
+
+def add_roster_rows(db, exam, rows, user, event):
+    key = exam.id
     created, added = 0, 0
     for row in rows:
         matches = db.scalars(select(User).where(func.lower(User.email) == row["email"])).all()
@@ -259,7 +281,7 @@ def import_students(key: str, file: UploadFile = File(), db: Session = Depends(g
             added += 1
         else:
             existing.student_number = row["student_number"]
-    audit(db, user, "EXAM_ROSTER_IMPORTED", exam_id=key, added=added, created=created)
+    audit(db, user, event, exam_id=key, added=added, created=created)
     db.commit()
     return {"rows": len(rows), "added": added, "accounts_created": created}
 
@@ -346,14 +368,18 @@ def return_draft(key: str, body: ReviewIn, db: Session = Depends(get_db), user=D
 @router.put("/admin/exams/{key}/schedule")
 def schedule(key: str, body: ScheduleIn, db: Session = Depends(get_db), user=Depends(exam_officer)):
     exam = scoped_exam(db, key, user)
-    if exam.status != "TEACHER_APPROVED":
-        fail(409, "APPROVAL_REQUIRED", "Xếp lịch sau khi giảng viên duyệt, trước khi mở thi")
+    if exam.status not in {"TEACHER_APPROVED", "PUBLISHED"}:
+        fail(409, "APPROVAL_REQUIRED", "Xếp lịch sau khi giảng viên duyệt đề")
     if body.closes_at - body.opens_at < exam.time_limit or body.closes_at <= time.time():
         fail(422, "SCHEDULE_LENGTH", "Khoảng thi phải đủ thời lượng bài thi và chưa kết thúc")
     ids = set(body.student_ids)
     rows = db.scalars(select(Assignment).where(Assignment.exam_id == key, Assignment.student_id.in_(ids))).all()
     if len(rows) != len(ids):
         fail(422, "NOT_ASSIGNED", "Sinh viên chưa có trong danh sách kỳ thi")
+    if db.scalar(select(ExamSession.id).where(
+        ExamSession.exam_id == key, ExamSession.student_id.in_(ids), ExamSession.deleted_at.is_(None),
+    ).limit(1)):
+        fail(409, "SCHEDULE_LOCKED", "Không đổi lịch sinh viên đã tạo phiên thi; chỉ chọn sinh viên chưa thi")
     for row in rows:
         row.opens_at, row.closes_at = body.opens_at, body.closes_at
     audit(db, user, "EXAM_SCHEDULED", exam_id=key, student_ids=sorted(ids), opens_at=body.opens_at, closes_at=body.closes_at)

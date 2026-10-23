@@ -8,7 +8,7 @@
 
 | Trạng thái đánh giá | confidence | Ý nghĩa |
 |---|---|---|
-| COMPLETED | 0–1 | LLM đã trả kết quả hợp lệ; đây là độ tin cậy tự báo, chưa được hiệu chuẩn |
+| COMPLETED | 0–1 hoặc null | LLM trả độ tin cậy tự báo chưa hiệu chuẩn; rubric chỉ GOPT không có confidence LLM |
 | FAILED | null | Chấm thất bại, không có ước lượng độ tin cậy |
 | NOT_GRADED | null | Demo, luyện tập hoặc không có câu trả lời |
 
@@ -26,11 +26,18 @@ Việc chấm dùng snapshot và tập vector thuộc cùng cấu hình embeddin
 
 Prompt `rubric-bounded-v2` yêu cầu điểm thô trong thang điểm từng tiêu chí. Schema gửi provider giới hạn tên tiêu chí, số tiêu chí, ID dẫn chứng và điểm tối đa theo rubric; backend kiểm tra riêng trần điểm từng tiêu chí khi rubric có nhiều mức trần. Các ràng buộc numeric/enum theo [Gemini structured outputs](https://ai.google.dev/gemini-api/docs/structured-output). Điểm ngoài thang được coi là kết quả không hợp lệ. Thay đổi prompt version yêu cầu phiên bản đề mới.
 
-## Chấm lại transcript đã nộp
+## Chấm lại toàn bộ từ audio
 
-Admin vào **Kết quả & xem lại → chọn lượt thi → Chấm lại transcript đã nộp**. Chọn phiên bản đề và nhập lý do. Luồng này chỉ gửi transcript và dữ liệu chấm tới LLM, không gọi STT hay gửi lại audio.
+Admin vào **Kết quả & xem lại → chọn lượt thi → Nhận dạng lại & chấm lại**, chọn **Local**
+và nhập lý do. `POST /admin/attempts/{id}/local-review` xếp một yêu cầu chạy lại audio gốc
+qua Whisper → Ollama → GOPT theo rubric. Không chấm riêng transcript đã nộp trên UI.
+Đề cũ có thể được review local mà không đổi snapshot: dùng phạm vi chunk đóng băng
+với truy xuất lexical, không gọi embedding cloud hoặc trộn vector khác model.
+Xem [cấu hình, giới hạn CPU và quy tắc điểm GOPT](gopt.md#chấm-lại-toàn-bộ-bằng-model-local).
 
-Endpoint `POST /admin/attempts/{id}/grade-review` nhận `target_exam_id` và `reason`. Chỉ ADMIN được gọi. Phiên thi phải đã nộp, chưa xóa, câu đã xử lý và có transcript. Đề đích phải được công bố trong cùng môn, dùng LLM thật, cùng rubric/thời lượng và giữ nguyên nội dung câu hỏi, đáp án tham chiếu, độ khó; chỉ ID ánh xạ/tài liệu được phép khác. Giao diện chỉ liệt kê các phiên bản tương thích.
+## API tương thích chấm transcript cũ
+
+Endpoint `POST /admin/attempts/{id}/grade-review` được giữ cho client cũ, nhận `target_exam_id` và `reason`. Chỉ ADMIN được gọi. Phiên thi phải đã nộp, chưa xóa, câu đã xử lý và có transcript. Đề đích phải được công bố trong cùng môn, dùng LLM thật, cùng rubric/thời lượng và giữ nguyên nội dung câu hỏi, đáp án tham chiếu, độ khó; chỉ ID ánh xạ/tài liệu được phép khác. Không có nút gọi API này trên UI mới; rubric phát âm vẫn cần audio gốc để chấm GOPT.
 
 ReviewJob lưu đánh giá trước khi chấm lại, transcript gốc, người yêu cầu, lý do và ID đề đích. Worker kiểm tra lại tính tương thích khi chạy, dùng chunk cố định của đề đích, giữ nguyên snapshot, câu hỏi, transcript và STT gốc. Lỗi giữ nguyên đánh giá trước; thành công ghi kết quả mới cùng `grading_exam_id`, `source_exam_id`, phiên bản kiến thức/rubric. Luồng này đặt `review_required=true` để giảng viên xem lại. Giảng viên nhập điểm chính thức và nhận xét theo [quy trình khảo thí](examination-workflow.md#tổ-chức-một-kỳ-thi).
 

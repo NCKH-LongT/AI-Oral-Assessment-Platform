@@ -18,7 +18,9 @@ export default function PronunciationScore({
             {" · "}Ngữ điệu: {result.scores.prosody}
           </p>
           <p className="muted">
-            Điểm tham khảo từ audio và transcript, chưa cộng vào tổng điểm.
+            {result.applied_criteria?.length
+              ? `Đã tính theo trọng số rubric: ${result.applied_criteria.join(", ")}. `
+              : "Điểm tham khảo từ audio và transcript, chưa cộng vào tổng điểm. "}
             Giảng viên cần nghe bản ghi và kiểm tra transcript trước khi kết
             luận.
           </p>

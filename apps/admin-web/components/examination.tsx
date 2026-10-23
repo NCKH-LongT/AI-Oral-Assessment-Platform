@@ -2,7 +2,8 @@
 import { hasRole } from "./api";
 import styles from "./examination.module.css";
 import { useCallback, useEffect, useState } from "react";
-import { api, send, errorText, Course, User } from "./api";
+import { api, send, errorText, Course, User, Review } from "./api";
+import { ReviewPage } from "./admin";
 import { Action, Badge, Empty, Field, Form } from "./shared";
 import ExcelImport from "./excel-import";
 import ExamDraftReview from "./exam-draft-review";
@@ -25,6 +26,12 @@ type Candidate = {
   email: string;
   opens_at: number | null;
   closes_at: number | null;
+  sessions: {
+    id: string;
+    status: string;
+    attempt_number: number;
+    final_score: number | null;
+  }[];
 };
 type Teacher = { id: string; name: string };
 const date = (value: number | null) =>
@@ -97,6 +104,7 @@ export default function Examination({
             courses={courses}
             officer={officer}
             editable={hasRole(user, "ADMIN", "TEACHER")}
+            admin={hasRole(user, "ADMIN")}
             refresh={load}
             navigate={navigate}
           />
@@ -251,6 +259,7 @@ function ExamOperations({
   courses,
   officer,
   editable,
+  admin,
   refresh,
   navigate,
 }: {
@@ -258,6 +267,7 @@ function ExamOperations({
   courses: Course[];
   officer: boolean;
   editable: boolean;
+  admin: boolean;
   refresh: () => Promise<unknown>;
   navigate: (page: string) => void;
 }) {
@@ -269,11 +279,36 @@ function ExamOperations({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [review, setReview] = useState<Review | null>(null);
+  const [completedOnly, setCompletedOnly] = useState(false);
+  const reviewId = review?.id;
+  const openReview = async (id: string) => {
+    setReview(await api<Review>(`/admin/results/${id}`));
+  };
+  useEffect(() => {
+    if (!reviewId) return;
+    let active = true;
+    const timer = setInterval(() => {
+      void api<Review>(`/admin/results/${reviewId}`)
+        .then((value) => {
+          if (active) setReview(value);
+        })
+        .catch((e) => {
+          if (active) setError(errorText(e));
+        });
+    }, 5000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [reviewId]);
   const loadRoster = useCallback(async () => {
     const rows = await api<Candidate[]>(`/admin/exams/${exam.id}/roster`);
     setRoster(rows);
     setSelected((ids) =>
-      ids.filter((id) => rows.some((r) => r.student_id === id)),
+      ids.filter((id) =>
+        rows.some((r) => r.student_id === id && !r.sessions?.length),
+      ),
     );
     setError("");
   }, [exam.id]);
@@ -283,6 +318,38 @@ function ExamOperations({
       .catch((e) => setError(errorText(e)))
       .finally(() => setRosterLoading(false));
   }, [loadRoster]);
+  const completed = (row: Candidate) =>
+    (row.sessions ?? []).some((sitting) =>
+      ["SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"].includes(sitting.status),
+    );
+  const visibleRoster = roster.filter(
+    (row) => !completedOnly || completed(row),
+  );
+  const schedulable = visibleRoster.filter(
+    (row) => !(row.sessions ?? []).length,
+  );
+  if (review)
+    return (
+      <>
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        <ReviewPage
+          backLabel="Danh sách sinh viên"
+          review={review}
+          admin={admin}
+          canGrade={editable}
+          back={() => {
+            setReview(null);
+            void loadRoster().catch((e) => setError(errorText(e)));
+          }}
+          refresh={() => openReview(review.id)}
+          open={openReview}
+        />
+      </>
+    );
   return (
     <div className={styles.operations}>
       <header className={`panel ${styles.summary}`}>
@@ -398,7 +465,7 @@ function ExamOperations({
             </a>
           </div>
         )}
-        {officer && exam.status !== "PUBLISHED" && (
+        {officer && (
           <>
             <ExamRosterPicker
               examId={exam.id}
@@ -409,6 +476,45 @@ function ExamOperations({
                 await loadRoster();
               }}
             />
+            <details>
+              <summary>Thêm sinh viên thủ công</summary>
+              <Form
+                label="Thêm sinh viên"
+                onSubmit={async (data) => {
+                  const result = await send<{
+                    added: number;
+                    accounts_created: number;
+                  }>(`/admin/exams/${exam.id}/students`, {
+                    student_number: data.get("student_number"),
+                    email: data.get("email"),
+                    name: data.get("name"),
+                    password: data.get("password") || "",
+                  });
+                  setMessage(
+                    `Đã thêm ${result.added} sinh viên, tạo ${result.accounts_created} tài khoản.`,
+                  );
+                  await loadRoster();
+                }}
+              >
+                <Field label="MSSV" name="student_number" maxLength={80} />
+                <Field label="Họ tên" name="name" maxLength={150} />
+                <Field label="Email" name="email" type="email" />
+                <Field
+                  label="Mật khẩu ban đầu (tùy chọn)"
+                  name="password"
+                  type="password"
+                  required={false}
+                  minLength={12}
+                  maxLength={128}
+                />
+              </Form>
+            </details>
+            {exam.status === "PUBLISHED" && (
+              <p>
+                Sinh viên bổ sung cần được xếp lịch trước khi vào thi. Đề và kết
+                quả đã có không thay đổi.
+              </p>
+            )}
             <p>
               Nhập .xlsx tối đa 5000 sinh viên. Mật khẩu ban đầu tùy chọn: điền
               tối thiểu 12 ký tự để đăng nhập email/mật khẩu; để trống nếu dùng
@@ -453,17 +559,30 @@ function ExamOperations({
         )}
         {!!roster.length && (
           <>
+            <label>
+              <input
+                type="checkbox"
+                checked={completedOnly}
+                onChange={(event) => setCompletedOnly(event.target.checked)}
+              />
+              Chỉ sinh viên đã nộp bài ({roster.filter(completed).length})
+            </label>
             <label className={styles.selectAll}>
               <input
                 type="checkbox"
-                checked={selected.length === roster.length}
+                checked={
+                  schedulable.length > 0 &&
+                  schedulable.every((row) => selected.includes(row.student_id))
+                }
                 onChange={(e) =>
                   setSelected(
-                    e.target.checked ? roster.map((r) => r.student_id) : [],
+                    e.target.checked
+                      ? schedulable.map((r) => r.student_id)
+                      : [],
                   )
                 }
               />
-              Chọn tất cả
+              Chọn tất cả sinh viên chưa tạo phiên thi
             </label>
             <div className="table-wrap">
               <table>
@@ -475,16 +594,18 @@ function ExamOperations({
                     <th>Email</th>
                     <th>Mở vào thi</th>
                     <th>Đóng vào thi</th>
+                    <th>Bài thi & kết quả</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {roster.map((r) => (
+                  {visibleRoster.map((r) => (
                     <tr key={r.student_id}>
                       <td>
                         <input
                           type="checkbox"
                           aria-label={`Chọn ${r.name}`}
                           checked={selected.includes(r.student_id)}
+                          disabled={!!r.sessions?.length}
                           onChange={(e) =>
                             setSelected(
                               e.target.checked
@@ -495,10 +616,31 @@ function ExamOperations({
                         />
                       </td>
                       <td>{r.student_number}</td>
-                      <td>{r.name}</td>
+                      <td>
+                        {r.sessions?.length ? (
+                          <Action action={() => openReview(r.sessions[0].id)}>
+                            {r.name}
+                          </Action>
+                        ) : (
+                          r.name
+                        )}
+                      </td>
                       <td>{r.email}</td>
                       <td>{date(r.opens_at)}</td>
                       <td>{date(r.closes_at)}</td>
+                      <td>
+                        {r.sessions?.length
+                          ? r.sessions.map((sitting) => (
+                              <div key={sitting.id}>
+                                <Action action={() => openReview(sitting.id)}>
+                                  Xem bài lần {sitting.attempt_number}
+                                </Action>
+                                <Badge status={sitting.status} /> ·{" "}
+                                {sitting.final_score ?? "Chưa xác nhận"}
+                              </div>
+                            ))
+                          : "Chưa thi"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -506,7 +648,7 @@ function ExamOperations({
             </div>
           </>
         )}
-        {officer && exam.status === "TEACHER_APPROVED" && (
+        {officer && ["TEACHER_APPROVED", "PUBLISHED"].includes(exam.status) && (
           <>
             <h3>Xếp lịch cho {selected.length} sinh viên đã chọn</h3>
             <p>
@@ -550,14 +692,16 @@ function ExamOperations({
                 type="datetime-local"
               />
             </Form>
-            <Action
-              action={async () => {
-                await send(`/admin/exams/${exam.id}/office-approve`);
-                await refresh();
-              }}
-            >
-              Xác nhận đã kiểm tra đề & mở kỳ thi
-            </Action>
+            {exam.status === "TEACHER_APPROVED" && (
+              <Action
+                action={async () => {
+                  await send(`/admin/exams/${exam.id}/office-approve`);
+                  await refresh();
+                }}
+              >
+                Xác nhận đã kiểm tra đề & mở kỳ thi
+              </Action>
+            )}
           </>
         )}
       </section>

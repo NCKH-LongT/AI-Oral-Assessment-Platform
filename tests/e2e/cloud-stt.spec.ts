@@ -4,7 +4,7 @@ import {
 } from "./helpers/results-roster";
 import { test, expect } from "@playwright/test";
 
-for (const provider of ["gemini", "google"]) {
+for (const provider of ["local", "gemini", "google"]) {
   test(`admin selects ${provider} for audio review`, async ({ page }) => {
     const writes: string[] = [];
     const review = {
@@ -78,7 +78,7 @@ for (const provider of ["gemini", "google"]) {
       .getByLabel("Lý do nhận dạng / chấm lại")
       .fill("Check original audio");
     await page
-      .getByRole("button", { name: "Nhận dạng và chấm lại", exact: true })
+      .getByRole("button", { name: "Chấm lại toàn bộ từ audio", exact: true })
       .click();
     await expect
       .poll(() => writes)

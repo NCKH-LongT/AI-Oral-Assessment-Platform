@@ -1,4 +1,7 @@
-import { installResultRoster, selectResultExam } from "./helpers/results-roster";
+import {
+  installResultRoster,
+  selectResultExam,
+} from "./helpers/results-roster";
 import { test, expect } from "@playwright/test";
 
 for (const kind of ["legacy-error", "error", "demo", "valid-zero"]) {
@@ -56,7 +59,7 @@ for (const kind of ["legacy-error", "error", "demo", "valid-zero"]) {
       if (path === "/api/admin/results/result")
         return route.fulfill({ json: review });
       if (route.request().method() === "POST") {
-        expect(path).toBe("/api/admin/attempts/attempt/grade-review");
+        expect(path).toBe("/api/admin/attempts/attempt/local-review");
         writes.push(route.request().postDataJSON());
         return route.fulfill({
           status: 202,
@@ -84,21 +87,23 @@ for (const kind of ["legacy-error", "error", "demo", "valid-zero"]) {
     }
     if (kind === "error") {
       await expect(page.getByText("Mã lỗi: AI_CONFIG_MISMATCH")).toBeVisible();
+      await expect(
+        page.getByText("Chấm lại transcript đã nộp", { exact: true }),
+      ).toHaveCount(0);
+      await page.getByText("Nhận dạng lại & chấm lại", { exact: true }).click();
+      await expect(page.getByLabel("Nhà cung cấp nhận dạng lại")).toHaveValue(
+        "local",
+      );
       await page
-        .getByText("Chấm lại transcript đã nộp", { exact: true })
-        .click();
-      await page.getByLabel("Phiên bản dùng để chấm").selectOption("target");
-      await page
-        .getByLabel("Lý do chấm lại", { exact: true })
+        .getByLabel("Lý do nhận dạng / chấm lại", { exact: true })
         .fill("Use compatible grading version");
       await page
-        .getByRole("button", { name: "Chấm lại transcript", exact: true })
+        .getByRole("button", { name: "Chấm lại toàn bộ từ audio", exact: true })
         .click();
       await expect
         .poll(() => writes)
         .toEqual([
           {
-            target_exam_id: "target",
             reason: "Use compatible grading version",
           },
         ]);

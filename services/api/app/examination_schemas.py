@@ -35,6 +35,25 @@ class RosterSelectionIn(Input):
     student_ids: list[str] = Field(min_length=1, max_length=5000)
 
 
+class ManualStudentIn(Input):
+    student_number: str = Field(min_length=1, max_length=80)
+    email: str = Field(max_length=320, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    name: str = Field(min_length=1, max_length=150)
+    password: str = Field(default="", max_length=128)
+
+    @field_validator("student_number", "email", "name", mode="before")
+    @classmethod
+    def strip_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def normalize(self):
+        self.email = self.email.lower()
+        if self.password and len(self.password) < 12:
+            raise ValueError("Mật khẩu ban đầu cần ít nhất 12 ký tự")
+        return self
+
+
 class CommissionIn(TeacherIn):
     course_id: str
     name: str = Field(min_length=1, max_length=200)

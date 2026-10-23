@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from sqlalchemy import select
-from test_server_processing import submitted, success_grade, success_stt
+from test_server_processing import submitted, success_stt
 
 from app import ai, pronunciation, speech, worker
 from app.config import settings
@@ -14,6 +14,15 @@ from app.models import Attempt, Exam, ProcessingJob
 RESULT = {"status": "COMPLETED", "model": "gopt-librispeech", "model_revision": "test-revision",
           "scores": {name: 7.5 for name in ("accuracy", "completeness", "fluency", "prosody", "total")},
           "segments": 2, "phones": 65, "reference_source": "transcript"}
+CRITERIA = [
+    {"name": "Content", "description": "Correct concepts", "max_score": 2, "weight": 3},
+    {"name": "Phát âm tiếng Anh", "description": "Clear pronunciation", "max_score": 4, "weight": 1},
+]
+
+
+def success_grade():
+    return {"score": 8.5, "confidence": 0.95, "review_required": False, "status": "COMPLETED",
+            "criteria": [{"name": "Content", "score": 1.7, "comment": "Correct concepts"}]}
 
 
 @pytest.fixture
@@ -22,7 +31,7 @@ def context(monkeypatch):
     evidence = SimpleNamespace(size=len(audio), sha256=hashlib.sha256(audio).hexdigest(),
                                storage_key="audio", mime_type="audio/webm")
     db = SimpleNamespace(scalar=lambda query: evidence)
-    exam = SimpleNamespace(snapshot={})
+    exam = SimpleNamespace(snapshot={"criteria": CRITERIA})
     attempt = SimpleNamespace(id="attempt")
     monkeypatch.setattr(pronunciation, "settings", lambda: settings().model_copy(update={"gopt_enabled": True}))
     monkeypatch.setattr(speech, "exam_policy", lambda *args: {"language": "en"})
@@ -43,11 +52,15 @@ def response(monkeypatch, payload=RESULT, status=200):
     return requests
 
 
-def test_scores_use_original_audio_and_preserve_rubric_score(context, monkeypatch):
+def test_scores_use_original_audio_and_apply_rubric_weights(context, monkeypatch):
     db, exam, attempt, evidence = context
     requests = response(monkeypatch)
     result = pronunciation.assess(db, exam, attempt, "An English answer", success_grade())
-    assert result["score"] == 8.5 and result["review_required"] is False
+    assert result["score"] == 8.25 and result["review_required"] is True
+    assert result["criteria"][0]["score"] == 1.7
+    assert result["criteria"][1]["score"] == 3
+    assert result["criteria"][1]["source"] == "gopt"
+    assert result["pronunciation"]["applied_criteria"] == ["Phát âm tiếng Anh"]
     assert result["pronunciation"]["scores"]["total"] == 7.5
     assert result["pronunciation"]["audio_sha256"] == evidence.sha256
     assert result["pronunciation"]["transcript_sha256"] == hashlib.sha256(b"An English answer").hexdigest()
@@ -56,14 +69,18 @@ def test_scores_use_original_audio_and_preserve_rubric_score(context, monkeypatc
 
 
 @pytest.mark.parametrize("language,enabled,practice", [("vi", True, False), ("en", False, False), ("en", True, True)])
-def test_skip_non_english_disabled_and_practice(context, monkeypatch, language, enabled, practice):
+def test_practice_skips_but_required_pronunciation_never_silently_skips(context, monkeypatch, language, enabled, practice):
     db, exam, attempt, _ = context
     exam.snapshot["practice"] = practice
     monkeypatch.setattr(speech, "exam_policy", lambda *args: {"language": language})
     monkeypatch.setattr(pronunciation, "settings", lambda: settings().model_copy(update={"gopt_enabled": enabled}))
     requests = response(monkeypatch)
     original = success_grade()
-    assert pronunciation.assess(db, exam, attempt, "Answer", original) == original
+    result = pronunciation.assess(db, exam, attempt, "Answer", original)
+    if practice:
+        assert result == original
+    else:
+        assert result["status"] == "FAILED" and result["score"] is None
     assert not requests
 
 
@@ -73,7 +90,8 @@ def test_provider_failure_retains_content_and_does_not_fabricate_score(context, 
     db, exam, attempt, _ = context
     response(monkeypatch, payload, status)
     result = pronunciation.assess(db, exam, attempt, "Answer", success_grade())
-    assert result["score"] == 8.5 and result["review_required"]
+    assert result["score"] is None and result["review_required"]
+    assert result["criteria"] == success_grade()["criteria"]
     assert result["pronunciation"]["status"] == "FAILED"
     assert "scores" not in result["pronunciation"] and "secret" not in str(result)
 
@@ -93,7 +111,11 @@ def test_bad_evidence_never_sent(context, monkeypatch, problem):
 
 
 def test_queue_calls_gopt_after_stt_and_content_and_can_retry_failure(env, monkeypatch):
-    _, session, attempts = submitted(env)
+    context, session, attempts = submitted(env)
+    with env[1]() as db:
+        exam = db.get(Exam, context["exam"]["id"])
+        exam.snapshot = exam.snapshot | {"criteria": CRITERIA}
+        db.commit()
     monkeypatch.setattr(pronunciation, "settings", lambda: settings().model_copy(update={"gopt_enabled": True}))
     monkeypatch.setattr(speech, "exam_policy", lambda *args: {"language": "en"})
     order = []
@@ -120,13 +142,39 @@ def test_queue_calls_gopt_after_stt_and_content_and_can_retry_failure(env, monke
     assert worker.tick() and worker.tick()
     with env[1]() as db:
         assert db.scalar(select(ProcessingJob)).status == "FAILED"
-        assert db.get(Attempt, attempts[0]).assessment["score"] == 8.5
+        assert db.get(Attempt, attempts[0]).assessment["score"] is None
     assert env[0]["admin"].post(f"/admin/attempts/{attempts[0]}/retry-processing").status_code == 202
     assert worker.tick()
     with env[1]() as db:
         assert db.scalar(select(ProcessingJob)).status == "COMPLETED"
         assert db.get(Attempt, attempts[0]).assessment["pronunciation"]["status"] == "COMPLETED"
     assert order == ["stt", "content", "gopt", "content", "gopt"]
+
+
+def test_non_pronunciation_rubric_never_calls_gopt(context, monkeypatch):
+    db, exam, attempt, _ = context
+    exam.snapshot = {"criteria": CRITERIA[:1]}
+    requests = response(monkeypatch)
+    assert pronunciation.assess(db, exam, attempt, "Answer", success_grade()) == success_grade()
+    assert not requests
+
+
+def test_pronunciation_only_rubric_avoids_llm_and_embeddings(context, monkeypatch):
+    db, exam, attempt, _ = context
+    exam.snapshot = {"criteria": CRITERIA[1:], "rubric_version": 1, "knowledge_version": "test"}
+    monkeypatch.setattr(worker, "check_config", lambda *args: None)
+    monkeypatch.setattr(ai, "retrieve", lambda *args: pytest.fail("No embeddings for pronunciation-only rubric"))
+    monkeypatch.setattr(ai, "grade", lambda *args: pytest.fail("LLM cannot assess pronunciation"))
+    response(monkeypatch)
+    result = worker.grade_answer(db, exam, None, attempt, "An English answer", 0.9)
+    assert result["score"] == 7.5
+    assert result["criteria"][0]["score"] == 3
+    assert result["status"] == "COMPLETED" and result["review_required"]
+
+
+@pytest.mark.parametrize("name", ["Pronunciation", "pronounce", "Phát âm", "PHAT AM", "English pronunciation"])
+def test_pronunciation_criterion_names(name):
+    assert pronunciation.is_criterion({"name": name})
 
 
 def test_regrading_retains_audio_identity(env, monkeypatch):

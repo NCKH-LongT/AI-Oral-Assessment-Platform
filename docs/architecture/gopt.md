@@ -12,8 +12,10 @@ docker compose -f docker-compose.yml -f docker-compose.gopt.yml logs --tail=100 
 Luôn dùng cả hai file khi cập nhật deployment này. Overlay bật GOPT cho API/worker,
 thêm container nội bộ `gopt` và chờ healthcheck trước khi worker khởi động.
 Không cần GPU, API key hay port public mới. Chọn ngôn ngữ tiếng Anh cho môn/đề;
-đề đã công bố giữ `speech_language` trong snapshot. Bài tiếng Việt và bài luyện tập
-không gọi GOPT. Code local mặc định `GOPT_ENABLED=false`.
+đề đã công bố giữ `speech_language` trong snapshot. Bài luyện tập và rubric không
+có tiêu chí phát âm không gọi GOPT. Rubric yêu cầu phát âm nhưng chưa bật GOPT hoặc
+ngôn ngữ đề không phải tiếng Anh sẽ báo lỗi, không tự bỏ qua tiêu chí. Code local
+mặc định `GOPT_ENABLED=false`.
 
 Build đầu cần mạng để tải mã nguồn Kaldi/GOPT, PyTorch CPU, model LibriSpeech m13,
 từ điển. Ánh xạ âm vị huấn luyện được đóng sẵn trong source. Kaldi được compile với `BUILD_JOBS=1`, không CUDA;
@@ -40,16 +42,58 @@ transcript sai cần được sửa/chấm lại bằng luồng review hiện c�
 
 Kết quả nằm trong `assessment.pronunciation`, bao gồm model revision, hash audio,
 hash transcript, số đoạn, số âm vị và điểm. Màn hình xem bài hiển thị điểm phát âm
-riêng. Chưa thay tiêu chí rubric hoặc cộng vào điểm tổng; GOPT thành công giữ
-nguyên điều kiện review của phần chấm nội dung. Cần hiệu chuẩn với bài nói và điểm
-giảng viên thực tế trước khi sử dụng để quyết định điểm thi.
+riêng. Tiêu chí có tên chứa `Phát âm` (có/không dấu), `Pronunciation` hoặc `pronounce`
+được chấm bằng GOPT, không giao LLM đoán phát âm từ văn bản. Nên tạo tiêu chí phát âm
+riêng, không gộp với kiến thức. Điểm tiêu chí = `GOPT total / 10 * max_score`;
+tổng điểm = trung bình có trọng số của các tiêu chí đã chuẩn hóa về thang 10.
+`pronunciation.applied_criteria` và `criteria[].source=gopt` lưu nguồn điểm.
+Kết quả có GOPT luôn cần giảng viên kiểm tra. Cần hiệu chuẩn với bài nói và điểm
+giảng viên thực tế trước khi sử dụng để quyết định điểm thi; điểm tham khảo cũ
+không được tự động cộng vào tổng khi đọc lại lịch sử.
 
 Chỉ chấm từ có trong từ điển tiếng Anh; số cần viết thành chữ trong transcript.
 Từ ngoài từ điển, không align đủ âm vị, audio hỏng/dài quá giới hạn, timeout hoặc
 dịch vụ lỗi đều trả trạng thái lỗi, không chấm phần bị cắt và không trả điểm 0 giả.
-Điểm nội dung đã tính được giữ lại, yêu cầu review. Với hàng đợi server audio,
+Điểm từng tiêu chí nội dung đã tính được giữ lại, nhưng tổng điểm để trống vì
+chưa đủ tiêu chí, yêu cầu review. Với hàng đợi server audio,
 tác vụ chuyển FAILED và nút thử lại hiện có sẽ chạy lại bước grading, không chạy
-lại STT. Với bài desktop cũ, dùng yêu cầu chấm lại/nhận dạng lại audio hiện có.
+lại STT. Nút **Chấm lại toàn bộ từ audio** luôn chạy lại STT từ đầu.
+
+## Chấm lại toàn bộ bằng model local
+
+Trong **Kết quả & xem lại** (hoặc mở bài từ **Điều phối kỳ thi → Sinh viên & lịch thi**),
+admin chọn **Nhận dạng lại & chấm lại → Local → Chấm lại toàn bộ từ audio**.
+Hệ thống xếp một `ReviewJob`: audio gốc → Whisper CPU → Ollama → GOPT khi rubric yêu cầu.
+Nút chấm riêng transcript đã nộp không còn trên UI; API cũ vẫn giữ tương thích.
+
+- Cấu hình `LOCAL_LLM_URL` trỏ đến Ollama do bạn vận hành và `LOCAL_REVIEW_LLM_MODEL`
+  là tên model đã cài trên đó. Để trống chỉ dùng `LLM_MODEL` nếu `AI_PROVIDER=local`.
+  Không tự tải hoặc chọn một model LLM lớn, không tự đổi nhà cung cấp khi lỗi.
+- `STT_MODEL` được giữ trong policy lúc xếp hàng; chuẩn bị sẵn model Whisper trong
+  cache server nếu cần vận hành không có mạng. Model Ollama cũng được giữ trong policy.
+- Có thể chấm lại đề được công bố với Gemini/demo mà không sửa snapshot đề.
+  Truy xuất `frozen-lexical-v1` xếp hạng theo từ chung trong câu hỏi/câu trả lời,
+  chỉ dùng chunk của môn và tài liệu READY trong phạm vi đóng băng của đề, lấy tối đa
+  `TOP_K`. Đây không phải vector search; không trộn embedding khác model và không gọi
+  cloud để embedding. Cần giảng viên duyệt kết quả sau khi đổi cách chấm.
+- Transcript đã nộp, audio, rubric, nguồn kiến thức và đánh giá trước được giữ nguyên
+  trong lịch sử. Chỉ cập nhật đánh giá hiện tại khi toàn bộ pipeline thành công.
+  STT/LLM/GOPT lỗi thì review FAILED, giữ đánh giá trước; gửi lại yêu cầu để chạy từ đầu.
+- Review local yêu cầu Ollama chạy `num_thread=1`, `num_gpu=0`, `keep_alive=0` để
+  giải phóng model sau chấm. Các tùy chọn dùng [API chat Ollama](https://docs.ollama.com/api/chat)
+  và [Runner options](https://github.com/ollama/ollama/blob/main/api/types.go).
+  Ollama ngoài Compose vẫn cần hạn mức RAM và cấu hình riêng; giới hạn worker không
+  giới hạn tiến trình Ollama. Dùng model đã cài tại máy, không dùng model cloud.
+
+## Bổ sung sinh viên sau công bố
+
+Khảo thí/admin có thể thêm theo môn/lớp, thêm thủ công hoặc import `.xlsx` ngay cả
+khi đề đã công bố. Email tài khoản có sẵn giữ mật khẩu; tài khoản mới có mật khẩu
+tùy chọn 12–128 ký tự, để trống nếu dùng đăng nhập Google theo email.
+Sinh viên mới chưa có lịch, cần chọn và **Lưu lịch thi**. Không thay snapshot đề,
+không đổi lịch sinh viên đã có phiên thi chưa xóa. Danh sách hiển thị các lần thi,
+trạng thái và điểm đã xác nhận; bấm tên hoặc từng lần thi để mở đầy đủ audio/đánh giá.
+Lọc **Chỉ sinh viên đã nộp bài** bao gồm bài đang xử lý, cần duyệt và đã hoàn tất.
 
 ## Giới hạn tải
 

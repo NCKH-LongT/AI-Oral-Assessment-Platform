@@ -1,6 +1,8 @@
 import hashlib
 import logging
+import re
 import tempfile
+import unicodedata
 from contextlib import closing
 from typing import Literal
 
@@ -34,13 +36,22 @@ class PronunciationResult(BaseModel):
     reference_source: Literal["transcript"]
 
 
+def is_criterion(criterion):
+    name = "".join(char for char in unicodedata.normalize("NFKD", criterion["name"].casefold())
+                   if not unicodedata.combining(char))
+    return bool(re.search(r"\b(pronunciation|pronounce|phat\s+am)\b", name))
+
+
 def assess(db, exam, attempt, transcript, assessment):
     cfg = settings()
-    if not cfg.gopt_enabled or exam.snapshot.get("practice"):
-        return assessment
-    if speech.exam_policy(db, exam)["language"] != "en":
+    criteria = exam.snapshot.get("criteria", [])
+    required = [criterion for criterion in criteria if is_criterion(criterion)]
+    if not required or exam.snapshot.get("practice"):
         return assessment
     try:
+        language = getattr(attempt, "pronunciation_language", None) or speech.exam_policy(db, exam)["language"]
+        if not cfg.gopt_enabled or language != "en":
+            raise ValueError("GOPT requires enabled service and English exam policy")
         if not transcript or not transcript.strip():
             raise ValueError("Transcript unavailable")
         query = select(Upload).where(
@@ -75,5 +86,19 @@ def assess(db, exam, attempt, transcript, assessment):
         log.warning("pronunciation_failed attempt=%s type=%s", attempt.id, type(exc).__name__)
         result = {"status": "FAILED", "model": "gopt-librispeech", "error_code": "PRONUNCIATION_FAILED",
                   "message": "Chưa chấm được phát âm. Kiểm tra dịch vụ GOPT, audio và transcript tiếng Anh rồi chấm lại."}
-    return assessment | {"pronunciation": result,
-                         "review_required": assessment.get("review_required", True) or result["status"] == "FAILED"}
+    assessment = assessment | {"pronunciation": result, "rubric_criteria": criteria, "review_required": True}
+    if result["status"] == "FAILED":
+        return assessment | {"score": None, "status": "FAILED", "error_code": "PRONUNCIATION_FAILED"}
+    actual = {criterion["name"]: criterion for criterion in assessment.get("criteria", [])}
+    for criterion in required:
+        actual[criterion["name"]] = {
+            "name": criterion["name"], "score": result["scores"]["total"] / 10 * criterion["max_score"],
+            "comment": "Chấm từ audio gốc bằng GOPT; cần giảng viên đối chiếu bản ghi và transcript.",
+            "source": "gopt",
+        }
+    result["applied_criteria"] = [criterion["name"] for criterion in required]
+    if set(actual) != {criterion["name"] for criterion in criteria} or assessment.get("status") != "COMPLETED":
+        return assessment | {"score": None}
+    score = round(10 * sum(actual[criterion["name"]]["score"] / criterion["max_score"] * criterion["weight"]
+                           for criterion in criteria) / sum(criterion["weight"] for criterion in criteria), 2)
+    return assessment | {"score": score, "criteria": [actual[criterion["name"]] for criterion in criteria]}

@@ -188,6 +188,7 @@ export type Assessment = {
   retrieved_chunks?: Chunk[];
   pronunciation?: {
     status: "COMPLETED" | "FAILED";
+    applied_criteria?: string[];
     model: string;
     message?: string;
     scores?: {

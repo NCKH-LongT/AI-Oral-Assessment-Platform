@@ -98,8 +98,8 @@ def test_full_local_review_pins_models_avoids_cloud_and_preserves_evidence(env, 
     assert runtime_settings.settings().local_llm_cpu_only is False
 
 
-@pytest.mark.parametrize("failure_stage", ["stt", "llm", "gopt", "checksum"])
-def test_local_review_failures_preserve_previous_assessment(env, monkeypatch, failure_stage):
+@pytest.mark.parametrize("failure_stage", ["stt", "llm", "llm_timeout", "gopt", "checksum"])
+def test_local_review_failures_preserve_previous_assessment(env, monkeypatch, caplog, failure_stage):
     context, _, attempt_id, audio, _ = ready(env)
     monkeypatch.setattr(settings(), "local_review_llm_model", "local-test-model")
     with env[1]() as db:
@@ -117,6 +117,8 @@ def test_local_review_failures_preserve_previous_assessment(env, monkeypatch, fa
         calls.append("grade")
         if failure_stage == "llm":
             raise ValueError("private error")
+        if failure_stage == "llm_timeout":
+            raise httpx.ReadTimeout("private error")
         return {"score": None, "pronunciation": {"status": "FAILED"}}
 
     monkeypatch.setattr(speech, "transcribe_file", stt)
@@ -129,8 +131,16 @@ def test_local_review_failures_preserve_previous_assessment(env, monkeypatch, fa
     with env[1]() as db:
         review = db.get(ReviewJob, job["id"])
         assert review.status == "FAILED" and "private error" not in review.error
+        assert job["id"] in review.error
+        if failure_stage == "llm_timeout":
+            assert review.error.startswith("AI_TIMEOUT:")
+            assert "chấm lại transcript" not in review.error
         assert db.get(Attempt, attempt_id).assessment == before
         assert db.get(Attempt, attempt_id).transcript == "Original submitted answer"
+    assert job["id"] in caplog.text and attempt_id in caplog.text
+    assert "private error" not in caplog.text
+    if failure_stage in {"stt", "llm", "llm_timeout"}:
+        assert ('"stage": "review.stt"' if failure_stage == "stt" else '"stage": "review.grading"') in caplog.text
     if failure_stage == "checksum":
         assert not calls
 

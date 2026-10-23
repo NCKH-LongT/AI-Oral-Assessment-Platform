@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 from sqlalchemy import select, text
 
-from . import ai, media_retention, processing, pronunciation, runtime_settings, speech, storage
+from . import ai, diagnostics, media_retention, processing, pronunciation, runtime_settings, speech, storage
 from .db import SessionLocal
 from .documents import process_document
 from .grading import GradingError, check_config, failure, review_question, score_summary
@@ -134,6 +134,15 @@ def grade_answer(db, exam, session, attempt, transcript, confidence, local_revie
 
 
 def process_review(db, job):
+    with diagnostics.context(job_id=job.id, attempt_id=job.attempt_id, review_provider=job.policy["provider"]):
+        diagnostics.event("review_started")
+        started = time.monotonic()
+        process_review_job(db, job)
+        diagnostics.event("review_finished", status=job.status,
+                          elapsed_seconds=round(time.monotonic() - started, 3))
+
+
+def process_review_job(db, job):
     attempt = db.scalar(select(Attempt).where(Attempt.id == job.attempt_id).with_for_update())
     session = db.get(ExamSession, attempt.session_id)
     exam = db.get(Exam, session.exam_id)
@@ -157,8 +166,8 @@ def process_review(db, job):
     except Exception as exc:
         job.status = "FAILED"
         code, message = failure(exc)
-        job.error = f"{code}: {message} Đánh giá trước được giữ nguyên."
-        log.warning("review_failed id=%s code=%s type=%s", job.id, code, type(exc).__name__)
+        job.error = f"{code}: {message} Đánh giá trước được giữ nguyên. Mã tác vụ: {job.id}."
+        diagnostics.failed("review", exc, code=code)
     job.completed_at = time.time()
     db.add(Audit(user_id=job.requested_by, event=job.policy["provider"].upper() + "_REVIEW_" + job.status,
                  details={"job_id": job.id, "attempt_id": attempt.id}))
@@ -187,7 +196,8 @@ def transcribe_and_grade(db, job, exam, session, attempt, local_review=False):
         path = Path(folder) / "original.webm"
         digest, size = hashlib.sha256(), 0
         limit = runtime_settings.settings().max_media_mb * 1024 * 1024
-        with closing(storage.open_stream(audio.storage_key)) as source, path.open("wb") as target:
+        with diagnostics.operation("review.audio_download", audio_bytes=audio.size), \
+                closing(storage.open_stream(audio.storage_key)) as source, path.open("wb") as target:
             while chunk := source.read(1024 * 1024):
                 size += len(chunk)
                 if size > limit or size > audio.size:
@@ -196,12 +206,16 @@ def transcribe_and_grade(db, job, exam, session, attempt, local_review=False):
                 target.write(chunk)
         if size != audio.size or digest.hexdigest() != audio.sha256:
             raise ValueError("Original audio checksum mismatch")
-        transcript = speech.transcribe_file(path, job.policy)
+        with diagnostics.operation("review.stt", provider=job.policy["provider"],
+                                   model=runtime_settings.settings().stt_model, audio_bytes=size):
+            transcript = speech.transcribe_file(path, job.policy)
     reviewed = SimpleNamespace(id=attempt.id, question=attempt.question, finished_at=attempt.finished_at,
                                pronunciation_audio_id=audio.id, pronunciation_language=job.policy["language"])
-    assessment = grade_answer(
-        db, exam, session, reviewed, transcript["transcript"], transcript["stt_confidence"], local_review=local_review,
-    )
+    with diagnostics.operation("review.grading", provider=runtime_settings.settings().ai_provider,
+                               model=runtime_settings.settings().llm_model):
+        assessment = grade_answer(
+            db, exam, session, reviewed, transcript["transcript"], transcript["stt_confidence"], local_review=local_review,
+        )
     if assessment.get("pronunciation", {}).get("status") == "FAILED":
         raise GradingError("PRONUNCIATION_FAILED", "Chưa chấm được phát âm; kiểm tra GOPT, audio và ngôn ngữ tiếng Anh của đề.")
     job.result = transcript | {"assessment": assessment}

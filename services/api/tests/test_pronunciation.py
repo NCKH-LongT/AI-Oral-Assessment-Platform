@@ -1,5 +1,6 @@
 import hashlib
 import io
+import json
 from types import SimpleNamespace
 
 import httpx
@@ -7,7 +8,7 @@ import pytest
 from sqlalchemy import select
 from test_server_processing import submitted, success_stt
 
-from app import ai, pronunciation, speech, worker
+from app import ai, diagnostics, pronunciation, speech, worker
 from app.config import settings
 from app.models import Attempt, Exam, ProcessingJob
 
@@ -149,6 +150,19 @@ def test_queue_calls_gopt_after_stt_and_content_and_can_retry_failure(env, monke
         assert db.scalar(select(ProcessingJob)).status == "COMPLETED"
         assert db.get(Attempt, attempts[0]).assessment["pronunciation"]["status"] == "COMPLETED"
     assert order == ["stt", "content", "gopt", "content", "gopt"]
+
+
+def test_gopt_failure_logs_status_and_review_id_without_private_data(context, monkeypatch, caplog):
+    db, exam, attempt, _ = context
+    response(monkeypatch, {"detail": "private-provider-response"}, 503)
+    with diagnostics.context(job_id="gopt-review-test"):
+        result = pronunciation.assess(db, exam, attempt, "private-student-answer", success_grade())
+    assert result["status"] == "FAILED" and result["score"] is None
+    events = [json.loads(record.getMessage()) for record in caplog.records if record.name == "oral.diagnostics"]
+    failure = next(event for event in events if event["stage"] == "gopt.assess" and event["event"] == "operation_failed")
+    assert failure["http_status"] == 503 and failure["job_id"] == "gopt-review-test"
+    assert failure["timeout_seconds"] == settings().gopt_timeout
+    assert "private-" not in caplog.text
 
 
 def test_non_pronunciation_rubric_never_calls_gopt(context, monkeypatch):

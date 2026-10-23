@@ -54,7 +54,7 @@ def failure(exc):
     if isinstance(exc, GradingError):
         return exc.code, str(exc)
     if isinstance(exc, (TimeoutError, httpx.TimeoutException)):
-        return "AI_TIMEOUT", "Nhà cung cấp AI chưa phản hồi trong thời gian chờ. Có thể thử chấm lại transcript."
+        return "AI_TIMEOUT", "Nhà cung cấp AI chưa phản hồi trong thời gian chờ. Kiểm tra log worker và tài nguyên server trước khi chấm lại."
     if isinstance(exc, ValidationError) or str(exc) in {
         "Score exceeds rubric limit", "Grading criteria mismatch", "Invalid grading references"
     }:

@@ -1,5 +1,4 @@
 import hashlib
-import logging
 import re
 import tempfile
 import unicodedata
@@ -10,11 +9,9 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from . import speech, storage
+from . import diagnostics, speech, storage
 from .models import Upload
 from .runtime_settings import settings
-
-log = logging.getLogger("oral.pronunciation")
 
 
 class Scores(BaseModel):
@@ -75,7 +72,9 @@ def assess(db, exam, attempt, transcript, assessment):
             if size != audio.size or digest.hexdigest() != audio.sha256:
                 raise ValueError("Audio checksum mismatch")
             target.seek(0)
-            with httpx.Client(timeout=httpx.Timeout(cfg.gopt_timeout, connect=5), trust_env=False) as client:
+            with diagnostics.operation("gopt.assess", provider="gopt", model="gopt-librispeech",
+                                       timeout_seconds=cfg.gopt_timeout, audio_bytes=size), \
+                    httpx.Client(timeout=httpx.Timeout(cfg.gopt_timeout, connect=5), trust_env=False) as client:
                 response = client.post(cfg.gopt_url.rstrip("/") + "/assess",
                     data={"transcript": transcript}, files={"audio": ("answer.webm", target, audio.mime_type)})
                 response.raise_for_status()
@@ -83,7 +82,7 @@ def assess(db, exam, attempt, transcript, assessment):
         result["audio_sha256"] = audio.sha256
         result["transcript_sha256"] = hashlib.sha256(transcript.encode()).hexdigest()
     except Exception as exc:
-        log.warning("pronunciation_failed attempt=%s type=%s", attempt.id, type(exc).__name__)
+        diagnostics.failed("pronunciation", exc, attempt_id=attempt.id, gopt_enabled=cfg.gopt_enabled)
         result = {"status": "FAILED", "model": "gopt-librispeech", "error_code": "PRONUNCIATION_FAILED",
                   "message": "Chưa chấm được phát âm. Kiểm tra dịch vụ GOPT, audio và transcript tiếng Anh rồi chấm lại."}
     assessment = assessment | {"pronunciation": result, "rubric_criteria": criteria, "review_required": True}

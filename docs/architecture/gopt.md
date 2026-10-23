@@ -89,6 +89,45 @@ Nút chấm riêng transcript đã nộp không còn trên UI; API cũ vẫn gi�
   Ollama ngoài Compose vẫn cần hạn mức RAM và cấu hình riêng; giới hạn worker không
   giới hạn tiến trình Ollama. Dùng model đã cài tại máy, không dùng model cloud.
 
+### Debug chấm lại và timeout
+
+`LOCAL_LLM_TIMEOUT` mặc định là `600` giây, cho phép cấu hình từ 10 đến 900 giây;
+Ollama dùng timeout kết nối riêng 10 giây. File credential cũ có giá trị `180` vẫn
+ghi đè mặc định, nên cần cập nhật `oral-ai-env` và deploy lại cả API/worker.
+Đây là timeout HTTP chờ phản hồi, không phải deadline tổng của cả STT → LLM → GOPT.
+Gemini vẫn dùng `GEMINI_TIMEOUT`, GOPT dùng `GOPT_TIMEOUT` riêng.
+
+Lỗi review hiển thị **Mã tác vụ** (`job_id`) để đối chiếu log worker:
+
+```bash
+docker logs --since 30m oral-assessment-web-worker-1 2>&1 | grep 'MA_TAC_VU'
+docker logs --since 30m --tail 100 oral-assessment-web-ollama-1
+docker logs --since 30m --tail 100 oral-assessment-web-gopt-1
+docker stats --no-stream oral-assessment-web-worker-1 oral-assessment-web-ollama-1 oral-assessment-web-gopt-1
+```
+
+Log JSON `oral.diagnostics` ghi `job_id`, `attempt_id`, bước đang chạy,
+provider/model, thời gian đã chạy, timeout cấu hình, loại exception và HTTP status
+nếu có. Các bước gồm `review.audio_download`, `review.stt`, `review.grading`,
+`ollama.chat`, `gemini.generateContent`, `gopt.assess`. `frames` chỉ ghi tên file,
+dòng và hàm, không ghi nội dung exception, URL, header, transcript hay prompt.
+`review_finished` ghi trạng thái cuối `COMPLETED`/`FAILED`.
+
+Khi Ollama thành công, các số `load_duration`, `prompt_eval_duration`, `eval_duration`,
+`total_duration` trả về từ provider được giữ nguyên (nanosecond), cùng
+`prompt_eval_count`/`eval_count` để phân biệt chậm tải model và chậm suy luận.
+`ReadTimeout` cho biết hết thời gian chờ đọc; `ConnectTimeout` là hết thời gian kết nối.
+HTTP 429/503 cần đối chiếu tình trạng tải/dịch vụ thay vì tăng timeout liên tục.
+
+Không tự retry HTTP khi timeout: yêu cầu trước có thể còn đang xử lý ở provider.
+Vẫn giữ `WORKER_SERIAL=true`, giới hạn CPU/RAM hiện có và đánh giá trước nếu thất bại.
+Tăng thời gian chờ không bảo đảm mọi bài sẽ hoàn tất; kiểm tra tài nguyên và log
+trên server trước khi tăng số luồng hoặc chạy nhiều request.
+
+Bật `GOPT_ENABLED=true` trong `.env` chưa đủ để tạo service trên server: với Jenkins,
+cần build/load trước image `ORAL_GOPT_IMAGE` theo [hướng dẫn triển khai](../jenkins.md#bật-thêm-gopt-khi-rubric-có-phát-âm),
+upload credential và deploy. GOPT chỉ được gọi cho rubric có phát âm và policy tiếng Anh.
+
 ## Bổ sung sinh viên sau công bố
 
 Khảo thí/admin có thể thêm theo môn/lớp, thêm thủ công hoặc import `.xlsx` ngay cả

@@ -12,6 +12,7 @@ from pgvector.sqlalchemy import Vector
 from pydantic import Field, create_model
 from sqlalchemy import cast, select
 
+from . import diagnostics
 from .knowledge import scope_query
 from .models import Chunk, Document
 from .runtime_settings import settings
@@ -29,27 +30,35 @@ def embedding_name():
 
 def ollama(operation, payload):
     cfg = settings()
-    response = httpx.post(
-        cfg.local_llm_url.rstrip("/") + "/api/" + operation,
-        json=payload,
-        timeout=cfg.local_llm_timeout,
-    )
-    response.raise_for_status()
-    result = response.json()
-    if result.get("error"):
-        raise ValueError("Local LLM returned an error")
-    return result
+    with diagnostics.operation("ollama." + operation, provider="local", model=payload.get("model"),
+                               timeout_seconds=cfg.local_llm_timeout, connect_timeout_seconds=10) as metrics:
+        response = httpx.post(
+            cfg.local_llm_url.rstrip("/") + "/api/" + operation,
+            json=payload,
+            timeout=httpx.Timeout(cfg.local_llm_timeout, connect=10),
+        )
+        response.raise_for_status()
+        result = response.json()
+        if result.get("error"):
+            raise ValueError("Local LLM returned an error")
+        for key in ("total_duration", "load_duration", "prompt_eval_duration", "eval_duration",
+                    "prompt_eval_count", "eval_count"):
+            if type(result.get(key)) in (int, float) and math.isfinite(result[key]):
+                metrics[key] = result[key]
+        return result
 
 
 def gemini(operation, model, payload):
-    response = httpx.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:{operation}",
-        headers={"x-goog-api-key": settings().gemini_api_key},
-        json=payload,
-        timeout=settings().gemini_timeout,
-    )
-    response.raise_for_status()
-    return response.json()
+    with diagnostics.operation("gemini." + operation, provider="gemini", model=model,
+                               timeout_seconds=settings().gemini_timeout):
+        response = httpx.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:{operation}",
+            headers={"x-goog-api-key": settings().gemini_api_key},
+            json=payload,
+            timeout=settings().gemini_timeout,
+        )
+        response.raise_for_status()
+        return response.json()
 
 
 def embed(text, task="RETRIEVAL_DOCUMENT"):

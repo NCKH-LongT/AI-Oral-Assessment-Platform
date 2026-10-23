@@ -1,5 +1,6 @@
 """Durable, observable server transcription and grading queue."""
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "0008"

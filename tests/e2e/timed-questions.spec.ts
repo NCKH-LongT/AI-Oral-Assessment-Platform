@@ -1,7 +1,13 @@
 import { test, expect } from "@playwright/test";
 
-for (const uploadFails of [false, true]) {
-  test(`timed questions auto record, advance early, stop at limit and preserve failed uploads: ${uploadFails}`, async ({
+for (const scenario of [
+  "normal",
+  "upload-failure",
+  "lost-response",
+  "refresh-failure",
+]) {
+  const uploadFails = scenario === "upload-failure";
+  test(`timed questions auto record, advance early, stop at limit and preserve failed uploads: ${scenario}`, async ({
     page,
   }) => {
     await page.addInitScript(() => {
@@ -36,6 +42,8 @@ for (const uploadFails of [false, true]) {
     const submissions: string[] = [];
     const recordings: string[] = [];
     let finishes = 0;
+    let refreshFailures = 0;
+    const submittedKeys = new Map<string, string>();
     let failUpload = uploadFails;
     const uploaded: string[] = [];
     const session = {
@@ -106,9 +114,20 @@ for (const uploadFails of [false, true]) {
         expect(route.request().postDataJSON().processing_mode).toBe(
           "server_audio",
         );
-        submissions.push(id);
-        session.answered_count++;
-        session.current_attempt = questions[session.answered_count] || null;
+        const key = route.request().headers()["idempotency-key"];
+        if (!submittedKeys.has(id)) {
+          submittedKeys.set(id, key);
+          submissions.push(id);
+          session.answered_count++;
+          session.current_attempt = questions[session.answered_count] || null;
+          if (scenario === "lost-response")
+            return route.fulfill({
+              status: 502,
+              json: {
+                error: { message: "Không kết nối được backend online." },
+              },
+            });
+        } else expect(key).toBe(submittedKeys.get(id));
         return route.fulfill({ json: { status: "SUBMITTED" } });
       }
       if (path === "/api/uploads/init") {
@@ -128,10 +147,29 @@ for (const uploadFails of [false, true]) {
           },
         });
       }
+      if (
+        scenario === "refresh-failure" &&
+        path === "/api/exam-sessions/s" &&
+        session.answered_count === 2 &&
+        refreshFailures++ < 3
+      )
+        return route.fulfill({
+          status: 502,
+          json: { error: { message: "Không kết nối được backend online." } },
+        });
       if (path === "/api/exam-sessions/s/finish") {
-        expect(uploaded).toEqual(["a1", "a1", "a2", "a2"]);
-        finishes++;
-        session.status = "SUBMITTED";
+        expect(uploaded).toEqual(["a1", "a2"]);
+        if (session.status !== "SUBMITTED") {
+          finishes++;
+          session.status = "SUBMITTED";
+          if (scenario === "lost-response")
+            return route.fulfill({
+              status: 502,
+              json: {
+                error: { message: "Không kết nối được backend online." },
+              },
+            });
+        }
       }
       return route.fulfill({ json: { ...session, server_time: now } });
     });
@@ -146,39 +184,34 @@ for (const uploadFails of [false, true]) {
     await expect(
       page.getByRole("button", { name: "Bắt đầu trả lời", exact: true }),
     ).toHaveCount(0);
-    await expect(page.getByText(/Đang ghi âm và ghi hình/)).toBeVisible();
+    await expect(page.getByText(/Đang ghi âm câu trả lời/)).toBeVisible();
     await page.waitForTimeout(1100); // Capture nonempty original WebM evidence.
     await page
       .getByRole("button", { name: "Kết thúc trả lời", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Second timed question" }),
+      page.getByText("Second timed question", { exact: true }),
     ).toBeVisible();
     await expect.poll(() => submissions.length).toBe(2);
     expect(recordings).toEqual(["a1", "a2"]);
+    if (scenario === "refresh-failure") {
+      await expect(
+        page
+          .getByRole("alert")
+          .filter({ hasText: "Không kết nối được backend online" }),
+      ).toContainText("Không kết nối được backend online");
+      await page
+        .getByRole("button", { name: "Nộp câu trả lời & tiếp tục" })
+        .click();
+    }
     if (uploadFails) {
-      await expect(
-        page.getByRole("button", { name: "Tải lại", exact: true }),
-      ).toHaveCount(2);
+      await expect(page.getByRole("button", { name: "Tải lại", exact: true })).toHaveCount(1);
       expect(finishes).toBe(0);
-      await expect(
-        page.getByRole("button", { name: "Nộp bài thi", exact: true }),
-      ).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Nộp bài thi", exact: true })).toBeDisabled();
       failUpload = false;
-      await page
-        .getByRole("button", { name: "Tải lại", exact: true })
-        .first()
-        .click();
-      await expect(
-        page.getByRole("button", { name: "Tải lại", exact: true }),
-      ).toHaveCount(1);
-      await page
-        .getByRole("button", { name: "Tải lại", exact: true })
-        .first()
-        .click();
-      await page
-        .getByRole("button", { name: "Nộp bài thi", exact: true })
-        .click();
+      await page.getByRole("button", { name: "Tải lại", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Tải lại", exact: true })).toHaveCount(0);
+      await page.getByRole("button", { name: "Nộp bài thi", exact: true }).click();
     }
     await expect(page.locator(".finished")).toContainText("Đã nộp bài thi");
     expect(finishes).toBe(1);

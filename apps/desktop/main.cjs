@@ -23,6 +23,7 @@ const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 const path = require("node:path");
 const { installUnloadGuard } = require("./unload-guard.cjs");
+const { fetchPolicy } = require("./desktop-policy.cjs");
 const { installExamLock } = require("./exam-lock.cjs");
 const { createDisplayManager } = require("./display-manager.cjs");
 const { createModelInstaller } = require("./model-installer.cjs");
@@ -250,7 +251,7 @@ app.whenReady().then(async () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      devTools: false,
+      devTools: true,
       spellcheck: false,
     },
   });
@@ -270,6 +271,11 @@ app.whenReady().then(async () => {
   });
   installUnloadGuard(win, dialog);
   examLock = installExamLock(win, { screen });
+  win.webContents.on("did-finish-load", () => {
+    void fetchPolicy(session.defaultSession, webURL.origin)
+      .then((rules) => examLock.configure(rules))
+      .catch(() => {});
+  });
   displayManager = createDisplayManager({ directory: app.getPath("userData") });
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     const headers = { ...details.requestHeaders };
@@ -281,7 +287,8 @@ app.whenReady().then(async () => {
     callback({ requestHeaders: headers });
   });
   session.defaultSession.on("will-download", (event) => {
-    if (examLock.active) event.preventDefault();
+    if (examLock.active && examLock.rules.block_downloads)
+      event.preventDefault();
   });
   session.defaultSession.setDisplayMediaRequestHandler(
     async (request, callback) => {
@@ -312,10 +319,15 @@ app.whenReady().then(async () => {
           win.isDestroyed() ||
           request.frame !== win.webContents.mainFrame ||
           !hasSameOrigin(request.securityOrigin, webURL.origin) ||
-          sources.length !== 1
+          !sources.length ||
+          (examLock.rules.single_display && sources.length !== 1)
         )
           return callback({});
-        callback({ video: sources[0] });
+        const displayId = String(screen.getDisplayMatching(win.getBounds()).id);
+        const source =
+          sources.find((item) => item.display_id === displayId) ||
+          (sources.length === 1 ? sources[0] : null);
+        callback(source ? { video: source } : {});
       } catch {
         callback({});
       } finally {
@@ -351,13 +363,20 @@ app.whenReady().then(async () => {
     trustedStudent(event);
     showSettings();
   });
-  ipcMain.handle("oral:exam-begin", async (event) => {
+  ipcMain.handle("oral:exam-begin", async (event, sessionId) => {
     trustedStudent(event);
+    if (!sessionId)
+      throw new Error("Cập nhật giao diện và chọn lượt thi trước khi bắt đầu.");
     const generation = ++examBeginGeneration;
+    const rules = await fetchPolicy(
+      session.defaultSession,
+      webURL.origin,
+      sessionId,
+    );
     await displayManager.idle();
     if (generation !== examBeginGeneration)
       throw new Error("Đã hủy khôi phục chế độ thi. Bạn có thể thử lại.");
-    await examLock.begin();
+    await examLock.begin(rules);
   });
   ipcMain.handle("oral:exam-end", async (event, options) => {
     trustedStudent(event);

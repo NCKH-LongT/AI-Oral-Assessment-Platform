@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from test_mvp import ok, prepare, start, upload
 
-from app import routes_admin, routes_exam, speech, worker
+from app import desktop_policy, routes_admin, speech, worker
 from app.models import Attempt, Audit, ExamSession, ReviewJob, User
 from app.schemas import TranscriptIn
 
@@ -44,8 +44,8 @@ def test_missing_model_advances_exam_without_grading_and_requires_all_evidence(e
     context = prepare(env, 2)
     clients, factory = env
     student, admin = clients["student"], clients["admin"]
-    config = routes_exam.settings().model_copy(update={"exam_screen_required": True})
-    monkeypatch.setattr(routes_exam, "settings", lambda: config)
+    config = desktop_policy.settings().model_copy(update={"exam_screen_required": True})
+    monkeypatch.setattr(desktop_policy, "settings", lambda: config)
     session = ok(student.post("/exam-sessions", json={"exam_id": context["exam"]["id"]}))
     session_path = f"/exam-sessions/{session['id']}"
     session = ok(student.post(session_path + "/start", json={"screen_consent": True}))
@@ -74,9 +74,7 @@ def test_missing_model_advances_exam_without_grading_and_requires_all_evidence(e
             upload(student, session["screen_attempt_id"], "SCREEN")
             assert student.post(session_path + "/finish").json()["error"]["code"] == "EVIDENCE_PENDING"
         evidence.append(upload(student, attempt_id, "AUDIO"))
-        if sequence == 2:
-            assert student.post(session_path + "/finish").json()["error"]["code"] == "EVIDENCE_PENDING"
-        upload(student, attempt_id, "VIDEO")
+        # Camera is previewed inside the session screen recording; no per-answer VIDEO.
 
     final = ok(student.post(session_path + "/finish"))
     assert final["status"] == "SUBMITTED"
@@ -132,7 +130,8 @@ def test_missing_model_keeps_ownership_state_deadline_and_idempotency_guards(env
     assert student.post(f"/exam-sessions/{session['id']}/finish").json()["error"]["code"] == "EVIDENCE_PENDING"
 
 
-def test_staff_web_and_desktop_cannot_use_student_missing_model_exception(env):
+@pytest.mark.parametrize("actor, desktop_status", [("teacher", 403), ("admin", 200)])
+def test_staff_missing_model_exception_requires_student_capability_and_desktop(env, actor, desktop_status):
     context = prepare(env, 1)
     clients, factory = env
     session = start(env, context)
@@ -141,12 +140,13 @@ def test_staff_web_and_desktop_cannot_use_student_missing_model_exception(env):
     ok(clients["student"].post(path + "/start"))
     with factory() as db:
         # Exercise the skip channel/role check separately from ownership.
-        db.get(ExamSession, session["id"]).student_id = db.scalar(select(User.id).where(User.role == "ADMIN"))
+        db.get(ExamSession, session["id"]).student_id = db.scalar(select(User.id).where(User.username == actor))
         db.commit()
     for client_header in ({}, {"X-Oral-Client": "desktop"}):
-        response = clients["admin"].post(path + "/submit", json=MISSING_STT, headers=HEADERS | client_header)
-        assert response.status_code == 403
-        assert response.json()["error"]["code"] == "DESKTOP_STT_SKIP_REQUIRED"
+        response = clients[actor].post(path + "/submit", json=MISSING_STT, headers=HEADERS | client_header)
+        assert response.status_code == (desktop_status if client_header else 403)
+        if response.status_code == 403:
+            assert response.json()["error"]["code"] == "DESKTOP_STT_SKIP_REQUIRED"
 
 
 def test_admin_can_explicitly_retranscribe_original_audio_and_preserve_skip_history(env, monkeypatch):

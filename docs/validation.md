@@ -2,6 +2,51 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Editor câu hỏi, camera và audio từng câu — 22/10/2026
+
+Kiểm thử local với database tạm; không thay đổi môn, đề hoặc bài làm trên
+production. Không cần migration mới.
+
+| Nhóm | Kết quả |
+| --- | --- |
+| API SQLite toàn bộ | **174 đạt, 9 bỏ qua**; sau đó bổ sung và kiểm tra riêng ca cấu trúc JSON sai kiểu |
+| Playwright Chromium | **38 ca khác nhau đạt** qua các lượt kiểm tra; 8 ca editor/điều hướng/ghi âm theo giờ chạy lại cuối đều đạt |
+| Electron thật từ source | Đạt tại 1024×640, 1280×680, 1366×700; camera giả lập có tỉ lệ khung khớp kích thước video và không cắt ảnh |
+| Node screen recording/recovery | **8 đạt** |
+| Kiểm tra tĩnh và build | Ruff, ESLint, TypeScript và Next production build đạt |
+
+Backend xác minh ba vai trò được sửa trong phạm vi quyền, chặn sinh viên và
+đề đã duyệt/công bố, giữ ảnh qua sao chép và lượt thi, không đổi đề nguồn,
+chặn nội dung HTML/script/ảnh ngoài/ảnh quá giới hạn. Nộp bài cần audio mỗi
+câu và SCREEN nếu bật; không cần VIDEO camera. Media cũ vẫn xem được.
+
+Trình duyệt kiểm tra chèn ảnh, đậm, xem trước, hủy/lưu/tải lại, chỉ một câu
+mở editor, layout 390px, mở đúng sinh viên/lượt thi ở tổng quan, recorder chỉ
+thu audio, thử lại upload và khôi phục ghi màn hình. Đã xem ảnh chụp editor
+và camera Electron. API và bridge trong kiểm thử UI được giả lập; media dùng
+MediaRecorder với thiết bị giả. Chưa kiểm tra camera/microphone vật lý hoặc
+bộ cài Windows mới; chưa xác nhận triển khai phiên bản này trên domain chính.
+
+## Điều phối kỳ thi và nhiều vai trò — 21/10/2026
+
+Kiểm thử trên server local, database tạm và API giả lập cho trình duyệt;
+không thay đổi dữ liệu production.
+
+| Nhóm | Kết quả |
+| --- | --- |
+| API SQLite | **163 đạt, 8 bỏ qua** |
+| PostgreSQL: nhiều vai trò, tài khoản, lớp học | **19 đạt**, gồm hai admin đồng thời tự gỡ quyền, luôn còn một admin |
+| Migration PostgreSQL | `0011 → 0012` đạt; tài khoản ADMIN cũ giữ quyền khi bảng grants mới trống |
+| Playwright: lớp, điều phối, profile/policy, nhiều vai trò | **14 đạt**; chạy lại 6 ca điều phối/nhiều vai trò sau chỉnh CSS cuối, đều đạt |
+| Kiểm tra tĩnh và build | Ruff, ESLint, TypeScript và Next production build đạt |
+
+Đã kiểm tra ảnh và độ tràn ngang ở chiều rộng 1440px/390px; kiểm thử bộ lọc,
+form tạo, hai tab chi tiết, chọn danh sách sinh viên và lưu nhiều vai trò.
+Backend kiểm tra cộng gộp quyền, thu hồi quyền với token hiện có, chặn tự
+nâng quyền, quyền admin, hồ sơ gồm cả lớp dạy/lớp học và migration. Chưa xác
+nhận bản này trên domain chính; kiểm thử trình duyệt không thay thế kiểm
+tra thiết bị desktop vật lý.
+
 ## Desktop gọn và bộ cài Windows nhẹ — 21/10/2026
 
 Kiểm tra trên Windows 10 x64. Các phiên kiểm thử dùng profile cô lập, không
@@ -28,6 +73,67 @@ Chưa kiểm tra bộ cài mới trên máy Windows sạch thứ hai, macOS/Linu
 và nộp một bài thi thật với thiết bị vật lý. Không coi việc helper nạp được
 model là phép đo chất lượng nhận dạng. Lệnh tái kiểm tra nằm trong
 [hướng dẫn build](desktop-build.md#kiểm-tra-trước-phát-hành).
+
+## Hồ sơ người dùng và quy định desktop — 19/10/2026
+
+Kiểm tra bằng database/container tạm và máy chủ web local. Không đổi cấu hình hoặc dữ liệu production.
+
+| Nhóm | Kết quả |
+| --- | --- |
+| API PostgreSQL/pgvector | **167 đạt**, không bỏ qua; bổ sung phân quyền profile/lớp/lịch sử và policy/audit/snapshot/nộp audio-only |
+| Migration | `0010 → 0011 → 0010 → 0011` đạt trên PostgreSQL và SQLite; bài kiểm tra nâng từ MVP giữ dữ liệu, điểm/transcript và NULL policy cũ đạt |
+| Playwright Chromium | 24 ca đạt trong nhóm hồ sơ/policy, đăng ký môn, lớp học, thiết bị, screen và recovery; API/bridge giả lập, dùng MediaRecorder thật với thiết bị giả |
+| Electron thật, source | Đạt kiểm thử IPC/cookie lấy policy, một màn hình/kiosk bật/tắt, phím F12 mở DevTools khi cho phép, đóng DevTools khi hết quyền và luồng xác nhận thoát |
+| Node | 18 ca desktop và 8 ca screen đạt |
+| ESLint, TypeScript, Next production build, Ruff và cú pháp Electron | Đạt |
+
+Kiểm thử UI mới xác nhận profile → lọc lớp → đợt chưa thi/đã thi → ReviewPage, admin lưu độc lập các công tắc, audio-only không xin camera/không tạo video recorder, clipboard được phép khi tắt chặn và focus-loss có/không dừng trả lời theo policy. Mở lại bài không yêu cầu screen vẫn phải khôi phục chế độ thi. API kiểm tra lịch sử sau khi rời lớp, quyền khi đổi giáo viên, camera/screen snapshot, thiếu audio vẫn không nộp được và bật lại camera không làm đổi lượt đang thi.
+
+Các lệnh kiểm tra chính:
+
+```bash
+TEST_DATABASE_URL=postgresql+psycopg://... .venv/bin/python -m pytest services/api/tests -q
+E2E_BASE_URL=http://127.0.0.1:3100 npx playwright test \
+  tests/e2e/user-profile-policy.spec.ts tests/e2e/access-enrollment.spec.ts \
+  tests/e2e/academic.spec.ts tests/e2e/exam-recovery.spec.ts \
+  tests/e2e/desktop-devices.spec.ts tests/e2e/exam-screen.spec.ts
+npm run test:desktop
+npm run test:screen
+npm run test:desktop-exit
+```
+
+Chưa phát hành bộ cài Windows/macOS hoặc thử capture trên mọi cấu hình nhiều màn hình. Test Electron dùng server fixture và mô phỏng số màn hình; không đánh giá STT/LLM thật. Server cần migration `0011` và desktop mới; xem [triển khai và giới hạn](architecture/user-profiles-desktop-policy.md).
+
+## Bộ môn, lớp học và ngân hàng đề — 18/10/2026
+
+Kiểm tra trên dữ liệu tạm, PostgreSQL/pgvector trong container riêng và web production build local; không thao tác dữ liệu production.
+
+| Nhóm | Kết quả |
+| --- | --- |
+| Toàn bộ API trên PostgreSQL | **164 đạt**, không bỏ qua; gồm quyền lớp, snapshot đề/roster, lịch, nhập Excel nguyên tử, chấm lại và các ca khóa đồng thời |
+| Migration `0009 → 0010 → 0009 → 0010` | Đạt trên SQLite và PostgreSQL; kiểm thử nâng từ MVP giữ dữ liệu cũ, FK và điểm/transcript đạt |
+| Playwright Chromium | **18 đạt**, API/bridge desktop giả lập; 4 ca mới về bộ môn/lớp, quyền giáo viên, người dùng và ngân hàng đề |
+| ESLint, TypeScript, production build Next.js | Đạt |
+| Ruff theo phạm vi workflow CI và kiểm tra cú pháp Electron | Đạt; sửa các import/định dạng cũ khiến Ruff báo lỗi |
+| Node backend/retry, audio, desktop, screen | Đạt |
+| Kiểm tra giao diện | Xem ảnh trang Người dùng ở 1024×768; bảng, hai khối nhập Excel, tìm kiếm và lọc vai trò không tràn ngang |
+
+Các ca API mới xác nhận giáo viên không quản lý bộ môn/lớp hoặc xem/chấm lớp khác, đổi phân công thu hồi quyền ngay, đề nguồn duyệt vào ngân hàng không tự giao cho sinh viên, mỗi đợt có lịch/roster/điểm riêng, và thao tác gỡ môn legacy không xóa roster của lớp. Import lỗi rollback toàn bộ; nhập lại không nhân đôi thành viên. Xóa bộ môn/lớp đang có dữ liệu bị chặn; admin xóa toàn bộ môn dọn đủ cây lớp/đợt thi.
+
+18 ca trình duyệt chạy các file `academic`, `course-hotwords`, `course-management`, `retakes`, `storage-imports`, `exam-screen`, `timed-questions` và ca `staff web` trong `platform.spec.ts`. Bao gồm khôi phục màn hình, lỗi upload, mất response và lỗi refresh của các thay đổi đã có trong workspace. Không đồng nghĩa toàn bộ 85 ca E2E đã chạy; hai ca platform dùng backend thật chưa chạy trong lượt này. Không đánh giá độ chính xác STT/LLM thật hoặc phát hành bộ cài native.
+
+Chạy lại với PostgreSQL test riêng bằng `TEST_DATABASE_URL=... .venv/bin/python -m pytest services/api/tests -q`. Không trỏ biến này vào database đang sử dụng: fixture tạo/xóa bảng. Chạy UI sau khi build và mở web local:
+
+```bash
+E2E_BASE_URL=http://127.0.0.1:3100 npx playwright test \
+  tests/e2e/academic.spec.ts tests/e2e/course-hotwords.spec.ts \
+  tests/e2e/course-management.spec.ts tests/e2e/retakes.spec.ts \
+  tests/e2e/storage-imports.spec.ts tests/e2e/exam-screen.spec.ts \
+  tests/e2e/timed-questions.spec.ts tests/e2e/platform.spec.ts \
+  --grep-invert 'login, responsive|admin enrolls'
+```
+
+Nâng cấp server cần migration **0010** và web/API/worker đồng bộ. [Thiết kế và quy tắc dữ liệu](architecture/academic-classes.md).
 
 ## Bản sửa thiếu model và khôi phục chế độ thi — 12/10/2026
 

@@ -1,9 +1,10 @@
 "use client";
+import { hasRole, userRoles, roleNames, roleLabels, Role } from "./api";
 import ExcelImport from "./excel-import";
 import ExamScore from "./exam-score";
 import ReviewEvidence from "./review-evidence";
 import ResultsBrowser, { initialResultFilters } from "./results-browser";
-import StudentCourses from "./student-courses";
+import UserDetail from "./user-detail";
 import {
   AttemptLimitFields,
   AttemptPolicy,
@@ -40,10 +41,12 @@ import { Action, Badge, Empty, Field, Form, Modal } from "./shared";
 import { TextbookPanel, TopicPanel } from "./knowledge";
 import PlatformSettings from "./platform-settings";
 import CourseStudents from "./course-students";
+import { QuestionContent } from "./question-content";
 import ExamDraftReview from "./exam-draft-review";
 import CourseHotwords from "./course-hotwords";
 import { TranscriptionReview } from "./transcription-review";
 import RubricNote from "./rubric-note";
+import PronunciationScore from "./pronunciation-score";
 
 const proctoringLabels: Record<string, string> = {
   WINDOW_BLUR: "Rời cửa sổ thi",
@@ -84,8 +87,9 @@ export default function Admin({
     [review, setReview] = useState<Review | null>(null),
     [query, setQuery] = useState(""),
     [showCreate, setShowCreate] = useState(false);
+  const [userRole, setUserRole] = useState("");
   const [resultFilters, setResultFilters] = useState(initialResultFilters);
-  const editable = user.role === "ADMIN" || user.role === "TEACHER";
+  const editable = hasRole(user, "ADMIN") || hasRole(user, "TEACHER");
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
   const load = useCallback(async () => {
     try {
@@ -111,7 +115,7 @@ export default function Admin({
     void load();
   }, [load]);
   useEffect(() => {
-    if (page !== "results") return;
+    if (page !== "results" && !review) return;
     const timer = setInterval(() => {
       void load();
       if (review)
@@ -122,13 +126,16 @@ export default function Admin({
     return () => clearInterval(timer);
   }, [page, load, review?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (loading) return <Empty>Đang tải dữ liệu…</Empty>;
-  if (page === "settings" && user.role === "ADMIN") return <PlatformSettings />;
-  if (selected && page === "courses")
+  if (page === "settings" && hasRole(user, "ADMIN"))
+    return <PlatformSettings />;
+  if (selected && ["courses", "exams"].includes(page))
     return (
       <CourseWorkspace
         course={selected}
+        bankMode={page === "exams"}
+        officer={hasRole(user, "ADMIN", "EXAM_OFFICER")}
         students={users}
-        admin={user.role === "ADMIN"}
+        admin={hasRole(user, "ADMIN")}
         editable={editable}
         back={() => {
           setSelected(null);
@@ -137,18 +144,19 @@ export default function Admin({
         }}
       />
     );
-  if (review && page === "results")
+  if (review)
     return (
       <ReviewPage
         review={review}
         canGrade={editable}
-        admin={user.role === "ADMIN"}
+        admin={hasRole(user, "ADMIN")}
         refresh={async () =>
           setReview(await api<Review>(`/admin/results/${review.id}`))
         }
         back={() => {
           setReview(null);
-          void load();
+          if (page === "dashboard") navigate("results");
+          else void load();
         }}
         open={async (id) =>
           setReview(await api<Review>(`/admin/results/${id}`))
@@ -272,23 +280,27 @@ export default function Admin({
             </div>
             <ResultTable
               rows={results.slice(0, 5)}
-              open={async () => navigate("results")}
+              open={async (id) =>
+                setReview(await api<Review>(`/admin/results/${id}`))
+              }
             />
           </section>
         </>
       )}
-      {page === "courses" && (
+      {["courses", "exams"].includes(page) && (
         <>
-          <ExcelImport kind="courses" saved={load} />
+          {page === "courses" && <ExcelImport kind="courses" saved={load} />}
           <div className="page-heading">
             <div>
               <span className="eyebrow">THIẾT KẾ VIỆC ĐÁNH GIÁ</span>
-              <h1>Môn học & đề thi</h1>
+              <h1>{page === "exams" ? "Ngân hàng đề thi" : "Môn học"}</h1>
               <p className="muted">
-                Tổ chức kiến thức, tiêu chí và bài thi trong từng môn học.
+                {page === "exams"
+                  ? "Chọn môn để quản lý đề, category và rubric."
+                  : "Quản lý tài liệu, chuẩn đầu ra và học viên theo môn."}
               </p>
             </div>
-            {editable && (
+            {editable && page === "courses" && (
               <button
                 className="button"
                 onClick={() => setShowCreate(!showCreate)}
@@ -373,20 +385,14 @@ export default function Admin({
         </>
       )}
       {page === "users" && selectedStudent ? (
-        <StudentCourses
-          student={selectedStudent}
-          editable={["ADMIN", "EXAM_OFFICER"].includes(user.role)}
+        <UserDetail
+          person={selectedStudent}
+          viewer={user}
           back={() => setSelectedStudent(null)}
         />
       ) : (
         page === "users" && (
           <>
-            {user.role === "ADMIN" && (
-              <>
-                <ExcelImport kind="teachers" saved={load} />
-                <ExcelImport kind="officers" saved={load} />
-              </>
-            )}
             <div className="page-heading">
               <div>
                 <span className="eyebrow">CON NGƯỜI & VAI TRÒ</span>
@@ -395,7 +401,7 @@ export default function Admin({
                   Tài khoản được quản trị viên cấp trước khi giao bài thi.
                 </p>
               </div>
-              {user.role === "ADMIN" && (
+              {hasRole(user, "ADMIN") && (
                 <button
                   className="button"
                   onClick={() => setShowCreate(!showCreate)}
@@ -405,6 +411,12 @@ export default function Admin({
                 </button>
               )}
             </div>
+            {hasRole(user, "ADMIN") && (
+              <div className="user-imports">
+                <ExcelImport kind="teachers" saved={load} />
+                <ExcelImport kind="officers" saved={load} />
+              </div>
+            )}
             {showCreate && (
               <section className="panel">
                 <Form
@@ -415,7 +427,7 @@ export default function Admin({
                       email: d.get("email") || null,
                       name: d.get("name"),
                       password: d.get("password"),
-                      role: d.get("role"),
+                      roles: d.getAll("roles"),
                     });
                     setShowCreate(false);
                     await load();
@@ -439,63 +451,117 @@ export default function Admin({
                         required
                       />
                     </label>
-                    <label>
-                      Vai trò
-                      <select name="role" defaultValue="STUDENT">
-                        <option value="EXAM_OFFICER">Khảo thí</option>
-                        <option value="STUDENT">Sinh viên</option>
-                        <option value="TEACHER">Giảng viên</option>
-                        <option value="ADMIN">Quản trị viên</option>
-                      </select>
-                    </label>
+                    <fieldset className="role-options">
+                      <legend>Vai trò (có thể chọn nhiều)</legend>
+                      {(Object.keys(roleLabels) as Role[]).map((role) => (
+                        <label key={role}>
+                          <input
+                            type="checkbox"
+                            name="roles"
+                            value={role}
+                            defaultChecked={role === "STUDENT"}
+                          />
+                          {roleLabels[role]}
+                        </label>
+                      ))}
+                      <small>Quản trị viên có mọi quyền.</small>
+                    </fieldset>
                   </div>
                 </Form>
               </section>
             )}
-            <section className="panel table-wrap">
+            <div className="user-toolbar">
+              <input
+                aria-label="Tìm người dùng"
+                placeholder="Tìm tên, email hoặc tài khoản…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <select
+                aria-label="Lọc vai trò"
+                value={userRole}
+                onChange={(e) => setUserRole(e.target.value)}
+              >
+                <option value="">Tất cả vai trò</option>
+                {["STUDENT", "TEACHER", "EXAM_OFFICER", "ADMIN"].map((r) => (
+                  <option key={r}>{r}</option>
+                ))}
+              </select>
+              <small>
+                {
+                  users.filter(
+                    (u) =>
+                      (!userRole || userRoles(u).some((r) => r === userRole)) &&
+                      `${u.name} ${u.email || ""} ${u.username}`
+                        .toLowerCase()
+                        .includes(query.toLowerCase()),
+                  ).length
+                }{" "}
+                tài khoản
+              </small>
+            </div>
+            <section className="panel table-wrap compact-users">
               <table>
                 <thead>
                   <tr>
                     <th>Người dùng</th>
                     <th>Email / Tên đăng nhập</th>
                     <th>Vai trò</th>
+                    <th>Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id}>
-                      <td>
-                        <span className="user-cell">
-                          <span className="avatar">
-                            <Users size={16} />
-                          </span>
-                          {u.role === "STUDENT" ? (
+                  {users
+                    .filter(
+                      (u) =>
+                        (!userRole ||
+                          userRoles(u).some((r) => r === userRole)) &&
+                        `${u.name} ${u.email || ""} ${u.username}`
+                          .toLowerCase()
+                          .includes(query.toLowerCase()),
+                    )
+                    .map((u) => (
+                      <tr key={u.id}>
+                        <td>
+                          <span className="user-cell">
+                            <span className="avatar">
+                              <Users size={16} />
+                            </span>
                             <button
                               className="text-button"
                               onClick={() => setSelectedStudent(u)}
                             >
                               {u.name}
                             </button>
-                          ) : (
-                            u.name
+                          </span>
+                        </td>
+                        <td>{u.email || u.username}</td>
+                        <td>
+                          {!hasRole(user, "ADMIN") && (
+                            <span className="pill">{roleNames(u)}</span>
                           )}
-                        </span>
-                      </td>
-                      <td>{u.email || u.username}</td>
-                      <td>
-                        <span className="pill">{u.role}</span>
-                        {user.role === "ADMIN" && (
-                          <RoleEditor
-                            user={u}
-                            saved={async () => {
-                              await load();
-                              if (u.id === user.id) window.location.reload();
-                            }}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                          {hasRole(user, "ADMIN") && (
+                            <RoleEditor
+                              key={`${u.id}-${userRoles(u).join("-")}-${u.requested_role || ""}`}
+                              user={u}
+                              saved={async () => {
+                                await load();
+                                if (u.id === user.id) window.location.reload();
+                              }}
+                            />
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            className="text-button"
+                            onClick={() => setSelectedStudent(u)}
+                            aria-label={`Chi tiết ${u.name}`}
+                          >
+                            Chi tiết
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </section>
@@ -600,24 +666,30 @@ function ResultTable({
 function CourseWorkspace({
   admin,
   course,
+  bankMode = false,
+  officer = false,
   students,
   editable,
   back,
 }: {
   admin: boolean;
   course: Course;
+  bankMode?: boolean;
+  officer?: boolean;
   students: User[];
   editable: boolean;
   back: () => void;
 }) {
   const [data, setData] = useState<Workspace | null>(null),
-    [tab, setTab] = useState("knowledge"),
+    [tab, setTab] = useState(bankMode ? "exams" : "knowledge"),
     [knowledgeTab, setKnowledgeTab] = useState("textbook"),
     [rubricOpen, setRubricOpen] = useState(false),
     [examOpen, setExamOpen] = useState(false),
     [deleteCourseOpen, setDeleteCourseOpen] = useState(false),
     [error, setError] = useState(""),
     [rag, setRag] = useState<Chunk[] | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState(""),
+    [rubricFilter, setRubricFilter] = useState("");
   const [editRubric, setEditRubric] = useState<Rubric | null>(null),
     [editExam, setEditExam] = useState<Exam | null>(null),
     [formVersion, setFormVersion] = useState(0);
@@ -656,18 +728,22 @@ function CourseWorkspace({
         {[
           { id: "knowledge", label: "01 · Kiến thức" },
           { id: "rubric", label: "02 · Rubric" },
-          { id: "exams", label: "03 · Bài thi & giao bài" },
+          { id: "exams", label: "Ngân hàng đề thi" },
           { id: "students", label: "04 · Học viên" },
           { id: "settings", label: "Cài đặt" },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={tab === t.id ? "active" : ""}
-          >
-            {t.label}
-          </button>
-        ))}
+        ]
+          .filter((t) =>
+            bankMode ? ["exams", "rubric"].includes(t.id) : t.id !== "exams",
+          )
+          .map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={tab === t.id ? "active" : ""}
+            >
+              {t.label}
+            </button>
+          ))}
       </div>
       {tab === "students" && (
         <CourseStudents courseId={course.id} users={students} admin={admin} />
@@ -1013,183 +1089,274 @@ function CourseWorkspace({
           {(!data.rubrics.length || !data.topics.length) && (
             <p className="muted">Thêm chủ đề và rubric trước khi tạo đề thi.</p>
           )}
-          {data.exams.map((e) => (
-            <section className="panel" key={e.id}>
-              <div className="section-title">
-                <div>
-                  <h2>{e.name}</h2>
-                  <p className="muted">
-                    {e.blueprint.reduce((n, b) => n + b.count, 0)} câu ·{" "}
-                    {Math.round(e.time_limit / 60)} phút
-                  </p>
-                </div>
-                <Badge status={e.status} />
-              </div>
-              <p className="muted">
-                Rubric: {data.rubrics.find((r) => r.id === e.rubric_id)?.name}
-              </p>
-              <details>
-                <summary>Xem phân bổ câu hỏi</summary>
-                <ul>
-                  {e.blueprint.map((b, i) => (
-                    <li key={i}>
-                      {data.topics.find((t) => t.id === b.topic_id)?.name ||
-                        "Chủ đề đã xóa"}
-                      {" · "}
-                      {
-                        { EASY: "Dễ", MEDIUM: "Trung bình", HARD: "Khó" }[
-                          b.difficulty
-                        ]
-                      }
-                      {" · "}
-                      {b.count} câu
-                    </li>
+          <div className="form-grid bank-filters">
+            <label>
+              Category
+              <select
+                aria-label="Category"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="">Tất cả category</option>
+                {Array.from(
+                  new Set(
+                    data.exams.map((e) => e.category || "Chưa phân loại"),
+                  ),
+                )
+                  .sort()
+                  .map((c) => (
+                    <option key={c}>{c}</option>
                   ))}
-                </ul>
-              </details>
-              <p className="muted">
-                {e.max_attempts === null
-                  ? "Làm lại không giới hạn"
-                  : (e.max_attempts ?? 1) === 1
-                    ? "Không cho làm lại"
-                    : `Cho làm lại ${e.max_attempts - 1} lần`}
-              </p>
-              {admin && (
-                <AttemptPolicy
-                  key={`${e.id}-${e.max_attempts}`}
-                  examId={e.id}
-                  initial={e.max_attempts === undefined ? 1 : e.max_attempts}
-                  saved={load}
-                />
-              )}
-              {editable && e.status === "DRAFT" && (
-                <div className="inline">
-                  <Action
-                    action={() => mutate(`/admin/exams/${e.id}/generate`)}
-                  >
-                    {e.imported
-                      ? "Tạo bản nháp từ câu hỏi đã nhập"
-                      : "Sinh câu hỏi & rubric để review"}
-                  </Action>
-                  <button
-                    className="button secondary"
-                    onClick={() => {
-                      setEditExam(e);
-                      setExamOpen(true);
-                    }}
-                  >
-                    Sửa bản nháp
-                  </button>
-                  <Action
-                    className="text-button danger"
-                    action={async () => {
-                      if (!window.confirm(`Xóa đề nháp “${e.name}”?`)) return;
-                      await mutate(`/admin/exams/${e.id}`, undefined, "DELETE");
-                      if (editExam?.id === e.id) setEditExam(null);
-                    }}
-                  >
-                    Xóa
-                  </Action>
-                </div>
-              )}
-              {editable && (
-                <Action
-                  className="button secondary"
-                  disabled={course.status !== "ACTIVE"}
-                  action={async () => {
-                    const copy = await send<Exam>(`/admin/exams/${e.id}/copy`);
-                    await load();
-                    setEditExam(copy);
-                    setExamOpen(true);
-                  }}
-                >
-                  Sao chép thành bản nháp
-                </Action>
-              )}
-              {["GENERATED", "TEACHER_APPROVED"].includes(e.status) && (
-                <ExamDraftReview
-                  key={`${e.id}-${e.status}`}
-                  examId={e.id}
-                  editable={editable}
-                  refresh={load}
-                />
-              )}
-              {e.status === "TEACHER_APPROVED" && (
-                <p>Khảo thí kiểm tra đề và xếp lịch trong Điều phối kỳ thi.</p>
-              )}
-              {e.status === "PUBLISHED" && (
-                <>
-                  <p className="muted">
-                    Đề đã công bố được giữ nguyên để bảo toàn kết quả. Sao chép
-                    thành bản nháp để chỉnh sửa.
-                  </p>
-                  <div className="generated-questions">
-                    <h3>Câu hỏi & thuật ngữ tiếng Anh gợi ý</h3>
-                    {(e.questions || []).map((question, index) => (
-                      <article key={index} className="generated-question">
-                        <h4>
-                          Câu {index + 1}: {question.text}
-                        </h4>
-                        <p className="muted">
-                          Chuẩn bị {question.preparation_seconds ?? 10} giây ·
-                          Trả lời tối đa {question.recording_seconds ?? 60} giây
-                        </p>
-                        {question.english_terms?.length ? (
-                          <ul>
-                            {question.english_terms.map(({ term, meaning }) => (
-                              <li key={term}>
-                                <strong lang="en">{term}</strong>: {meaning}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="muted">
-                            Chưa có gợi ý thuật ngữ cho câu hỏi này.
-                          </p>
-                        )}
-                      </article>
-                    ))}
+              </select>
+            </label>
+            <label>
+              Rubric
+              <select
+                aria-label="Rubric"
+                value={rubricFilter}
+                onChange={(e) => setRubricFilter(e.target.value)}
+              >
+                <option value="">Tất cả rubric</option>
+                {data.rubrics.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {data.exams
+            .filter(
+              (e) =>
+                (!categoryFilter ||
+                  (e.category || "Chưa phân loại") === categoryFilter) &&
+                (!rubricFilter || e.rubric_id === rubricFilter),
+            )
+            .map((e) => (
+              <section className="panel" key={e.id}>
+                <div className="section-title">
+                  <div>
+                    <h2>{e.name}</h2>
                     <p className="muted">
-                      Gợi ý do AI sinh để giảng viên kiểm tra. Đề cũ và chế độ
-                      demo có thể chưa có thuật ngữ.
+                      {e.blueprint.reduce((n, b) => n + b.count, 0)} câu ·{" "}
+                      {Math.round(e.time_limit / 60)} phút
                     </p>
                   </div>
-                </>
-              )}
-              {editable && e.status === "PUBLISHED" && !e.workflow && (
+                  <Badge status={e.status} />
+                </div>
+                <p className="muted">
+                  Rubric: {data.rubrics.find((r) => r.id === e.rubric_id)?.name}
+                </p>
                 <details>
-                  <summary>Giao riêng đề này cho học viên</summary>
+                  <summary>Category: {e.category || "Chưa phân loại"}</summary>
                   <Form
-                    label="Giao bài cho sinh viên đã chọn"
-                    onSubmit={(d) =>
-                      mutate(`/admin/exams/${e.id}/assign`, {
-                        student_ids: d.getAll("student_ids"),
-                      })
-                    }
+                    label="Lưu category"
+                    onSubmit={async (d) => {
+                      await mutate(
+                        `/admin/exams/${e.id}/category`,
+                        { category: d.get("category") },
+                        "PUT",
+                      );
+                    }}
                   >
-                    <label>Sinh viên</label>
-                    <div className="check-grid">
-                      {students.map((u) => (
-                        <label className="check" key={u.id}>
-                          <input
-                            type="checkbox"
-                            name="student_ids"
-                            value={u.id}
-                          />
-                          {u.name} <small>{u.username}</small>
-                        </label>
-                      ))}
-                    </div>
-                    {!students.length && (
-                      <p className="muted">
-                        Quản trị viên cần tạo tài khoản sinh viên trước.
-                      </p>
-                    )}
+                    <Field
+                      label="Category của đề"
+                      name="category"
+                      defaultValue={e.category || ""}
+                      required={false}
+                    />
                   </Form>
                 </details>
-              )}
-            </section>
-          ))}
+                <details>
+                  <summary>Xem phân bổ câu hỏi</summary>
+                  <ul>
+                    {e.blueprint.map((b, i) => (
+                      <li key={i}>
+                        {data.topics.find((t) => t.id === b.topic_id)?.name ||
+                          "Chủ đề đã xóa"}
+                        {" · "}
+                        {
+                          { EASY: "Dễ", MEDIUM: "Trung bình", HARD: "Khó" }[
+                            b.difficulty
+                          ]
+                        }
+                        {" · "}
+                        {b.count} câu
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+                <p className="muted">
+                  {e.max_attempts === null
+                    ? "Làm lại không giới hạn"
+                    : (e.max_attempts ?? 1) === 1
+                      ? "Không cho làm lại"
+                      : `Cho làm lại ${e.max_attempts - 1} lần`}
+                </p>
+                {admin && (
+                  <AttemptPolicy
+                    key={`${e.id}-${e.max_attempts}`}
+                    examId={e.id}
+                    initial={e.max_attempts === undefined ? 1 : e.max_attempts}
+                    saved={load}
+                  />
+                )}
+                {editable && e.status === "DRAFT" && (
+                  <div className="inline">
+                    <Action
+                      action={() => mutate(`/admin/exams/${e.id}/generate`)}
+                    >
+                      {e.imported
+                        ? "Tạo bản nháp từ câu hỏi đã nhập"
+                        : "Sinh câu hỏi & rubric để review"}
+                    </Action>
+                    <button
+                      className="button secondary"
+                      onClick={() => {
+                        setEditExam(e);
+                        setExamOpen(true);
+                      }}
+                    >
+                      Sửa bản nháp
+                    </button>
+                    <Action
+                      className="text-button danger"
+                      action={async () => {
+                        if (!window.confirm(`Xóa đề nháp “${e.name}”?`)) return;
+                        await mutate(
+                          `/admin/exams/${e.id}`,
+                          undefined,
+                          "DELETE",
+                        );
+                        if (editExam?.id === e.id) setEditExam(null);
+                      }}
+                    >
+                      Xóa
+                    </Action>
+                  </div>
+                )}
+                {(editable || officer) && (
+                  <Action
+                    className="button secondary"
+                    disabled={course.status !== "ACTIVE"}
+                    action={async () => {
+                      const copy = await send<Exam>(
+                        `/admin/exams/${e.id}/copy?preserve_content=true`,
+                      );
+                      await load();
+                      if (copy.status === "DRAFT") {
+                        setEditExam(copy);
+                        setExamOpen(true);
+                      }
+                    }}
+                  >
+                    Sao chép thành bản nháp
+                  </Action>
+                )}
+                {["GENERATED", "TEACHER_APPROVED"].includes(e.status) && (
+                  <ExamDraftReview
+                    key={`${e.id}-${e.status}`}
+                    examId={e.id}
+                    editable={editable || officer}
+                    canApprove={editable}
+                    refresh={load}
+                  />
+                )}
+                {e.status === "TEACHER_APPROVED" && (
+                  <div className="notice">
+                    <p>
+                      Khảo thí duyệt vào ngân hàng để sử dụng cho các lớp. Đề đã
+                      có danh sách thi tiếp tục xếp lịch trong Điều phối kỳ thi.
+                    </p>
+                    {officer && (
+                      <Action
+                        action={() =>
+                          mutate(`/admin/exams/${e.id}/bank-approve`)
+                        }
+                      >
+                        Duyệt vào ngân hàng đề
+                      </Action>
+                    )}
+                  </div>
+                )}
+                {e.status === "PUBLISHED" && (
+                  <>
+                    <p className="muted">
+                      Đề đã công bố được giữ nguyên để bảo toàn kết quả. Sao
+                      chép thành bản nháp để chỉnh sửa.
+                    </p>
+                    <div className="generated-questions">
+                      <h3>Câu hỏi & thuật ngữ tiếng Anh gợi ý</h3>
+                      {(e.questions || []).map((question, index) => (
+                        <article key={index} className="generated-question">
+                          <h4>Câu {index + 1}</h4>
+                          <QuestionContent
+                            text={question.text}
+                            content={question.rich_content}
+                          />
+                          <p className="muted">
+                            Chuẩn bị {question.preparation_seconds ?? 10} giây ·
+                            Trả lời tối đa {question.recording_seconds ?? 60}{" "}
+                            giây
+                          </p>
+                          {question.english_terms?.length ? (
+                            <ul>
+                              {question.english_terms.map(
+                                ({ term, meaning }) => (
+                                  <li key={term}>
+                                    <strong lang="en">{term}</strong>: {meaning}
+                                  </li>
+                                ),
+                              )}
+                            </ul>
+                          ) : (
+                            <p className="muted">
+                              Chưa có gợi ý thuật ngữ cho câu hỏi này.
+                            </p>
+                          )}
+                        </article>
+                      ))}
+                      <p className="muted">
+                        Gợi ý do AI sinh để giảng viên kiểm tra. Đề cũ và chế độ
+                        demo có thể chưa có thuật ngữ.
+                      </p>
+                    </div>
+                  </>
+                )}
+                {editable && e.status === "PUBLISHED" && !e.workflow && (
+                  <details>
+                    <summary>Giao riêng đề này cho học viên</summary>
+                    <Form
+                      label="Giao bài cho sinh viên đã chọn"
+                      onSubmit={(d) =>
+                        mutate(`/admin/exams/${e.id}/assign`, {
+                          student_ids: d.getAll("student_ids"),
+                        })
+                      }
+                    >
+                      <label>Sinh viên</label>
+                      <div className="check-grid">
+                        {students.map((u) => (
+                          <label className="check" key={u.id}>
+                            <input
+                              type="checkbox"
+                              name="student_ids"
+                              value={u.id}
+                            />
+                            {u.name} <small>{u.username}</small>
+                          </label>
+                        ))}
+                      </div>
+                      {!students.length && (
+                        <p className="muted">
+                          Quản trị viên cần tạo tài khoản sinh viên trước.
+                        </p>
+                      )}
+                    </Form>
+                  </details>
+                )}
+              </section>
+            ))}
           {editable && examOpen && (
             <Modal
               title="Thiết lập đề thi"
@@ -1638,7 +1805,7 @@ function ExamForm({
     </section>
   );
 }
-function ReviewPage({
+export function ReviewPage({
   canGrade,
   review,
   back,
@@ -1816,7 +1983,10 @@ function ReviewPage({
             <h2>Câu {a.sequence}</h2>
             <Badge status={a.status} />
           </div>
-          <h3>{a.question.text}</h3>
+          <QuestionContent
+            text={a.question.text}
+            content={a.question.rich_content}
+          />
           {a.processing && (
             <div className="notice">
               <Badge status={a.processing.status} />
@@ -1875,6 +2045,7 @@ function ReviewPage({
                       <RubricNote text={c.comment} />
                     </div>
                   ))}
+                  <PronunciationScore result={a.assessment.pronunciation} />
                   <small>
                     {a.assessment.confidence == null ||
                     a.assessment.error ||
@@ -1937,33 +2108,52 @@ function RoleEditor({
   user: User;
   saved: () => Promise<void>;
 }) {
-  const [role, setRole] = useState<User["role"]>(
-    user.requested_role === "EXAM_OFFICER" ? "EXAM_OFFICER" : user.role,
+  const initial = userRoles(user);
+  const [roles, setRoles] = useState<Role[]>(
+    user.requested_role === "EXAM_OFFICER" && !initial.includes("EXAM_OFFICER")
+      ? [...initial, "EXAM_OFFICER"]
+      : initial,
   );
+  const unchanged =
+    initial.length === roles.length && initial.every((r) => roles.includes(r));
   return (
-    <div className="inline">
+    <details className="role-editor">
+      <summary>{roleNames(user)}</summary>
       {user.requested_role && (
-        <span className="badge pending">Yêu cầu: {user.requested_role}</span>
+        <span className="badge pending">
+          Yêu cầu bổ sung: {user.requested_role}
+        </span>
       )}
-      <select
-        aria-label={`Vai trò của ${user.name}`}
-        value={role}
-        onChange={(e) => setRole(e.target.value as User["role"])}
-      >
-        {["STUDENT", "TEACHER", "EXAM_OFFICER", "ADMIN"].map((r) => (
-          <option key={r}>{r}</option>
+      <fieldset className="role-options">
+        <legend>Vai trò của {user.name}</legend>
+        {(Object.keys(roleLabels) as Role[]).map((role) => (
+          <label key={role}>
+            <input
+              type="checkbox"
+              checked={roles.includes(role)}
+              onChange={(e) =>
+                setRoles(
+                  e.target.checked
+                    ? [...roles, role]
+                    : roles.filter((r) => r !== role),
+                )
+              }
+            />
+            {roleLabels[role]}
+          </label>
         ))}
-      </select>
+        <small>Quản trị viên có mọi quyền. Chọn ít nhất một vai trò.</small>
+      </fieldset>
       <Action
-        className="text-button"
-        disabled={role === user.role && !user.requested_role}
+        className="button secondary"
+        disabled={!roles.length || (unchanged && !user.requested_role)}
         action={async () => {
-          await send(`/admin/users/${user.id}/role`, { role }, "PUT");
+          await send(`/admin/users/${user.id}/roles`, { roles }, "PUT");
           await saved();
         }}
       >
         Lưu quyền
       </Action>
-    </div>
+    </details>
   );
 }

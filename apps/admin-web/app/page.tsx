@@ -1,4 +1,5 @@
 "use client";
+import { hasRole, roleNames } from "../components/api";
 import { useEffect, useState } from "react";
 import {
   AudioLines,
@@ -13,17 +14,25 @@ import {
 } from "lucide-react";
 import { api, send, User } from "../components/api";
 import { Action, Form, Field } from "../components/shared";
+import Academic from "../components/academic";
 import Admin from "../components/admin";
 import Student from "../components/student";
 import GoogleLogin from "../components/google-login";
 import Examination from "../components/examination";
 import StorageManager from "../components/storage-manager";
+import { DesktopPolicySummary } from "../components/desktop-policy";
 import DesktopExit from "../components/desktop-exit";
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
-    [page, setPage] = useState("dashboard");
+    [page, setPage] = useState("dashboard"),
+    [navigationVersion, setNavigationVersion] = useState(0);
+  const navigate = (destination: string) => {
+    setPage(destination);
+    // A menu click always opens its root, including the currently active menu.
+    setNavigationVersion((version) => version + 1);
+  };
   useEffect(() => {
     api<User>("/auth/me")
       .then(setUser)
@@ -114,6 +123,9 @@ export default function Home() {
             <Field label="Mật khẩu" name="password" type="password" />
           </Form>
           <GoogleLogin onLogin={setUser} />
+          {typeof window !== "undefined" && window.oralDesktop && (
+            <DesktopPolicySummary />
+          )}
           <p className="login-note">
             Web dành cho admin, khảo thí và giáo viên. Sinh viên sử dụng OralAI
             Desktop.
@@ -126,13 +138,13 @@ export default function Home() {
         </section>
       </main>
     );
-  const isStudent = user.role === "STUDENT";
   const desktop = !!window.oralDesktop;
+  const isStudent = desktop && hasRole(user, "STUDENT");
   const logout = async () => {
     await send("/auth/logout");
     setUser(null);
   };
-  if (!desktop && !["ADMIN", "EXAM_OFFICER", "TEACHER"].includes(user.role))
+  if (!desktop && !hasRole(user, "ADMIN", "EXAM_OFFICER", "TEACHER"))
     return (
       <main className="main">
         <h1>Vui lòng sử dụng OralAI Desktop</h1>
@@ -179,8 +191,19 @@ export default function Home() {
     ? [{ id: "student", label: "Bài thi của tôi", icon: GraduationCap }]
     : [
         { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
-        { id: "courses", label: "Môn học & đề thi", icon: BookOpen },
-        ...(["ADMIN", "EXAM_OFFICER", "TEACHER"].includes(user.role)
+        { id: "courses", label: "Môn học", icon: BookOpen },
+        { id: "exams", label: "Ngân hàng đề thi", icon: ClipboardCheck },
+        ...(hasRole(user, "ADMIN", "EXAM_OFFICER")
+          ? [{ id: "departments", label: "Bộ môn", icon: BookOpen }]
+          : []),
+        {
+          id: "classes",
+          label: hasRole(user, "ADMIN", "EXAM_OFFICER")
+            ? "Lớp học"
+            : "Lớp được phân công",
+          icon: GraduationCap,
+        },
+        ...(hasRole(user, "ADMIN", "EXAM_OFFICER", "TEACHER")
           ? [
               {
                 id: "examination",
@@ -191,7 +214,7 @@ export default function Home() {
           : []),
         { id: "users", label: "Người dùng", icon: Users },
         { id: "results", label: "Kết quả & xem lại", icon: ClipboardCheck },
-        ...(user.role === "ADMIN"
+        ...(hasRole(user, "ADMIN")
           ? [
               {
                 id: "storage",
@@ -219,7 +242,7 @@ export default function Home() {
               className={
                 page === item.id || isStudent ? "nav-item active" : "nav-item"
               }
-              onClick={() => setPage(item.id)}
+              onClick={() => navigate(item.id)}
             >
               <item.icon size={19} />
               {item.label}
@@ -236,7 +259,7 @@ export default function Home() {
           <span className="avatar">{user.name.slice(0, 1)}</span>
           <div>
             <strong>{user.name}</strong>
-            <small>{user.role}</small>
+            <small>{roleNames(user)}</small>
           </div>
           <button
             className="icon-button"
@@ -261,7 +284,7 @@ export default function Home() {
           <DesktopExit />
           <span className="pill">MVP · Giai đoạn 1</span>
         </header>
-        <div className="content">
+        <div className="content" key={`${page}:${navigationVersion}`}>
           {isStudent && (
             <details className="role-request">
               <summary>Yêu cầu quyền khảo thí</summary>
@@ -282,14 +305,16 @@ export default function Home() {
               </Action>
             </details>
           )}
-          {page === "storage" && user.role === "ADMIN" ? (
+          {["classes", "departments"].includes(page) ? (
+            <Academic key={page} user={user} page={page} />
+          ) : page === "storage" && hasRole(user, "ADMIN") ? (
             <StorageManager />
           ) : page === "examination" && !isStudent ? (
-            <Examination user={user} navigate={setPage} />
+            <Examination user={user} navigate={navigate} />
           ) : isStudent ? (
             <Student />
           ) : (
-            <Admin key={page} user={user} page={page} navigate={setPage} />
+            <Admin key={page} user={user} page={page} navigate={navigate} />
           )}
         </div>
         <footer>

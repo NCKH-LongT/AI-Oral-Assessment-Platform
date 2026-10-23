@@ -1,0 +1,58 @@
+ENT104 — SOURCE AND EXAMINER NOTES
+Original: ENT104_Speaking Guidelines and Sample.pdf
+SHA-256: d2038d99208776a9dc1eea41ef38b5322ed29825fc29411e389b549de245b398
+
+Thi cá nhân. Part 1: 5 câu trong 2 phút; Part 2: chuẩn bị 2 phút, mô tả ảnh 2–3 phút. Ảnh gốc nằm ở trang 2, phải được giảng viên trình chiếu/cung cấp khi thi.
+
+Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR.
+
+--- EXTRACTED SOURCE TEXT (page breaks retained) ---
+                       ENT104 - Speaking Test Guidelines and Sample
+                                         General Overview
+   ●   Students take the test individually.
+   ●   A student chooses a speaking topic randomly (using https://wheelofnames.com/)
+   ●   Part 1: The examiner asks the student 5 questions from the list. (2 minutes)
+   ●   Part 2: The student describes a picture using the prompt questions. (2 minutes for
+       preparation, 2-3 minutes for speaking)
+                                        Instructions for Examiner
+Starting the test
+          “Good morning/afternoon. Welcome to the speaking test. There are two parts to
+          this test. In the first part, I will ask you 5 questions. In Part 2, you will describe a
+          picture based on some questions I will give you.”
+Part 1: Introduction
+   1. Introduce Part 1:
+          “Let’s begin with Part 1. I’m going to ask you 5 questions.”
+   2. Switch to part 2:
+          “That’s the end of Part 1. Let’s move on to Part 2.”
+Part 2: Picture description
+          “Now, for part 2, I’m going to show you a picture and you need to describe it in
+          2 to 3 minutes. You will have 2 minutes to prepare. I will also give you some
+          questions to help you think about what to say.”
+Ending the test
+          “That is the end of the speaking test. Thank you.”
+
+[PAGE BREAK]
+                                 ENT104 – Speaking Test Sample
+
+Topic: Getting acquainted
+
+Part 1. Introduction
+
+       1. Where is your hometown?
+       2. Who is your favorite actor?
+       3. What job does your father/ mother do?
+       4. How often do you go out with your friends?
+       5. When you go out with your friends, where do you usually go?
+Part 2. Picture description (2 minutes for preparation, 2-3 minutes for speaking)
+
+
+
+
+   1. How many people are there in the picture?
+   2. Where do you think they are?
+   3. Who do you think they are?
+   4. What do you think they are talking about?
+
+[PAGE BREAK]
+
+Picture remains in the original PDF; the text extraction does not replace the visual prompt. Examiner must display the original picture.

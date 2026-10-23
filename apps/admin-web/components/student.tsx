@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { QuestionContent } from "./question-content";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -20,6 +21,7 @@ import {
   SpeechPolicy,
 } from "./api";
 import { Action, Badge, Empty } from "./shared";
+import { DesktopPolicySummary } from "./desktop-policy";
 import NoiseCheck from "./noise-check";
 import { useQuestionTimer, type QuestionClock } from "./use-question-timer";
 import { useExamGuard } from "./use-exam-guard";
@@ -49,14 +51,17 @@ declare global {
       openGoogle?: (url: string) => Promise<void>;
       focus?: () => Promise<void>;
       settings?: () => Promise<void>;
-      beginExam?: () => Promise<void>;
+      policyVersion?: number;
+      beginExam?: (sessionId?: string) => Promise<void>;
       endExam?: (options?: { restoreDisplays?: boolean }) => Promise<void>;
       displayStatus?: () => Promise<DesktopDisplayStatus>;
       useSingleDisplay?: (keep: string) => Promise<DesktopDisplayStatus>;
       restoreDisplays?: () => Promise<DesktopDisplayStatus>;
       onExamEvent?: (callback: (type: string) => void) => () => void;
       quit?: () => Promise<void>;
-      downloadModel?: (backendMode: "local" | "online") => Promise<{ ready: boolean }>;
+      downloadModel?: (
+        backendMode: "local" | "online",
+      ) => Promise<{ ready: boolean }>;
       sttModels?: () => Promise<DesktopModel[]>;
       transcribe: (audio: ArrayBuffer, policy: SpeechPolicy) => Promise<STT>;
     };
@@ -67,7 +72,6 @@ type PendingAnswer = {
   audio: Blob;
   filteredAudio: Blob | null;
   sttSource: "original" | "filtered";
-  video: Blob;
   transcript: string;
   confidence: number | null;
   sttSkippedReason?: "MODEL_MISSING";
@@ -77,7 +81,7 @@ type PendingAnswer = {
 type UploadJob = {
   id: string;
   attemptId: string;
-  kind: "AUDIO" | "VIDEO" | "SCREEN";
+  kind: "AUDIO" | "SCREEN";
   blob: Blob;
   progress: number;
   status: "pending" | "uploading" | "done" | "failed";
@@ -91,11 +95,10 @@ const hash = async (blob: Blob) =>
   )
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
-const mime = (kind: "audio" | "video") =>
-  (kind === "audio"
-    ? ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
-    : ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]
-  ).find((t) => MediaRecorder.isTypeSupported(t));
+const audioMime = () =>
+  ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) =>
+    MediaRecorder.isTypeSupported(t),
+  );
 
 function submissionBadge(status: string) {
   return ["SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"].includes(status)
@@ -104,6 +107,7 @@ function submissionBadge(status: string) {
 }
 
 export default function Student() {
+  const [cameraRatio, setCameraRatio] = useState(4 / 3);
   const [displayBusy, setDisplayBusy] = useState(false);
   const [screenConsent, setScreenConsent] = useState(false);
   const screenJobs = useRef(
@@ -115,6 +119,8 @@ export default function Student() {
     [session, setSession] = useState<ExamSession | null>(null),
     [error, setError] = useState("");
   const autoSubmitRecording = useRef(false);
+  const answerUploads = useRef(new Map<string, UploadJob[]>());
+  const cameraRequired = session?.desktop_policy?.require_camera ?? true;
   const timedQuestions = !!session?.timed_questions;
   const serverProcessing = !!session?.server_processing;
   const sessionFinished =
@@ -348,11 +354,15 @@ export default function Student() {
           "Cần trình duyệt hỗ trợ MediaRecorder trên HTTPS hoặc localhost.",
         );
       const s = await navigator.mediaDevices.getUserMedia({
-        video: {
-          ...(selectedCamera ? { deviceId: { exact: selectedCamera } } : {}),
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-        },
+        video: cameraRequired
+          ? {
+              ...(selectedCamera
+                ? { deviceId: { exact: selectedCamera } }
+                : {}),
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+            }
+          : false,
         audio: {
           ...(selectedMic ? { deviceId: { exact: selectedMic } } : {}),
           echoCancellation: false,
@@ -506,11 +516,10 @@ export default function Student() {
       );
     if (!session?.current_attempt || !stream || deviceError || connecting)
       throw new Error("Kiểm tra camera và microphone trước.");
-    const am = mime("audio"),
-      vm = mime("video");
-    if (!am || !vm)
+    const am = audioMime();
+    if (!am)
       throw new Error(
-        "Trình duyệt chưa hỗ trợ định dạng ghi âm/video. Dùng Chrome hoặc Electron.",
+        "Trình duyệt chưa hỗ trợ định dạng ghi âm. Dùng Chrome hoặc Electron.",
       );
     if (!window.oralDesktop && denoise && (!filterRef.current || filterError))
       throw new Error(
@@ -522,33 +531,24 @@ export default function Student() {
         ? stream
         : gainRef.current?.stream || stream
       ).getAudioTracks(),
-      ...stream.getVideoTracks(),
     ]);
     const audioRecorder = new MediaRecorder(
       new MediaStream(capture.getAudioTracks()),
       { mimeType: am },
     );
-    const videoRecorder = new MediaRecorder(capture, {
-      mimeType: vm,
-      videoBitsPerSecond: 650000,
-    });
     const filterVersion = filterFailures.current;
     const cleanRecorder =
       !window.oralDesktop && filterRef.current && !filterError
         ? new MediaRecorder(filterRef.current.stream, { mimeType: am })
         : null;
     const audioChunks: BlobPart[] = [],
-      cleanChunks: BlobPart[] = [],
-      videoChunks: BlobPart[] = [];
+      cleanChunks: BlobPart[] = [];
     if (cleanRecorder)
       cleanRecorder.ondataavailable = (e) => {
         if (e.data.size) cleanChunks.push(e.data);
       };
     audioRecorder.ondataavailable = (e) => {
       if (e.data.size) audioChunks.push(e.data);
-    };
-    videoRecorder.ondataavailable = (e) => {
-      if (e.data.size) videoChunks.push(e.data);
     };
     const guardRevision = guard.getRevision();
     setStartingRecording(true);
@@ -565,7 +565,6 @@ export default function Student() {
     }
     const activeRecorders = [
       audioRecorder,
-      videoRecorder,
       ...(cleanRecorder ? [cleanRecorder] : []),
     ];
     let stops = 0;
@@ -585,7 +584,6 @@ export default function Student() {
             ? new Blob(cleanChunks, { type: am.split(";")[0] })
             : null,
         sttSource: "original",
-        video: new Blob(videoChunks, { type: vm.split(";")[0] }),
         transcript: "",
         originalText: "",
         confidence: 0,
@@ -725,8 +723,7 @@ export default function Student() {
       !answer.sttSkippedReason
     )
       throw new Error("Nhận dạng câu trả lời trước khi nộp.");
-    if (!answer.audio.size || !answer.video.size)
-      throw new Error("Media rỗng. Vui lòng ghi âm lại.");
+    if (!answer.audio.size) throw new Error("Media rỗng. Vui lòng ghi âm lại.");
     setSubmitting(true);
     try {
       const confidence =
@@ -743,25 +740,37 @@ export default function Student() {
         }),
         headers: { "Idempotency-Key": answer.key },
       });
-      const added: UploadJob[] = (["AUDIO", "VIDEO"] as const).map((kind) => ({
-        id: crypto.randomUUID(),
-        attemptId: answer.attemptId,
-        kind,
-        blob: kind === "AUDIO" ? answer.audio : answer.video,
-        progress: 0,
-        status: "pending",
-      }));
-      setJobs((all) => [...all, ...added]);
-      setAnswer(null);
+      let added = answerUploads.current.get(answer.key);
+      if (!added) {
+        added = (["AUDIO"] as const).map((kind) => ({
+          id: crypto.randomUUID(),
+          attemptId: answer.attemptId,
+          kind,
+          blob: answer.audio,
+          progress: 0,
+          status: "pending",
+        }));
+        answerUploads.current.set(answer.key, added);
+        const newJobs = added;
+        setJobs((all) => [...all, ...newJobs]);
+      }
       setError("");
       if (automatic) {
-        const uploaded = await Promise.all(added.map(runUpload));
+        const uploaded = await Promise.all(
+          added.map((job) => (job.status === "done" ? true : runUpload(job))),
+        );
         const next = await refreshSession(session.id);
+        setAnswer(null);
+        answerUploads.current.delete(answer.key);
         if (!next.current_attempt && uploaded.every(Boolean))
           await finishExam(next);
       } else {
-        added.forEach((j) => void runUpload(j));
+        added
+          .filter((job) => ["pending", "failed"].includes(job.status))
+          .forEach((job) => void runUpload(job));
         await refreshSession(session.id);
+        setAnswer(null);
+        answerUploads.current.delete(answer.key);
       }
     } finally {
       setSubmitting(false);
@@ -823,6 +832,7 @@ export default function Student() {
   ) {
     await guard.release();
     screenJobs.current.clear();
+    answerUploads.current.clear();
     setScreenConsent(false);
     const next = sessionId
       ? await api<ExamSession>(`/exam-sessions/${sessionId}`)
@@ -868,6 +878,7 @@ export default function Student() {
             {error}
           </p>
         )}
+        {desktopSpeech.desktop && <DesktopPolicySummary />}
         <label className="course-filter">
           Môn học
           <select
@@ -1008,6 +1019,9 @@ export default function Student() {
           {error}
         </p>
       )}
+      {desktopSpeech.desktop && session.desktop_policy && (
+        <DesktopPolicySummary rules={session.desktop_policy} />
+      )}
       {finished ? (
         <section className="panel finished">
           <CheckCircle2 size={52} />
@@ -1073,6 +1087,7 @@ export default function Student() {
               </div>
             )}
             {desktopSpeech.desktop &&
+              (session.desktop_policy?.single_display ?? true) &&
               !guard.preparing &&
               (session.status === "DEVICE_CHECK" || guard.blocked) && (
                 <DesktopDisplaySettings
@@ -1104,20 +1119,26 @@ export default function Student() {
                   thi.
                 </p>
                 <ol>
-                  <li>Cho phép truy cập camera và microphone.</li>
-                  <li>Kiểm tra hình ảnh và thanh tín hiệu microphone.</li>
+                  <li>
+                    {cameraRequired
+                      ? "Cho phép truy cập camera và microphone."
+                      : "Cho phép truy cập microphone; lượt thi này không yêu cầu camera."}
+                  </li>
+                  <li>Kiểm tra thiết bị và thanh tín hiệu microphone.</li>
                   {!desktopSpeech.desktop && (
                     <li>
                       Kiểm tra độ ồn, tìm chỗ yên lặng nếu được nhắc hoặc chọn
                       bỏ qua.
                     </li>
                   )}
-                  <li>Camera chỉ ghi khi bạn bấm “Bắt đầu trả lời”.</li>
+                  {cameraRequired && (
+                    <li>Camera chỉ ghi khi bạn bấm “Bắt đầu trả lời”.</li>
+                  )}
                 </ol>
                 <p className="muted">
-                  Audio/video được lưu để giảng viên xem lại. Chưa hỗ trợ khôi
-                  phục bản ghi khi đóng ứng dụng; giữ cửa sổ mở đến khi nộp bài
-                  thành công.
+                  Audio từng câu và video màn hình (khi bật) được lưu để giảng
+                  viên xem lại. Chưa hỗ trợ khôi phục bản ghi khi đóng ứng dụng;
+                  giữ cửa sổ mở đến khi nộp bài thành công.
                 </p>
                 {!desktopSpeech.desktop && (
                   <>
@@ -1137,7 +1158,7 @@ export default function Student() {
                       </p>
                     )}
                     <p className="muted">
-                      Mặc định STT dùng bản gốc. Audio/video gốc được giữ để đối
+                      Mặc định STT dùng bản gốc. Audio gốc được giữ để đối
                       chiếu. Lựa chọn lọc chỉ áp dụng cho audio dùng STT.
                     </p>
                     {stream && !deviceError && (
@@ -1152,10 +1173,10 @@ export default function Student() {
                 )}
                 {desktopSpeech.desktop && !serverProcessing && (
                   <p className="muted">
-                    STT dùng bản ghi gốc từ microphone. Audio/video gốc được giữ
-                    để đối chiếu. Nếu vẫn nhận nhiều màn hình dù đã tắt nguồn,
-                    dùng nút Tắt màn hình phụ trong mục Chuẩn bị màn hình, rồi
-                    bấm Bắt đầu thi.
+                    STT dùng bản ghi gốc từ microphone. Audio gốc được giữ để
+                    đối chiếu. Nếu vẫn nhận nhiều màn hình dù đã tắt nguồn, dùng
+                    nút Tắt màn hình phụ trong mục Chuẩn bị màn hình, rồi bấm
+                    Bắt đầu thi.
                   </p>
                 )}
                 {session.screen_required && (
@@ -1185,7 +1206,8 @@ export default function Student() {
                   action={async () => {
                     if (
                       window.oralDesktop?.beginExam ||
-                      session.screen_required
+                      session.screen_required ||
+                      (desktopSpeech.desktop && session.desktop_policy)
                     )
                       await guard.prepare();
                     try {
@@ -1210,9 +1232,12 @@ export default function Student() {
                   CÂU {session.current_attempt.sequence} /{" "}
                   {session.question_count}
                 </span>
-                <h2 className="question-text">
-                  {session.current_attempt.text}
-                </h2>
+                <div className="question-text">
+                  <QuestionContent
+                    text={session.current_attempt.text}
+                    content={session.current_attempt.rich_content}
+                  />
+                </div>
                 {session.current_attempt.prompt_image && (
                   <Image
                     unoptimized
@@ -1231,7 +1256,7 @@ export default function Student() {
                   {recording ? (
                     <>
                       <span className="record-dot" />
-                      Đang ghi âm và ghi hình
+                      Đang ghi âm câu trả lời
                       {timedQuestions
                         ? ` · Còn ${questionTimer.seconds} giây`
                         : ""}
@@ -1381,7 +1406,7 @@ export default function Student() {
                             !answer.transcript.trim() &&
                             !answer.sttSkippedReason)
                         }
-                        action={submit}
+                        action={() => submit(answer, timedQuestions)}
                       >
                         Nộp câu trả lời & tiếp tục →
                       </Action>
@@ -1464,21 +1489,36 @@ export default function Student() {
               <div className="section-title">
                 <h3>
                   <Camera size={17} />
-                  Camera của bạn
+                  {cameraRequired ? "Camera của bạn" : "Microphone của bạn"}
                 </h3>
                 <span className={recording ? "record-label" : "muted"}>
                   {recording ? "REC" : "Preview"}
                 </span>
               </div>
-              <div className="camera-preview">
-                <video ref={preview} autoPlay playsInline muted />
-                {!stream && (
-                  <span>
-                    <Camera size={34} />
-                    Chưa kết nối camera
-                  </span>
-                )}
-              </div>
+              {cameraRequired && (
+                <div
+                  className="camera-preview"
+                  style={{ aspectRatio: cameraRatio }}
+                >
+                  <video
+                    ref={preview}
+                    autoPlay
+                    playsInline
+                    muted
+                    onLoadedMetadata={(e) => {
+                      const video = e.currentTarget;
+                      if (video.videoWidth && video.videoHeight)
+                        setCameraRatio(video.videoWidth / video.videoHeight);
+                    }}
+                  />
+                  {!stream && (
+                    <span>
+                      <Camera size={34} />
+                      Chưa kết nối camera
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="mic-meter">
                 <Mic size={16} />
                 <div>
@@ -1540,8 +1580,8 @@ export default function Student() {
                     </label>
                     <p className="muted">
                       0 dB giữ nguyên mức mic. Tăng từng ít một nếu giọng nhỏ;
-                      giảm nếu rè. Áp dụng cho bản thu mới, video và STT. Thu
-                      thử lại sau khi chỉnh.
+                      giảm nếu rè. Áp dụng cho bản thu audio mới và STT. Thu thử
+                      lại sau khi chỉnh.
                     </p>
                   </>
                 )}
@@ -1551,6 +1591,7 @@ export default function Student() {
                     ["videoinput", "Camera", cameraId],
                   ] as const
                 ).map(([kind, label, selected]) => {
+                  if (kind === "videoinput" && !cameraRequired) return null;
                   const options = availableDevices.filter(
                     (d) => d.kind === kind && d.deviceId,
                   );
@@ -1617,7 +1658,11 @@ export default function Student() {
                 className="button secondary"
                 action={devices}
               >
-                {stream ? "Kết nối lại thiết bị" : "Cho phép camera & mic"}
+                {stream
+                  ? "Kết nối lại thiết bị"
+                  : cameraRequired
+                    ? "Cho phép camera & mic"
+                    : "Cho phép microphone"}
               </Action>
             </section>
             <section className="panel">
@@ -1627,7 +1672,8 @@ export default function Student() {
               </h3>
               {!jobs.length ? (
                 <p className="muted">
-                  Audio và video sẽ tải lên sau khi nộp mỗi câu.
+                  Chỉ audio được tải lên sau mỗi câu. Video màn hình được lưu
+                  cho cả lượt thi khi bật ghi màn hình.
                 </p>
               ) : (
                 jobs.map((j) => (

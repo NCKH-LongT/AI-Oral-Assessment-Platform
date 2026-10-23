@@ -10,16 +10,29 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from . import processing, storage
 from . import schemas as s
-from . import storage, processing
 from .config import settings
 from .db import get_db
+from .desktop_policy import policy as desktop_policy
+from .desktop_policy import session_policy as desktop_session_policy
 from .examination import check_schedule, schedule_for
 from .grading import GradingError, check_config
-from .models import Assignment, Attempt, Audit, Course, CourseEnrollment, Exam, ExamSession, ProcessingJob, Upload
+from .models import (
+    Assignment,
+    Attempt,
+    Audit,
+    Course,
+    CourseEnrollment,
+    Exam,
+    ExamSession,
+    ProcessingJob,
+    Upload,
+)
+from .permissions import has_role
 from .practice import COURSE_ID
-from .retakes import ACTIVE, allowance, submission_history_row, submission_status, sessions_for
-from .security import by_id, course_access, current_user, fail
+from .retakes import ACTIVE, allowance, sessions_for, submission_history_row, submission_status
+from .security import by_id, current_user, exam_access, fail
 from .submissions import missing_stt_assessment, stt_skipped_reason
 from .worker import finalize
 
@@ -68,6 +81,7 @@ def public_session(db, session):
         "status": submission_status(session.status),
         "started_at": session.started_at,
         "screen_required": session.screen_required,
+        "desktop_policy": desktop_session_policy(session),
         "screen_attempt_id": attempts[0].id if attempts else None,
         "time_limit": exam.time_limit,
         "server_time": time.time(),
@@ -78,6 +92,7 @@ def public_session(db, session):
                 "id": first.id,
                 "sequence": first.sequence,
                 "text": first.question["text"],
+                "rich_content": first.question.get("rich_content"),
                 "prompt_image": first.question.get("prompt_image") if first.question.get("prompt_image") in {
                     "/practice/toeic-speaking/office.svg", "/practice/toeic-speaking/cafe.svg"
                 } else None,
@@ -111,7 +126,7 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
         if exam.course_id == COURSE_ID or exam.snapshot.get("practice"):
             continue
         assignment = schedule_for(db, exam, user.id)
-        if exam.workflow and (user.role != "STUDENT" or assignment is None):
+        if exam.workflow and (not has_role(user, "STUDENT") or assignment is None):
             continue
         sessions = sessions_for(db, exam.id, user.id)
         session = next((s for s in sessions if s.status in ACTIVE), sessions[0] if sessions else None)
@@ -152,7 +167,7 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
             select(Assignment.id).where(Assignment.exam_id == exam.id, Assignment.student_id == user.id)
         )
     )
-    if exam.workflow and (user.role != "STUDENT" or not schedule_for(db, exam, user.id)):
+    if exam.workflow and (not has_role(user, "STUDENT") or not schedule_for(db, exam, user.id)):
         fail(403, "NOT_ASSIGNED", "Bạn không có tên trong danh sách kỳ thi")
     if exam.status != "PUBLISHED" or not allowed:
         fail(403, "NOT_ASSIGNED", "Bạn chưa được giao bài thi này")
@@ -175,7 +190,9 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
     session = ExamSession(exam_id=exam.id, student_id=user.id, attempt_number=last_number + 1)
     db.add(session)
     db.flush()
-    session.screen_required = user.role == "STUDENT" and settings().exam_screen_required and not exam.snapshot.get("practice", False)
+    session.desktop_policy = desktop_policy(db)
+    session.screen_required = has_role(user, "STUDENT") and session.desktop_policy["require_screen"] and not exam.snapshot.get("practice", False)
+    session.desktop_policy = dict(session.desktop_policy, require_screen=session.screen_required)
     for index, question in enumerate(exam.snapshot["questions"]):
         db.add(Attempt(session_id=session.id, sequence=index + 1, question=question))
     db.commit()
@@ -280,7 +297,7 @@ def submit(
     user=Depends(current_user),
 ):
     attempt, session = owned_attempt(db, key, user, lock=True)
-    if body.stt_skipped_reason and (user.role != "STUDENT" or request.headers.get("x-oral-client") != "desktop"):
+    if body.stt_skipped_reason and (not has_role(user, "STUDENT") or request.headers.get("x-oral-client") != "desktop"):
         # This identifies the supported channel, not trusted device attestation.
         # A skipped answer can only require review; it cannot earn an AI score.
         fail(403, "DESKTOP_STT_SKIP_REQUIRED", "Chỉ hỗ trợ bỏ qua model cục bộ khi sinh viên thi trên desktop")
@@ -352,8 +369,9 @@ def finish(key: str, db: Session = Depends(get_db), user=Depends(current_user)):
             kinds = set(
                 db.scalars(select(Upload.kind).where(Upload.attempt_id == a.id, Upload.status == "COMPLETED"))
             )
-            if not {"AUDIO", "VIDEO"} <= kinds:
-                fail(409, "EVIDENCE_PENDING", "Chờ tải đủ audio/video trước khi nộp bài")
+            required_kinds = {"AUDIO"}
+            if not required_kinds <= kinds:
+                fail(409, "EVIDENCE_PENDING", "Chờ tải audio từng câu trước khi nộp bài")
     session.status, session.completed_at = "SUBMITTED", time.time()
     processing.queue_session(db, key)
     db.flush()
@@ -482,9 +500,9 @@ def evidence(key: str, request: Request, db: Session = Depends(get_db), user=Dep
     if exam.course_id == COURSE_ID or (exam.snapshot or {}).get("practice"):
         fail(410, "PRACTICE_DISABLED", "Chức năng học và thi thử đã ngừng sử dụng")
     if session.student_id != user.id:
-        if user.role == "STUDENT":
+        if not has_role(user, "ADMIN", "TEACHER", "EXAM_OFFICER"):
             fail(403, "FORBIDDEN", "Minh chứng không thuộc tài khoản")
-        course_access(db, by_id(db, Exam, session.exam_id).course_id, user)
+        exam_access(db, exam, user)
     if row.status != "COMPLETED":
         fail(409, "NOT_READY", "Evidence chưa sẵn sàng")
     start, end, status = 0, row.size - 1, 200

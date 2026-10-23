@@ -271,14 +271,9 @@ for (const [savedModel, language, failure] of [
       noiseSuppression: false,
       autoGainControl: false,
     });
-    // Exactly the audio and video evidence recorders use the original mic;
-    // there is no filtered alternative recorder or pre-exam test recording.
+    // Camera stays live for the screen recording; only raw mic audio is recorded per answer.
     expect(captured.recordings).toEqual([
       { audioTrackIds: captured.rawAudioIds, videoTrackIds: [] },
-      {
-        audioTrackIds: captured.rawAudioIds,
-        videoTrackIds: captured.rawVideoIds,
-      },
     ]);
     expect(audioAssetRequests).toEqual([]);
     await expect(transcriptInput).toHaveCount(0);
@@ -295,7 +290,8 @@ for (const [savedModel, language, failure] of [
     await page
       .getByRole("button", { name: "Nộp bài thi", exact: true })
       .click();
-    await expect(page.locator(".finished")).toContainText("8/10");
+    await expect(page.locator(".finished")).toContainText("Đã nộp bài thi");
+    await expect(page.locator(".finished")).not.toContainText("8/10");
     await expect
       .poll(() =>
         page.evaluate(() => {

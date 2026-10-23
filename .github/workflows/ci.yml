@@ -46,7 +46,7 @@ jobs:
       - run: npm ci
       - run: npm run lint && npm run typecheck && npm run build
       - run: npm run check -w apps/desktop
-      - run: npm run test:audio && npm run test:desktop && npm run test:screen
+      - run: npm run test:backend && npm run test:audio && npm run test:desktop && npm run test:screen
       - run: npm audit --audit-level=high
   compose-e2e:
     runs-on: ubuntu-latest

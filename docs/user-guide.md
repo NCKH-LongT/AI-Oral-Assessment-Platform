@@ -1,5 +1,37 @@
 # Hướng dẫn sử dụng OralAI
 
+Bấm tên menu bên trái để quay về trang gốc của mục đó. Thao tác này có hiệu lực cả khi menu đang được chọn và bạn đang xem chi tiết bên trong; các lựa chọn/bộ lọc cục bộ được đặt lại.
+
+## Cấp nhiều vai trò
+
+Admin vào **Người dùng**, mở **Vai trò**, tích các vai trò và bấm **Lưu quyền**.
+Khi tạo tài khoản mới cũng chọn được nhiều vai trò. Phải giữ ít nhất một vai
+trò cho tài khoản và một admin đang hoạt động trong hệ thống. Bộ lọc tìm
+trên tất cả vai trò của tài khoản.
+
+Quyền được cộng gộp: TEACHER + EXAM_OFFICER có quyền soạn đề và điều phối;
+STUDENT + TEACHER quản lý trên web và làm bài được giao trên desktop. ADMIN
+có mọi quyền; vẫn cần được giao bài và đủ điều kiện thi.
+[Chi tiết](architecture/multi-role-access.md).
+
+## Hồ sơ người dùng và quy định desktop
+
+Vào **Người dùng → Chi tiết** để xem profile và danh sách lớp. Lọc **Đã học / Đang học / Sẽ học** theo lịch lớp; bấm **Chi tiết lớp** để xem các đợt thi. Đợt chưa có lượt hiển thị **Chưa thi**; đợt đã làm có từng lượt và **Chi tiết bài thi** để mở transcript, minh chứng, điểm và chấm lại theo quyền. Lớp đã rời vẫn giữ lịch sử thi. Giáo viên chỉ thấy lớp trong phạm vi được phân công. Nút **Quản lý môn học được giao** mở phần đăng ký môn cũ.
+
+Chỉ admin có **Cấu hình hệ thống → Quy định desktop**. Có 10 công tắc độc lập: ghi màn hình, camera, một màn hình, kiosk, phím tắt, clipboard, điều hướng, tải xuống, tạm dừng khi rời cửa sổ và DevTools. Sau khi lưu, quy định áp dụng cho lượt tạo mới; lượt đã tạo giữ nguyên. Desktop hiển thị mô tả ở trang đăng nhập, danh sách bài và trong từng lượt thi. Tắt camera cho phép thi bằng audio; microphone vẫn bắt buộc. Cần desktop mới cùng migration `0011`. [Bảng quy định, phân quyền và giới hạn](architecture/user-profiles-desktop-policy.md).
+
+## Câu hỏi có định dạng và hình ảnh
+
+Trong ngân hàng đề hoặc phần review của Điều phối kỳ thi, bấm **Sửa câu N**
+để mở editor riêng. Dùng thanh công cụ định dạng chữ, danh sách và **Chèn
+ảnh**. **Xong câu** là xem trước; bấm **Lưu nội dung đã review** để lưu lên
+server. Admin, khảo thí và giảng viên được sửa bản GENERATED theo phạm vi
+quyền. Với đề đã duyệt/công bố, **Sao chép thành bản nháp** giữ nội dung và
+ảnh để sửa, sau đó duyệt lại. [Giới hạn ảnh và hướng dẫn](architecture/question-editor-recording.md).
+
+**Tổng quan → Lượt thi gần đây → Xem bài** mở đúng bài của sinh viên ở hàng
+đã chọn; có thể đổi lượt trong lịch sử của sinh viên đó.
+
 ## Quy trình khảo thí
 
 Bắt đầu tại [hướng dẫn khảo thí → giảng viên → sinh viên](architecture/examination-workflow.md). Tải [Excel mẫu](templates/danh-sach-sinh-vien.xlsx). Admin duyệt role khảo thí và cấp role giảng viên; khảo thí giao môn, nhập danh sách, kiểm tra đề đã được giảng viên duyệt, xếp lịch từng sinh viên rồi mở thi. Bài AI dưới 5 được đánh dấu để giảng viên chấm lại; khảo thí xuất điểm chính thức trong Điều phối kỳ thi.
@@ -20,7 +52,7 @@ Admin, khảo thí và giảng viên quản lý trên web; sinh viên dùng desk
 
 ### 1. Tạo môn và chuẩn bị kiến thức
 
-1. Vào **Môn học & đề thi → Tạo môn học**, nhập mã, tên và mô tả rồi lưu.
+1. Vào **Môn học → Tạo môn học**, nhập mã, tên và mô tả rồi lưu.
 2. Mở môn vừa tạo, chọn **01 · Kiến thức → Giáo trình**. Tải PDF và chờ xử lý thành **Sẵn sàng** (`READY`). Kiểm tra mục lục; sửa tên chương và khoảng trang nếu cần.
 3. Trong **Chuẩn đầu ra**, tạo các LO mô tả kiến thức/kỹ năng cần đánh giá.
 4. Trong **Chủ đề**, tạo chủ đề, chọn ít nhất một LO và một chương/mục giáo trình. Có thể bổ sung mô tả và tài liệu liên quan.
@@ -31,7 +63,7 @@ Tài liệu phải ở trạng thái `READY` và dùng cấu hình embedding hi�
 ### 2. Tạo rubric và bản nháp đề
 
 1. Mở **02 · Rubric**, tạo rubric gồm tiêu chí, mô tả, điểm tối đa và trọng số; bấm **Lưu rubric**.
-2. Mở **03 · Bài thi & giao bài → Tạo bài thi**.
+2. Mở **Ngân hàng đề thi → chọn môn → Tạo bài thi**.
 3. Nhập tên, thời gian, chọn rubric và phân bổ câu hỏi theo chủ đề, độ khó, số lượng. Bấm **Lưu bản nháp**.
 4. Kiểm tra lại bản nháp. Admin có thể đặt **Cấu hình số lần làm lại**: không cho làm lại, cho thêm N lần hoặc không giới hạn.
 5. Bấm **Sinh câu hỏi & rubric để review**, sửa câu hỏi/ý chính/rubric và lưu, rồi **Duyệt đề & gửi khảo thí**. Khảo thí kiểm tra, nhập danh sách, xếp lịch và mở kỳ thi.
@@ -46,7 +78,7 @@ Sau khi công bố, ngay dưới đề xuất hiện **Câu hỏi & thuật ng�
 - Gợi ý được lưu cùng phiên bản đề và hiển thị trong trang quản lý. Học viên không nhận danh sách này qua màn hình câu hỏi.
 - Đề cũ, đề demo hoặc câu không có thuật ngữ phù hợp có thể hiển thị **Chưa có gợi ý thuật ngữ cho câu hỏi này**.
 - Hiện chưa có thao tác sửa trực tiếp danh sách thuật ngữ. Để sinh lại câu hỏi/gợi ý, chọn **Sao chép thành bản nháp**, điều chỉnh bản nháp và công bố lại; bản đề mới có thể có câu hỏi khác.
-- Hotword STT lưu riêng tại **Môn học & đề thi → chọn môn → Bài thi & giao bài → Hotword STT của môn học**, áp dụng cho desktop/server khi làm bài của môn đó. Mỗi dòng một thuật ngữ; tối đa 500 mục, 100 ký tự/mục, tổng 10.000 ký tự sau khi bỏ dòng trống/mục trùng. Bấm **Lưu hotword môn học**, kiểm tra thông báo tên môn và số mục đã lưu. Đề giữ hotword lúc sinh; sau khi sửa danh sách, cần sinh đề mới hoặc trả đề về nháp rồi sinh/duyệt lại để áp dụng. Danh sách thuật ngữ AI không tự trở thành hotword. Giảng viên đối chiếu transcript với bản ghi khi xem bài.
+- Hotword STT lưu riêng tại **Ngân hàng đề thi → chọn môn → Hotword STT của môn học**, áp dụng cho desktop/server khi làm bài của môn đó. Mỗi dòng một thuật ngữ; tối đa 500 mục, 100 ký tự/mục, tổng 10.000 ký tự sau khi bỏ dòng trống/mục trùng. Bấm **Lưu hotword môn học**, kiểm tra thông báo tên môn và số mục đã lưu. Đề giữ hotword lúc sinh; sau khi sửa danh sách, cần sinh đề mới hoặc trả đề về nháp rồi sinh/duyệt lại để áp dụng. Danh sách thuật ngữ AI không tự trở thành hotword. Giảng viên đối chiếu transcript với bản ghi khi xem bài.
 
 Đề đã công bố giữ nguyên nội dung để đối chiếu kết quả. Kỳ thi mới bắt buộc giảng viên và khảo thí duyệt trước; chỉ sinh viên trong roster thấy kỳ thi và chỉ bắt đầu trong lịch được xếp.
 
@@ -60,6 +92,23 @@ Sau khi công bố, ngay dưới đề xuất hiện **Câu hỏi & thuật ng�
 Học viên bấm **Làm mới bài thi** nếu danh sách chưa cập nhật. **Bỏ khỏi môn** không xóa lịch sử thi hoặc thu hồi đề đã giao riêng.
 
 Hai cách giao trong bảng trên chỉ áp dụng đề legacy. Kỳ thi mới dùng danh sách Excel trong **Điều phối kỳ thi**; đăng ký môn không cấp quyền thi tự động.
+
+## Bộ môn, lớp học và đợt thi
+
+1. Admin/khảo thí mở **Bộ môn → Tạo bộ môn**, nhập mã/tên. Trong **Gắn môn học vào bộ môn**, chọn môn và bộ môn rồi lưu.
+2. Mở **Lớp học → Tạo lớp học**, đặt mã/tên, chọn một môn, giáo viên phụ trách và ngày giờ bắt đầu/kết thúc. Có thể phân công sau bằng **Sửa** hoặc **Nhập phân công giáo viên theo lớp**; tải mẫu `class_code`, `teacher_username` ngay trên trang. Giáo viên phải có tài khoản TEACHER đang hoạt động.
+3. **Mở lớp → Sinh viên**: chọn nhiều tài khoản có sẵn hoặc nhập Excel theo mẫu của lớp. Danh sách hiển thị MSSV, tên và email; admin/khảo thí có thể gỡ thành viên.
+4. Chuẩn bị đề trong **Ngân hàng đề thi → chọn môn**. Mở phần **Category** của đề để đặt nhãn như Giữa kỳ/Cuối kỳ; dùng bộ lọc category và rubric. Giảng viên/admin sinh và duyệt bản nháp; khảo thí/admin bấm **Duyệt vào ngân hàng đề** để công bố đề nguồn không cần roster. Đề nguồn không được giao tự động cho sinh viên; sau đó chọn đề vào đợt của lớp.
+5. **Lớp học → Mở lớp → Đợt thi & kết quả → Tạo đợt thi từ ngân hàng đề**: đặt tên đợt, chọn đề cùng môn, giờ mở/đóng nằm trong thời gian lớp và đủ thời lượng bài. Chốt danh sách sinh viên trước bước này.
+6. Chọn đợt thi để xem người chưa thi, tất cả lượt đã làm, trạng thái và điểm. **Xem bài / chấm lại** mở transcript, minh chứng và biểu mẫu chấm lại cho admin/giáo viên được phân công; khảo thí có quyền xem. Điểm thủ công cần lý do và có lịch sử audit.
+
+Giáo viên mở **Lớp được phân công**; không có nút tạo/sửa/xóa lớp, quản lý bộ môn hoặc thay đổi roster. Phân công lớp không thay giáo viên chủ sở hữu môn. Dữ liệu của lớp khác vẫn bị chặn ở API.
+
+Mỗi đợt là bản sao đề và danh sách riêng. Thêm/gỡ sinh viên khỏi lớp sau khi tạo đợt không thay đổi roster cũ; muốn dùng danh sách/lịch khác, tạo đợt mới. Xóa lớp chỉ áp dụng lớp chưa có đợt thi; xóa bộ môn chỉ áp dụng khi không còn môn trực thuộc. [Mô hình dữ liệu, Excel và nâng cấp](architecture/academic-classes.md).
+
+## Danh sách người dùng
+
+Trang **Người dùng** hiển thị bảng thu gọn. Dùng ô tìm tên/email/tên đăng nhập và bộ lọc vai trò để giảm số dòng; admin đổi vai trò và lưu trực tiếp trong hàng của tài khoản. Nhập Excel giảng viên/khảo thí nằm trong các khối có thể mở/thu gọn.
 
 ## Học viên làm bài trên desktop
 
@@ -99,7 +148,7 @@ Tính năng cần cập nhật cả API/worker và giao diện trên server sử
 
 Để xóa toàn bộ môn học bằng tài khoản admin:
 
-1. Vào **Môn học & đề thi → chọn môn → Cài đặt → Xóa môn học**.
+1. Vào **Môn học → chọn môn → Cài đặt → Xóa môn học**.
 2. Đọc tên môn và phạm vi dữ liệu trong hộp thoại **Xóa toàn bộ môn học**.
 3. Nhập đúng mã môn đang hiển thị, rồi bấm **Xóa vĩnh viễn môn học và dữ liệu**.
 
@@ -126,9 +175,9 @@ Mỗi khu vực có mục **Nhập … từ Excel**, nút **Tải mẫu Excel**,
 
 | Dữ liệu | Nơi tải mẫu và nhập | Quy tắc |
 | --- | --- | --- |
-| Môn học | Môn học & đề thi | Một dòng/môn; có thể chỉ định email giảng viên phụ trách đã tồn tại. Giáo viên chỉ tạo môn của mình. |
+| Môn học | Môn học | Một dòng/môn; có thể chỉ định email giảng viên phụ trách đã tồn tại. Giáo viên chỉ tạo môn của mình. |
 | Rubric | Chọn môn → Rubric | Một dòng/tiêu chí; nhóm theo mã môn và tên rubric. `max_score` và `weight` là số dương. |
-| Bài thi | Chọn môn → Bài thi & giao bài, hoặc Điều phối kỳ thi | Một dòng/câu hỏi có sẵn, nhóm theo mã môn và tên đề. |
+| Bài thi | Ngân hàng đề thi → chọn môn, hoặc Điều phối kỳ thi | Một dòng/câu hỏi có sẵn, nhóm theo mã môn và tên đề. |
 | Giảng viên | Người dùng (admin) | Tài khoản mới có vai trò TEACHER. |
 | Khảo thí | Người dùng (admin) | Tài khoản mới có vai trò EXAM_OFFICER. |
 
@@ -153,7 +202,7 @@ Trong **Người dùng**, bấm tên sinh viên để mở chi tiết và danh s
 
 ## Xem bản ghi màn hình và sự kiện giám sát
 
-Lần thi mới trên Desktop bắt buộc ghi toàn màn hình sau khi sinh viên đồng ý (bài thử thiết bị và phiên cũ trước migration không áp dụng). App chỉ hoàn tất nộp khi tải xong bằng chứng. Trong **Kết quả & xem lại → Xem bài**, mở các video có nhãn **Bản ghi màn hình bài thi** ở câu đầu tiên; các đoạn được sắp theo thứ tự tạo. Camera và âm thanh câu trả lời có nhãn riêng. Giáo viên chỉ xem bằng chứng môn mình phụ trách; admin/khảo thí xem theo quyền quản lý.
+Lần thi mới trên Desktop bắt buộc ghi toàn màn hình sau khi sinh viên đồng ý (bài thử thiết bị và phiên cũ trước migration không áp dụng). App chỉ hoàn tất nộp khi tải xong bằng chứng. Trong **Kết quả & xem lại → Xem bài**, mở các video có nhãn **Bản ghi màn hình bài thi** ở câu đầu tiên; các đoạn được sắp theo thứ tự tạo. Audio từng câu có nhãn riêng; bản mới không lưu video camera từng câu. Camera hiển thị trong video màn hình khi bật. Video camera cũ vẫn xem được. Giáo viên chỉ xem bằng chứng môn mình phụ trách; admin/khảo thí xem theo quyền quản lý.
 
 Mục **Sự kiện giám sát bài thi** ghi thời điểm server nhận các sự kiện như rời cửa sổ, thay màn hình, ngắt ghi hoặc khởi động lại. Bài có sự kiện cần giảng viên xem lại trước khi công bố điểm. Đối chiếu bản ghi và hoàn cảnh thực tế trước khi chấm lại, không coi một sự kiện là bằng chứng chắc chắn của gian lận. Độ trễ mạng có thể làm thời điểm nhận sự kiện khác thời điểm xảy ra.
 

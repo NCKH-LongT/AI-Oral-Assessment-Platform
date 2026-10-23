@@ -4,11 +4,19 @@
 
 Tài liệu dành cho người phát triển OralAI, mô tả cấu trúc và quy tắc của source hiện hành. Cấu hình chạy, triển khai và thao tác người dùng nằm ở các hướng dẫn liên kết bên dưới.
 
+Migration `0011` thêm snapshot quy định desktop cho mỗi lượt. `user_profiles.py` cung cấp hồ sơ/lớp/đợt thi theo người dùng; `desktop_policy.py` quản lý 10 công tắc ADMIN và audit. `desktop-policy.cjs` lấy quy định có xác thực trong Electron main process. Giao diện profile mở lại ReviewPage hiện có. [Thiết kế hồ sơ và quy định desktop](docs/architecture/user-profiles-desktop-policy.md).
+
 ## Mục tiêu và phạm vi
 
 OralAI tổ chức thi vấn đáp: chuẩn bị môn và kiến thức, soạn câu hỏi/rubric, duyệt đề, xếp lịch, ghi câu trả lời, nhận dạng, chấm nội dung và giảng viên đối chiếu minh chứng. Web phục vụ admin, khảo thí và giảng viên; sinh viên dùng desktop.
 
-Desktop cố định **Whisper-small**, hỗ trợ tiếng Việt/Anh và hotword môn học. Câu hỏi và hướng dẫn hiển thị cho sinh viên; transcript được gửi tự động lên server. LLM chấm dựa trên transcript, câu hỏi, rubric và nguồn RAG. Audio, camera và màn hình phục vụ đối chiếu.
+Desktop đóng gói **Whisper-small** cho bài thử thiết bị và tương thích client cũ. Bài thi mới hiển thị câu hỏi/hướng dẫn, tải bản ghi gốc rồi giao hàng đợi server nhận dạng và chấm theo cấu hình STT cùng ngôn ngữ/hotword của đề. LLM chấm dựa trên transcript, câu hỏi, rubric và nguồn RAG. Audio, camera và màn hình phục vụ đối chiếu.
+
+## Tổ chức đào tạo và lớp học
+
+Migration `0010` bổ sung bộ môn, lớp, thành viên lớp và đợt thi từ bản sao đề trong ngân hàng. `services/api/app/academic.py` xử lý CRUD, nhập Excel và lịch; `security.exam_access` kiểm tra phạm vi lớp cho kết quả/minh chứng/chấm lại. `apps/admin-web/components/academic.tsx` cung cấp giao diện quản lý và lớp được phân công. Menu soạn đề tách khỏi quản lý môn; ngân hàng lọc category/rubric, trang người dùng có tìm kiếm/lọc vai trò.
+
+Giáo viên lớp không tự trở thành chủ sở hữu môn. Các đợt thi đóng băng snapshot đề và roster, có ID/lượt thi/điểm độc lập. Xem [thiết kế bộ môn và lớp học](docs/architecture/academic-classes.md) trước khi sửa quyền hoặc truy vấn kết quả; kiểm thử hồi quy tại `test_academic.py`, `test_migration.py` và `tests/e2e/academic.spec.ts`.
 
 ## Cấu trúc repository
 

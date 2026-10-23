@@ -184,10 +184,32 @@ export async function proxyBackend(request, config = backendConfig()) {
       status: upstream.status,
       headers: responseHeaders,
     });
-  } catch {
-    return error(
-      `Không kết nối được backend ${mode}. Bạn có thể chọn lại Local / Online ở đầu trang.`,
-      502,
+  } catch (cause) {
+    const requestId = crypto.randomUUID();
+    const timedOut = cause?.name === "TimeoutError";
+    const code = timedOut ? "BACKEND_TIMEOUT" : "BACKEND_UNREACHABLE";
+    // Log routing/transport metadata only, never credentials or answer bodies.
+    console.warn("oral_backend_request_failed", {
+      request_id: requestId,
+      mode,
+      method: request.method,
+      path: url.pathname,
+      code: cause?.cause?.code || cause?.code || cause?.name || "UNKNOWN",
+    });
+    return Response.json(
+      {
+        error: {
+          code,
+          message: timedOut
+            ? `Server ${mode} phản hồi quá lâu. Kiểm tra mạng rồi thử lại.`
+            : `Kết nối tới server ${mode} bị gián đoạn. Kiểm tra mạng rồi thử lại.`,
+          details: { request_id: requestId },
+        },
+      },
+      {
+        status: timedOut ? 504 : 502,
+        headers: { "Cache-Control": "no-store", "X-Request-ID": requestId },
+      },
     );
   }
 }

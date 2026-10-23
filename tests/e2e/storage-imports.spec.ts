@@ -164,7 +164,7 @@ test("Excel errors block import and a changed file requires another preview", as
   });
   await page.goto("/");
   await page
-    .getByRole("button", { name: "Môn học & đề thi", exact: true })
+    .getByRole("button", { name: "Môn học", exact: true })
     .click();
   await page.getByText("Nhập môn học từ Excel", { exact: true }).click();
   await expect(

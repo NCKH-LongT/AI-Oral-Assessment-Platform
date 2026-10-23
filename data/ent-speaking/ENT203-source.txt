@@ -1,0 +1,101 @@
+ENT203 — SOURCE AND EXAMINER NOTES
+Original: ENT203_Speaking Test Guidelines and Sample.pdf
+SHA-256: 5bea40f2b7765ef04c72f0b36bd4a0c233ff8b1e39ca2b4cd8e66746167f7930
+
+Thi THEO CẶP, 10 phút/cặp. Part 1: chuẩn bị 2 phút, diễn cả hai tình huống và đổi vai trong 3–4 phút. Part 2: hỏi mỗi sinh viên 1–2 câu, 2 phút/người. Phát riêng thẻ A/B trang 2; ngày tháng trên thẻ là dữ liệu tình huống, không phải lịch thi. Desktop hiện có phiên thi cá nhân, chưa tự ghép cặp/tách giọng; không giao đề này như bài cá nhân tự động.
+
+Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR.
+
+--- EXTRACTED SOURCE TEXT (page breaks retained) ---
+                ENT203 - Speaking Test Guidelines and Sample
+General Overview
+
+1. Each test paper includes two parts. Students take the test in pairs.
+2. The test includes a role-play with two different scenarios and a discussion with the
+examiner.
+3. Timing: 10 minutes per pair.
+
+Detailed Description for Each Part
+Part 1. Role-play (2 minutes to prepare, 3-4 minutes to perform)
+Each student receives a different scenario and acts out a conversation with their partner.
+After the first conversation, students switch roles and perform the second scenario.
+
+Part 2. Discussion (2 minutes/student)
+The examiner asks each student 1-2 questions individually.
+
+                                   Instructions for Examiner
+A. Starting the Test
+
+1. Gather students in the testing room, explain the test structure:
+“Good morning/afternoon, everyone. Today’s speaking test has two parts. In Part 1, you and
+your partner will role-play two different scenarios. In Part 2, I will ask each of you 1-2
+questions.”
+2. Check attendance to ensure all students are present.
+3. Instruct students to wait quietly outside until called.
+4. Call each pair into the room by name to start the test.
+
+B. Begin the Test
+Part 1: Role-play (2 minutes to prepare, 3-4 minutes to perform)
+
+1. “Let’s begin with Part 1. I will give each of you a paper with a different scenario. Student B
+will start by asking questions, and Student A will respond. Then, switch roles for the second
+scenario.”
+2. “Here are your papers. You have 2 minutes to prepare.”
+3. “Now, (Student B), please start by asking your questions based on your scenario, and
+(Student A), respond accordingly.”
+Switch roles: “Now, (Student A), ask your questions to (Student B).”
+4. “That’s the end of Part 1. Let’s move on to Part 2.”
+
+Part 2: Discussion (2 minutes/student)
+
+“Now, for Part 2, I’m going to ask each of you 1-2 questions related to (specify the topic).”
+
+C. Ending the Test
+“That is the end of the speaking test. Thank you for your participation.”
+
+[PAGE BREAK]
+Unit 1: Getting Acquainted
+Part 1. Role play. ( 2 mins. to prepare; 3-4 mins. to speak)
+                    Student A                                      Student B
+
+
+                                                           where / trip?
+                                                           when / trip?
+                                                           what /do?
+                                                           when / lunch?
+                                                           what / take?
+
+
+
+
+                    Student B                                      Student A
+
+                                                           when / tour?
+                                                           where / meet?
+                                                           what / see?
+                                                           what / cost?
+                                                           how / sign up?
+
+[PAGE BREAK]
+Unit 1
+
+Part 2. Discussion Questions ( 2 mins for each student to speak)
+Choose 1-2 questions to ask the student.
+
+1. What is a common greeting in Vietnam when you meet someone for the first time?
+2. Is it common to shake hands in Vietnam? When do people do this?
+3. What is your favorite tourist attraction in your country? Why do you like it?
+4. If you could visit any tourist attraction in the world, which one would you choose?
+Why?
+5. Do you prefer visiting natural attractions (like mountains or beaches) or cultural
+attractions (like museums or historical sites)? Why?
+
+[PAGE BREAK]
+
+--- IMAGE ROLE CARDS TRANSCRIBED ---
+Visual transcription of ENT203 page 2 role cards, verified against the original page image; line breaks normalized. Supply each information card only to its designated respondent.
+Scenario 1, Student A: SCHOOL BUS TRIP TO DA NANG. THIS SUMMER. Saturday, 16th May, 7:30 AM. Morning: visit Dragon Bridge. Lunch: 12:00 pm. Afternoon: visit Hoi An ancient town. TAKE YOUR RAINCOAT!
+Scenario 1, Student B: where / trip? when / trip? what / do? when / lunch? what / take?
+Scenario 2, Student B: HANOI CITY TOUR. EXPLORE THE BEAUTY OF HANOI! Date: Saturday, 20 May. Time: 9:00 AM–4:00 PM. Meeting Point: Hoan Kiem Lake. What We Will See: Ho Chi Minh Mausoleum; Old Quarter; Water Puppet Show. Price: Only $15 per person. How to Sign Up: Email: info@hanoitour.com.
+Scenario 2, Student A: when / tour? where / meet? what / see? what / cost? how / sign up?
+The dates and email are fictional/situational card content; no year or live booking is implied.

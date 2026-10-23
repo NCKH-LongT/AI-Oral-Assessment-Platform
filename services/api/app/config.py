@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     stt_provider: Literal["local", "local_server", "google", "gemini"] = "local_server"
     stt_model: str = "base"
     stt_language: str = "vi"
+    stt_cpu_threads: int = Field(default=1, ge=1, le=8)
+    worker_serial: bool = True
+    gopt_enabled: bool = False
+    gopt_url: str = "http://gopt:8000"
+    gopt_timeout: int = Field(default=960, ge=30, le=3600)
+    gopt_max_audio_mb: int = Field(default=24, ge=1, le=200)
     google_stt_credentials_file: str = ""
     google_login_enabled: bool = False
     google_client_id: str = ""

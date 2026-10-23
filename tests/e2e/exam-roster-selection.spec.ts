@@ -69,7 +69,8 @@ test("office selects a class, skips existing candidates and adds students withou
   await page
     .getByRole("button", { name: "Điều phối kỳ thi", exact: true })
     .click();
-  await page.getByRole("button", { name: "Mở kỳ thi", exact: true }).click();
+  await page.getByRole("button", { name: "Mở kỳ thi Cuối kỳ", exact: true }).click();
+  await page.getByRole("button", { name: /^Sinh viên & lịch thi/ }).click();
   await page
     .getByRole("combobox", { name: "Lớp học phần", exact: true })
     .selectOption("class");

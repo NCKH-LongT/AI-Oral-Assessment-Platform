@@ -1,5 +1,6 @@
 """Persist question preparation clocks across client reconnects."""
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "0009"

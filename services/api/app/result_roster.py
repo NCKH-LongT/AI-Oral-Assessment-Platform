@@ -1,17 +1,19 @@
 """Course/exam roster including students without a sitting; dates use Vietnam time."""
 from collections import defaultdict
-from datetime import date, datetime, time as daytime, timedelta
+from datetime import date, datetime, timedelta
+from datetime import time as daytime
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import Assignment, Attempt, CourseEnrollment, Exam, ExamSession, ProcessingJob, User
+from .permissions import role_filter
 from .processing import summarize
 from .retakes import history_row
-from .security import course_access, fail, staff
+from .security import course_access, fail, staff, visible_exams
 
 router = APIRouter(prefix="/admin")
 ZONE = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -25,7 +27,7 @@ def day(timestamp):
 def roster(course_id: str, exam_id: str | None = None, exam_date: date | None = None,
            db: Session = Depends(get_db), user=Depends(staff)):
     course = course_access(db, course_id, user)
-    exams = db.scalars(select(Exam).where(Exam.course_id == course_id).order_by(Exam.created_at.desc())).all()
+    exams = db.scalars(select(Exam).where(Exam.course_id == course_id, visible_exams(user)).order_by(Exam.created_at.desc())).all()
     result = {"course_id": course.id, "exams": [{"id": e.id, "name": e.name, "status": e.status} for e in exams],
               "dates": [], "rows": []}
     selected = [e for e in exams if not exam_id or e.id == exam_id]
@@ -46,7 +48,7 @@ def roster(course_id: str, exam_id: str | None = None, exam_date: date | None = 
     if not exam_id or any(not e.workflow for e in selected):
         candidates.update(db.scalars(select(CourseEnrollment.student_id).where(CourseEnrollment.course_id == course.id)))
     # Retain historical test takers even if their account/enrollment was subsequently disabled.
-    students = db.scalars(select(User).where(User.id.in_(candidates), User.role == "STUDENT").order_by(User.name, User.id)).all()
+    students = db.scalars(select(User).where(User.id.in_(candidates), role_filter("STUDENT")).order_by(User.name, User.id)).all()
     chosen = {}
     for sitting in sessions:
         if exam_date and day(sitting.started_at or sitting.created_at) != exam_date.isoformat():

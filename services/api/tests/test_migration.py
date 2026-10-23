@@ -5,7 +5,23 @@ import os
 import sqlite3
 import subprocess
 import sys
+import warnings
 from pathlib import Path
+
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
+
+def test_migration_graph_has_unique_revisions_and_one_head():
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "alembic"))
+    scripts = ScriptDirectory.from_config(config)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        revisions = [revision.revision for revision in scripts.walk_revisions()]
+    assert len(revisions) == len(set(revisions))
+    assert scripts.get_heads() == ["0012"]
 
 
 def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
@@ -66,9 +82,14 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
             "original-key",
         )
         assert db.execute("SELECT content FROM document_chunks").fetchone() == ("Original knowledge",)
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0010",)
-        assert db.execute("SELECT course_id,student_id,class_id FROM course_enrollments").fetchone() == ("c", "u", None)
-        assert db.execute("SELECT COUNT(*) FROM course_classes").fetchone() == (0,)
+        assert db.execute("SELECT department_id FROM courses").fetchone() == (None,)
+        assert db.execute("SELECT class_id,source_exam_id,category FROM exams").fetchone() == (None, None, "")
+        assert db.execute("SELECT desktop_policy FROM exam_sessions").fetchone() == (None,)
+        assert db.execute("SELECT role FROM users WHERE id='u'").fetchone() == ("ADMIN",)
+        assert db.execute("SELECT * FROM user_roles").fetchall() == []
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0012",)
+        assert db.execute("SELECT course_id,student_id FROM course_enrollments").fetchone() == ("c", "u")
+        assert db.execute("SELECT COUNT(*) FROM teaching_classes").fetchone() == (0,)
         assert db.execute("SELECT screen_required,screen_consent_at FROM exam_sessions WHERE id='s'").fetchone() == (0, None)
 
         assert db.execute(

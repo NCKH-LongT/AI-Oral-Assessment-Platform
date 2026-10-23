@@ -2,9 +2,9 @@ import hashlib
 
 import pytest
 from sqlalchemy import func, select
+from test_mvp import ok, prepare, start, upload
 
 from app.models import Upload
-from test_mvp import ok, prepare, start, upload
 
 
 @pytest.mark.parametrize("kind", ["AUDIO", "VIDEO", "SCREEN"])

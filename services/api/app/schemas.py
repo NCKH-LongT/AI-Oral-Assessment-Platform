@@ -12,12 +12,23 @@ class Login(Input):
     password: str = Field(min_length=1, max_length=128)
 
 
+Role = Literal["ADMIN", "TEACHER", "STUDENT", "EXAM_OFFICER"]
+
+
 class UserIn(Login):
     username: str = Field(min_length=1, max_length=80)
     email: str | None = Field(default=None, max_length=320)
     password: str = Field(min_length=12, max_length=128)
     name: str = Field(min_length=1, max_length=150)
-    role: Literal["ADMIN", "TEACHER", "STUDENT", "EXAM_OFFICER"] = "STUDENT"
+    role: Role = "STUDENT"
+    roles: list[Role] | None = Field(default=None, min_length=1, max_length=4)
+
+    @model_validator(mode="after")
+    def role_selection(self):
+        if self.roles is not None:
+            self.roles = list(dict.fromkeys(self.roles))
+            self.role = next(r for r in ("ADMIN", "EXAM_OFFICER", "TEACHER", "STUDENT") if r in self.roles)
+        return self
 
 
 class CourseIn(Input):
@@ -215,4 +226,16 @@ class GradeOutput(Input):
 
 
 class RoleIn(Input):
-    role: Literal["ADMIN", "TEACHER", "STUDENT", "EXAM_OFFICER"]
+    role: Role | None = None
+    roles: list[Role] | None = Field(default=None, min_length=1, max_length=4)
+
+    @model_validator(mode="after")
+    def role_selection(self):
+        if self.roles is None:
+            if self.role is None:
+                raise ValueError("Chọn ít nhất một vai trò")
+            self.roles = [self.role]
+        elif self.role is not None and self.role not in self.roles:
+            raise ValueError("Vai trò cũ phải thuộc danh sách vai trò")
+        self.roles = list(dict.fromkeys(self.roles))
+        return self

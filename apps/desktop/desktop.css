@@ -54,7 +54,8 @@ body { font-size: 13px !important; line-height: 1.5 !important; }
 }
 .desktop-main .exam-grid > aside > .panel { flex-shrink: 0 !important; }
 .desktop-main .device-panel { padding: 12px !important; }
-.desktop-main .device-panel .camera-preview { width: 100% !important; height: min(16dvh, 108px) !important; aspect-ratio: auto !important; max-height: none !important; }
+.desktop-main .device-panel .camera-preview { width: min(100%, 240px) !important; height: auto !important; max-height: none !important; margin: 0 auto !important; }
+.desktop-main .camera-preview video { object-fit: contain !important; }
 .desktop-main .section-title { margin-bottom: 8px !important; }
 .desktop-main .device-panel .mic-meter { margin: 10px 0 5px !important; }
 .desktop-main .mic-status { display: flex !important; flex-wrap: wrap !important; justify-content: space-between !important; gap: 4px !important; }

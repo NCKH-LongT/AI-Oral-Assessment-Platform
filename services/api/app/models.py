@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
 
@@ -38,6 +38,13 @@ class User(Entity, Base):
     password_hash: Mapped[str] = mapped_column(Text)
     role: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
+    role_grants: Mapped[list["UserRole"]] = relationship(cascade="all, delete-orphan", lazy="selectin")
+
+
+class UserRole(Base):
+    __tablename__ = "user_roles"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role: Mapped[str] = mapped_column(String(20), primary_key=True)
 
 
 class AuthSession(Entity, Base):
@@ -48,8 +55,33 @@ class AuthSession(Entity, Base):
     revoked: Mapped[bool] = mapped_column(default=False)
 
 
+class Department(Entity, Base):
+    __tablename__ = "departments"
+    code: Mapped[str] = mapped_column(String(50), unique=True)
+    name: Mapped[str] = mapped_column(String(200))
+
+
+class TeachingClass(Entity, Base):
+    __tablename__ = "teaching_classes"
+    code: Mapped[str] = mapped_column(String(50), unique=True)
+    name: Mapped[str] = mapped_column(String(200))
+    course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"), index=True)
+    teacher_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)
+    starts_at: Mapped[float] = mapped_column(Float)
+    ends_at: Mapped[float] = mapped_column(Float)
+
+
+class ClassStudent(Entity, Base):
+    __tablename__ = "class_students"
+    __table_args__ = (UniqueConstraint("class_id", "student_id"), UniqueConstraint("class_id", "student_number"))
+    class_id: Mapped[str] = mapped_column(ForeignKey("teaching_classes.id", ondelete="CASCADE"), index=True)
+    student_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    student_number: Mapped[str | None] = mapped_column(String(80))
+
+
 class Course(Entity, Base):
     __tablename__ = "courses"
+    department_id: Mapped[str | None] = mapped_column(ForeignKey("departments.id"), index=True)
     code: Mapped[str] = mapped_column(String(50), unique=True)
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
@@ -58,19 +90,11 @@ class Course(Entity, Base):
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
 
 
-class CourseClass(Entity, Base):
-    __tablename__ = "course_classes"
-    __table_args__ = (UniqueConstraint("course_id", "name"),)
-    course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
-    name: Mapped[str] = mapped_column(String(100))
-
-
 class CourseEnrollment(Entity, Base):
     __tablename__ = "course_enrollments"
     __table_args__ = (UniqueConstraint("course_id", "student_id"),)
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
     student_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
-    class_id: Mapped[str | None] = mapped_column(ForeignKey("course_classes.id"))
 
 
 class OAuthFlow(Entity, Base):
@@ -148,6 +172,9 @@ class Rubric(Entity, Base):
 
 class Exam(Entity, Base):
     __tablename__ = "exams"
+    class_id: Mapped[str | None] = mapped_column(ForeignKey("teaching_classes.id"), index=True)
+    source_exam_id: Mapped[str | None] = mapped_column(ForeignKey("exams.id", ondelete="SET NULL"))
+    category: Mapped[str] = mapped_column(String(100), default="", server_default="")
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"))
     imported_questions: Mapped[list | None] = mapped_column(JSON(none_as_null=True))
     workflow: Mapped[bool] = mapped_column(default=False, server_default="false")
@@ -173,6 +200,7 @@ class Assignment(Entity, Base):
 
 class ExamSession(Entity, Base):
     __tablename__ = "exam_sessions"
+    desktop_policy: Mapped[dict | None] = mapped_column(JSON(none_as_null=True))
     __table_args__ = (
         UniqueConstraint("exam_id", "student_id", "attempt_number", name="uq_exam_session_attempt"),
         Index("one_active_exam_session", "exam_id", "student_id", unique=True,

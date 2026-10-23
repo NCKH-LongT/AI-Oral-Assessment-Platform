@@ -77,7 +77,10 @@ test("lecturer saves a reviewed draft before sending it to examination office", 
   await page
     .getByRole("button", { name: "Điều phối kỳ thi", exact: true })
     .click();
-  await page.getByRole("button", { name: "Mở kỳ thi", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Mở kỳ thi Thi cuối kỳ", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Sửa câu 1", exact: true }).click();
   await page
     .getByLabel("Nội dung câu hỏi")
     .fill("Trình bày kiểm thử đơn vị và giải thích một ví dụ.");
@@ -152,11 +155,19 @@ test("examination office schedules candidates and publishes the reviewed exam", 
   await page
     .getByRole("button", { name: "Điều phối kỳ thi", exact: true })
     .click();
-  await page.getByRole("button", { name: "Mở kỳ thi", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Mở kỳ thi Thi cuối kỳ", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Sửa câu 1", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: /Sinh viên & lịch thi/ }).click();
   await expect(
     page.getByRole("link", { name: "Tải template Excel" }),
   ).toHaveAttribute("href", "/api/admin/examination/template.xlsx");
-  await expect(page.getByLabel("Nội dung câu hỏi")).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Sửa câu 1", exact: true }),
+  ).toHaveCount(0);
   await page.getByLabel("Chọn Sinh viên An", { exact: true }).check();
   await page
     .getByLabel("Giờ mở vào thi", { exact: true })

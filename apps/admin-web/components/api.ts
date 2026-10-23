@@ -1,12 +1,37 @@
+import type { RichContent } from "./question-content";
+import type { DesktopPolicy } from "./desktop-policy";
+export type Role = "ADMIN" | "TEACHER" | "STUDENT" | "EXAM_OFFICER";
 export type User = {
   id: string;
   username: string;
   email?: string | null;
   name: string;
-  role: "ADMIN" | "TEACHER" | "STUDENT" | "REVIEWER" | "EXAM_OFFICER";
+  role: Role | "REVIEWER";
+  roles?: Role[];
   requested_role?: string | null;
 };
+export const roleLabels: Record<Role, string> = {
+  ADMIN: "Quản trị viên",
+  EXAM_OFFICER: "Khảo thí",
+  TEACHER: "Giảng viên",
+  STUDENT: "Sinh viên",
+};
+export function userRoles(user: User): Role[] {
+  return (user.roles ?? [user.role]).filter((r): r is Role => r in roleLabels);
+}
+export function hasRole(user: User, ...allowed: Role[]): boolean {
+  const roles = userRoles(user);
+  return (
+    roles.includes("ADMIN") || roles.some((role) => allowed.includes(role))
+  );
+}
+export function roleNames(user: User): string {
+  return userRoles(user)
+    .map((role) => roleLabels[role])
+    .join(" · ");
+}
 export type Course = {
+  department_id?: string | null;
   id: string;
   code: string;
   name: string;
@@ -42,6 +67,7 @@ export type Rubric = {
 };
 export type Blueprint = { topic_id: string; difficulty: string; count: number };
 export type Exam = {
+  category?: string;
   imported?: boolean;
   workflow?: boolean;
   max_attempts: number | null;
@@ -55,6 +81,7 @@ export type Exam = {
     preparation_seconds?: number;
     recording_seconds?: number;
     text: string;
+    rich_content?: RichContent | null;
     english_terms: { term: string; meaning: string }[];
   }[];
 };
@@ -159,6 +186,20 @@ export type Assessment = {
   model: string;
   criteria?: { name: string; score: number; comment: string }[];
   retrieved_chunks?: Chunk[];
+  pronunciation?: {
+    status: "COMPLETED" | "FAILED";
+    model: string;
+    message?: string;
+    scores?: {
+      accuracy: number;
+      completeness: number;
+      fluency: number;
+      prosody: number;
+      total: number;
+    };
+    segments?: number;
+    phones?: number;
+  };
 };
 export type ScoreSummary = {
   total_score: number | null;
@@ -186,7 +227,7 @@ export type Review = Result & {
     id: string;
     sequence: number;
     status: string;
-    question: { text: string };
+    question: { text: string; rich_content?: RichContent | null };
     transcript: string | null;
     stt_confidence: number | null;
     assessment: Assessment | null;
@@ -231,6 +272,7 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  desktop_policy?: DesktopPolicy;
   timed_questions?: boolean;
   server_processing?: boolean;
   screen_required?: boolean;
@@ -252,6 +294,7 @@ export type ExamSession = {
     recording_seconds?: number;
     prompt_image?: string | null;
     text: string;
+    rich_content?: RichContent | null;
     status: string;
   } | null;
 };
@@ -269,7 +312,63 @@ function backendHeaders(): Record<string, string> {
   return clientBackend ? { "X-Oral-Backend": clientBackend.mode } : {};
 }
 let refreshing: Promise<Response> | null = null;
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function canRetry(path: string, init: RequestInit) {
+  const method = (init.method || "GET").toUpperCase();
+  if (method === "GET") return true;
+  if (method === "PUT" && /^\/uploads\/[^/]+\/chunks\/\d+$/.test(path))
+    return true;
+  if (method !== "POST") return false;
+  if (/^\/question-attempts\/[^/]+\/submit$/.test(path))
+    return !!new Headers(init.headers).get("Idempotency-Key");
+  return (
+    path === "/uploads/init" ||
+    /^\/uploads\/[^/]+\/complete$/.test(path) ||
+    /^\/exam-sessions\/[^/]+\/finish$/.test(path)
+  );
+}
+
 export async function api<T>(
+  path: string,
+  init: RequestInit = {},
+  retry = true,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await requestJSON<T>(path, init, retry);
+    } catch (error) {
+      const transient =
+        error instanceof TypeError ||
+        (error instanceof ApiError &&
+          [502, 503, 504, 520, 521, 522, 523, 524].includes(error.status));
+      if (
+        !transient ||
+        init.signal?.aborted ||
+        !canRetry(path, init) ||
+        attempt >= 2
+      ) {
+        if (error instanceof TypeError)
+          throw new Error(
+            `Kết nối bị gián đoạn khi gửi ${(init.method || "GET").toUpperCase()} ${path}. Kiểm tra mạng rồi thử lại.`,
+          );
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+}
+
+async function requestJSON<T>(
   path: string,
   init: RequestInit = {},
   retry = true,
@@ -293,7 +392,7 @@ export async function api<T>(
     }).finally(() => {
       refreshing = null;
     });
-    if ((await refreshing).ok) return api<T>(path, init, false);
+    if ((await refreshing).ok) return requestJSON<T>(path, init, false);
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null);
@@ -302,8 +401,17 @@ export async function api<T>(
         (f: { field: string; message: string }) => `${f.field}: ${f.message}`,
       )
       .join("; ");
-    throw new Error(
-      fields || body?.error?.message || `Lỗi kết nối (${response.status})`,
+    const requestId =
+      response.headers.get("x-request-id") || body?.error?.details?.request_id;
+    const code = body?.error?.code;
+    const detail = [code, requestId ? `mã tra cứu ${requestId}` : ""]
+      .filter(Boolean)
+      .join(" · ");
+    throw new ApiError(
+      `${fields || body?.error?.message || `Lỗi kết nối (${response.status})`}` +
+        ` [${(init.method || "GET").toUpperCase()} ${path} · HTTP ${response.status}${detail ? ` · ${detail}` : ""}]`,
+      response.status,
+      code,
     );
   }
   return response.json();

@@ -1,8 +1,23 @@
 # OralAI — Thi vấn đáp
 
-Web dành cho **ADMIN, EXAM_OFFICER và TEACHER** quản lý môn, đề, lịch thi, kết quả và dung lượng. Sinh viên làm bài qua **OralAI Desktop**: ghi audio/camera, ghi toàn màn hình theo chính sách thi và tải bản ghi gốc lên server. Sau khi nộp toàn bài, server chạy hàng đợi **STT → chấm điểm** với trạng thái theo dõi; dùng nhà cung cấp STT trong cấu hình hệ thống và LLM Ollama/Gemini để chấm theo rubric/RAG.
+Web dành cho **ADMIN, EXAM_OFFICER và TEACHER** quản lý môn, đề, lịch thi, kết quả và dung lượng. Sinh viên làm bài qua **OralAI Desktop**: ghi audio từng câu, hiển thị camera và ghi toàn màn hình theo chính sách thi và tải bản ghi gốc lên server. Sau khi nộp toàn bài, server chạy hàng đợi **STT → chấm điểm** với trạng thái theo dõi; dùng nhà cung cấp STT trong cấu hình hệ thống và LLM Ollama/Gemini để chấm theo rubric/RAG.
+
+Các menu **Môn học**, **Ngân hàng đề thi**, **Bộ môn** và **Lớp học** tách riêng. Admin/khảo thí quản lý bộ môn, lớp, danh sách sinh viên, phân công giáo viên và lịch từng đợt thi. Giáo viên xem/chấm lại bài trong lớp được phân công. Ngân hàng đề theo môn có lọc category và rubric. [Chi tiết lớp học và phân quyền](docs/architecture/academic-classes.md).
+
+**Người dùng → Chi tiết** mở profile, lớp đã/đang/sẽ học, các đợt thi và bài làm. **Cấu hình hệ thống → Quy định desktop** cho admin bật/tắt 10 quy định; desktop mô tả khi mở app và giữ cấu hình theo từng lượt thi. [Hồ sơ và quy định desktop](docs/architecture/user-profiles-desktop-policy.md).
 
 Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, giảng viên, khảo thí và danh sách sinh viên; đề được review/duyệt trước khi mở thi. Admin quản lý dung lượng từng lần thi, dọn bản ghi giữ điểm hoặc xóa toàn bộ lần thi được chọn.
+
+Một tài khoản có thể giữ nhiều vai trò; **ADMIN có mọi quyền**. Admin chọn
+checkbox tại **Người dùng → Vai trò**. Điều phối kỳ thi có bộ lọc, phần tạo
+thu gọn và hai tab **Đề thi & duyệt / Sinh viên & lịch thi**. Cần migration
+`0012`. [Phân quyền nhiều vai trò](docs/architecture/multi-role-access.md).
+
+Câu hỏi hỗ trợ editor định dạng và chèn ảnh, có nút sửa riêng từng câu cho
+admin/khảo thí/giảng viên. Desktop chỉ upload audio từng câu và video màn
+hình cho cả lượt thi khi bật; camera nằm trong khung hiển thị đúng tỉ lệ.
+**Lượt thi gần đây → Xem bài** mở đúng lượt sinh viên được chọn.
+[Editor và ghi hình](docs/architecture/question-editor-recording.md).
 
 ## Hướng dẫn theo nhu cầu
 
@@ -18,11 +33,14 @@ Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, g
 | Build bộ cài Windows nhẹ, tải model tùy chọn | [Bộ cài Windows nhẹ](docs/desktop-build.md#bộ-cài-windows-nhẹ-tải-model-theo-quyền-admin) |
 | Chuẩn bị helper và tài nguyên STT | [STT resources](apps/desktop/resources/stt/README.md) |
 | Hiểu luồng nhận dạng, tài liệu kiến thức và LLM chấm bài | [Kiến trúc STT/LLM](docs/architecture/knowledge-speech.md) |
+| Quản lý bộ môn, lớp, ngân hàng đề và phân công giáo viên | [Bộ môn và lớp học](docs/architecture/academic-classes.md) |
 | Quản lý tài khoản, môn học và đăng nhập Google | [Tài khoản, OAuth và desktop](docs/architecture/accounts-courses-desktop.md) |
 | Quản lý dữ liệu, phân biệt audio desktop và kiểm tra/lọc nhiễu trên web | [CRUD và kiểm tra tiếng ồn](docs/architecture/crud-noise-check.md) |
 | Cấu hình số lần thi, cấp thêm lượt và xem lịch sử | [Làm lại bài thi](docs/architecture/exam-retakes.md) |
 | Hiểu độ tin cậy AI và thao tác chấm lại | [Độ tin cậy và chấm lại](docs/architecture/grading-confidence.md) |
+| Chấm phát âm tiếng Anh bằng GOPT trên CPU | [GOPT và hàng đợi tuần tự](docs/architecture/gopt.md) |
 | Nạp bộ câu hỏi mẫu môn Kiểm thử phần mềm | [Bộ dữ liệu Software Testing](data/software-testing-istqb/README.md) |
+| Xem 6 môn ENT001–ENT503, đề và rubric riêng cho từng môn | [Bộ dữ liệu ENT Speaking](data/ent-speaking/README.md) |
 | Hiểu kiến trúc và quy tắc phát triển | [Tổng quan kiến trúc](docs/architecture/phase-1.md), [Project Guide](AI_Oral_Assessment_PROJECT_GUIDE.md) |
 | Xem những gì đã kiểm thử và giới hạn còn lại | [Biên bản kiểm thử](docs/validation.md) |
 
@@ -32,7 +50,7 @@ Hệ thống hỗ trợ nhập Excel môn học, rubric, câu hỏi có sẵn, g
 
 Trong **Điều phối kỳ thi → Mở kỳ thi → Danh sách sinh viên**, ngoài nhập Excel, khảo thí/admin có thể **Thêm học viên từ môn / lớp học phần**: chọn môn nguồn, chọn một lớp hoặc toàn môn, tìm và chọn từng học viên hoặc chọn tất cả rồi thêm. Học viên đã có sẽ được bỏ qua; lịch thi và MSSV đã lưu không thay đổi. Sau đó xếp lịch như bình thường. Danh sách thêm là bản chụp tại thời điểm chọn, không tự đồng bộ khi lớp thay đổi.
 
-Admin tạo lớp học phần tại **Môn học → Học viên → Lớp học phần trong môn**, đặt tên lớp và chọn học viên đã ghi danh. Mỗi học viên thuộc tối đa một lớp trong từng môn. Cần cập nhật API/web và chạy migration `0010` (`alembic upgrade head`); dữ liệu ghi danh cũ vẫn thuộc môn và chưa xếp lớp. Bộ Docker Compose có bước migration trong service khởi tạo.
+Lớp học phần dùng chung dữ liệu tại **Quản lý lớp học**; danh sách toàn môn gồm cả học viên ghi danh trực tiếp và học viên trong các lớp của môn. Không tạo thêm cấu trúc lớp hoặc migration mới; giữ chuỗi migration hiện có đến `0012`. Cập nhật đồng bộ API/web để dùng bộ chọn này.
 
 ## Desktop dành cho sinh viên
 
@@ -133,8 +151,8 @@ docker compose up -d --no-deps --force-recreate api worker
 Chạy `npm run desktop` để dùng giao diện source. Bộ cài từ workflow **Desktop installers** chứa Whisper-small đa ngôn ngữ, runtime STT và FFmpeg; nhận dạng CPU INT8. Máy sinh viên vẫn cần mạng để đăng nhập, lấy đề, tải minh chứng và nhận xác nhận nộp bài.
 
 1. Chọn server tại **Cấu hình máy chủ** trước khi đăng nhập.
-2. Mở bài, cấp quyền và chọn microphone/camera.
-3. Chuẩn bị một màn hình và đồng ý ghi toàn màn hình; bài thi nhận dạng theo ngôn ngữ cấu hình trên server.
+2. Mở bài, xem quy định, cấp quyền microphone và camera nếu được yêu cầu.
+3. Chuẩn bị một màn hình và đồng ý ghi toàn màn hình khi quy định yêu cầu; bài thi nhận dạng theo ngôn ngữ cấu hình trên server.
 4. Bấm **Bắt đầu thi**. Câu hỏi đếm ngược chuẩn bị mặc định 10 giây rồi tự ghi tối đa 60 giây. N/M cấu hình riêng cho từng câu trong Review câu hỏi & rubric. Có thể bấm **Kết thúc trả lời** sớm.
 5. App tự tải bản ghi, chuyển câu tiếp theo và tự nộp ở câu cuối khi đủ minh chứng. Nếu tải lỗi, thử lại rồi nộp; chỉ đóng app sau xác nhận đã nộp. Server tiếp tục nhận dạng và chấm.
 
@@ -144,7 +162,7 @@ Chức năng **Học & thi thử** đã bỏ trên web/desktop. Server không t�
 
 ## Thuật ngữ tiếng Anh và xóa môn học
 
-Khi bấm **Sinh câu hỏi & rubric để review**, AI gợi ý thuật ngữ tiếng Anh kèm nghĩa tiếng Việt cho từng câu hỏi. Admin xem ngay trong **Môn học & đề thi → Bài thi & giao bài → Câu hỏi & thuật ngữ tiếng Anh gợi ý**. Gợi ý được lưu cùng phiên bản đề; đề cũ không tự sinh lại, chế độ demo không tạo thuật ngữ. Thuật ngữ do AI sinh để giảng viên kiểm tra; STT dùng bảng hotword riêng do admin/giảng viên cấu hình, không tự đưa đáp án vào nhận dạng.
+Khi bấm **Sinh câu hỏi & rubric để review**, AI gợi ý thuật ngữ tiếng Anh kèm nghĩa tiếng Việt cho từng câu hỏi. Admin xem ngay trong **Ngân hàng đề thi → chọn môn → Câu hỏi & thuật ngữ tiếng Anh gợi ý**. Gợi ý được lưu cùng phiên bản đề; đề cũ không tự sinh lại, chế độ demo không tạo thuật ngữ. Thuật ngữ do AI sinh để giảng viên kiểm tra; STT dùng bảng hotword riêng do admin/giảng viên cấu hình, không tự đưa đáp án vào nhận dạng.
 
 Thao tác từng bước từ chuẩn bị giáo trình đến giao đề: [hướng dẫn admin/giảng viên](docs/user-guide.md#admin-và-giảng-viên-chuẩn-bị-bài-thi). Hiện chưa sửa trực tiếp thuật ngữ; sao chép đề thành bản nháp rồi công bố để sinh bộ câu hỏi/gợi ý mới.
 
@@ -154,7 +172,7 @@ Admin vào **Môn học → Cài đặt → Xóa môn học**, nhập đúng mã
 
 **Độ tin cậy AI:** lỗi chấm, demo và bài không tính điểm hiện “Chưa có độ tin cậy AI”, không hiển thị 0% giả. Số phần trăm khi chấm thành công do LLM tự báo, chưa được hiệu chuẩn. Nếu gặp `AI_CONFIG_MISMATCH`, cần tài liệu và phiên bản đề khớp cấu hình AI hiện tại. Admin có thể chọn **Chấm lại transcript đã nộp** với phiên bản giữ nguyên câu hỏi/rubric; lưu lịch sử và luôn yêu cầu xem lại. Xem [độ tin cậy và chấm lại](docs/architecture/grading-confidence.md).
 
-Admin mở **Môn học & đề thi → chọn môn → Bài thi & giao bài → Cấu hình số lần làm lại**: không cho làm lại, cho làm lại N lần hoặc không giới hạn. Ví dụ cho làm lại 1 lần là tổng cộng 2 lượt.
+Admin mở **Ngân hàng đề thi → chọn môn → Cấu hình số lần làm lại**: không cho làm lại, cho làm lại N lần hoặc không giới hạn. Ví dụ cho làm lại 1 lần là tổng cộng 2 lượt.
 
 **Kết quả & xem lại** hiển thị ngay bài gần nhất của mỗi sinh viên khi chọn môn; đề/kỳ thi và ngày thi là bộ lọc tùy chọn. Không lọc theo số lần làm bài. Danh sách hiển thị cả sinh viên chưa thi, trạng thái hàng đợi và điểm chính thức; bấm **Xem bài** để mở chi tiết. Câu lỗi có nút **Thử xử lý lại** cho giảng viên phụ trách/admin. Mở **Quản lý lượt thi** để cấp thêm lượt riêng cho sinh viên hoặc xóa lần thi được chọn. Sinh viên xem lịch sử nộp bài không kèm điểm và bấm **Làm lại bài thi** khi còn lượt. [Chi tiết và nâng cấp database](docs/architecture/exam-retakes.md).
 
@@ -183,7 +201,7 @@ Build desktop cần chuẩn bị bundle STT trước; xem [hướng dẫn deskto
 
 Xem [các bước cập nhật và chẩn đoán lỗi Jenkins](docs/jenkins.md).
 
-Cập nhật server: `docker compose up -d --build --wait`, sau đó mở lại desktop. Compose tự chạy migration đến `0009` để lưu đồng hồ chuẩn bị câu hỏi, cùng hàng đợi STT/chấm điểm bền vững, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
+Cập nhật server: `docker compose up -d --build --wait`, sau đó build/cài desktop mới hoặc mở lại Electron source đã cập nhật. Compose tự chạy migration đến `0011` để bổ sung cấu hình desktop theo lượt thi và bộ môn/lớp/đợt thi, giữ đồng hồ chuẩn bị câu hỏi, cùng hàng đợi STT/chấm điểm bền vững, cùng các thay đổi lượt thi/khảo thí/giám sát trước đó; không cần thêm biến `.env`. Không xóa volume dữ liệu. Kiểm tra chờ chấm/lỗi bằng `docker compose logs --tail=100 worker`.
 
 Admin có trang **Lần thi & dung lượng** để lọc theo môn/người, xuất báo cáo Excel, chọn dọn bản ghi giữ điểm hoặc xóa toàn bộ dữ liệu lần thi. Có mẫu Excel và kiểm tra trước khi nhập môn, rubric, câu hỏi có sẵn, giảng viên và khảo thí. Cần cập nhật đồng bộ web, API và worker; xem [quản lý dung lượng và nhập Excel](docs/user-guide.md#quản-lý-lần-thi-và-dung-lượng).
 

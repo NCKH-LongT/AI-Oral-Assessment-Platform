@@ -194,8 +194,8 @@ export default function ExamRosterPicker({
             </div>
             {!visible.length && (
               <p>
-                Không có học viên phù hợp. Thêm học viên và xếp lớp tại Môn học
-                → Học viên.
+                Không có học viên phù hợp. Thêm học viên trong môn hoặc tại
+                Quản lý lớp học.
               </p>
             )}
           </>

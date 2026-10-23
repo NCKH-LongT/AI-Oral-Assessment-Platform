@@ -10,12 +10,47 @@ from sqlalchemy.orm import Session
 from . import ai
 from .db import get_db
 from .exam_generation import build_snapshot
-from .examination_schemas import CommissionIn, CourseClassIn, DraftReviewIn, HotwordsIn, ManualGradeIn, RosterSelectionIn, ScheduleIn, TeacherIn
+from .examination_schemas import (
+    CommissionIn,
+    DraftReviewIn,
+    HotwordsIn,
+    ManualGradeIn,
+    RosterSelectionIn,
+    ScheduleIn,
+    TeacherIn,
+)
 from .excel import parse_roster, template_bytes, workbook_bytes
-from .models import Assignment, Attempt, Audit, Course, CourseClass, CourseEnrollment, Exam, ExamSession, ProcessingJob, ReviewJob, Rubric, User, uid
+from .models import (
+    Assignment,
+    Attempt,
+    Audit,
+    ClassStudent,
+    Course,
+    CourseEnrollment,
+    Exam,
+    ExamSession,
+    ProcessingJob,
+    ReviewJob,
+    Rubric,
+    TeachingClass,
+    User,
+    uid,
+)
+from .permissions import has_role, role_filter, teacher_scope
 from .runtime_settings import settings
 from .schemas import ReviewIn, RubricIn
-from .security import by_id, course_access, current_user, editor, exam_officer, fail, hasher, staff
+from .security import (
+    by_id,
+    course_access,
+    current_user,
+    editor,
+    exam_access,
+    exam_officer,
+    fail,
+    hasher,
+    staff,
+    visible_exams,
+)
 
 router = APIRouter()
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -27,7 +62,7 @@ def audit(db, user, event, **details):
 
 def scoped_exam(db, key, user):
     exam = by_id(db, Exam, key, lock=True)
-    course_access(db, exam.course_id, user)
+    exam_access(db, exam, user)
     return exam
 
 
@@ -39,7 +74,7 @@ def check_schedule(db, exam, user):
     if not exam.workflow:
         return
     row = schedule_for(db, exam, user.id)
-    if user.role != "STUDENT" or not row:
+    if not has_role(user, "STUDENT") or not row:
         fail(403, "NOT_ASSIGNED", "Bạn không có tên trong danh sách kỳ thi")
     now = time.time()
     if exam.status != "PUBLISHED" or row.opens_at is None or row.closes_at is None or not row.opens_at <= now < row.closes_at:
@@ -48,8 +83,8 @@ def check_schedule(db, exam, user):
 
 @router.post("/auth/request-exam-officer")
 def request_role(db: Session = Depends(get_db), user=Depends(current_user)):
-    if user.role != "STUDENT":
-        fail(409, "INVALID_ROLE", "Chỉ tài khoản sinh viên gửi yêu cầu chuyển sang khảo thí")
+    if not has_role(user, "STUDENT") or has_role(user, "EXAM_OFFICER"):
+        fail(409, "INVALID_ROLE", "Chỉ sinh viên chưa có quyền khảo thí gửi yêu cầu bổ sung vai trò")
     user.requested_role = "EXAM_OFFICER"
     audit(db, user, "EXAM_OFFICER_REQUESTED")
     db.commit()
@@ -59,13 +94,13 @@ def request_role(db: Session = Depends(get_db), user=Depends(current_user)):
 @router.get("/admin/examination/teachers")
 def teachers(db: Session = Depends(get_db), user=Depends(exam_officer)):
     return [{"id": u.id, "name": u.name, "email": u.email} for u in db.scalars(
-        select(User).where(User.role == "TEACHER", User.status == "ACTIVE").order_by(User.name)
+        select(User).where(role_filter("TEACHER"), User.status == "ACTIVE").order_by(User.name)
     )]
 
 
 def assign_teacher(db, course, teacher_id):
     teacher = by_id(db, User, teacher_id)
-    if teacher.role != "TEACHER" or teacher.status != "ACTIVE":
+    if not has_role(teacher, "TEACHER") or teacher.status != "ACTIVE":
         fail(422, "NOT_TEACHER", "Chọn giảng viên đang hoạt động do admin phân quyền")
     course.owner_id = teacher.id
 
@@ -96,9 +131,9 @@ def save_hotwords(key: str, body: HotwordsIn, db: Session = Depends(get_db), use
 
 @router.get("/admin/examination/exams")
 def exam_list(db: Session = Depends(get_db), user=Depends(staff)):
-    query = select(Exam, Course).join(Course).where(Exam.workflow.is_(True))
-    if user.role == "TEACHER":
-        query = query.where(Course.owner_id == user.id)
+    query = select(Exam, Course).join(Course).where(Exam.workflow.is_(True), Exam.class_id.is_(None))
+    if teacher_scope(user):
+        query = query.where(visible_exams(user))
     return [{"id": e.id, "name": e.name, "status": e.status, "course_id": c.id,
              "course_name": c.name, "teacher_id": c.owner_id, "imported": bool(e.imported_questions), "time_limit": e.time_limit}
             for e, c in db.execute(query.order_by(Exam.created_at.desc()))]
@@ -141,48 +176,22 @@ def roster(key: str, db: Session = Depends(get_db), user=Depends(staff)):
 def course_classes(course_id: str, db: Session = Depends(get_db), user=Depends(staff)):
     course_access(db, course_id, user)
     return [{"id": c.id, "name": c.name, "student_count": count} for c, count in db.execute(
-        select(CourseClass, func.count(CourseEnrollment.id)).outerjoin(
-            CourseEnrollment, CourseEnrollment.class_id == CourseClass.id
-        ).where(CourseClass.course_id == course_id).group_by(CourseClass.id).order_by(CourseClass.name)
+        select(TeachingClass, func.count(ClassStudent.id)).outerjoin(
+            ClassStudent, ClassStudent.class_id == TeachingClass.id
+        ).where(TeachingClass.course_id == course_id).group_by(TeachingClass.id).order_by(TeachingClass.name)
     )]
-
-
-@router.post("/admin/courses/{course_id}/classes")
-def save_course_class(course_id: str, body: CourseClassIn, db: Session = Depends(get_db), user=Depends(exam_officer)):
-    course_access(db, course_id, user)
-    by_id(db, Course, course_id, lock=True)
-    name = body.name.strip()
-    if not name:
-        fail(422, "CLASS_NAME", "Nhập tên lớp học phần")
-    ids = set(body.student_ids)
-    rows = db.scalars(select(CourseEnrollment).join(User).where(
-        CourseEnrollment.course_id == course_id, CourseEnrollment.student_id.in_(ids),
-        User.role == "STUDENT", User.status == "ACTIVE",
-    )).all()
-    if len(rows) != len(ids):
-        fail(422, "NOT_ENROLLED", "Chỉ xếp lớp cho học viên đang hoạt động và đã thuộc môn")
-    section = db.scalar(select(CourseClass).where(CourseClass.course_id == course_id, CourseClass.name == name))
-    if not section:
-        section = CourseClass(course_id=course_id, name=name)
-        db.add(section)
-        db.flush()
-    for row in rows:
-        row.class_id = section.id
-    audit(db, user, "COURSE_CLASS_UPDATED", course_id=course_id, class_id=section.id, student_ids=sorted(ids))
-    db.commit()
-    return {"id": section.id, "name": section.name, "updated": len(rows)}
 
 
 def roster_source(db, course_id, class_id, user):
     course_access(db, course_id, user)
-    query = select(User).join(CourseEnrollment, CourseEnrollment.student_id == User.id).where(
-        CourseEnrollment.course_id == course_id, User.role == "STUDENT", User.status == "ACTIVE",
-    )
+    enrolled = select(CourseEnrollment.student_id).where(CourseEnrollment.course_id == course_id)
+    members = select(ClassStudent.student_id).join(TeachingClass).where(TeachingClass.course_id == course_id)
+    query = select(User).where(User.id.in_(enrolled.union(members)), role_filter("STUDENT", include_admin=False), User.status == "ACTIVE")
     if class_id:
-        section = by_id(db, CourseClass, class_id)
+        section = by_id(db, TeachingClass, class_id)
         if section.course_id != course_id:
             fail(422, "CLASS_COURSE", "Lớp không thuộc môn đã chọn")
-        query = query.where(CourseEnrollment.class_id == class_id)
+        query = query.where(User.id.in_(select(ClassStudent.student_id).where(ClassStudent.class_id == class_id)))
     return query
 
 
@@ -231,7 +240,7 @@ def import_students(key: str, file: UploadFile = File(), db: Session = Depends(g
     created, added = 0, 0
     for row in rows:
         matches = db.scalars(select(User).where(func.lower(User.email) == row["email"])).all()
-        if len(matches) > 1 or (matches and (matches[0].role != "STUDENT" or matches[0].status != "ACTIVE")):
+        if len(matches) > 1 or (matches and (not has_role(matches[0], "STUDENT") or matches[0].status != "ACTIVE")):
             fail(422, "EMAIL_CONFLICT", f"Email {row['email']} không thuộc duy nhất một sinh viên hoạt động")
         learner = matches[0] if matches else None
         if not learner:
@@ -267,7 +276,7 @@ def generate(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     if exam.status not in {"DRAFT", "GENERATED"}:
         fail(409, "DRAFT_REQUIRED", "Trả về bản nháp trước khi sinh lại đề")
     if not exam.blueprint:
-        fail(422, "BLUEPRINT_REQUIRED", "Cấu hình chủ đề, số câu và độ khó trong Môn học & đề thi")
+        fail(422, "BLUEPRINT_REQUIRED", "Cấu hình chủ đề, số câu và độ khó trong Ngân hàng đề thi")
     snapshot = build_snapshot(db, exam)
     if exam.imported_questions:
         criteria = snapshot["criteria"]
@@ -292,7 +301,7 @@ def generate(key: str, db: Session = Depends(get_db), user=Depends(editor)):
 
 
 @router.put("/admin/exams/{key}/draft")
-def edit_draft(key: str, body: DraftReviewIn, db: Session = Depends(get_db), user=Depends(editor)):
+def edit_draft(key: str, body: DraftReviewIn, db: Session = Depends(get_db), user=Depends(staff)):
     exam = scoped_exam(db, key, user)
     if exam.status != "GENERATED" or not exam.snapshot:
         fail(409, "DRAFT_REQUIRED", "Chỉ sửa nội dung đề đã sinh và chưa duyệt")
@@ -326,7 +335,7 @@ def teacher_approve(key: str, db: Session = Depends(get_db), user=Depends(editor
 @router.post("/admin/exams/{key}/return-draft")
 def return_draft(key: str, body: ReviewIn, db: Session = Depends(get_db), user=Depends(staff)):
     exam = scoped_exam(db, key, user)
-    if user.role == "REVIEWER" or exam.status not in {"GENERATED", "TEACHER_APPROVED"}:
+    if exam.status not in {"GENERATED", "TEACHER_APPROVED"}:
         fail(409, "INVALID_STATE", "Không thể trả đề về bản nháp")
     exam.status, exam.snapshot = "DRAFT", None
     audit(db, user, "EXAM_RETURNED", exam_id=key, reason=body.reason)
@@ -372,7 +381,7 @@ def office_approve(key: str, db: Session = Depends(get_db), user=Depends(exam_of
 def manual_grade(key: str, body: ManualGradeIn, db: Session = Depends(get_db), user=Depends(editor)):
     session = by_id(db, ExamSession, key, lock=True)
     exam = by_id(db, Exam, session.exam_id)
-    course_access(db, exam.course_id, user)
+    exam_access(db, exam, user)
     if session.deleted_at is not None or session.status not in {"REVIEW_REQUIRED", "COMPLETED"}:
         fail(409, "NOT_READY", "Chờ máy chủ chấm xong trước khi chấm lại")
     if db.scalar(select(ProcessingJob.id).join(Attempt).where(Attempt.session_id == key,

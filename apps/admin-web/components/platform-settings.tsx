@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api, send, errorText } from "./api";
 import { Empty, Form } from "./shared";
+import DesktopPolicySettings from "./desktop-policy";
 import SpeechSettings from "./speech-settings";
 
 type Config = {
@@ -43,7 +44,7 @@ export default function PlatformSettings() {
           <span className="eyebrow">QUẢN TRỊ HỆ THỐNG</span>
           <h1>Cấu hình hệ thống</h1>
           <p className="muted">
-            Thiết lập AI, đăng nhập Google và nhận dạng giọng nói.
+            Thiết lập AI, đăng nhập Google, giọng nói và quy định desktop.
           </p>
         </div>
       </div>
@@ -52,6 +53,7 @@ export default function PlatformSettings() {
           ["ai", "AI & mô hình"],
           ["google", "Đăng nhập Google"],
           ["stt", "STT & giọng nói"],
+          ["desktop", "Quy định desktop"],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -62,7 +64,9 @@ export default function PlatformSettings() {
           </button>
         ))}
       </div>
-      {tab === "stt" ? (
+      {tab === "desktop" ? (
+        <DesktopPolicySettings />
+      ) : tab === "stt" ? (
         <SpeechSettings />
       ) : tab === "ai" && config.ai_config_source === "env" ? (
         <section className="panel">

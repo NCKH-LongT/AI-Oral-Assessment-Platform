@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from .db import get_db
 from .excel import workbook_bytes
 from .models import Audit, Course, Exam, Rubric, Topic, User
+from .permissions import has_role, role_filter, teacher_scope
 from .schemas import CourseIn, ExamIn, QuestionOutput, RubricIn, UserIn
 from .security import course_access, fail, hasher, staff
 
@@ -45,7 +46,7 @@ NOTES = {
 def access(kind, user):
     if kind not in SPECS:
         fail(404, "IMPORT_KIND", "Loại import không hỗ trợ")
-    if kind in {"teachers", "officers"} and user.role != "ADMIN":
+    if kind in {"teachers", "officers"} and not has_role(user, "ADMIN"):
         fail(403, "FORBIDDEN", "Chỉ admin được import giảng viên và khảo thí")
 
 
@@ -68,7 +69,7 @@ def template(kind: str, course_id: str | None = None, db: Session = Depends(get_
                 if topics:
                     r[5] = topics[0].name
             refs = [["rubric_name", r.name] for r in rubrics] + [["topic_name", t.name] for t in topics]
-    if kind == "courses" and user.role == "TEACHER":
+    if kind == "courses" and teacher_scope(user):
         examples[0][3] = user.email or ""
     book = load_workbook(io.BytesIO(workbook_bytes(headers, examples, "Data")))
     guide = book.create_sheet("Huong dan")
@@ -90,7 +91,7 @@ def template(kind: str, course_id: str | None = None, db: Session = Depends(get_
         headers={"Content-Disposition": f'attachment; filename="{kind}-template.xlsx"'})
 
 
-def parse(file, kind):
+def parse(file, kind, custom_headers=None):
     if not (file.filename or "").lower().endswith(".xlsx"):
         fail(422, "EXCEL_TYPE", "Chọn file .xlsx theo mẫu")
     raw = file.file.read(2 * 1024 * 1024 + 1)
@@ -103,7 +104,7 @@ def parse(file, kind):
         book = load_workbook(io.BytesIO(raw), read_only=True, data_only=False, keep_links=False)
         try:
             sheet = book["Data"] if "Data" in book.sheetnames else book.active
-            headers = SPECS[kind][0]
+            headers = custom_headers if custom_headers is not None else SPECS[kind][0]
             limit = 200 if kind in {"teachers", "officers"} else 1000
             if (sheet.max_row or 0) > limit + 1 or (sheet.max_column or 0) > len(headers):
                 fail(422, "EXCEL_DIMENSIONS", f"Tối đa {limit} dòng và đúng số cột trong mẫu")
@@ -172,11 +173,11 @@ def build_plan(db, kind, rows, user):
                 owner = user
                 if row["teacher_email"]:
                     owner = unique(db, User, func.lower(User.email) == row["teacher_email"].lower(), "Email giảng viên")
-                    if owner.role != "TEACHER" or owner.status != "ACTIVE":
+                    if not has_role(owner, "TEACHER") or owner.status != "ACTIVE":
                         raise ValueError("Người phụ trách phải là giảng viên đang hoạt động")
-                elif user.role == "EXAM_OFFICER":
+                elif not has_role(user, "ADMIN", "TEACHER"):
                     raise ValueError("Khảo thí cần nhập email giảng viên phụ trách")
-                if user.role == "TEACHER" and owner.id != user.id:
+                if teacher_scope(user) and owner.id != user.id:
                     raise ValueError("Giáo viên chỉ nhập môn do mình phụ trách")
                 data = body.model_dump() | {"owner_id": owner.id}
                 old = db.scalar(select(Course).where(func.lower(Course.code) == body.code.lower()))
@@ -193,11 +194,11 @@ def build_plan(db, kind, rows, user):
                 seen.update({("email", email), ("username", row["username"].lower())})
                 existing = db.scalars(select(User).where((func.lower(User.email) == email) | (func.lower(User.username) == row["username"].lower()))).all()
                 if existing:
-                    if len(existing) != 1 or existing[0].role != role or existing[0].status != "ACTIVE" or existing[0].username != row["username"] or (existing[0].email or "").lower() != email or existing[0].name != row["full_name"]:
+                    if len(existing) != 1 or not has_role(existing[0], role) or existing[0].status != "ACTIVE" or existing[0].username != row["username"] or (existing[0].email or "").lower() != email or existing[0].name != row["full_name"]:
                         raise ValueError("Email/tên đăng nhập đã tồn tại với danh tính hoặc vai trò khác; không thay đổi tài khoản")
                     plan.append({"action": "skip", "label": email, "data": {}})
                 else:
-                    data = UserIn(username=row["username"], email=email, name=row["full_name"], role=role, password=row["initial_password"]).model_dump()
+                    data = UserIn(username=row["username"], email=email, name=row["full_name"], role=role, password=row["initial_password"]).model_dump(exclude={"roles"})
                     plan.append({"action": "create", "label": email, "data": data})
         except (ValueError, ValidationError) as exc:
             error(line, exc)
@@ -263,7 +264,7 @@ def apply(kind: str, file: UploadFile = File(), db: Session = Depends(get_db), u
     rows = parse(file, kind)
     # Serializes import-vs-import uniqueness checks, including rubric/exam names
     # without a legacy database uniqueness constraint.
-    db.scalar(select(User).where(User.role == "ADMIN", User.status == "ACTIVE").order_by(User.id).limit(1).with_for_update())
+    db.scalar(select(User).where(role_filter("ADMIN"), User.status == "ACTIVE").order_by(User.id).limit(1).with_for_update())
     plan, errors = build_plan(db, kind, rows, user)
     if errors:
         fail(422, "IMPORT_INVALID", "; ".join(f"Dòng {e['row']}: {e['message']}" for e in errors[:5]))

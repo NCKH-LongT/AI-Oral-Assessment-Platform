@@ -1,0 +1,54 @@
+services:
+  api:
+    environment:
+      GOPT_ENABLED: "true"
+      GOPT_URL: http://gopt:8000
+  worker:
+    environment:
+      GOPT_ENABLED: "true"
+      GOPT_URL: http://gopt:8000
+      GOPT_TIMEOUT: ${GOPT_TIMEOUT:-960}
+      GOPT_MAX_AUDIO_MB: ${GOPT_MAX_AUDIO_MB:-24}
+      WORKER_SERIAL: "true"
+      STT_CPU_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    cpus: ${WORKER_CPUS:-1.0}
+    mem_limit: ${WORKER_MEMORY:-2g}
+    memswap_limit: ${WORKER_MEMORY:-2g}
+    depends_on:
+      gopt:
+        condition: service_healthy
+  gopt:
+    init: true
+    build:
+      context: ./services/gopt
+      args:
+        BUILD_JOBS: "1"
+    environment:
+      GOPT_MAX_AUDIO_MB: ${GOPT_MAX_AUDIO_MB:-24}
+      GOPT_MAX_AUDIO_SECONDS: ${GOPT_MAX_AUDIO_SECONDS:-120}
+      GOPT_JOB_TIMEOUT: ${GOPT_JOB_TIMEOUT:-900}
+    cpus: ${GOPT_CPUS:-1.0}
+    mem_limit: ${GOPT_MEMORY:-2g}
+    memswap_limit: ${GOPT_MEMORY:-2g}
+    pids_limit: 128
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          CMD,
+          python,
+          -c,
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped

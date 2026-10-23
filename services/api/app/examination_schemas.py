@@ -2,6 +2,7 @@ from typing import Annotated
 
 from pydantic import Field, field_validator, model_validator
 
+from .question_content import content_text, validate_content
 from .schemas import Criterion, Input, QuestionOutput
 
 Hotword = Annotated[str, Field(min_length=1, max_length=100)]
@@ -34,11 +35,6 @@ class RosterSelectionIn(Input):
     student_ids: list[str] = Field(min_length=1, max_length=5000)
 
 
-class CourseClassIn(Input):
-    name: str = Field(min_length=1, max_length=100)
-    student_ids: list[str] = Field(min_length=1, max_length=5000)
-
-
 class CommissionIn(TeacherIn):
     course_id: str
     name: str = Field(min_length=1, max_length=200)
@@ -46,6 +42,19 @@ class CommissionIn(TeacherIn):
 
 
 class DraftQuestion(QuestionOutput):
+    rich_content: dict | None = None
+
+    @field_validator("rich_content")
+    @classmethod
+    def rich_document(cls, value):
+        return validate_content(value)
+
+    @model_validator(mode="after")
+    def plain_text(self):
+        if self.rich_content is not None:
+            self.text = content_text(self.rich_content)
+        return self
+
     preparation_seconds: int = Field(default=10, ge=0, le=600, strict=True)
     recording_seconds: int = Field(default=60, ge=1, le=1800, strict=True)
 

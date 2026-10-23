@@ -44,7 +44,9 @@ def test_select_course_and_class_roster(env):
     sid = ok(clients["student"].get("/auth/me"))["id"]
     other = ok(clients["outsider"].get("/auth/me"))["id"]
     ok(admin.post(f"/admin/courses/{course_id}/students", json={"student_ids": [sid, other]}))
-    section = ok(admin.post(f"/admin/courses/{course_id}/classes", json={"name": "SE1801", "student_ids": [sid]}))
+    section = ok(admin.post("/admin/classes", json={"code": "SE1801", "name": "SE1801", "course_id": course_id, "starts_at": 1, "ends_at": 9999999999}), 201)
+    ok(admin.post(f"/admin/classes/{section['id']}/students", json={"student_ids": [sid]}))
+    ok(admin.delete(f"/admin/courses/{course_id}/students/{sid}"))
     assert ok(office.get(f"/admin/courses/{course_id}/classes"))[0]["student_count"] == 1
     endpoint = f"/admin/exams/{key}/roster-candidates"
     students = ok(office.get(endpoint, params={"course_id": course_id}))
@@ -76,29 +78,36 @@ def test_select_course_and_class_roster(env):
     assert office.post(f"/admin/exams/{key}/select-students", json=body).status_code == 409
 
 
-def test_class_and_roster_validate_active_membership(env):
+@pytest.mark.parametrize("membership", ["course", "class"])
+def test_roster_validates_course_and_active_membership(env, membership):
     clients, factory, key, context = setup_workflow(env)
     office, admin = clients["reviewer"], clients["admin"]
     course_id = context["course"]["id"]
-    sid = ok(clients["student"].get("/auth/me"))["id"]
-    class_url = f"/admin/courses/{course_id}/classes"
-    body = {"name": "SE1801", "student_ids": [sid]}
-    assert admin.post(class_url, json=body).status_code == 422
-    ok(admin.post(f"/admin/courses/{course_id}/students", json={"student_ids": [sid]}))
-    first = ok(admin.post(class_url, json=body))
-    assert ok(admin.post(class_url, json=body))["id"] == first["id"]
-    moved = ok(admin.post(class_url, json=body | {"name": "SE1802"}))
-    counts = {c["name"]: c["student_count"] for c in ok(office.get(class_url))}
-    assert counts == {"SE1801": 0, "SE1802": 1}
+    student_id = ok(clients["student"].get("/auth/me"))["id"]
+    section = ok(admin.post("/admin/classes", json={
+        "code": "SE1801", "name": "SE1801", "course_id": course_id,
+        "starts_at": 1, "ends_at": 9999999999,
+    }), 201)
+    source = {"course_id": course_id}
+    if membership == "class":
+        source["class_id"] = section["id"]
+    candidates = f"/admin/exams/{key}/roster-candidates"
+    selection = f"/admin/exams/{key}/select-students"
+    body = source | {"student_ids": [student_id]}
+    assert office.post(selection, json=body).status_code == 422
+    membership_url = (f"/admin/classes/{section['id']}/students" if membership == "class"
+                      else f"/admin/courses/{course_id}/students")
+    ok(admin.post(membership_url, json={"student_ids": [student_id]}))
+    assert [student["id"] for student in ok(office.get(candidates, params=source))] == [student_id]
     other_course = ok(admin.post("/admin/courses", json={"code": "OTHER", "name": "Other", "description": ""}), 201)
-    assert office.get(f"/admin/exams/{key}/roster-candidates", params={
-        "course_id": other_course["id"], "class_id": moved["id"],
-    }).status_code == 422
+    wrong_source = {"course_id": other_course["id"], "class_id": section["id"]}
+    assert office.get(candidates, params=wrong_source).status_code == 422
+    assert office.post(selection, json=wrong_source | {"student_ids": [student_id]}).status_code == 422
     with factory() as db:
-        db.get(User, sid).status = "DISABLED"
+        db.get(User, student_id).status = "DISABLED"
         db.commit()
-    assert ok(office.get(f"/admin/exams/{key}/roster-candidates", params={"course_id": course_id})) == []
-    assert office.post(f"/admin/exams/{key}/select-students", json={"course_id": course_id, "student_ids": [sid]}).status_code == 422
+    assert ok(office.get(candidates, params=source)) == []
+    assert office.post(selection, json=body).status_code == 422
 
 
 def approve_and_schedule(clients, key, opens=None):

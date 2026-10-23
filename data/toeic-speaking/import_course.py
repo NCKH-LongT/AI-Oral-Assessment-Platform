@@ -32,6 +32,7 @@ from app.models import (
     TopicOutcome,
     User,
 )
+from app.permissions import role_filter
 from app.runtime_settings import snapshot as runtime_snapshot
 from app.schemas import CourseIn, ExamIn, LOIn, QuestionOutput, RubricIn
 from sqlalchemy import select
@@ -40,7 +41,7 @@ ROOT = Path(__file__).resolve().parent
 
 
 def enroll(db, course, exam):
-    students = db.scalars(select(User).where(User.role == "STUDENT", User.status == "ACTIVE")).all()
+    students = db.scalars(select(User).where(role_filter("STUDENT", include_admin=False), User.status == "ACTIVE")).all()
     enrolled = set(db.scalars(select(CourseEnrollment.student_id).where(CourseEnrollment.course_id == course.id)))
     assigned = set(db.scalars(select(Assignment.student_id).where(Assignment.exam_id == exam.id)))
     for student in students:
@@ -75,7 +76,7 @@ def main():
         if db.bind.dialect.name == "postgresql":
             from sqlalchemy import text
             db.execute(text("SELECT pg_advisory_xact_lock(73290143)"))
-        owner = db.scalar(select(User).where(User.role == "ADMIN", User.status == "ACTIVE").order_by(User.created_at))
+        owner = db.scalar(select(User).where(role_filter("ADMIN"), User.status == "ACTIVE").order_by(User.created_at))
         if owner is None:
             raise RuntimeError("Cần một tài khoản ADMIN đang hoạt động")
         course = db.scalar(select(Course).where(Course.code == course_input.code))

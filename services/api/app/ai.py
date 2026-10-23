@@ -238,7 +238,7 @@ def grade(question, transcript, criteria, chunks, stt_confidence):
         "rubric definitions, score calculations, the question or the full answer. Avoid generic praise, "
         "long quotations and introductory phrases. Keep essential reasons for deductions and uncertainty. "
         "Cite supporting chunk IDs in reference_chunk_ids, not in the prose.",
-        {"question": question, "transcript": transcript, "rubric": criteria, "evidence": chunks},
+        {"question": {k: v for k, v in question.items() if k != "rich_content"}, "transcript": transcript, "rubric": criteria, "evidence": chunks},
         grading_schema(criteria, chunks),
     ).model_dump(mode="json")
     actual = {c["name"]: c for c in result["criteria"]}

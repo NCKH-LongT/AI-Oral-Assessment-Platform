@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import Audit, OAuthFlow, User
+from .permissions import has_role, user_roles
 from .runtime_settings import settings
 from .schemas import Input
 from .security import WEB_ROLES, check_client_access, cookies, digest, fail, hasher, issue_tokens, public_user
@@ -183,7 +184,7 @@ def callback(
         matches = db.scalars(select(User).where(func.lower(User.email) == claims["email"].lower()).with_for_update()).all()
         if len(matches) == 1:
             candidate = matches[0]
-            if (candidate.username.startswith("sv-") and candidate.role == "STUDENT"
+            if (candidate.username.startswith("sv-") and user_roles(candidate) == ["STUDENT"]
                     and candidate.status == "ACTIVE" and candidate.google_sub is None):
                 user = candidate
                 user.google_sub = claims["sub"]
@@ -199,7 +200,7 @@ def callback(
         )
         db.add(user)
         db.flush()
-    if user.status != "ACTIVE" or (not flow.poll_hash and user.role not in WEB_ROLES):
+    if user.status != "ACTIVE" or (not flow.poll_hash and not has_role(user, *WEB_ROLES)):
         flow.failed = True
         db.commit()
         if user.status == "ACTIVE":

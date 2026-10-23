@@ -1005,9 +1005,10 @@ footer {
   overflow: hidden;
 }
 .camera-preview video {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transform: scaleX(-1);
 }
 .camera-preview > span {
@@ -1487,3 +1488,143 @@ fieldset label {
 .results-filters > label {
   min-width: 0;
 }
+
+/* Dense management views; exam recording retains its existing layout. */
+.app-shell .sidebar {
+  padding: 20px 14px 0;
+  overflow-y: auto;
+}
+.app-shell .sidebar .brand {
+  margin-bottom: 24px;
+}
+.app-shell .nav-item {
+  padding: 10px;
+  margin: 2px 0;
+  gap: 9px;
+}
+.app-shell .sidebar-note {
+  margin-bottom: 12px;
+  padding: 10px;
+}
+.app-shell .content {
+  padding: 24px;
+}
+.app-shell .topbar {
+  height: 56px;
+  padding: 0 24px;
+}
+.app-shell .page-heading {
+  margin-bottom: 20px;
+}
+.app-shell .page-heading h1 {
+  font-size: 26px;
+}
+.app-shell .panel {
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.app-shell .tabs {
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.user-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.user-toolbar input {
+  flex: 1 1 240px;
+}
+.user-toolbar select {
+  width: auto;
+  min-width: 160px;
+}
+.compact-users td,
+.compact-users th {
+  padding: 9px 12px;
+}
+.compact-users .inline {
+  margin: 0;
+  gap: 8px;
+}
+.compact-users .inline select {
+  width: auto;
+  min-width: 135px;
+  padding: 7px;
+}
+.compact-users .inline .button {
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+.compact-users .avatar {
+  width: 28px;
+  height: 28px;
+}
+.block {
+  display: block;
+}
+.bank-filters {
+  margin: 16px 0;
+}
+@media (max-width: 680px) {
+  .app-shell .content {
+    padding: 16px;
+  }
+  .app-shell .sidebar .brand {
+    margin-bottom: 0;
+  }
+  .app-shell .panel {
+    padding: 12px;
+  }
+  .user-toolbar > * {
+    width: 100%;
+  }
+}
+
+.app-shell details.panel {
+  margin-top: 0;
+}
+.user-imports {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.app-shell .user-imports .panel {
+  padding: 12px 16px;
+}
+@media (max-width: 680px) {
+  .user-imports {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+.profile-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.profile-details dt { color: var(--muted); font-size: 12px; }
+.profile-details dd { margin: 6px 0 0; overflow-wrap: anywhere; }
+
+.role-options { min-width: 0; border: 1px solid #dfe6e9; border-radius: 8px; padding: 12px; display: grid; gap: 10px; }
+.role-options legend { padding: 0 4px; font-size: 12px; }
+.role-options label { flex-direction: row; align-items: center; gap: 8px; font-size: 12px; color: var(--ink); }
+.role-options input { flex: 0 0 auto; margin: 0; }
+.role-options small { white-space: normal; color: var(--muted); }
+.role-editor { min-width: 200px; max-width: 340px; }
+.role-editor summary { cursor: pointer; white-space: normal; line-height: 1.5; }
+.role-editor fieldset { margin: 12px 0; }
+.role-editor .action-wrap { margin: 0; }
+
+/* Questions share the same bounded document layout in the editor, exam and review. */
+.question-content, .question-editor { min-width: 0; overflow-wrap: anywhere; }
+.question-content img, .question-editor-document img { display: block; max-width: 100%; height: auto; max-height: 60vh; object-fit: contain; margin: 12px 0; }
+.question-content p, .question-editor-document p { margin: 8px 0; }
+.question-editor { border: 1px solid var(--line); border-radius: 8px; background: white; margin: 12px 0; }
+.question-editor-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border-bottom: 1px solid var(--line); }
+.question-editor-toolbar button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 5px; background: #f5f8f7; color: inherit; cursor: pointer; }
+.question-editor-document { min-height: 180px; max-height: 60vh; overflow-y: auto; padding: 12px; outline: none; }
+.question-editor-document:focus { outline: 2px solid var(--teal, #1b7774); outline-offset: -2px; }
+.question-editor > small, .question-editor > .error { display: block; margin: 8px 12px; }
+.question-editor-document .ProseMirror-selectednode { outline: 2px solid #1b7774; }
+.desktop-main .device-panel .camera-preview { width: min(100%, 240px) !important; height: auto !important; aspect-ratio: var(--camera-ratio, 4/3); max-height: none !important; margin: 0 auto; }

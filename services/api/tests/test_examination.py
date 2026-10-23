@@ -78,6 +78,36 @@ def test_select_course_and_class_roster(env):
     assert office.post(f"/admin/exams/{key}/select-students", json=body).status_code == 409
 
 
+@pytest.mark.parametrize("membership", ["course", "class"])
+def test_roster_validates_course_and_active_membership(env, membership):
+    clients, factory, key, context = setup_workflow(env)
+    office, admin = clients["reviewer"], clients["admin"]
+    course_id = context["course"]["id"]
+    student_id = ok(clients["student"].get("/auth/me"))["id"]
+    section = ok(admin.post("/admin/classes", json={
+        "code": "SE1801", "name": "SE1801", "course_id": course_id,
+        "starts_at": 1, "ends_at": 9999999999,
+    }), 201)
+    source = {"course_id": course_id}
+    if membership == "class":
+        source["class_id"] = section["id"]
+    candidates = f"/admin/exams/{key}/roster-candidates"
+    selection = f"/admin/exams/{key}/select-students"
+    body = source | {"student_ids": [student_id]}
+    assert office.post(selection, json=body).status_code == 422
+    membership_url = (f"/admin/classes/{section['id']}/students" if membership == "class"
+                      else f"/admin/courses/{course_id}/students")
+    ok(admin.post(membership_url, json={"student_ids": [student_id]}))
+    assert [student["id"] for student in ok(office.get(candidates, params=source))] == [student_id]
+    other_course = ok(admin.post("/admin/courses", json={"code": "OTHER", "name": "Other", "description": ""}), 201)
+    wrong_source = {"course_id": other_course["id"], "class_id": section["id"]}
+    assert office.get(candidates, params=wrong_source).status_code == 422
+    assert office.post(selection, json=wrong_source | {"student_ids": [student_id]}).status_code == 422
+    with factory() as db:
+        db.get(User, student_id).status = "DISABLED"
+        db.commit()
+    assert ok(office.get(candidates, params=source)) == []
+    assert office.post(selection, json=body).status_code == 422
 
 
 def approve_and_schedule(clients, key, opens=None):

@@ -5,7 +5,23 @@ import os
 import sqlite3
 import subprocess
 import sys
+import warnings
 from pathlib import Path
+
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
+
+def test_migration_graph_has_unique_revisions_and_one_head():
+    root = Path(__file__).resolve().parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "alembic"))
+    scripts = ScriptDirectory.from_config(config)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        revisions = [revision.revision for revision in scripts.walk_revisions()]
+    assert len(revisions) == len(set(revisions))
+    assert scripts.get_heads() == ["0012"]
 
 
 def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
@@ -51,6 +67,9 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
         db.execute(
             "INSERT INTO question_attempts (id,created_at,session_id,sequence,question,status,transcript) VALUES ('a',1,'s',1,'{}','GRADED','Original answer')"
         )
+    subprocess.run(command + ["0009"], cwd=root, env=environment, check=True, capture_output=True)
+    with sqlite3.connect(database) as db:
+        db.execute("INSERT INTO course_enrollments (id,created_at,course_id,student_id) VALUES ('enrollment',1,'c','u')")
     subprocess.run(command + ["head"], cwd=root, env=environment, check=True, capture_output=True)
     # A second upgrade must be a no-op.
     subprocess.run(command + ["head"], cwd=root, env=environment, check=True, capture_output=True)
@@ -69,6 +88,8 @@ def test_sqlite_upgrade_preserves_mvp_data(tmp_path):
         assert db.execute("SELECT role FROM users WHERE id='u'").fetchone() == ("ADMIN",)
         assert db.execute("SELECT * FROM user_roles").fetchall() == []
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0012",)
+        assert db.execute("SELECT course_id,student_id FROM course_enrollments").fetchone() == ("c", "u")
+        assert db.execute("SELECT COUNT(*) FROM teaching_classes").fetchone() == (0,)
         assert db.execute("SELECT screen_required,screen_consent_at FROM exam_sessions WHERE id='s'").fetchone() == (0, None)
 
         assert db.execute(

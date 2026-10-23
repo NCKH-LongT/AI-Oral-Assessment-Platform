@@ -117,6 +117,9 @@ def tick(factory):
                     attempt.transcript, attempt.stt_confidence or 0)
                 attempt.status, job.status = "GRADED", "COMPLETED"
             job.error = None
+            if (attempt.assessment or {}).get("pronunciation", {}).get("status") == "FAILED":
+                job.status = "FAILED"
+                job.error = "PRONUNCIATION_FAILED: Chưa chấm được phát âm. Có thể thử chấm lại."
         except Exception as exc:
             code, message = failure(exc) if job.stage == "GRADING" else (
                 "STT_FAILED", "Nhận dạng audio thất bại. Kiểm tra cấu hình STT, model, quota và bản ghi rồi thử lại.")

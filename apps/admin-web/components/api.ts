@@ -186,6 +186,20 @@ export type Assessment = {
   model: string;
   criteria?: { name: string; score: number; comment: string }[];
   retrieved_chunks?: Chunk[];
+  pronunciation?: {
+    status: "COMPLETED" | "FAILED";
+    model: string;
+    message?: string;
+    scores?: {
+      accuracy: number;
+      completeness: number;
+      fluency: number;
+      prosody: number;
+      total: number;
+    };
+    segments?: number;
+    phones?: number;
+  };
 };
 export type ScoreSummary = {
   total_score: number | null;

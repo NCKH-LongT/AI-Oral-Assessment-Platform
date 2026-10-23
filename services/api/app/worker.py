@@ -6,11 +6,12 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
+from threading import Lock
 from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
-from . import ai, media_retention, processing, runtime_settings, speech, storage
+from . import ai, media_retention, processing, pronunciation, runtime_settings, speech, storage
 from .db import SessionLocal
 from .documents import process_document
 from .grading import check_config, failure, review_question, score_summary
@@ -28,6 +29,7 @@ from .models import (
 )
 
 log = logging.getLogger("oral.worker")
+_serial_lock = Lock()
 
 
 def finalize(db, session):
@@ -106,13 +108,14 @@ def grade_answer(db, exam, session, attempt, transcript, confidence):
         snapshot["document_ids"],
         frozen_chunks(db, exam, attempt),
     )
-    return ai.grade(
+    assessment = ai.grade(
         attempt.question,
         transcript,
         snapshot["criteria"],
         chunks,
         confidence if attempt.finished_at <= session.started_at + exam.time_limit else 0,
     ) | {"rubric_version": snapshot["rubric_version"], "knowledge_version": snapshot["knowledge_version"]}
+    return pronunciation.assess(db, exam, attempt, transcript, assessment)
 
 
 def process_review(db, job):
@@ -123,7 +126,7 @@ def process_review(db, job):
         if job.policy["provider"] == "grading":
             target = db.get(Exam, job.policy["target_exam_id"])
             question = review_question(exam, target, attempt)
-            reviewed = SimpleNamespace(question=question, finished_at=attempt.finished_at)
+            reviewed = SimpleNamespace(id=attempt.id, question=question, finished_at=attempt.finished_at)
             assessment = grade_answer(db, target, session, reviewed,
                                       job.original["transcript"], job.original["stt_confidence"] or 0)
             assessment = assessment | {"grading_exam_id": target.id, "source_exam_id": exam.id,
@@ -161,8 +164,10 @@ def process_transcription_review(db, job, exam, session, attempt):
             raise ValueError("Original audio checksum mismatch")
         path.write_bytes(original)
         transcript = speech.transcribe_file(path, job.policy)
+    reviewed = SimpleNamespace(id=attempt.id, question=attempt.question, finished_at=attempt.finished_at,
+                               pronunciation_audio_id=audio.id)
     assessment = grade_answer(
-        db, exam, session, attempt, transcript["transcript"], transcript["stt_confidence"]
+        db, exam, session, reviewed, transcript["transcript"], transcript["stt_confidence"]
     )
     job.result = transcript | {"assessment": assessment}
     # The submitted transcript and idempotency payload remain immutable.
@@ -172,6 +177,21 @@ def process_transcription_review(db, job, exam, session, attempt):
 
 @runtime_settings.snapshot()
 def tick():
+    if not runtime_settings.settings().worker_serial:
+        return process_next()
+    if not _serial_lock.acquire(blocking=False):
+        return False
+    try:
+        with SessionLocal() as lock_db:
+            if lock_db.get_bind().dialect.name == "postgresql":
+                if not lock_db.scalar(text("SELECT pg_try_advisory_xact_lock(72627620)")):
+                    return False
+            return process_next()
+    finally:
+        _serial_lock.release()
+
+
+def process_next():
     if media_retention.tick(SessionLocal):
         return True
     if processing.tick(SessionLocal):

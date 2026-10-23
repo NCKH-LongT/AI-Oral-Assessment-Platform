@@ -46,6 +46,7 @@ import ExamDraftReview from "./exam-draft-review";
 import CourseHotwords from "./course-hotwords";
 import { TranscriptionReview } from "./transcription-review";
 import RubricNote from "./rubric-note";
+import PronunciationScore from "./pronunciation-score";
 
 const proctoringLabels: Record<string, string> = {
   WINDOW_BLUR: "Rời cửa sổ thi",
@@ -2044,6 +2045,7 @@ export function ReviewPage({
                       <RubricNote text={c.comment} />
                     </div>
                   ))}
+                  <PronunciationScore result={a.assessment.pronunciation} />
                   <small>
                     {a.assessment.confidence == null ||
                     a.assessment.error ||

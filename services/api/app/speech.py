@@ -126,7 +126,8 @@ def upload_google_credentials(file: UploadFile = File(), db: Session = Depends(g
 def model(name):
     from faster_whisper import WhisperModel
 
-    return WhisperModel(name, device="cpu", compute_type="int8")
+    return WhisperModel(name, device="cpu", compute_type="int8",
+                        cpu_threads=settings().stt_cpu_threads, num_workers=1)
 
 
 def whisper(path, language, hotwords=None):

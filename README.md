@@ -38,6 +38,7 @@ hình cho cả lượt thi khi bật; camera nằm trong khung hiển thị đú
 | Quản lý dữ liệu, phân biệt audio desktop và kiểm tra/lọc nhiễu trên web | [CRUD và kiểm tra tiếng ồn](docs/architecture/crud-noise-check.md) |
 | Cấu hình số lần thi, cấp thêm lượt và xem lịch sử | [Làm lại bài thi](docs/architecture/exam-retakes.md) |
 | Hiểu độ tin cậy AI và thao tác chấm lại | [Độ tin cậy và chấm lại](docs/architecture/grading-confidence.md) |
+| Chấm phát âm tiếng Anh bằng GOPT trên CPU | [GOPT và hàng đợi tuần tự](docs/architecture/gopt.md) |
 | Nạp bộ câu hỏi mẫu môn Kiểm thử phần mềm | [Bộ dữ liệu Software Testing](data/software-testing-istqb/README.md) |
 | Xem 6 môn ENT001–ENT503, đề và rubric riêng cho từng môn | [Bộ dữ liệu ENT Speaking](data/ent-speaking/README.md) |
 | Hiểu kiến trúc và quy tắc phát triển | [Tổng quan kiến trúc](docs/architecture/phase-1.md), [Project Guide](AI_Oral_Assessment_PROJECT_GUIDE.md) |

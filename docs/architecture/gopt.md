@@ -1,5 +1,9 @@
 # Chấm phát âm GOPT trên CPU
 
+Nếu triển khai bằng Jenkins, dùng [hướng dẫn bật Ollama riêng và GOPT](../jenkins.md#ollama-riêng-cho-oral-và-chấm-lại-local)
+để pipeline quản lý đúng project, image và credential; không chạy lệnh Compose phát triển
+đè lên deployment production bên dưới.
+
 ## Khởi chạy
 
 ```sh

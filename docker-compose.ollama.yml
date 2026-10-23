@@ -1,0 +1,56 @@
+services:
+  api:
+    environment:
+      ORAL_OLLAMA_ENABLED: "true"
+      LOCAL_LLM_URL: http://ollama:11434
+      LOCAL_REVIEW_LLM_MODEL: ${LOCAL_REVIEW_LLM_MODEL:-qwen2.5:3b}
+      LOCAL_LLM_CPU_ONLY: "true"
+    depends_on:
+      ollama:
+        condition: service_healthy
+  worker:
+    environment:
+      ORAL_OLLAMA_ENABLED: "true"
+      LOCAL_LLM_URL: http://ollama:11434
+      LOCAL_REVIEW_LLM_MODEL: ${LOCAL_REVIEW_LLM_MODEL:-qwen2.5:3b}
+      LOCAL_LLM_CPU_ONLY: "true"
+      WORKER_SERIAL: "true"
+      STT_CPU_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    cpus: ${WORKER_CPUS:-1.0}
+    mem_limit: ${WORKER_MEMORY:-2g}
+    memswap_limit: ${WORKER_MEMORY:-2g}
+    depends_on:
+      ollama:
+        condition: service_healthy
+  migrate:
+    environment:
+      LOCAL_LLM_URL: http://ollama:11434
+  ollama:
+    image: ${ORAL_OLLAMA_IMAGE:-ollama/ollama:0.40.10}
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_NO_CLOUD: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_MAX_QUEUE: "2"
+      OLLAMA_KEEP_ALIVE: "0"
+    volumes:
+      - ollama_data:/root/.ollama
+    cpus: ${ORAL_OLLAMA_CPUS:-1.0}
+    mem_limit: ${ORAL_OLLAMA_MEMORY:-4g}
+    memswap_limit: ${ORAL_OLLAMA_MEMORY:-4g}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: [CMD, ollama, list]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+volumes:
+  ollama_data:

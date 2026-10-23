@@ -21,6 +21,64 @@ Trong credential, `PUBLIC_ORIGIN` và `ALLOWED_ORIGINS` phải khớp domain tr�
 
 Jenkinsfile này dành cho địa chỉ triển khai trên. Nếu đổi domain, network hoặc cổng, phải cập nhật cả cấu hình pipeline, credential và reverse proxy tương ứng.
 
+## Ollama riêng cho Oral và chấm lại local
+
+Lỗi `LOCAL_REVIEW_NOT_CONFIGURED` là thiếu tên model chấm lại, không phải lỗi trùng cổng.
+Để dùng `qwen2.5:3b` trong container riêng, cập nhật **Secret file `oral-ai-env`**
+(giữ nguyên các biến database, storage, domain và provider hiện tại):
+
+```dotenv
+ORAL_OLLAMA_ENABLED=true
+LOCAL_REVIEW_LLM_MODEL=qwen2.5:3b
+ORAL_OLLAMA_CPUS=1.0
+ORAL_OLLAMA_MEMORY=4g
+```
+
+Triển khai Jenkinsfile mới rồi chạy **Build Now**. Pipeline chọn `docker-compose.ollama.yml`,
+tải image Ollama và tải model nếu chưa có trước khi dừng API/worker để migration.
+Không cần đổi `AI_PROVIDER` hay `LLM_MODEL` của kỳ thi đã phát hành. Nếu provider hiện tại
+là `local`, pipeline cũng yêu cầu và chuẩn bị `LLM_MODEL`, `EMBEDDING_MODEL` trong Ollama mới.
+
+- Container: `oral-assessment-web-ollama-1`; volume model: `oral-assessment-web_ollama_data`.
+- API/worker tự dùng `http://ollama:11434` trên network `oral-assessment-web_default`.
+- Không publish port lên host, không dùng chung volume/network của SOS. Không sửa hay dừng
+  `sos-ai-ollama`; model cùng tên được tải riêng, cần thêm dung lượng đĩa.
+- Ollama giới hạn mặc định 1 CPU, 4 GiB RAM, một model và một lượt suy luận;
+  worker giới hạn 1 CPU, 2 GiB RAM và xử lý tuần tự. Đây không phải giới hạn tổng RAM server.
+  Không gắn GPU; review giải phóng model sau chấm. Nếu CPU chậm gây timeout,
+  có thể tăng `LOCAL_LLM_TIMEOUT` trong credential, ví dụ `600`, thay vì tăng concurrency.
+- Không bật cloud model. Xem [cấu hình Ollama](https://docs.ollama.com/faq) và
+  [mạng bridge Docker](https://docs.docker.com/engine/network/drivers/bridge/).
+
+Kiểm tra sau khi Jenkins deploy thành công:
+
+```bash
+docker exec oral-assessment-web-ollama-1 ollama list
+docker exec oral-assessment-web-worker-1 python -c "import urllib.request; print(urllib.request.urlopen('http://ollama:11434/api/tags', timeout=10).read().decode())"
+```
+
+### Bật thêm GOPT khi rubric có phát âm
+
+Ollama không thay thế GOPT. Trước khi bật, build image GOPT một lần từ thư mục repo
+trên Docker host mà Jenkins sử dụng (hoặc build ở máy khác cùng kiến trúc rồi load image).
+Build Kaldi ban đầu cần nhiều thời gian và dung lượng; không chạy đồng thời với giờ thi:
+
+```bash
+docker build --build-arg BUILD_JOBS=1 -t oral-assessment-gopt:cpu services/gopt
+```
+
+Sau đó thêm vào `oral-ai-env` và deploy lại:
+
+```dotenv
+GOPT_ENABLED=true
+ORAL_GOPT_IMAGE=oral-assessment-gopt:cpu
+```
+
+Jenkins chọn thêm `docker-compose.gopt.yml`, kiểm tra image đã có và khởi động
+`oral-assessment-web-gopt-1` (không publish port). Thiếu image hoặc tải model thất bại
+sẽ chặn deployment trước bước dừng ứng dụng. Không tự build Kaldi trong mỗi lượt deploy.
+Xem [giới hạn và luồng GOPT](architecture/gopt.md).
+
 ## Jenkins Docker báo `python3: not found`
 
 Lỗi tại **Preflight**, exit code `127`, nghĩa là môi trường chạy agent thiếu Python. Nếu log ghi `Running on Jenkins` / `(built-in)` và Jenkins chạy bằng Docker, phải cài Python **trong container Jenkins**, không chỉ trên host. Pipeline dùng Python ở cả kiểm thử cleanup, snapshot, deploy và dọn image nên không bỏ dòng kiểm tra để xử lý lỗi này.

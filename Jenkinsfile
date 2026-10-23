@@ -37,6 +37,7 @@ python3 --version
 docker compose version
 docker buildx version
 python3 -m unittest discover -s tests -p test_docker_cleanup.py -v
+python3 -m unittest discover -s tests -p test_jenkins_deploy.py -v
 docker info --format '{{.ServerVersion}}'
 docker network inspect nginx-network --format '{{.Name}}'
 test -f docker-compose.yml
@@ -123,6 +124,7 @@ import datetime
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -145,9 +147,45 @@ def command(args, env, label):
 def enabled(value):
     return str(value).lower() in (\'1\', \'true\', \'yes\', \'on\')
 
+def local_models(env):
+    review = env.get(\'LOCAL_REVIEW_LLM_MODEL\') or (env.get(\'LLM_MODEL\') if env.get(\'AI_PROVIDER\') == \'local\' else \'\')
+    if not review:
+        abort(\'Set LOCAL_REVIEW_LLM_MODEL to a local Ollama model name in oral-ai-env.\')
+    models = [review]
+    if env.get(\'AI_PROVIDER\') == \'local\':
+        models.extend([env.get(\'LLM_MODEL\'), env.get(\'EMBEDDING_MODEL\')])
+    if any(not isinstance(model, str) or not re.fullmatch(r\'[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,149}\', model)
+           or \':cloud\' in model or model.endswith(\'-cloud\') for model in models):
+        abort(\'Configure valid local-only Ollama model names; cloud models are not supported.\')
+    return list(dict.fromkeys(models))
+
+def compose_configuration(folder, child):
+    shutil.copyfile(\'docker-compose.yml\', folder / \'docker-compose.yml\')
+    base = [\'docker\', \'compose\', \'-p\', PROJECT, \'--project-directory\', str(folder),
+            \'--env-file\', str(folder / \'.env\'), \'-f\', str(folder / \'docker-compose.yml\')]
+    config = json.loads(command(base + [\'config\', \'--format\', \'json\'], child, \'Compose validation\'))
+    env = config[\'services\'][\'api\'].get(\'environment\', {})
+    overlays = []
+    if enabled(env.get(\'ORAL_OLLAMA_ENABLED\')):
+        overlays.append(\'docker-compose.ollama.yml\')
+    if enabled(env.get(\'GOPT_ENABLED\')):
+        overlays.append(\'docker-compose.gopt.yml\')
+    for overlay in overlays:
+        shutil.copyfile(overlay, folder / overlay)
+        base.extend([\'-f\', str(folder / overlay)])
+    if overlays:
+        config = json.loads(command(base + [\'config\', \'--format\', \'json\'], child, \'AI Compose validation\'))
+    return config
+
 def configure(config, api_image, web_image):
     services = config[\'services\']
+    env = services[\'api\'].get(\'environment\', {})
     expected = {\'web\', \'api\', \'worker\', \'migrate\', \'postgres\', \'redis\', \'minio\'}
+    if enabled(env.get(\'ORAL_OLLAMA_ENABLED\')):
+        expected.add(\'ollama\')
+        local_models(env)
+    if enabled(env.get(\'GOPT_ENABLED\')):
+        expected.add(\'gopt\')
     if set(services) != expected:
         abort(\'Compose services differ from the reviewed web deployment. Review the new source first.\')
     env = services[\'api\'].get(\'environment\', {})
@@ -183,6 +221,8 @@ def configure(config, api_image, web_image):
         \'proxy\': {\'name\': NETWORK, \'external\': True},
     }
     allowed_volumes = {\'postgres_data\', \'redis_data\', \'minio_data\', \'app_data\'}
+    if \'ollama\' in expected:
+        allowed_volumes.add(\'ollama_data\')
     if set(config.get(\'volumes\', {})) != allowed_volumes:
         abort(\'Unexpected volume definitions; review source before deployment.\')
     config[\'volumes\'] = {name: {\'name\': PROJECT + \'_\' + name} for name in allowed_volumes}
@@ -201,6 +241,10 @@ def configure(config, api_image, web_image):
         if svc in (\'api\', \'worker\', \'migrate\'):
             data[\'image\'] = api_image
             data[\'environment\'][\'DATABASE_URL\'] = db_url
+            if \'ollama\' in expected:
+                data[\'environment\'][\'LOCAL_LLM_URL\'] = \'http://ollama:11434\'
+        if svc == \'gopt\':
+            data[\'image\'] = env.get(\'ORAL_GOPT_IMAGE\') or \'oral-assessment-gopt:cpu\'
         if svc == \'web\':
             data[\'image\'] = web_image
             data[\'networks\'][\'proxy\'] = {\'aliases\': [PROJECT]}
@@ -211,6 +255,26 @@ def configure(config, api_image, web_image):
         if key.startswith(\'x-\'):
             del config[key]
     return config
+
+def prepare_local_ai(compose, child, config):
+    services = config[\'services\']
+    if \'gopt\' in services:
+        command([\'docker\', \'image\', \'inspect\', services[\'gopt\'][\'image\'], \'--format\', \'{{.Id}}\'],
+                child, \'GOPT image lookup: build or load ORAL_GOPT_IMAGE on the Docker host first\')
+    if \'ollama\' in services:
+        command(compose + [\'pull\', \'ollama\'], child, \'Oral Ollama image pull\')
+    selected = [name for name in (\'ollama\', \'gopt\') if name in services]
+    if selected:
+        command(compose + [\'up\', \'-d\', \'--no-deps\', \'--no-build\', \'--pull\', \'never\',
+                           \'--wait\', \'--wait-timeout\', \'300\'] + selected, child, \'Oral AI health checks\')
+    if \'ollama\' in services:
+        for model in local_models(services[\'api\'][\'environment\']):
+            probe = subprocess.run(compose + [\'exec\', \'-T\', \'ollama\', \'ollama\', \'show\', model],
+                                   env=child, text=True, capture_output=True)
+            if probe.returncode:
+                print(\'Installing a configured model into the Oral-only Ollama volume...\', flush=True)
+                command(compose + [\'exec\', \'-T\', \'ollama\', \'ollama\', \'pull\', model], child, \'Oral model download\')
+            command(compose + [\'exec\', \'-T\', \'ollama\', \'ollama\', \'show\', model], child, \'Oral model check\')
 
 def escaped_config(config):
     # Compose has already resolved .env; protect literal $ in values on re-reading JSON.
@@ -234,10 +298,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix=\'oral-deploy-\') as temp:
         folder = Path(temp)
         shutil.copyfile(os.environ[\'ORAL_ENV_FILE\'], folder / \'.env\')
-        shutil.copyfile(\'docker-compose.yml\', folder / \'docker-compose.yml\')
-        base = [\'docker\', \'compose\', \'-p\', PROJECT, \'--project-directory\', temp,
-                \'--env-file\', str(folder / \'.env\'), \'-f\', str(folder / \'docker-compose.yml\')]
-        config = configure(json.loads(command(base + [\'config\', \'--format\', \'json\'], child, \'Compose validation\')), api_image, web_image)
+        config = configure(compose_configuration(folder, child), api_image, web_image)
         print(\'Deployment configuration validated; AI_PROVIDER=\' + config[\'services\'][\'api\'][\'environment\'].get(\'AI_PROVIDER\', \'demo\'), flush=True)
         current_pg = \'\'
         for cid in command([\'docker\', \'ps\', \'-q\'], child, \'Port inventory\').split():
@@ -267,6 +328,7 @@ def main():
         command([\'docker\', \'image\', \'inspect\', config[\'services\'][\'minio\'][\'image\'], \'--format\', \'{{.Id}}\'], child, \'Built MinIO image lookup\')
         print(\'Pulling PostgreSQL and Redis images; using locally built MinIO...\', flush=True)
         command(compose + [\'pull\', \'postgres\', \'redis\'], child, \'Infrastructure image pull\')
+        prepare_local_ai(compose, child, config)
         if current_pg:
             backup_dir = Path(os.environ.get(\'JENKINS_HOME\', \'/var/jenkins_home\')) / \'oral-backups\'
             backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)

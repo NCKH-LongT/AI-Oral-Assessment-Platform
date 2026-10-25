@@ -83,7 +83,8 @@ Nút chấm riêng transcript đã nộp không còn trên UI; API cũ vẫn gi�
 - Transcript đã nộp, audio, rubric, nguồn kiến thức và đánh giá trước được giữ nguyên
   trong lịch sử. Chỉ cập nhật đánh giá hiện tại khi toàn bộ pipeline thành công.
   STT/LLM/GOPT lỗi thì review FAILED, giữ đánh giá trước; gửi lại yêu cầu để chạy từ đầu.
-- Review local yêu cầu Ollama chạy `num_thread=1`, `num_gpu=0`, `keep_alive=0` để
+- Review local dùng `num_thread=LOCAL_LLM_CPU_THREADS` (mặc định 3 trong overlay,
+  1 nếu chạy API trực tiếp và không cấu hình), `num_gpu=0`, `keep_alive=0` để
   giải phóng model sau chấm. Các tùy chọn dùng [API chat Ollama](https://docs.ollama.com/api/chat)
   và [Runner options](https://github.com/ollama/ollama/blob/main/api/types.go).
   Ollama ngoài Compose vẫn cần hạn mức RAM và cấu hình riêng; giới hạn worker không
@@ -150,9 +151,10 @@ Lọc **Chỉ sinh viên đã nộp bài** bao gồm bài đang xử lý, cần 
 | --- | --- |
 | Số bài đang xử lý | 1 trên toàn bộ worker dùng cùng PostgreSQL |
 | Số request GOPT đang chấm | 1; request đồng thời trả 429, không xếp hàng trong RAM |
-| CPU GOPT / worker | Mỗi container tối đa 1 CPU |
+| CPU GOPT / worker | Mỗi container tối đa 3 CPU |
 | RAM GOPT / worker | Mỗi container tối đa 2 GiB, không swap vượt giới hạn |
-| Luồng PyTorch, BLAS, Whisper | 1 |
+| Luồng Whisper / BLAS | 3 trong overlay; chỉnh bằng `STT_CPU_THREADS` / `GOPT_BLAS_THREADS` |
+| Luồng PyTorch / i-vector | 1 theo engine hiện tại |
 | Kaldi `nj` / GPU | 1 / tắt |
 | Audio | Tối đa 24 MiB và 120 giây mỗi câu |
 | Timeout GOPT / HTTP worker | 900 / 960 giây |
@@ -169,7 +171,7 @@ Deadline kết thúc cả nhóm tiến trình Kaldi; `init: true` thu hồi ti�
 để tránh tích lũy zombie sau timeout.
 
 Các biến có trong `.env.example`: `GOPT_CPUS`, `GOPT_MEMORY`, `WORKER_CPUS`,
-`WORKER_MEMORY`, `GOPT_MAX_AUDIO_MB`, `GOPT_MAX_AUDIO_SECONDS`, `GOPT_JOB_TIMEOUT`,
+`WORKER_MEMORY`, `STT_CPU_THREADS`, `GOPT_BLAS_THREADS`, `GOPT_MAX_AUDIO_MB`, `GOPT_MAX_AUDIO_SECONDS`, `GOPT_JOB_TIMEOUT`,
 `GOPT_TIMEOUT`. Giữ HTTP timeout lớn hơn job timeout ít nhất 60 giây. Các giới hạn
 container không phải cam kết tổng RAM server: PostgreSQL/web/STT và Ollama (nếu
 chạy bên ngoài Compose) vẫn cần RAM riêng. Bắt đầu với Whisper `base`/`tiny` và

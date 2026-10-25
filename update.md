@@ -1,3 +1,22 @@
+# Tăng CPU cho AI local — 26/10/2026
+
+- Ollama, worker chạy Whisper và GOPT: **3 CPU mỗi container**. Giữ RAM
+  tương ứng **4 / 2 / 2 GiB**, xử lý tuần tự, không dùng GPU.
+- Ollama dùng `LOCAL_LLM_CPU_THREADS=3`, Whisper `STT_CPU_THREADS=3`;
+  Compose không ép worker về 1 luồng khi bật GOPT. GOPT cho phép BLAS dùng
+  3 luồng; PyTorch/i-vector và Kaldi `nj` vẫn 1 theo engine hiện tại.
+- Đã cập nhật `.env` workspace (không đưa lên Git), `.env.example`, các
+  overlay và tài liệu. Cần cập nhật các biến CPU/luồng trong credential
+  Jenkins `oral-ai-env`; giá trị 1 cũ sẽ ghi đè mặc định mới. Không đổi
+  provider, model, timeout hoặc tự bật dịch vụ AI đang tắt.
+- Chưa xác nhận hạn mức container thực tế trên server. Không cần rebuild
+  image GOPT; cần triển khai API/worker mới và cấu hình Compose mới.
+- Kiểm thử: **23 ca API và 9 ca deploy đạt**, Ruff đạt.
+
+Chi tiết: [cấu hình CPU và kiểm tra sau deploy](docs/jenkins.md#mức-cpu-mới-cho-các-dịch-vụ-ai--26102026).
+
+---
+
 # Tối ưu thời gian Jenkins CI/CD — 26/10/2026
 
 - Giữ cache build giữa các lượt deploy; dọn cache không dùng trong 7 ngày và

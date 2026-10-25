@@ -2,6 +2,16 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## CPU AI local — 26/10/2026
+
+- **23 ca API đạt:** chấm lại local với 1/3 luồng Ollama, không gọi cloud,
+  giữ audio/đánh giá cũ khi lỗi; hồi quy log AI.
+- **9 ca deploy đạt:** Compose thật với bốn tổ hợp overlay; CPU mặc định 3,
+  RAM giữ nguyên, số luồng đúng cho API/worker/GOPT và credential ghi đè
+  vẫn được giữ khi gộp hai overlay. Ruff đạt.
+- AI/HTTP được giả lập trong test API; chưa benchmark trên server thật,
+  chưa xác nhận cập nhật credential hoặc CPU container đang chạy.
+
 ## Tối ưu Jenkins — 26/10/2026
 
 - **25 ca đạt:** 12 ca cleanup, 5 ca build/reuse MinIO, 8 ca deploy; kiểm tra

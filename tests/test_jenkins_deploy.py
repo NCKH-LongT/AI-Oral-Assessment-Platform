@@ -79,15 +79,27 @@ class DeployTests(unittest.TestCase):
                 if ollama:
                     service = config["services"]["ollama"]
                     self.assertFalse(service.get("ports"))
-                    self.assertEqual(float(service["cpus"]), 1)
+                    self.assertEqual(float(service["cpus"]), 3)
                     self.assertEqual(int(service["mem_limit"]), 4 * 1024 ** 3)
                     self.assertEqual(service["environment"]["OLLAMA_NUM_PARALLEL"], "1")
                     self.assertEqual(service["environment"]["OLLAMA_NO_CLOUD"], "1")
                     worker = config["services"]["worker"]
                     self.assertEqual(worker["environment"]["LOCAL_REVIEW_LLM_MODEL"], "qwen2.5:3b")
                     self.assertEqual(worker["environment"]["WORKER_SERIAL"], "true")
+                    self.assertEqual(worker["environment"]["LOCAL_LLM_CPU_THREADS"], "3")
+                    self.assertEqual(config["services"]["api"]["environment"]["LOCAL_LLM_CPU_THREADS"], "3")
                     self.assertEqual(int(worker["mem_limit"]), 2 * 1024 ** 3)
                     self.assertEqual(config["volumes"]["ollama_data"]["name"], "oral-assessment-web_ollama_data")
+                if ollama or gopt:
+                    worker = config["services"]["worker"]
+                    self.assertEqual(float(worker["cpus"]), 3)
+                    for field in ("STT_CPU_THREADS", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+                        self.assertEqual(worker["environment"][field], "3")
+                if gopt:
+                    service = config["services"]["gopt"]
+                    self.assertEqual(float(service["cpus"]), 3)
+                    self.assertEqual(int(service["mem_limit"]), 2 * 1024 ** 3)
+                    self.assertEqual(service["environment"]["OPENBLAS_NUM_THREADS"], "3")
                 runtime = folder / "runtime.json"
                 runtime.write_text(json.dumps(deploy.escaped_config(config)), encoding="utf-8")
                 (folder / "empty.env").touch()
@@ -96,6 +108,27 @@ class DeployTests(unittest.TestCase):
                     "-f", str(runtime), "config", "--format", "json"], child, "Runtime parse"))
                 for name, service in config["services"].items():
                     self.assertEqual(actual["services"][name].get("environment", {}), service.get("environment", {}))
+
+    @unittest.skipUnless(shutil.which("docker"), "Docker CLI is required for Compose validation")
+    def test_explicit_resource_settings_override_both_overlays(self):
+        child = {key: value for key, value in os.environ.items()
+                 if key in {"PATH", "SystemRoot", "TEMP", "TMP", "USERPROFILE", "HOME", "DOCKER_CONFIG"}}
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            environment = configuration(True, True)["services"]["api"]["environment"]
+            environment.update(WEB_BIND="127.0.0.1", WEB_PORT="13000", MINIO_CONSOLE_PORT="19001",
+                               ORAL_OLLAMA_CPUS="1.0", WORKER_CPUS="1.0", GOPT_CPUS="1.0",
+                               STT_CPU_THREADS="1", LOCAL_LLM_CPU_THREADS="1", GOPT_BLAS_THREADS="1")
+            (folder / ".env").write_text((ROOT / ".env.example").read_text() + "\n" + "\n".join(
+                f"{key}={value}" for key, value in environment.items()) + "\n")
+            config = deploy.configure(deploy.compose_configuration(folder, child), "api:test", "web:test")
+            for name in ("ollama", "worker", "gopt"):
+                self.assertEqual(float(config["services"][name]["cpus"]), 1)
+            worker = config["services"]["worker"]["environment"]
+            self.assertEqual(worker["STT_CPU_THREADS"], "1")
+            self.assertEqual(worker["LOCAL_LLM_CPU_THREADS"], "1")
+            self.assertEqual(worker["OPENBLAS_NUM_THREADS"], "1")
+            self.assertEqual(config["services"]["gopt"]["environment"]["OPENBLAS_NUM_THREADS"], "1")
 
     def test_optional_services_are_project_scoped_and_do_not_change_exam_provider(self):
         for ollama, gopt in ((False, False), (True, False), (False, True), (True, True)):

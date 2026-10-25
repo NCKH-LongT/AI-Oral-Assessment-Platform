@@ -10,11 +10,11 @@ services:
       GOPT_TIMEOUT: ${GOPT_TIMEOUT:-960}
       GOPT_MAX_AUDIO_MB: ${GOPT_MAX_AUDIO_MB:-24}
       WORKER_SERIAL: "true"
-      STT_CPU_THREADS: "1"
-      OMP_NUM_THREADS: "1"
-      OPENBLAS_NUM_THREADS: "1"
-      MKL_NUM_THREADS: "1"
-    cpus: ${WORKER_CPUS:-1.0}
+      STT_CPU_THREADS: ${STT_CPU_THREADS:-3}
+      OMP_NUM_THREADS: ${STT_CPU_THREADS:-3}
+      OPENBLAS_NUM_THREADS: ${STT_CPU_THREADS:-3}
+      MKL_NUM_THREADS: ${STT_CPU_THREADS:-3}
+    cpus: ${WORKER_CPUS:-3.0}
     mem_limit: ${WORKER_MEMORY:-2g}
     memswap_limit: ${WORKER_MEMORY:-2g}
     depends_on:
@@ -30,7 +30,12 @@ services:
       GOPT_MAX_AUDIO_MB: ${GOPT_MAX_AUDIO_MB:-24}
       GOPT_MAX_AUDIO_SECONDS: ${GOPT_MAX_AUDIO_SECONDS:-120}
       GOPT_JOB_TIMEOUT: ${GOPT_JOB_TIMEOUT:-900}
-    cpus: ${GOPT_CPUS:-1.0}
+      # BLAS operations can use the CPU budget; Torch/i-vector stages remain single-threaded.
+      OMP_NUM_THREADS: ${GOPT_BLAS_THREADS:-3}
+      OPENBLAS_NUM_THREADS: ${GOPT_BLAS_THREADS:-3}
+      MKL_NUM_THREADS: ${GOPT_BLAS_THREADS:-3}
+      NUMEXPR_NUM_THREADS: ${GOPT_BLAS_THREADS:-3}
+    cpus: ${GOPT_CPUS:-3.0}
     mem_limit: ${GOPT_MEMORY:-2g}
     memswap_limit: ${GOPT_MEMORY:-2g}
     pids_limit: 128

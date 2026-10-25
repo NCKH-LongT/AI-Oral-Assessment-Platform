@@ -30,8 +30,9 @@ Lỗi `LOCAL_REVIEW_NOT_CONFIGURED` là thiếu tên model chấm lại, không 
 ```dotenv
 ORAL_OLLAMA_ENABLED=true
 LOCAL_REVIEW_LLM_MODEL=qwen2.5:3b
-ORAL_OLLAMA_CPUS=1.0
+ORAL_OLLAMA_CPUS=3.0
 ORAL_OLLAMA_MEMORY=4g
+LOCAL_LLM_CPU_THREADS=3
 ```
 
 Triển khai Jenkinsfile mới rồi chạy **Build Now**. Pipeline chọn `docker-compose.ollama.yml`,
@@ -43,8 +44,8 @@ là `local`, pipeline cũng yêu cầu và chuẩn bị `LLM_MODEL`, `EMBEDDING_
 - API/worker tự dùng `http://ollama:11434` trên network `oral-assessment-web_default`.
 - Không publish port lên host, không dùng chung volume/network của SOS. Không sửa hay dừng
   `sos-ai-ollama`; model cùng tên được tải riêng, cần thêm dung lượng đĩa.
-- Ollama giới hạn mặc định 1 CPU, 4 GiB RAM, một model và một lượt suy luận;
-  worker giới hạn 1 CPU, 2 GiB RAM và xử lý tuần tự. Đây không phải giới hạn tổng RAM server.
+- Ollama giới hạn mặc định 3 CPU, 4 GiB RAM, một model và một lượt suy luận;
+  worker giới hạn 3 CPU, 2 GiB RAM và xử lý tuần tự. Đây không phải giới hạn tổng RAM server.
   Không gắn GPU; review giải phóng model sau chấm. Nếu CPU chậm gây timeout,
   có thể tăng `LOCAL_LLM_TIMEOUT` trong credential, ví dụ `600`, thay vì tăng concurrency.
 - Không bật cloud model. Xem [cấu hình Ollama](https://docs.ollama.com/faq) và
@@ -78,6 +79,48 @@ Jenkins chọn thêm `docker-compose.gopt.yml`, kiểm tra image đã có và kh
 `oral-assessment-web-gopt-1` (không publish port). Thiếu image hoặc tải model thất bại
 sẽ chặn deployment trước bước dừng ứng dụng. Không tự build Kaldi trong mỗi lượt deploy.
 Xem [giới hạn và luồng GOPT](architecture/gopt.md).
+
+### Mức CPU mới cho các dịch vụ AI — 26/10/2026
+
+Theo yêu cầu, Ollama, worker chạy Whisper và GOPT đều có hạn mức **3 CPU mỗi
+container**. RAM giữ nguyên: Ollama 4 GiB, worker 2 GiB, GOPT 2 GiB. Tổng các
+hạn mức là 9 CPU/8 GiB; không phải cấp riêng 9 lõi hoặc lúc nào cũng sử dụng
+đồng thời toàn bộ. Giới hạn thực tế còn phụ thuộc tài nguyên host.
+
+Cập nhật các dòng sau trong **Secret file `oral-ai-env`**, giữ các biến khác
+đang có trên server, rồi triển khai commit mới:
+
+```dotenv
+ORAL_OLLAMA_CPUS=3.0
+WORKER_CPUS=3.0
+GOPT_CPUS=3.0
+LOCAL_LLM_CPU_THREADS=3
+STT_CPU_THREADS=3
+GOPT_BLAS_THREADS=3
+```
+
+Các giá trị `*_CPUS=1.0` hoặc `STT_CPU_THREADS=1` còn trong credential sẽ ghi
+đè mặc định mới. `.env` trong workspace đã được cập nhật các dòng trên nhưng
+không nằm trong Git và không tự thay credential Jenkins. Không thay file
+credential bằng `.env` development nếu chưa đối chiếu các cấu hình khác.
+
+Lời gọi Ollama CPU-only dùng `LOCAL_LLM_CPU_THREADS` (1–8); Whisper dùng
+`STT_CPU_THREADS` (1–8). Cả hai overlay dùng cùng cấu hình luồng worker, không
+còn ép 1 khi bật thêm GOPT. GOPT dùng `GOPT_BLAS_THREADS` cho thư viện tính
+toán; PyTorch, i-vector và Kaldi `nj` vẫn 1 theo engine hiện tại, nên tăng
+hạn mức không có nghĩa mọi bước sẽ dùng đủ 3 CPU. Giữ 1 request/model và
+`WORKER_SERIAL=true`; không cần build lại image GOPT cho thay đổi biến môi
+trường/hạn mức này. API/worker phải dùng bản code mới để nhận số luồng Ollama.
+
+Sau deploy, kiểm tra giới hạn thật trên Docker host (chỉ đọc CPU/RAM):
+
+```bash
+docker inspect --format '{{.Name}} CPU={{.HostConfig.NanoCpus}} RAM={{.HostConfig.Memory}}' oral-assessment-web-ollama-1 oral-assessment-web-worker-1 oral-assessment-web-gopt-1
+docker stats --no-stream oral-assessment-web-ollama-1 oral-assessment-web-worker-1 oral-assessment-web-gopt-1
+```
+
+`NanoCpus=3000000000` tương ứng 3 CPU. Nếu dịch vụ không bật thì không có
+container tương ứng; bản cập nhật không tự bật GOPT/Ollama đang tắt.
 
 ## Jenkins Docker báo `python3: not found`
 

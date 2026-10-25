@@ -28,7 +28,8 @@ def ready(env):
 
 
 @pytest.mark.parametrize("pronounce", [False, True])
-def test_full_local_review_pins_models_avoids_cloud_and_preserves_evidence(env, monkeypatch, pronounce):
+@pytest.mark.parametrize("threads", [1, 3])
+def test_full_local_review_pins_models_avoids_cloud_and_preserves_evidence(env, monkeypatch, pronounce, threads):
     context, session, attempt_id, audio, blob = ready(env)
     with env[1]() as db:
         exam = db.get(Exam, context["exam"]["id"])
@@ -38,6 +39,7 @@ def test_full_local_review_pins_models_avoids_cloud_and_preserves_evidence(env, 
     cfg = settings()
     monkeypatch.setattr(cfg, "local_review_llm_model", "local-test-model")
     monkeypatch.setattr(cfg, "gopt_enabled", True)
+    monkeypatch.setattr(cfg, "local_llm_cpu_threads", threads)
     path = f"/admin/attempts/{attempt_id}/local-review"
     body = {"reason": "Regrade everything from original audio"}
     for role in ("teacher", "reviewer", "student", "outsider"):
@@ -56,7 +58,7 @@ def test_full_local_review_pins_models_avoids_cloud_and_preserves_evidence(env, 
     def ollama(operation, payload):
         order.append("llm")
         assert operation == "chat" and payload["model"] == "local-test-model"
-        assert payload["options"]["num_thread"] == 1 and payload["options"]["num_gpu"] == 0
+        assert payload["options"]["num_thread"] == threads and payload["options"]["num_gpu"] == 0
         assert payload["keep_alive"] == 0
         data = json.loads(payload["messages"][1]["content"])
         assert data["transcript"] == "Freshly recognized answer"

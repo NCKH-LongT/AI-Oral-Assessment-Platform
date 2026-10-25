@@ -1,3 +1,26 @@
+# Xem lại bài thi, log hệ thống và danh sách thí sinh — 25/10/2026
+
+- Chi tiết bài thi chia tab **Tổng quan & điểm**, **Câu trả lời**, **Màn hình
+  & giám sát**; admin có thêm **Log xử lý**. Chọn từng câu để xem, phần chấm
+  lại AI thu gọn; media dừng khi chuyển tab/câu.
+- Admin có menu **Log hệ thống**, lọc API/WEB/AI/WORKER theo mức log, model,
+  thời gian, request/tác vụ/lượt thi; xem metadata và tự làm mới. Log giữ tối
+  đa 7 ngày hoặc 10.000 sự kiện, không lưu prompt/bài làm/khóa API.
+- Điều phối kỳ thi hiển thị số sinh viên và lượt thi trên thẻ kỳ thi, mở
+  thẳng danh sách thí sinh; tìm theo tên/MSSV/email, xem số lượt và mở đúng
+  bài từng lượt. Danh sách tự cập nhật mỗi 10 giây. Số lượt không tính phiên
+  kiểm tra thiết bị và lượt đã xóa.
+- Kiểm thử: **226 API đạt, 10 bỏ qua; 26 UI và 6 Node đạt**. Ruff, ESLint,
+  TypeScript và production build đạt.
+- Cần triển khai đồng bộ API/worker/web; không cần migration mới. Log được
+  thu từ bản triển khai này, không nhập lại log cũ của container. Chưa xác
+  nhận triển khai bản này trên domain chính.
+
+Chi tiết: [xem bài và chẩn đoán](docs/architecture/review-diagnostics.md),
+[kiểm thử](docs/validation.md).
+
+---
+
 # Editor câu hỏi, ghi màn hình và mở đúng bài thi — 22/10/2026
 
 - Câu hỏi có editor định dạng chữ, danh sách và chèn ảnh. Mỗi câu có **Sửa

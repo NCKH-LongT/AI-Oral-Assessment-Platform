@@ -2,6 +2,34 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Xem bài theo tab, log hệ thống và danh sách thí sinh — 25/10/2026
+
+| Nhóm | Kết quả |
+| --- | --- |
+| API SQLite toàn bộ | **226 đạt, 10 bỏ qua** theo điều kiện môi trường của suite |
+| Playwright Chromium | **26 đạt** trong lượt chạy cuối |
+| Node API retry / proxy | **6 đạt** |
+| Kiểm tra tĩnh và build | Ruff, ESLint, TypeScript và Next production build đạt |
+
+API kiểm tra quyền admin với log, chặn người chưa đăng nhập và các vai trò
+khác; lọc/pagination/correlation, giới hạn 7 ngày/10.000 sự kiện, rate limit
+WEB, chuẩn hóa route và loại bỏ dữ liệu nhạy cảm. Có ca chạy hàng đợi STT →
+chấm và đối chiếu log API/worker/AI bằng ID lượt thi; kho log lỗi không làm
+hỏng API nghiệp vụ. Tổng lượt thi loại phiên kiểm tra thiết bị/lượt đã xóa,
+đếm nhiều lượt và giữ phạm vi quyền.
+
+Giao diện kiểm tra các tab, chỉ dựng một câu trả lời, dừng media khi chuyển
+tab, mở log theo lượt thi, quyền nhiều vai trò, lọc/phân trang log và báo lỗi
+JavaScript chỉ gửi metadata. Kiểm tra roster tìm sinh viên, mở thẳng danh
+sách từ thẻ kỳ thi, mở đúng bài, quay lại giữ bộ lọc; hồi quy chấm lại cloud,
+điểm/rubric, retake và hồ sơ sinh viên. Đã kiểm tra ảnh giao diện câu trả lời,
+log và điều phối; layout log/media ở 1440px/768px, điều phối ở 1440px/390px.
+
+Kiểm thử dùng database tạm, API/AI giả lập ở các ca tương ứng, không gọi
+model trả phí hoặc thay đổi dữ liệu production. Hai kỳ vọng UI cũ (payload
+cấu hình STT và nhãn chọn sinh viên) đã được cập nhật theo hành vi hiện có.
+Không cần migration mới; chưa xác nhận Jenkins/domain chính triển khai bản này.
+
 ## Editor câu hỏi, camera và audio từng câu — 22/10/2026
 
 Kiểm thử local với database tạm; không thay đổi môn, đề hoặc bài làm trên

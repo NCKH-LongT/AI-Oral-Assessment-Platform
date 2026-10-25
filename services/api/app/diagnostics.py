@@ -2,18 +2,25 @@ import json
 import logging
 import time
 import traceback
+import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 
 import httpx
 
+from . import diagnostic_store
+
 log = logging.getLogger("oral.diagnostics")
 _context = ContextVar("diagnostic_context", default={})
 
 
 def event(name, level=logging.INFO, **details):
-    log.log(level, "%s", json.dumps(_context.get() | details | {"event": name}, ensure_ascii=False))
+    values = diagnostic_store.sanitized(_context.get() | details)
+    stage = str(values.get("stage", ""))
+    source = "AI" if stage.startswith(("ollama.", "gemini.", "gopt.", "speech.", "ai.")) else "WORKER"
+    log.log(level, "%s", json.dumps(values | {"event": name}, ensure_ascii=False))
+    diagnostic_store.append(source, logging.getLevelName(level), name, values)
 
 
 def failed(stage, exc, **details):
@@ -36,6 +43,7 @@ def context(**details):
 
 @contextmanager
 def operation(stage, **details):
+    details = {"operation_id": str(uuid.uuid4()), **details}
     started = time.monotonic()
     event("operation_started", stage=stage, **details)
     metrics = {}

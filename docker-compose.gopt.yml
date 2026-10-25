@@ -15,8 +15,8 @@ services:
       OPENBLAS_NUM_THREADS: ${STT_CPU_THREADS:-3}
       MKL_NUM_THREADS: ${STT_CPU_THREADS:-3}
     cpus: ${WORKER_CPUS:-3.0}
-    mem_limit: ${WORKER_MEMORY:-2g}
-    memswap_limit: ${WORKER_MEMORY:-2g}
+    mem_limit: ${WORKER_MEMORY:-4g}
+    memswap_limit: ${WORKER_MEMORY:-4g}
     depends_on:
       gopt:
         condition: service_healthy
@@ -36,8 +36,8 @@ services:
       MKL_NUM_THREADS: ${GOPT_BLAS_THREADS:-3}
       NUMEXPR_NUM_THREADS: ${GOPT_BLAS_THREADS:-3}
     cpus: ${GOPT_CPUS:-3.0}
-    mem_limit: ${GOPT_MEMORY:-2g}
-    memswap_limit: ${GOPT_MEMORY:-2g}
+    mem_limit: ${GOPT_MEMORY:-4g}
+    memswap_limit: ${GOPT_MEMORY:-4g}
     pids_limit: 128
     read_only: true
     tmpfs:

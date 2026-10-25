@@ -152,7 +152,7 @@ Lọc **Chỉ sinh viên đã nộp bài** bao gồm bài đang xử lý, cần 
 | Số bài đang xử lý | 1 trên toàn bộ worker dùng cùng PostgreSQL |
 | Số request GOPT đang chấm | 1; request đồng thời trả 429, không xếp hàng trong RAM |
 | CPU GOPT / worker | Mỗi container tối đa 3 CPU |
-| RAM GOPT / worker | Mỗi container tối đa 2 GiB, không swap vượt giới hạn |
+| RAM GOPT / worker | Mỗi container tối đa 4 GiB, không swap vượt giới hạn |
 | Luồng Whisper / BLAS | 3 trong overlay; chỉnh bằng `STT_CPU_THREADS` / `GOPT_BLAS_THREADS` |
 | Luồng PyTorch / i-vector | 1 theo engine hiện tại |
 | Kaldi `nj` / GPU | 1 / tắt |

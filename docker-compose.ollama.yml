@@ -22,8 +22,8 @@ services:
       OPENBLAS_NUM_THREADS: ${STT_CPU_THREADS:-3}
       MKL_NUM_THREADS: ${STT_CPU_THREADS:-3}
     cpus: ${WORKER_CPUS:-3.0}
-    mem_limit: ${WORKER_MEMORY:-2g}
-    memswap_limit: ${WORKER_MEMORY:-2g}
+    mem_limit: ${WORKER_MEMORY:-4g}
+    memswap_limit: ${WORKER_MEMORY:-4g}
     depends_on:
       ollama:
         condition: service_healthy

@@ -2,6 +2,18 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## RAM worker/GOPT và chấm tuần tự — 26/10/2026
+
+- **9 ca deploy đạt:** Compose thật xác nhận worker/GOPT có RAM và RAM+swap
+  4 GiB, CPU 3, `WORKER_SERIAL=true` trong các tổ hợp overlay.
+- **3 ca worker đạt, 1 bỏ qua:** khóa chống chạy đồng thời, nhả khóa khi lỗi
+  và đường đi khóa PostgreSQL bằng giả lập; ca khóa PostgreSQL thật bỏ qua
+  vì môi trường hiện dùng SQLite.
+- **6 ca GOPT HTTP đạt:** chặn request đồng thời, healthcheck vẫn đáp ứng,
+  nhả khóa sau lỗi và giới hạn upload. Engine được giả lập, không tải model.
+  Cài `kaldiio==2.18.1` vào thư mục tạm cho test, không thay môi trường dự án.
+- Ruff đạt; chưa xác minh credential Jenkins/container production.
+
 ## CPU AI local — 26/10/2026
 
 - **23 ca API đạt:** chấm lại local với 1/3 luồng Ollama, không gọi cloud,

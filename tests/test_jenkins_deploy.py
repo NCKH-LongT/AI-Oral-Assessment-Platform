@@ -88,17 +88,20 @@ class DeployTests(unittest.TestCase):
                     self.assertEqual(worker["environment"]["WORKER_SERIAL"], "true")
                     self.assertEqual(worker["environment"]["LOCAL_LLM_CPU_THREADS"], "3")
                     self.assertEqual(config["services"]["api"]["environment"]["LOCAL_LLM_CPU_THREADS"], "3")
-                    self.assertEqual(int(worker["mem_limit"]), 2 * 1024 ** 3)
                     self.assertEqual(config["volumes"]["ollama_data"]["name"], "oral-assessment-web_ollama_data")
                 if ollama or gopt:
                     worker = config["services"]["worker"]
                     self.assertEqual(float(worker["cpus"]), 3)
+                    self.assertEqual(int(worker["mem_limit"]), 4 * 1024 ** 3)
+                    self.assertEqual(int(worker["memswap_limit"]), 4 * 1024 ** 3)
+                    self.assertEqual(worker["environment"]["WORKER_SERIAL"], "true")
                     for field in ("STT_CPU_THREADS", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
                         self.assertEqual(worker["environment"][field], "3")
                 if gopt:
                     service = config["services"]["gopt"]
                     self.assertEqual(float(service["cpus"]), 3)
-                    self.assertEqual(int(service["mem_limit"]), 2 * 1024 ** 3)
+                    self.assertEqual(int(service["mem_limit"]), 4 * 1024 ** 3)
+                    self.assertEqual(int(service["memswap_limit"]), 4 * 1024 ** 3)
                     self.assertEqual(service["environment"]["OPENBLAS_NUM_THREADS"], "3")
                 runtime = folder / "runtime.json"
                 runtime.write_text(json.dumps(deploy.escaped_config(config)), encoding="utf-8")

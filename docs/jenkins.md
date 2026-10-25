@@ -45,7 +45,7 @@ là `local`, pipeline cũng yêu cầu và chuẩn bị `LLM_MODEL`, `EMBEDDING_
 - Không publish port lên host, không dùng chung volume/network của SOS. Không sửa hay dừng
   `sos-ai-ollama`; model cùng tên được tải riêng, cần thêm dung lượng đĩa.
 - Ollama giới hạn mặc định 3 CPU, 4 GiB RAM, một model và một lượt suy luận;
-  worker giới hạn 3 CPU, 2 GiB RAM và xử lý tuần tự. Đây không phải giới hạn tổng RAM server.
+  worker giới hạn 3 CPU, 4 GiB RAM và xử lý tuần tự. Đây không phải giới hạn tổng RAM server.
   Không gắn GPU; review giải phóng model sau chấm. Nếu CPU chậm gây timeout,
   có thể tăng `LOCAL_LLM_TIMEOUT` trong credential, ví dụ `600`, thay vì tăng concurrency.
 - Không bật cloud model. Xem [cấu hình Ollama](https://docs.ollama.com/faq) và
@@ -83,8 +83,8 @@ Xem [giới hạn và luồng GOPT](architecture/gopt.md).
 ### Mức CPU mới cho các dịch vụ AI — 26/10/2026
 
 Theo yêu cầu, Ollama, worker chạy Whisper và GOPT đều có hạn mức **3 CPU mỗi
-container**. RAM giữ nguyên: Ollama 4 GiB, worker 2 GiB, GOPT 2 GiB. Tổng các
-hạn mức là 9 CPU/8 GiB; không phải cấp riêng 9 lõi hoặc lúc nào cũng sử dụng
+container**. Sau cập nhật RAM cùng ngày: Ollama 4 GiB, worker 4 GiB, GOPT 4 GiB. Tổng các
+hạn mức là 9 CPU/12 GiB; không phải cấp riêng 9 lõi hoặc lúc nào cũng sử dụng
 đồng thời toàn bộ. Giới hạn thực tế còn phụ thuộc tài nguyên host.
 
 Cập nhật các dòng sau trong **Secret file `oral-ai-env`**, giữ các biến khác
@@ -97,9 +97,12 @@ GOPT_CPUS=3.0
 LOCAL_LLM_CPU_THREADS=3
 STT_CPU_THREADS=3
 GOPT_BLAS_THREADS=3
+WORKER_MEMORY=4g
+GOPT_MEMORY=4g
+WORKER_SERIAL=true
 ```
 
-Các giá trị `*_CPUS=1.0` hoặc `STT_CPU_THREADS=1` còn trong credential sẽ ghi
+Các giá trị `*_CPUS=1.0`, `*_MEMORY=2g` hoặc `STT_CPU_THREADS=1` còn trong credential sẽ ghi
 đè mặc định mới. `.env` trong workspace đã được cập nhật các dòng trên nhưng
 không nằm trong Git và không tự thay credential Jenkins. Không thay file
 credential bằng `.env` development nếu chưa đối chiếu các cấu hình khác.
@@ -121,6 +124,13 @@ docker stats --no-stream oral-assessment-web-ollama-1 oral-assessment-web-worker
 
 `NanoCpus=3000000000` tương ứng 3 CPU. Nếu dịch vụ không bật thì không có
 container tương ứng; bản cập nhật không tự bật GOPT/Ollama đang tắt.
+
+Luồng chấm chạy **một tác vụ tại một thời điểm** trên các worker cùng database
+PostgreSQL (`WORKER_SERIAL=true`, khóa advisory suốt tác vụ). Mỗi lượt chấm
+local đi lần lượt **Whisper → Ollama → GOPT** trước khi nhận tác vụ tiếp.
+Ollama chỉ suy luận một request, GOPT có một process và khóa chống nhận đồng
+thời. Ba luồng tính toán trong một model không phải ba bài thi chạy song song.
+Hạn mức RAM và RAM+swap của worker/GOPT cùng là 4 GiB; không cho swap thêm.
 
 ## Jenkins Docker báo `python3: not found`
 

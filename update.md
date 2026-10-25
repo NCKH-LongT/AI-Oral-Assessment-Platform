@@ -1,3 +1,18 @@
+# Worker/GOPT 4 GiB RAM và chấm tuần tự — 26/10/2026
+
+- Tăng RAM worker và GOPT lên **4 GiB mỗi container**, giữ **3 CPU** mỗi
+  dịch vụ. Ollama vẫn 3 CPU/4 GiB; giới hạn RAM+swap bằng RAM.
+- Chấm tuần tự với `WORKER_SERIAL=true`: mỗi tác vụ local chạy lần lượt
+  **Whisper → Ollama → GOPT**. Giữ khóa PostgreSQL và giới hạn một request
+  Ollama/GOPT; ba luồng tính toán không làm chấm ba bài đồng thời.
+- Đã cập nhật `.env` workspace, `.env.example`, cả hai overlay và tài liệu.
+  Cần sửa `WORKER_MEMORY=4g`, `GOPT_MEMORY=4g`, `WORKER_SERIAL=true` trong
+  credential Jenkins `oral-ai-env` rồi deploy. Giá trị RAM 2g cũ sẽ ghi đè
+  mặc định mới. Chưa xác nhận cấu hình container trên server.
+- Kiểm thử: **18 ca đạt, 1 bỏ qua** (cần PostgreSQL thật); Ruff đạt.
+
+---
+
 # Tăng CPU cho AI local — 26/10/2026
 
 - Ollama, worker chạy Whisper và GOPT: **3 CPU mỗi container**. Giữ RAM

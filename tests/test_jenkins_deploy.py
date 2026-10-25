@@ -1,11 +1,13 @@
 import copy
 import importlib.util
+import io
 import json
 import os
 import shutil
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -45,6 +47,21 @@ def configuration(ollama=False, gopt=False):
 
 
 class DeployTests(unittest.TestCase):
+    def test_deploy_commands_report_elapsed_time_without_command_output(self):
+        for returncode in (0, 1):
+            output = io.StringIO()
+            result = subprocess.CompletedProcess([], returncode, "private-stdout", "private-stderr")
+            with self.subTest(returncode=returncode), redirect_stdout(output), \
+                    patch.object(deploy.time, "monotonic", side_effect=[10, 12.5]), \
+                    patch.object(deploy.subprocess, "run", return_value=result):
+                if returncode:
+                    with self.assertRaises(SystemExit):
+                        deploy.command(["docker", "private-argument"], {}, "API health check")
+                else:
+                    self.assertEqual(deploy.command(["docker", "private-argument"], {}, "API health check"), "private-stdout")
+            self.assertIn("API health check finished in 2.5s", output.getvalue())
+            self.assertNotIn("private-", output.getvalue())
+
     @unittest.skipUnless(shutil.which("docker"), "Docker CLI is required for Compose validation")
     def test_real_compose_overlays_and_runtime_preserve_environment(self):
         child = {key: value for key, value in os.environ.items()

@@ -117,7 +117,7 @@ Kiểm tra dòng `Checking out Revision ... (refs/remotes/origin/...)`: nếu jo
 1. Commit và push thay đổi lên nhánh mà job theo dõi.
 2. Mở job Jenkins, bấm **Build Now** nếu job chưa được webhook kích hoạt.
 3. Trong **Console Output**, kiểm tra bước **Checkout** lấy đúng commit mong muốn.
-4. Theo dõi các bước **Prepare Docker builder → Build API → Test API - isolated SQLite → Build and check web → Deploy Oral web → Clean old Docker releases**.
+4. Theo dõi các bước **Prepare Docker builder → Build MinIO → Build API → Test API - isolated SQLite → Build and check web → Deploy Oral web → Clean old Docker releases**.
 5. Khi job báo `SUCCESS`, mở web quản trị và đăng nhập kiểm tra. Đóng rồi mở lại desktop để tải giao diện server mới.
 
 Test API lỗi sẽ chặn các bước build web và deploy tiếp theo. Không coi việc push thành công hoặc bước build image thành công là đã triển khai xong.
@@ -128,18 +128,30 @@ Sau khi web/API qua healthcheck và worker chạy đúng image của build mới
 
 - Giữ tối đa **2 phiên bản image API** (`oral-assessment-api`) và **2 phiên bản image web** (`oral-assessment-web`): bản vừa deploy và bản đang chạy trước đó. API dùng chung cho worker/migration. Nếu không có bản trước khác biệt còn tồn tại, lấy thêm image gần nhất theo thời gian tạo; các tag cùng ID tính là một phiên bản.
 - Xóa container đã dừng của project `oral-assessment-web`, container kiểm thử do pipeline tạo, image build/check cũ và image không còn tag có nhãn sở hữu OralAI.
-- Dọn cache của builder riêng `oral-assessment-web-jenkins`, dùng driver `docker-container`. Pipeline build bằng `buildx --load` để image có sẵn cho bước kiểm thử/deploy trên Docker daemon.
+- Giữ cache của builder riêng `oral-assessment-web-jenkins` (driver `docker-container`) để tái sử dụng dependency. Dọn cache không được dùng trong **168 giờ**, sau đó dọn theo dung lượng với mục tiêu **10 GB**, ưu tiên bỏ cache ít được dùng gần đây. Hai lượt dọn riêng biệt để giới hạn dung lượng vẫn áp dụng cho cache mới. Cache đang được dùng có thể không dọn được; đây không phải giới hạn cứng cho toàn bộ Docker disk. Pipeline build bằng `buildx --load` để image có sẵn cho kiểm thử/deploy.
 - In `docker system df` để theo dõi dung lượng sau dọn.
 
 Pipeline chụp ID/reference của image đang chạy ngay trước bước deploy vào `.data/jenkins/previous-images.json`, gắn với đúng build. Image còn được bất kỳ container nào sử dụng sẽ được giữ; khi đó số phiên bản có thể lớn hơn hai và cần kiểm tra container đó. Các image hạ tầng PostgreSQL/Redis/MinIO, volume dữ liệu, backup database và tài nguyên thuộc project khác được giữ nguyên. Không dùng `docker system prune`, không xóa volume và không ép xóa image/container trong bước dọn.
 
 Stage dọn chỉ chạy sau deploy thành công. Nếu dọn gặp lỗi hoặc phát hiện ứng dụng không còn khỏe/đúng image, Jenkins báo **UNSTABLE** để kiểm tra; ứng dụng đã deploy tiếp tục chạy. Nếu build/deploy thất bại, pipeline chỉ dọn container test và image check của chính lượt chạy đó trong `post always`.
 
-Theo [Docker Buildx prune](https://docs.docker.com/reference/cli/docker/buildx/prune/), thao tác dọn áp dụng cho builder được chọn. Cache ở builder dùng chung từ các lượt build trước cần được quản trị riêng vì Docker không phân loại cache đó theo project. Từ pipeline này, cache mới của OralAI nằm trong builder riêng và được dọn sau deploy; lần build sau có thể lâu hơn do cần tải/build lại dependency. Chỉ một job Jenkins nên quản lý deployment và builder này; `disableConcurrentBuilds()` tuần tự hóa các lượt của job đó.
+Theo [Docker Buildx prune](https://docs.docker.com/reference/cli/docker/buildx/prune/), thao tác dọn áp dụng cho builder được chọn. Cache ở builder dùng chung từ các lượt build trước cần được quản trị riêng vì Docker không phân loại cache đó theo project. Từ bản sửa **26/10/2026**, không dùng `prune --all --force` không giới hạn sau mỗi deploy. Script dùng `--max-used-space` hoặc `--keep-storage` trên Buildx cũ; nếu không hỗ trợ cả hai, giữ cache và báo lỗi cleanup (UNSTABLE), không quay về xóa hết. Các giá trị nằm trong `CACHE_MAX_AGE` / `CACHE_MAX_SIZE` của script. Chỉ một job Jenkins nên quản lý deployment và builder này; `disableConcurrentBuilds()` tuần tự hóa các lượt của job đó.
 
 Giữ image trước hỗ trợ thao tác khôi phục ứng dụng, nhưng không tự rollback schema/database. Người vận hành cần kiểm tra tương thích migration trước khi đổi về phiên bản trước.
 
 Logic dọn nằm trong [docker_cleanup.py](../scripts/docker_cleanup.py), được kiểm tra bằng `python3 -m unittest discover -s tests -p test_docker_cleanup.py -v`. Các test dùng Docker giả lập, không dọn dữ liệu thật.
+
+## Giảm thời gian CI/CD — 26/10/2026
+
+- **Cache API/web:** dependency đã được cài ở các layer trước khi copy source. Giữ cache giúp không phải cài lại pip/npm khi chỉ đổi code; chỉnh lockfile vẫn cài lại đúng dependency. Không bỏ test API, lint/typecheck, backup, migration hay healthcheck.
+- **MinIO:** [build_minio.py](../scripts/build_minio.py) tính SHA-256 từ tên, quyền và nội dung file trong `services/minio`, so với nhãn `uk.paperlens.oral.minio-source` của image. Có image đúng nhãn thì dùng lại; thiếu image, thiếu nhãn hoặc đổi đầu vào thì build lại. Cả hai nhánh đều chạy `minio --version`. Image cũ chưa có nhãn sẽ build lại một lần. Khi cần cập nhật base image dù source không đổi, người vận hành rebuild MinIO theo quy trình cập nhật hạ tầng; nhãn này không kiểm tra bản mới của upstream/base image.
+- **Pull:** PostgreSQL/Redis được pull một lần ở stage **Check infrastructure images**; deploy kiểm tra image đã có trước khi dừng ứng dụng, dùng `--pull never`. Ollama vẫn có bước pull riêng khi bật; model chỉ tải khi chưa có trong volume.
+- **Đo thời gian:** build dùng `--progress=plain` để thấy `CACHED` và thời gian từng bước; các lệnh triển khai qua helper `command()` in nhãn thao tác cùng thời gian chạy, không in command/env/output có thể chứa bí mật. Dùng Stage View và Console Output để so sánh.
+
+Lượt đầu sau sửa có thể vẫn chậm vì cache cũ đã bị xóa. So sánh với lượt tiếp
+theo khi lockfile và đầu vào MinIO không đổi; không cam kết số phút trước khi
+đo trên Jenkins thật. Cache được giữ sẽ dùng thêm dung lượng đĩa so với cách
+xóa hết trước đây; kiểm tra cả dung lượng image, volume và backup độc lập.
 
 ## Chẩn đoán lỗi
 

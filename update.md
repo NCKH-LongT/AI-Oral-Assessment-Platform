@@ -1,3 +1,21 @@
+# Tối ưu thời gian Jenkins CI/CD — 26/10/2026
+
+- Giữ cache build giữa các lượt deploy; dọn cache không dùng trong 7 ngày và
+  áp dụng mục tiêu 10 GB thay cho xóa hết. Chỉ dọn builder riêng của OralAI;
+  giữ cơ chế bảo vệ image đang chạy và hai phiên bản API/web.
+- Tái sử dụng MinIO khi image có nhãn khớp đầu vào build; build lại khi thiếu
+  image/nhãn hoặc đầu vào thay đổi. Vẫn kiểm tra binary ở mỗi lượt.
+- PostgreSQL/Redis chỉ pull một lần; kiểm tra image trước khi dừng ứng dụng.
+  Log build hiển thị cache, log triển khai bổ sung thời gian từng thao tác.
+- Giữ test, backup database, migration và healthcheck. Không cần chỉnh
+  credential Jenkins hoặc cập nhật desktop.
+- Kiểm thử local: **25 ca đạt** (cleanup, MinIO, deploy/Compose). Chưa đo
+  thời gian trên Jenkins thật; lượt đầu cần tạo lại cache có thể vẫn chậm.
+
+Chi tiết: [vận hành Jenkins](docs/jenkins.md#giảm-thời-gian-cicd--26102026).
+
+---
+
 # Sửa log lỗi chấm phát âm — 25/10/2026
 
 - Lỗi tác vụ mới ghi mức **ERROR**, thay cho WARNING. Lỗi GOPT được phân

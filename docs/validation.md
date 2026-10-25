@@ -2,6 +2,18 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Tối ưu Jenkins — 26/10/2026
+
+- **25 ca đạt:** 12 ca cleanup, 5 ca build/reuse MinIO, 8 ca deploy; kiểm tra
+  Compose thật với bốn tổ hợp bật/tắt Ollama/GOPT. Ruff đạt cho Python thay đổi.
+- Cleanup vẫn bảo vệ project khác, image đang chạy, bản trước và tình huống
+  tranh chấp/xóa lỗi; xác minh dọn có giới hạn trên Buildx mới/cũ, không quay
+  về xóa toàn bộ cache khi thiếu hỗ trợ.
+- MinIO kiểm tra image khớp/thiếu nhãn/thiếu image, đổi nội dung/tên/thêm file,
+  lỗi build và kiểm tra binary; tag khớp Compose. Lệnh Docker dùng giả lập.
+- Log thời gian deploy không lộ command/output riêng tư. Chưa chạy pipeline
+  Jenkins thật hoặc benchmark build có cache; không khẳng định mức giảm phút.
+
 ## Log lỗi phát âm — 25/10/2026
 
 - **48 ca đạt**: `test_pronunciation.py`, `test_local_audio_review.py`,

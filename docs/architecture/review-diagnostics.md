@@ -38,7 +38,8 @@ vi API hiện hành. Tổng ở thẻ kỳ thi được cập nhật khi tải d
 
 Menu **Log hệ thống** đọc sự kiện API, WEB, AI và WORKER. Có bộ lọc nguồn,
 mức log, model (đúng tên), khoảng thời gian và mã liên kết. Bấm một dòng để
-xem metadata; lỗi tác vụ (`operation_failed`) hiện ở mức WARNING. Tải log cũ bằng cursor hoặc bật làm mới mỗi 10 giây. Mặc định
+xem metadata; lỗi tác vụ (`operation_failed`) mới được ghi ở mức ERROR. Log
+trước bản sửa vẫn ở mức WARNING, không chuyển đổi lịch sử. Tải log cũ bằng cursor hoặc bật làm mới mỗi 10 giây. Mặc định
 xem 24 giờ gần nhất; đổi sang 7 ngày để tra bài cũ.
 
 - **API:** HTTP method, route template, status, thời gian, request ID và
@@ -79,6 +80,30 @@ schema nghiệp vụ. Giữ tối đa 10.000 sự kiện hoặc 7 ngày; dọn k
 log hết hạn khi đọc. Cần thư mục ghi được trên volume cục bộ; triển khai nhiều
 host không có chung volume cần giải pháp tập trung riêng. Kho log không nằm
 trong MinIO và không thuộc màn hình quản lý bản ghi thi.
+
+### Tra lỗi chấm phát âm không thấy trên giao diện
+
+`PRONUNCIATION_FAILED` là lỗi chung của bước phát âm, không đủ để kết luận
+GOPT bị timeout. Bản sửa ghi sự kiện `gopt.pronunciation` ở nguồn **AI**, mức
+**ERROR**, model `gopt-librispeech`, với `code=PRONUNCIATION_FAILED` và
+`reason_code`. Sự kiện này có cả khi kiểm tra đầu vào thất bại trước lời gọi
+HTTP: GOPT đang tắt, ngôn ngữ khác `en`, thiếu transcript/audio, audio quá lớn
+hoặc sai checksum. Lỗi HTTP phân biệt 413 (quá lớn), 422 (đầu vào không xử lý
+được), 429 (bận), 504 (timeout); có mã riêng cho lỗi kết nối và kết quả sai
+định dạng. Không lưu nội dung response hoặc exception thô. Lỗi chấm lại hiển
+thị thông báo tương ứng; khi thất bại vẫn giữ đánh giá cũ.
+
+Để tra tác vụ cũ, chọn nguồn/mức **Tất cả**, bỏ bộ lọc model, chọn **Tất cả
+log còn lưu**, nhập đúng UUID tác vụ và bấm **Lọc log**. Trước bản sửa, lỗi
+kiểm tra phát âm nằm ở nguồn WORKER / WARNING (`pronunciation`), lỗi HTTP
+GOPT ở AI / WARNING (`gopt.assess`). Bộ lọc ERROR hoặc chỉ AI có thể bỏ sót.
+
+Nếu vẫn không có log, đối chiếu stdout worker theo UUID, kiểm tra API và
+worker cùng phiên bản và cùng `DATA_DIR`/volume có quyền ghi. Kiểm tra cả giới
+hạn lưu trữ 7 ngày/10.000 sự kiện; lỗi cũ lưu trong lịch sử bài thi có thể tồn
+tại lâu hơn log. Kho log lỗi sẽ bỏ sự kiện để bài thi tiếp tục; stdout worker
+vẫn là nơi đối chiếu. Không thể khôi phục chi tiết lỗi cũ chỉ từ thông báo
+`PRONUNCIATION_FAILED`, và bản sửa không nhập lại log container cũ.
 
 Chỉ lưu metadata cho phép, không lưu request body, header/token, prompt,
 transcript, bài làm, response model hay thông báo exception thô. Trace chỉ

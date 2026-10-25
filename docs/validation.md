@@ -2,6 +2,19 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## Log lỗi phát âm — 25/10/2026
+
+- **48 ca đạt**: `test_pronunciation.py`, `test_local_audio_review.py`,
+  `test_ai_diagnostics.py`, `test_diagnostic_logs.py`; Ruff đạt.
+- Kiểm thử đi qua endpoint yêu cầu chấm lại, worker, kho log và endpoint
+  admin đọc log. Xác minh lỗi GOPT tắt, sai ngôn ngữ, timeout, mất kết nối,
+  HTTP 422/429/503 xuất hiện khi lọc AI / ERROR / model / mã tác vụ.
+- Kiểm tra thông báo cụ thể, giữ điểm cũ, không lưu transcript/response/
+  exception thô. Kiểm tra thiếu audio, quá dung lượng, checksum, transcript
+  rỗng và kết quả sai schema; các ca chấm thành công vẫn đạt.
+- Model/HTTP được giả lập, database tạm; chưa kiểm tra tác vụ người dùng
+  trên server hoặc xác nhận triển khai domain chính.
+
 ## Xem bài theo tab, log hệ thống và danh sách thí sinh — 25/10/2026
 
 | Nhóm | Kết quả |

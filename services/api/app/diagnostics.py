@@ -25,7 +25,7 @@ def event(name, level=logging.INFO, **details):
 
 def failed(stage, exc, **details):
     frames = traceback.extract_tb(exc.__traceback__)[-8:]
-    event("operation_failed", logging.WARNING, stage=stage,
+    event("operation_failed", logging.ERROR, stage=stage,
           exception_type=type(exc).__name__,
           http_status=exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None,
           frames=[f"{Path(frame.filename).name}:{frame.lineno}:{frame.name}" for frame in frames],

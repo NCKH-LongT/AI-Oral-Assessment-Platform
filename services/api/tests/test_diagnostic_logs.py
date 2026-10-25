@@ -48,7 +48,7 @@ def test_operations_safe_metadata_and_cursor_filter(store):
     assert second["next_cursor"] is None
     assert first["items"][0]["details"]["operation_id"] == second["items"][0]["details"]["operation_id"]
     assert "private" not in str(store.read())
-    assert store.read(level="WARNING")["items"][0]["id"] == first["items"][0]["id"]
+    assert store.read(level="ERROR")["items"][0]["id"] == first["items"][0]["id"]
     assert store.read(since=time.time() + 60)["items"] == []
     assert "session_id" not in store.read()["items"][0]["details"]
 

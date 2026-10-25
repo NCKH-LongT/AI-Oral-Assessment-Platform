@@ -228,7 +228,7 @@ def transcribe_and_grade(db, job, exam, session, attempt, local_review=False):
             db, exam, session, reviewed, transcript["transcript"], transcript["stt_confidence"], local_review=local_review,
         )
     if assessment.get("pronunciation", {}).get("status") == "FAILED":
-        raise GradingError("PRONUNCIATION_FAILED", "Chưa chấm được phát âm; kiểm tra GOPT, audio và ngôn ngữ tiếng Anh của đề.")
+        raise GradingError("PRONUNCIATION_FAILED", pronunciation.failure_message(assessment["pronunciation"]))
     job.result = transcript | {"assessment": assessment}
     # The submitted transcript and idempotency payload remain immutable.
     attempt.assessment = assessment

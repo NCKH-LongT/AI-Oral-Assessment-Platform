@@ -113,6 +113,12 @@ nếu có. Các bước gồm `review.audio_download`, `review.stt`, `review.gra
 dòng và hàm, không ghi nội dung exception, URL, header, transcript hay prompt.
 `review_finished` ghi trạng thái cuối `COMPLETED`/`FAILED`.
 
+Lỗi phát âm có thêm sự kiện `gopt.pronunciation` (AI / ERROR), kèm
+`reason_code` phân biệt dịch vụ tắt, ngôn ngữ, audio, timeout, kết nối, HTTP
+và kết quả sai định dạng. Lỗi trước bản sửa vẫn là WARNING; khi tra mã tác vụ
+cũ hãy bỏ bộ lọc mức/nguồn/model và mở toàn bộ thời gian còn lưu.
+Xem [cách đối chiếu log không xuất hiện](review-diagnostics.md#tra-lỗi-chấm-phát-âm-không-thấy-trên-giao-diện).
+
 Khi Ollama thành công, các số `load_duration`, `prompt_eval_duration`, `eval_duration`,
 `total_duration` trả về từ provider được giữ nguyên (nanosecond), cùng
 `prompt_eval_count`/`eval_count` để phân biệt chậm tải model và chậm suy luận.

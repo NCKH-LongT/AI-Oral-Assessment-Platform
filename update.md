@@ -1,3 +1,23 @@
+# Sửa log lỗi chấm phát âm — 25/10/2026
+
+- Lỗi tác vụ mới ghi mức **ERROR**, thay cho WARNING. Lỗi GOPT được phân
+  loại **AI**, kể cả lỗi xảy ra trước lời gọi HTTP; gắn model, mã tác vụ và
+  mã nguyên nhân cụ thể để lọc trong Log hệ thống.
+- Phân biệt GOPT đang tắt, ngôn ngữ không phải tiếng Anh, thiếu transcript,
+  lỗi audio/checksum, timeout, kết nối, HTTP và kết quả không hợp lệ.
+  Chấm lại hiển thị thông báo tương ứng; thất bại giữ nguyên đánh giá cũ.
+- Log lịch sử không đổi mức. Khi tra tác vụ cũ, chọn nguồn/mức **Tất cả**,
+  bỏ model, chọn **Tất cả log còn lưu**, nhập UUID và bấm **Lọc log**.
+- Kiểm thử: **48 ca đạt**, Ruff đạt; có kiểm tra chấm lại thất bại và đọc
+  lỗi qua API Log hệ thống theo mã tác vụ, model, nguồn AI, mức ERROR.
+- Cần triển khai API/worker; không cần migration hoặc build desktop. Chưa
+  xác minh nguyên nhân tác vụ `a7fcad7a-4973-42cc-88be-0979d49d6637` trên
+  server và chưa xác nhận triển khai bản sửa trên domain chính.
+
+Chi tiết: [chẩn đoán lỗi phát âm](docs/architecture/review-diagnostics.md#tra-lỗi-chấm-phát-âm-không-thấy-trên-giao-diện).
+
+---
+
 # Xem lại bài thi, log hệ thống và danh sách thí sinh — 25/10/2026
 
 - Chi tiết bài thi chia tab **Tổng quan & điểm**, **Câu trả lời**, **Màn hình

@@ -19,7 +19,7 @@ FIELDS = {
     "provider", "review_provider", "model", "stage", "status", "code", "exception_type",
     "http_status", "method", "path", "elapsed_seconds", "timeout_seconds", "connect_timeout_seconds",
     "total_duration", "load_duration", "prompt_eval_duration", "eval_duration", "prompt_eval_count",
-    "eval_count", "audio_bytes", "gopt_enabled", "frames", "operation_id",
+    "eval_count", "audio_bytes", "gopt_enabled", "frames", "operation_id", "reason_code",
 }
 
 

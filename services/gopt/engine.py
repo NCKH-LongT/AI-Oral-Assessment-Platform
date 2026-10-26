@@ -100,8 +100,7 @@ class Engine:
     def __init__(self):
         import torch
 
-        torch.set_num_threads(1)
-        torch.set_num_interop_threads(1)
+        # Let PyTorch choose compute parallelism; server.gate serializes requests.
         self.torch = torch
         self.assets = Path(os.environ.get("GOPT_ASSETS", "/opt/gopt-assets"))
         self.max_seconds = int(os.environ.get("GOPT_MAX_AUDIO_SECONDS", "120"))

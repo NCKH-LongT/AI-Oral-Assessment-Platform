@@ -2,6 +2,24 @@
 
 [README](../README.md#hướng-dẫn-theo-nhu-cầu) · [Build desktop](desktop-build.md)
 
+## AI không quota CPU/RAM, vẫn chấm tuần tự — 26/10/2026
+
+- **27 ca API đạt, 1 bỏ qua trên SQLite:** chấm local với luồng tự động hoặc
+  cấu hình riêng, Ollama không nhận `num_thread` khi auto, Whisper nhận
+  `cpu_threads=0` nhưng chỉ một inference worker; hồi quy lỗi và khóa worker.
+- **4 ca worker đạt trên PostgreSQL thật**, gồm ca đã bỏ qua ở SQLite:
+  database tạm qua `pgserver`, bật extension vector trước khi tạo schema;
+  một kết nối giữ advisory lock thì worker khác không gọi xử lý. Không dùng
+  database production. Khóa nhả sau tác vụ/lỗi vẫn được kiểm tra.
+- **18 ca GOPT đạt:** khởi tạo engine không ép luồng PyTorch, chặn request
+  đồng thời, nhả khóa sau lỗi, timeout tiến trình, audio/đặc trưng/assets.
+  Model được giả lập; `kaldiio` cài vào thư mục tạm, không tải trọng số.
+- **9 ca deploy đạt:** Compose thật với bốn tổ hợp overlay; không còn quota
+  CPU/RAM/swap/PID, credential cũ không khôi phục hạn mức, worker luôn tuần
+  tự và lệnh khởi chạy gỡ biến OMP/BLAS/MKL/NumExpr cũ.
+- Ruff và `git diff --check` đạt. Chưa build image GOPT mới hoặc xác nhận
+  container đang chạy trên Jenkins; cần build lại GOPT để nhận code engine.
+
 ## RAM worker/GOPT và chấm tuần tự — 26/10/2026
 
 - **9 ca deploy đạt:** Compose thật xác nhận worker/GOPT có RAM và RAM+swap

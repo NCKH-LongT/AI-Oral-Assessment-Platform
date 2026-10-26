@@ -30,9 +30,6 @@ Lỗi `LOCAL_REVIEW_NOT_CONFIGURED` là thiếu tên model chấm lại, không 
 ```dotenv
 ORAL_OLLAMA_ENABLED=true
 LOCAL_REVIEW_LLM_MODEL=qwen2.5:3b
-ORAL_OLLAMA_CPUS=3.0
-ORAL_OLLAMA_MEMORY=4g
-LOCAL_LLM_CPU_THREADS=3
 ```
 
 Triển khai Jenkinsfile mới rồi chạy **Build Now**. Pipeline chọn `docker-compose.ollama.yml`,
@@ -44,8 +41,8 @@ là `local`, pipeline cũng yêu cầu và chuẩn bị `LLM_MODEL`, `EMBEDDING_
 - API/worker tự dùng `http://ollama:11434` trên network `oral-assessment-web_default`.
 - Không publish port lên host, không dùng chung volume/network của SOS. Không sửa hay dừng
   `sos-ai-ollama`; model cùng tên được tải riêng, cần thêm dung lượng đĩa.
-- Ollama giới hạn mặc định 3 CPU, 4 GiB RAM, một model và một lượt suy luận;
-  worker giới hạn 3 CPU, 4 GiB RAM và xử lý tuần tự. Đây không phải giới hạn tổng RAM server.
+- Ollama, worker và GOPT không đặt quota CPU/RAM trong Compose. Ollama giữ
+  một model và một lượt suy luận; worker chấm tuần tự từng tác vụ.
   Không gắn GPU; review giải phóng model sau chấm. Nếu CPU chậm gây timeout,
   có thể tăng `LOCAL_LLM_TIMEOUT` trong credential, ví dụ `600`, thay vì tăng concurrency.
 - Không bật cloud model. Xem [cấu hình Ollama](https://docs.ollama.com/faq) và
@@ -80,57 +77,51 @@ Jenkins chọn thêm `docker-compose.gopt.yml`, kiểm tra image đã có và kh
 sẽ chặn deployment trước bước dừng ứng dụng. Không tự build Kaldi trong mỗi lượt deploy.
 Xem [giới hạn và luồng GOPT](architecture/gopt.md).
 
-### Mức CPU mới cho các dịch vụ AI — 26/10/2026
+### AI không giới hạn CPU/RAM, chấm tuần tự — 26/10/2026
 
-Theo yêu cầu, Ollama, worker chạy Whisper và GOPT đều có hạn mức **3 CPU mỗi
-container**. Sau cập nhật RAM cùng ngày: Ollama 4 GiB, worker 4 GiB, GOPT 4 GiB. Tổng các
-hạn mức là 9 CPU/12 GiB; không phải cấp riêng 9 lõi hoặc lúc nào cũng sử dụng
-đồng thời toàn bộ. Giới hạn thực tế còn phụ thuộc tài nguyên host.
+Bản này thay cấu hình 3 CPU/4 GiB trước đó: bỏ `cpus`, `mem_limit`,
+`memswap_limit`, `pids_limit` khỏi Ollama, worker và GOPT. Các biến cũ
+`ORAL_OLLAMA_CPUS`, `ORAL_OLLAMA_MEMORY`, `WORKER_CPUS`, `WORKER_MEMORY`,
+`GOPT_CPUS`, `GOPT_MEMORY`, `GOPT_BLAS_THREADS` không còn được dùng để đặt
+hạn mức; có thể xóa khỏi credential `oral-ai-env`.
 
-Cập nhật các dòng sau trong **Secret file `oral-ai-env`**, giữ các biến khác
-đang có trên server, rồi triển khai commit mới:
+- Hai overlay ép `WORKER_SERIAL=true`: một tác vụ chấm tại một thời điểm
+  trên các worker dùng cùng PostgreSQL, giữ khóa đến khi tác vụ kết thúc.
+  Chấm lại vẫn được phép; đây không phải giới hạn một lần chấm trong lịch sử.
+- Ollama giữ `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_MAX_LOADED_MODELS=1`; GOPT có
+  một process và khóa chặn request đồng thời. Whisper có một inference worker.
+- Ollama/Whisper dùng cấu hình luồng tự động (`LOCAL_LLM_CPU_THREADS=0`,
+  `STT_CPU_THREADS=0`); overlay ghi đè cả giá trị 1/3 cũ trong credential.
+  Worker/GOPT khởi chạy bằng `env -u` để bỏ biến OMP/BLAS/MKL/NumExpr giới hạn
+  luồng từ credential hoặc image cũ. GOPT mới không ép PyTorch dùng một luồng.
+- Không có quota container không có nghĩa một request luôn sử dụng hết CPU;
+  engine tự chọn mức song song trong một bài. Một bài vẫn có thể dùng nhiều
+  RAM. Giữ timeout, giới hạn audio, dung lượng `/tmp` của GOPT và các kiểm tra
+  dữ liệu; không bật GPU hoặc tăng số bài chấm đồng thời.
 
-```dotenv
-ORAL_OLLAMA_CPUS=3.0
-WORKER_CPUS=3.0
-GOPT_CPUS=3.0
-LOCAL_LLM_CPU_THREADS=3
-STT_CPU_THREADS=3
-GOPT_BLAS_THREADS=3
-WORKER_MEMORY=4g
-GOPT_MEMORY=4g
-WORKER_SERIAL=true
-```
-
-Các giá trị `*_CPUS=1.0`, `*_MEMORY=2g` hoặc `STT_CPU_THREADS=1` còn trong credential sẽ ghi
-đè mặc định mới. `.env` trong workspace đã được cập nhật các dòng trên nhưng
-không nằm trong Git và không tự thay credential Jenkins. Không thay file
-credential bằng `.env` development nếu chưa đối chiếu các cấu hình khác.
-
-Lời gọi Ollama CPU-only dùng `LOCAL_LLM_CPU_THREADS` (1–8); Whisper dùng
-`STT_CPU_THREADS` (1–8). Cả hai overlay dùng cùng cấu hình luồng worker, không
-còn ép 1 khi bật thêm GOPT. GOPT dùng `GOPT_BLAS_THREADS` cho thư viện tính
-toán; PyTorch, i-vector và Kaldi `nj` vẫn 1 theo engine hiện tại, nên tăng
-hạn mức không có nghĩa mọi bước sẽ dùng đủ 3 CPU. Giữ 1 request/model và
-`WORKER_SERIAL=true`; không cần build lại image GOPT cho thay đổi biến môi
-trường/hạn mức này. API/worker phải dùng bản code mới để nhận số luồng Ollama.
-
-Sau deploy, kiểm tra giới hạn thật trên Docker host (chỉ đọc CPU/RAM):
+**Triển khai GOPT:** Jenkins dùng image đã build sẵn, không tự build Kaldi.
+Để bỏ cả giới hạn PyTorch trong engine cũ, build lại image từ commit mới
+trên Docker host của Jenkins (dùng đúng tag trong `ORAL_GOPT_IMAGE`):
 
 ```bash
-docker inspect --format '{{.Name}} CPU={{.HostConfig.NanoCpus}} RAM={{.HostConfig.Memory}}' oral-assessment-web-ollama-1 oral-assessment-web-worker-1 oral-assessment-web-gopt-1
+docker build --build-arg BUILD_JOBS=1 -t oral-assessment-gopt:cpu services/gopt
+```
+
+Sau đó deploy commit mới để tạo lại API/worker/GOPT/Ollama với Compose mới.
+Nếu chưa build lại GOPT, quota CPU/RAM vẫn được gỡ sau deploy nhưng PyTorch
+trong image cũ còn ép một luồng. `.env` workspace đã được dọn các biến hạn
+mức, không đưa vào Git và không thay thế toàn bộ credential production.
+
+Kiểm tra trên Docker host:
+
+```bash
+docker inspect --format '{{.Name}} CPU={{.HostConfig.NanoCpus}} quota={{.HostConfig.CpuQuota}} RAM={{.HostConfig.Memory}} swap={{.HostConfig.MemorySwap}}' oral-assessment-web-ollama-1 oral-assessment-web-worker-1 oral-assessment-web-gopt-1
 docker stats --no-stream oral-assessment-web-ollama-1 oral-assessment-web-worker-1 oral-assessment-web-gopt-1
 ```
 
-`NanoCpus=3000000000` tương ứng 3 CPU. Nếu dịch vụ không bật thì không có
-container tương ứng; bản cập nhật không tự bật GOPT/Ollama đang tắt.
-
-Luồng chấm chạy **một tác vụ tại một thời điểm** trên các worker cùng database
-PostgreSQL (`WORKER_SERIAL=true`, khóa advisory suốt tác vụ). Mỗi lượt chấm
-local đi lần lượt **Whisper → Ollama → GOPT** trước khi nhận tác vụ tiếp.
-Ollama chỉ suy luận một request, GOPT có một process và khóa chống nhận đồng
-thời. Ba luồng tính toán trong một model không phải ba bài thi chạy song song.
-Hạn mức RAM và RAM+swap của worker/GOPT cùng là 4 GiB; không cho swap thêm.
+`NanoCpus=0`, `Memory=0` nghĩa là Docker không đặt các hạn mức đó, không phải
+không được dùng tài nguyên. Vẫn chịu tài nguyên thực tế và giới hạn từ host/
+Docker daemon nếu có. Bản cập nhật không tự bật dịch vụ AI đang tắt.
 
 ## Jenkins Docker báo `python3: not found`
 

@@ -37,7 +37,6 @@ RUN --mount=type=cache,id=gopt-models,target=/download-cache,sharing=locked \
 
 FROM python:3.12-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
-    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 \
     KALDI_ROOT=/opt/kaldi GOPT_ASSETS=/opt/gopt-assets LC_ALL=C.UTF-8
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg libgfortran5 libgomp1 libstdc++6 libopenblas0-pthread libfst-dev zlib1g perl bash && rm -rf /var/lib/apt/lists/*

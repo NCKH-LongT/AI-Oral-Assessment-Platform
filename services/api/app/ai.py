@@ -168,7 +168,10 @@ def _structured(instruction, data, schema):
                 "stream": False,
                 "think": False,
                 "options": {"temperature": 0.2} | (
-                    {"num_thread": settings().local_llm_cpu_threads, "num_gpu": 0}
+                    {"num_gpu": 0} | (
+                        {"num_thread": settings().local_llm_cpu_threads}
+                        if settings().local_llm_cpu_threads else {}
+                    )
                     if settings().local_llm_cpu_only else {}
                 ),
                 **({"keep_alive": 0} if settings().local_llm_cpu_only else {}),

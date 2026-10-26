@@ -28,7 +28,7 @@ def ready(env):
 
 
 @pytest.mark.parametrize("pronounce", [False, True])
-@pytest.mark.parametrize("threads", [1, 3])
+@pytest.mark.parametrize("threads", [0, 3])
 def test_full_local_review_pins_models_avoids_cloud_and_preserves_evidence(env, monkeypatch, pronounce, threads):
     context, session, attempt_id, audio, blob = ready(env)
     with env[1]() as db:
@@ -58,7 +58,11 @@ def test_full_local_review_pins_models_avoids_cloud_and_preserves_evidence(env, 
     def ollama(operation, payload):
         order.append("llm")
         assert operation == "chat" and payload["model"] == "local-test-model"
-        assert payload["options"]["num_thread"] == threads and payload["options"]["num_gpu"] == 0
+        assert payload["options"]["num_gpu"] == 0
+        if threads:
+            assert payload["options"]["num_thread"] == threads
+        else:
+            assert "num_thread" not in payload["options"]
         assert payload["keep_alive"] == 0
         data = json.loads(payload["messages"][1]["content"])
         assert data["transcript"] == "Freshly recognized answer"

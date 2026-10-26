@@ -1,3 +1,26 @@
+# Gỡ hạn mức tài nguyên AI, giữ chấm tuần tự — 26/10/2026
+
+- Thay cấu hình 3 CPU/4 GiB trước đó: bỏ quota CPU, RAM/swap và giới hạn PID
+  của Ollama, worker và GOPT. Các biến hạn mức cũ không còn áp vào Compose.
+- Giữ **một tác vụ chấm tại một thời điểm** bằng khóa worker/PostgreSQL,
+  một request Ollama/GOPT và một inference worker Whisper. Vẫn được chấm lại
+  bài đã chấm; không giới hạn số lần chấm trong lịch sử.
+- Ollama/Whisper tự chọn luồng tính toán; bỏ biến giới hạn OMP/BLAS/MKL khi
+  khởi chạy worker/GOPT và bỏ lệnh ép một luồng PyTorch trong engine GOPT.
+  Giữ timeout, giới hạn audio và kiểm tra dữ liệu.
+- Đã dọn các biến CPU/RAM trong `.env` local và `.env.example`, cập nhật
+  overlay/tài liệu. Cần deploy lại; **build lại image GOPT một lần** để bỏ
+  giới hạn luồng trong code image cũ. Jenkins hiện dùng GOPT build sẵn.
+- Chưa xác nhận cấu hình container trên server; không cam kết giới hạn mức
+  sử dụng RAM của một bài bằng cơ chế chấm tuần tự.
+- Kiểm thử đạt: **27 API**, **4 khóa worker trên PostgreSQL thật**,
+  **18 GOPT**, **9 deploy/Compose**; Ruff đạt. Ca PostgreSQL bị bỏ qua trong
+  lượt SQLite đã được chạy lại thành công trên database tạm.
+
+Chi tiết: [triển khai và kiểm tra](docs/jenkins.md#ai-không-giới-hạn-cpuram-chấm-tuần-tự--26102026).
+
+---
+
 # Worker/GOPT 4 GiB RAM và chấm tuần tự — 26/10/2026
 
 - Tăng RAM worker và GOPT lên **4 GiB mỗi container**, giữ **3 CPU** mỗi

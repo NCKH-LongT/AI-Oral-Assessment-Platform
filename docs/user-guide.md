@@ -227,3 +227,7 @@ Lần thi mới trên Desktop bắt buộc ghi toàn màn hình sau khi sinh vi�
 Mục **Sự kiện giám sát bài thi** ghi thời điểm server nhận các sự kiện như rời cửa sổ, thay màn hình, ngắt ghi hoặc khởi động lại. Bài có sự kiện cần giảng viên xem lại trước khi công bố điểm. Đối chiếu bản ghi và hoàn cảnh thực tế trước khi chấm lại, không coi một sự kiện là bằng chứng chắc chắn của gian lận. Độ trễ mạng có thể làm thời điểm nhận sự kiện khác thời điểm xảy ra.
 
 Bản ghi dùng cơ chế lưu trữ, phân quyền và xóa cùng bài thi hiện có; bản này chưa bổ sung tự động xóa theo thời hạn. Hạn chế kỹ thuật và yêu cầu cập nhật server/desktop được ghi trong [hướng dẫn desktop](../readme-desktop.md#truy-cập-và-ghi-màn-hình-bắt-buộc).
+
+## Kiểm tra camera và phục hồi khi mất mạng
+
+Bản thử nghiệm kiểm tra một khuôn mặt đủ lớn, nằm trong khung và ổn định trước khi bật nút bắt đầu. Hướng mắt là ước lượng hỗ trợ, không tự xác định gian lận. Audio được lưu từng đoạn trên máy; nếu tải lại trang, mở đúng lượt thi và chọn **Khôi phục bản ghi chờ tải trên máy**. Xem [hướng dẫn camera, mạng yếu và phục hồi bài](exam-camera-network-guide.md) để biết giới hạn và cách xử lý lỗi lưu trữ.

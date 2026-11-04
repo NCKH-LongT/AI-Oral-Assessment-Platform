@@ -81,3 +81,7 @@ Ba kiểm thử UI trên Edge đạt: API 503, request abort internetdisconnecte
 | Thay đổi trên web và nhánh fork riêng | Tích hợp vào Student; nhánh codex/exam-resilience-proctoring trên coco-doit6879/AI-Oral-Assessment-Platform; chưa merge/deploy production. |
 
 Lần chạy tổng hợp cuối: 5 UI tests đạt (face-gate, hai dạng lỗi mạng, quota, slow-upload); 11 unit/API client tests đạt; TypeScript đạt. Lưu cục bộ là hỗ trợ phục hồi, không thay thế xác nhận server. Chưa xác minh camera thật nhiều người/điều kiện ánh sáng, tốc độ WAN hoặc cấu hình production. Hướng dẫn vận hành đã nêu các giới hạn này; không gán các kết quả local thành bảo đảm production.
+
+### Kiểm chứng cuối trên bản mã đã commit
+
+Commit b55974b được xuất riêng bằng git archive, không chứa các sửa đổi ngoài phạm vi chưa commit. Build production từ bản xuất đạt. Backend trên bản xuất: 7 passed, 1 skipped (ca khóa đồng thời cần PostgreSQL); 30/30 client đạt, p50 6773 ms, p95 7187 ms cho toàn luồng đã nêu. Code ứng dụng đã qua lint phần thay đổi và TypeScript; 5 UI tests và 11 unit/API client tests đạt. Kho audio đã có 4 kiểm thử Edge độc lập đạt. Nhánh này là kết quả nghiên cứu/thử nghiệm để review; không chứa thay đổi rubric/đóng mở đề đang làm ở phần việc khác và chưa merge hay deploy production.

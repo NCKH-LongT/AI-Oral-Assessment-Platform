@@ -56,3 +56,11 @@ Nguồn: https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine
 - Playwright/Edge trên web dev: ghi audio, API submit trả 503, reload, mở lại phiên, khôi phục backup, tải lại: đạt. Mọi lần submit dùng cùng idempotency key và chỉ có một payload được backend giả lập nhận thành công. Đây là UI thật với API được mock, chưa phải Wi-Fi thật + backend production.
 - Edge ghi WebM rồi reload khi MediaRecorder vẫn đang chạy, không gọi stop: các chunk đã commit phục hồi và decodeAudioData thành công. Chưa khẳng định khôi phục phần cuối chưa commit hoặc tất cả định dạng trình duyệt.
 - Camera bỏ qua frame có currentTime trùng để không duy trì trạng thái đạt từ video bị đứng; kết quả gắn stream ID để đổi camera phải đo lại.
+
+### Model thật với ảnh có mặt
+
+Đã chạy tools/vision-smoke.mjs qua Edge với worker từ production build và model/WASM thật. Ảnh mẫu công khai MediaPipe: https://storage.googleapis.com/mediapipe-assets/portrait.jpg (chỉ tải vào .data, không commit ảnh). Kết quả: ảnh trống từ chối; chân dung toàn thân đo mặt 5,6% và chưa đạt ngưỡng; mặt được crop/đặt giữa khung đo 9,9% và ready=true; ảnh thu nhỏ 10% bị từ chối. Có tín hiệu iris/openness ở ảnh có mặt. Đây không phải thử liveness hoặc xác thực danh tính.
+
+Tái lập: build web; chạy web production local; tải ảnh nguồn vào .data/mediapipe-portrait.jpg; đặt VISION_BASE_URL tới web local, TEST_BROWSER_CHANNEL=msedge rồi chạy `node tools/vision-smoke.mjs`. Script tự tìm worker bundle trong .next/static/chunks, không cố định hash chunk.
+
+Job upload đã giữ nguyên sessionId/backend lúc tạo; đổi backend sẽ không gửi bản ghi của server trước sang server mới. Cần tiếp tục kiểm thử các trường hợp điều hướng giữa nhiều phiên trên cùng thiết bị.

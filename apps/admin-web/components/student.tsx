@@ -90,6 +90,8 @@ type PendingAnswer = {
   key: string;
 };
 type UploadJob = {
+  sessionId: string;
+  backend: string;
   id: string;
   attemptId: string;
   kind: "AUDIO" | "SCREEN";
@@ -636,6 +638,8 @@ export default function Student() {
       setAnswer(a);
       const recordedJob: UploadJob = {
         id: a.key,
+        sessionId: session.id,
+        backend: clientBackend?.mode ?? "default",
         attemptId,
         kind: "AUDIO",
         blob: a.audio,
@@ -717,6 +721,8 @@ export default function Student() {
     return timing;
   }
   async function runUpload(job: UploadJob) {
+    if (job.backend !== (clientBackend?.mode ?? "default"))
+      throw new Error("Chuyển về đúng server của bản ghi trước khi tải lại.");
     if (job.status === "uploading") return false;
     const update = (patch: Partial<UploadJob>) => {
       Object.assign(job, patch);
@@ -734,8 +740,8 @@ export default function Student() {
         kind: job.kind,
         blob: job.blob,
         savedAt: Date.now(),
-        sessionId: session!.id,
-        backend: clientBackend?.mode ?? "default",
+        sessionId: job.sessionId,
+        backend: job.backend,
         submission: job.submission,
       });
       if (job.submission) {
@@ -835,6 +841,8 @@ export default function Student() {
       answerUploads.current.set(draft.id, [
         {
           id: draft.id,
+          sessionId: draft.sessionId,
+          backend: draft.backend,
           attemptId: draft.attemptId,
           kind: "AUDIO",
           blob: draft.blob,
@@ -851,6 +859,8 @@ export default function Student() {
       )
       .map((row) => ({
         id: row.id,
+        sessionId: row.sessionId,
+        backend: row.backend,
         attemptId: row.attemptId,
         kind: row.kind,
         blob: row.blob,
@@ -882,6 +892,8 @@ export default function Student() {
       if (!added) {
         added = (["AUDIO"] as const).map((kind) => ({
           id: crypto.randomUUID(),
+          sessionId: session.id,
+          backend: clientBackend?.mode ?? "default",
           attemptId: answer.attemptId,
           kind,
           blob: answer.audio,
@@ -1000,6 +1012,8 @@ export default function Student() {
     const existing = screenJobs.current.get(blob);
     if (existing) return existing;
     const job: UploadJob = {
+      sessionId: session!.id,
+      backend: clientBackend?.mode ?? "default",
       id: crypto.randomUUID(),
       attemptId,
       kind: "SCREEN",

@@ -790,24 +790,11 @@ export default function Student() {
               (i + 1) * init.chunk_size,
             );
             const checksum = await hash(part);
-            let last: unknown;
-            for (let retry = 0; retry < 3; retry++) {
-              try {
-                await mediaRequest(`/uploads/${init.id}/chunks/${i}`, {
-                  method: "PUT",
-                  body: part,
-                  headers: { "X-Chunk-Sha256": checksum },
-                });
-                last = null;
-                break;
-              } catch (e) {
-                last = e;
-                await new Promise((r) =>
-                  setTimeout(r, 500 * 2 ** retry + Math.random() * 500),
-                );
-              }
-            }
-            if (last) throw last;
+            await mediaRequest(`/uploads/${init.id}/chunks/${i}`, {
+              method: "PUT",
+              body: part,
+              headers: { "X-Chunk-Sha256": checksum },
+            });
           }
           update({ progress: Math.round(((i + 1) / count) * 95) });
         }
@@ -1752,7 +1739,10 @@ export default function Student() {
               )}
               {cameraRequired && (
                 <p role="status">
-                  Khung mặt: {faceCheck.areaPercent}% ảnh · {faceCheck.message}
+                  Khung mặt: {faceCheck.areaPercent}% ảnh ·{" "}
+                  {stream
+                    ? faceCheck.message
+                    : "Kết nối camera để bắt đầu kiểm tra."}
                   <br />
                   {faceCheck.eyeHint}
                 </p>

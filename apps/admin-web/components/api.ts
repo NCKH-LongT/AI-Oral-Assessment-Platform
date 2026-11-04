@@ -447,7 +447,7 @@ export async function api<T>(
           );
         throw error;
       }
-      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt + Math.random() * 500));
     }
   }
 }

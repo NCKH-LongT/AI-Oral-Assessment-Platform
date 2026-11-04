@@ -68,3 +68,16 @@ Job upload đã giữ nguyên sessionId/backend lúc tạo; đổi backend sẽ 
 ### Kho lưu cục bộ không khả dụng
 
 Ba kiểm thử UI trên Edge đạt: API 503, request abort internetdisconnected, và IndexedDB.open ném QuotaExceededError. Hai trường hợp mạng khôi phục bằng cùng idempotency key sau reload; trường hợp quota vẫn upload online và hiển thị cảnh báo không bảo đảm phục hồi. DB xử lý onblocked/onversionchange để nâng cấp giữa các tab không chờ vô hạn. Hướng dẫn người dùng ở docs/exam-camera-network-guide.md.
+
+## Đối chiếu yêu cầu trên nhánh — 05/11/2026
+
+| Yêu cầu | Cài đặt và bằng chứng |
+| --- | --- |
+| Nghiên cứu tracking mắt | MediaPipe iris/eye landmarks, hiệu chuẩn 12 mẫu, hướng mắt ngang tương đối, cảnh báo lệch kéo dài. Unit tests eye-position và worker thật có tín hiệu mắt; chưa phải đo độ chính xác gaze theo tọa độ màn hình. Không tự quy kết gian lận. |
+| Mặt chiếm bao nhiêu % và chưa đủ không vào thi | Bounding box 6–55%, một mặt, giữa ảnh, không bị cắt; sáu mẫu ổn định. Face-gate UI test dùng model thật kiểm tra ảnh trống bị khóa, mặt đúng khung được mở, video dừng bị khóa lại. |
+| 30 người vào một lần | 30 ASGI client độc lập đạt cả login/list/create/replay/read/start/upload audio mẫu/submit; p50 7,02 s, p95 7,45 s. Có probe HTTP để đo deployment, chưa cam kết tải production hoặc 30 model AI song song. |
+| Mất Wi-Fi khi đang làm | Lưu audio từng đoạn vào IndexedDB, payload/khóa nộp giữ nguyên, khôi phục theo session/backend. UI test abort internetdisconnected + reload + retry đạt. WebM bị ngắt trước stop đã decode sau khôi phục. |
+| Mạng yếu | Request media tối đa 120s, auth refresh 15s, một lớp retry có jitter, checksum từng đoạn. Slow-upload UI test mô phỏng 300ms/đoạn và mất phản hồi đầu: bytes/checksum khi retry không đổi, upload hoàn tất. |
+| Thay đổi trên web và nhánh fork riêng | Tích hợp vào Student; nhánh codex/exam-resilience-proctoring trên coco-doit6879/AI-Oral-Assessment-Platform; chưa merge/deploy production. |
+
+Lần chạy tổng hợp cuối: 5 UI tests đạt (face-gate, hai dạng lỗi mạng, quota, slow-upload); 11 unit/API client tests đạt; TypeScript đạt. Lưu cục bộ là hỗ trợ phục hồi, không thay thế xác nhận server. Chưa xác minh camera thật nhiều người/điều kiện ánh sáng, tốc độ WAN hoặc cấu hình production. Hướng dẫn vận hành đã nêu các giới hạn này; không gán các kết quả local thành bảo đảm production.

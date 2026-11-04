@@ -1,5 +1,11 @@
 "use client";
 import Image from "next/image";
+import { useFaceCheck } from "./use-face-check";
+import {
+  saveMediaBackup,
+  deleteMediaBackup,
+  listMediaBackups,
+} from "../lib/media-backup";
 import { QuestionContent } from "./question-content";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -14,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   api,
+  clientBackend,
   send,
   errorText,
   ExamSession,
@@ -86,6 +93,7 @@ type UploadJob = {
   progress: number;
   status: "pending" | "uploading" | "done" | "failed";
   error?: string;
+  submission?: { key: string; payload: Record<string, unknown> };
 };
 const hash = async (blob: Blob) =>
   Array.from(
@@ -157,6 +165,11 @@ export default function Student() {
   const preview = useRef<HTMLVideoElement>(null),
     recorders = useRef<MediaRecorder[]>([]),
     streamRef = useRef<MediaStream | null>(null);
+  const faceCheck = useFaceCheck(
+    preview,
+    cameraRequired && !!stream && !!session,
+    stream?.id,
+  );
   const stopRef = useRef<() => void>(() => {}),
     localDeadline = useRef<number | null>(null),
     recordingRef = useRef(false);
@@ -651,6 +664,7 @@ export default function Student() {
     return timing;
   }
   async function runUpload(job: UploadJob) {
+    if (job.status === "uploading") return false;
     const update = (patch: Partial<UploadJob>) => {
       Object.assign(job, patch);
       for (const item of screenJobs.current.values())
@@ -661,6 +675,23 @@ export default function Student() {
     };
     update({ status: "uploading", error: undefined });
     try {
+      await saveMediaBackup({
+        id: job.id,
+        attemptId: job.attemptId,
+        kind: job.kind,
+        blob: job.blob,
+        savedAt: Date.now(),
+        sessionId: session!.id,
+        backend: clientBackend?.mode ?? "default",
+        submission: job.submission,
+      });
+      if (job.submission) {
+        await api(`/question-attempts/${job.attemptId}/submit`, {
+          method: "POST",
+          body: JSON.stringify(job.submission.payload),
+          headers: { "Idempotency-Key": job.submission.key },
+        });
+      }
       const init = await send<{
         id: string;
         chunk_size: number;
@@ -696,7 +727,9 @@ export default function Student() {
                 break;
               } catch (e) {
                 last = e;
-                await new Promise((r) => setTimeout(r, 500 * 2 ** retry));
+                await new Promise((r) =>
+                  setTimeout(r, 500 * 2 ** retry + Math.random() * 500),
+                );
               }
             }
             if (last) throw last;
@@ -705,12 +738,36 @@ export default function Student() {
         }
         await send(`/uploads/${init.id}/complete`);
       }
+      await deleteMediaBackup(job.id).catch(() => {});
       update({ status: "done", progress: 100 });
       return true;
     } catch (e) {
       update({ status: "failed", error: errorText(e) });
       return false;
     }
+  }
+  async function restoreMedia() {
+    if (!session) return;
+    const backups = await listMediaBackups(
+      session.id,
+      clientBackend?.mode ?? "default",
+    );
+    const recovered: UploadJob[] = backups
+      .filter((row) => !jobs.some((job) => job.id === row.id))
+      .map((row) => ({
+        id: row.id,
+        attemptId: row.attemptId,
+        kind: row.kind,
+        blob: row.blob,
+        submission: row.submission,
+        progress: 0,
+        status: "failed",
+        error:
+          "Bản ghi lưu trên máy, chưa xác nhận tải lên. Bấm Tải lại khi có mạng.",
+      }));
+    setJobs((all) => [...all, ...recovered]);
+    if (!backups.length)
+      setError("Không có bản ghi chờ tải cho phiên thi này trên trình duyệt.");
   }
   async function submit(pendingAnswer = answer, automatic = false) {
     const answer = pendingAnswer;
@@ -726,20 +783,6 @@ export default function Student() {
     if (!answer.audio.size) throw new Error("Media rỗng. Vui lòng ghi âm lại.");
     setSubmitting(true);
     try {
-      const confidence =
-        answer.transcript === answer.originalText ? answer.confidence : 0;
-      await api(`/question-attempts/${answer.attemptId}/submit`, {
-        method: "POST",
-        body: JSON.stringify({
-          transcript: serverProcessing ? "" : answer.transcript,
-          stt_confidence: serverProcessing ? null : confidence,
-          ...(serverProcessing ? { processing_mode: "server_audio" } : {}),
-          ...(answer.sttSkippedReason
-            ? { stt_skipped_reason: answer.sttSkippedReason }
-            : {}),
-        }),
-        headers: { "Idempotency-Key": answer.key },
-      });
       let added = answerUploads.current.get(answer.key);
       if (!added) {
         added = (["AUDIO"] as const).map((kind) => ({
@@ -754,6 +797,45 @@ export default function Student() {
         const newJobs = added;
         setJobs((all) => [...all, ...newJobs]);
       }
+      const savedPayload = {
+        transcript: serverProcessing ? "" : answer.transcript,
+        stt_confidence: serverProcessing
+          ? null
+          : answer.transcript === answer.originalText
+            ? answer.confidence
+            : 0,
+        ...(serverProcessing ? { processing_mode: "server_audio" } : {}),
+        ...(answer.sttSkippedReason
+          ? { stt_skipped_reason: answer.sttSkippedReason }
+          : {}),
+      };
+      for (const job of added) {
+        job.submission = { key: answer.key, payload: savedPayload };
+        await saveMediaBackup({
+          id: job.id,
+          attemptId: job.attemptId,
+          kind: job.kind,
+          blob: job.blob,
+          savedAt: Date.now(),
+          sessionId: session.id,
+          backend: clientBackend?.mode ?? "default",
+          submission: job.submission,
+        });
+      }
+      const confidence =
+        answer.transcript === answer.originalText ? answer.confidence : 0;
+      await api(`/question-attempts/${answer.attemptId}/submit`, {
+        method: "POST",
+        body: JSON.stringify({
+          transcript: serverProcessing ? "" : answer.transcript,
+          stt_confidence: serverProcessing ? null : confidence,
+          ...(serverProcessing ? { processing_mode: "server_audio" } : {}),
+          ...(answer.sttSkippedReason
+            ? { stt_skipped_reason: answer.sttSkippedReason }
+            : {}),
+        }),
+        headers: { "Idempotency-Key": answer.key },
+      });
       setError("");
       if (automatic) {
         const uploaded = await Promise.all(
@@ -772,6 +854,17 @@ export default function Student() {
         setAnswer(null);
         answerUploads.current.delete(answer.key);
       }
+    } catch (error) {
+      const pending = answerUploads.current.get(answer.key) ?? [];
+      for (const job of pending)
+        if (job.status !== "done") {
+          job.status = "failed";
+          job.error = errorText(error);
+        }
+      setJobs((all) =>
+        all.map((job) => pending.find((item) => item.id === job.id) ?? job),
+      );
+      throw error;
     } finally {
       setSubmitting(false);
     }
@@ -1195,6 +1288,7 @@ export default function Student() {
                 <Action
                   disabled={
                     !stream ||
+                    (cameraRequired && !faceCheck.ready) ||
                     !!deviceError ||
                     (!desktopSpeech.desktop && !noiseReady) ||
                     connecting ||
@@ -1204,6 +1298,10 @@ export default function Student() {
                     (session.screen_required && !screenConsent)
                   }
                   action={async () => {
+                    if (cameraRequired && !faceCheck.ready)
+                      throw new Error(
+                        "Hoàn tất kiểm tra khuôn mặt trước khi bắt đầu.",
+                      );
                     if (
                       window.oralDesktop?.beginExam ||
                       session.screen_required ||
@@ -1519,6 +1617,13 @@ export default function Student() {
                   )}
                 </div>
               )}
+              {cameraRequired && (
+                <p role="status">
+                  Khung mặt: {faceCheck.areaPercent}% ảnh · {faceCheck.message}
+                  <br />
+                  {faceCheck.eyeHint}
+                </p>
+              )}
               <div className="mic-meter">
                 <Mic size={16} />
                 <div>
@@ -1670,6 +1775,13 @@ export default function Student() {
                 <UploadCloud size={18} />
                 Minh chứng
               </h3>
+              <Action className="button secondary" action={restoreMedia}>
+                Khôi phục bản ghi chờ tải trên máy
+              </Action>
+              <p className="muted">
+                Khi mất mạng, giữ trang thi mở. Bản ghi đã lưu trên máy có thể
+                tải lại khi kết nối trở lại; thời gian thi vẫn tiếp tục.
+              </p>
               {!jobs.length ? (
                 <p className="muted">
                   Chỉ audio được tải lên sau mỗi câu. Video màn hình được lưu

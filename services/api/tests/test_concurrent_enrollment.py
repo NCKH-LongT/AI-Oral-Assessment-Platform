@@ -8,7 +8,7 @@ import time
 import pytest
 
 from fastapi.testclient import TestClient
-from test_mvp import ok, prepare
+from test_mvp import ok, prepare, upload
 from app.main import app
 from app.models import Assignment, User
 from app.security import hasher
@@ -27,6 +27,7 @@ def test_thirty_students_enroll_concurrently(env):
             db.add(Assignment(exam_id=context['exam']['id'], student_id=student.id))
         db.commit()
     barrier = threading.Barrier(30)
+    upload_barrier = threading.Barrier(30)
 
     def run(index):
         with TestClient(app) as client:
@@ -39,10 +40,18 @@ def test_thirty_students_enroll_concurrently(env):
             replay = ok(client.post('/exam-sessions', json={'exam_id': context['exam']['id']}))
             assert replay['id'] == session['id']
             ok(client.get(f"/exam-sessions/{session['id']}"))
+            started = ok(client.post(f"/exam-sessions/{session['id']}/start"))
+            aid = started['current_attempt']['id']
+            ok(client.post(f'/question-attempts/{aid}/start'))
+            upload_barrier.wait(timeout=30)
+            upload(client, aid, 'AUDIO')
+            ok(client.post(f'/question-attempts/{aid}/submit', json={
+                'transcript': 'Dependency injection supplies dependencies externally.', 'stt_confidence': 0.9,
+            }, headers={'Idempotency-Key': f'load-answer-stable-{index}'}))
             return (time.monotonic() - begin) * 1000
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=30) as pool:
         elapsed = sorted(pool.map(run, range(30)))
     print('\nLOAD_REPORT=' + json.dumps({'clients': 30, 'successful': len(elapsed),
           'p50_flow_ms': round(statistics.median(elapsed), 2), 'p95_flow_ms': round(elapsed[28], 2),
-          'scope': 'ASGI login/list/create/replay/read; no socket, audio uploads or AI grading'}))
+          'scope': 'ASGI login/list/create/replay/read/start/small synthetic audio upload/submit; no socket or AI grading'}))

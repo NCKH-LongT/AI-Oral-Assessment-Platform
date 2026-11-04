@@ -470,6 +470,7 @@ async function requestJSON<T>(
   });
   if (response.status === 401 && retry && !path.startsWith("/auth/")) {
     refreshing ||= fetch("/api/auth/refresh", {
+      signal: AbortSignal.timeout(15000),
       method: "POST",
       credentials: "include",
       headers: backendHeaders(),

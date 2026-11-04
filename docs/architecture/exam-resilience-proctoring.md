@@ -43,3 +43,10 @@ Nguồn: https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine
 - API recovery/upload: 6 passed, 1 skipped. Kiểm tra replay submit cùng khóa và complete upload không tạo trùng, đổi nội dung đã nộp bị 409.
 - 30 client ASGI đồng thời, SQLite file test riêng: 30/30 đạt, p50 toàn luồng 2624,5 ms, p95 2843,0 ms. Luồng login/list/create/replay/read. Không bao gồm socket, upload hay AI. Đây không phải cam kết tải production. PostgreSQL/Docker chưa chạy trong môi trường hiện tại.
 - Còn phải kiểm thử mất mạng xuyên suốt UI, audio thật phục hồi sau crash và upload đồng thời; cần điều chỉnh/tối ưu dựa trên kết quả đó trước triển khai.
+
+### Mở rộng kiểm chứng upload và audio
+
+- 30 client ASGI đồng thời với bắt đầu phiên/câu, upload audio WebM mẫu nhỏ và nộp: 30/30 đạt; p50 toàn luồng 7023,5 ms, p95 7453,0 ms. SQLite file; chưa đo băng thông hay AI.
+- Edge ghi WebM từ Web Audio oscillator, lưu nhiều đoạn vào IndexedDB, reload và decodeAudioData audio ghép lại: đạt. Đây là bản ghi kết thúc bình thường; chưa mô phỏng cắt/crash trước đoạn cuối.
+- 2 kiểm thử mediaRequest đạt: request treo bị abort và hiển thị hướng dẫn khôi phục, lỗi 409 giữ nguyên không tự retry.
+- Media request giới hạn 120 giây, auth refresh 15 giây. Timeout không khẳng định server chưa commit; replay dùng khóa ban đầu.

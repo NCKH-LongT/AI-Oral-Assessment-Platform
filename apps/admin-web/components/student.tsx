@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { mediaRequest } from "../lib/media-request";
 import { useFaceCheck } from "./use-face-check";
 import {
   saveMediaBackup,
@@ -738,25 +739,28 @@ export default function Student() {
         submission: job.submission,
       });
       if (job.submission) {
-        await api(`/question-attempts/${job.attemptId}/submit`, {
+        await mediaRequest(`/question-attempts/${job.attemptId}/submit`, {
           method: "POST",
           body: JSON.stringify(job.submission.payload),
           headers: { "Idempotency-Key": job.submission.key },
         });
       }
-      const init = await send<{
+      const init = await mediaRequest<{
         id: string;
         chunk_size: number;
         status: string;
       }>("/uploads/init", {
-        attempt_id: job.attemptId,
-        kind: job.kind,
-        mime_type: job.blob.type,
-        size: job.blob.size,
-        sha256: await hash(job.blob),
+        method: "POST",
+        body: JSON.stringify({
+          attempt_id: job.attemptId,
+          kind: job.kind,
+          mime_type: job.blob.type,
+          size: job.blob.size,
+          sha256: await hash(job.blob),
+        }),
       });
       if (init.status !== "COMPLETED") {
-        const state = await api<{ received_chunks: number[] }>(
+        const state = await mediaRequest<{ received_chunks: number[] }>(
           `/uploads/${init.id}/status`,
         );
         const count = Math.ceil(job.blob.size / init.chunk_size);
@@ -770,7 +774,7 @@ export default function Student() {
             let last: unknown;
             for (let retry = 0; retry < 3; retry++) {
               try {
-                await api(`/uploads/${init.id}/chunks/${i}`, {
+                await mediaRequest(`/uploads/${init.id}/chunks/${i}`, {
                   method: "PUT",
                   body: part,
                   headers: { "X-Chunk-Sha256": checksum },
@@ -788,7 +792,7 @@ export default function Student() {
           }
           update({ progress: Math.round(((i + 1) / count) * 95) });
         }
-        await send(`/uploads/${init.id}/complete`);
+        await mediaRequest(`/uploads/${init.id}/complete`, { method: "POST" });
       }
       await deleteMediaBackup(job.id).catch(() => {});
       await deleteRecordingParts(job.id).catch(() => {});

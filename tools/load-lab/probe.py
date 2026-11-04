@@ -24,7 +24,7 @@ def main():
         timings = {}
         opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
         def request(path, payload=None, token=None):
-            headers = {'Content-Type': 'application/json'}
+            headers = {'Content-Type': 'application/json', 'X-Oral-Client': 'desktop'}
             if token:
                 headers['Authorization'] = 'Bearer ' + token
             req = urllib.request.Request(args.url.rstrip('/') + path,

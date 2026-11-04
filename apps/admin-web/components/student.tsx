@@ -5,6 +5,9 @@ import {
   saveMediaBackup,
   deleteMediaBackup,
   listMediaBackups,
+  saveRecordingPart,
+  listPartialRecordings,
+  deleteRecordingParts,
 } from "../lib/media-backup";
 import { QuestionContent } from "./question-content";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -560,8 +563,31 @@ export default function Student() {
       cleanRecorder.ondataavailable = (e) => {
         if (e.data.size) cleanChunks.push(e.data);
       };
+    const recordingKey = crypto.randomUUID();
+    let partSequence = 0;
+    let partWrites = Promise.resolve();
     audioRecorder.ondataavailable = (e) => {
-      if (e.data.size) audioChunks.push(e.data);
+      if (!e.data.size) return;
+      audioChunks.push(e.data);
+      const sequence = partSequence++;
+      partWrites = partWrites
+        .then(() =>
+          saveRecordingPart({
+            id: recordingKey,
+            sequence,
+            attemptId,
+            kind: "AUDIO",
+            blob: e.data,
+            sessionId: session.id,
+            backend: clientBackend?.mode ?? "default",
+            savedAt: Date.now(),
+          }),
+        )
+        .catch(() =>
+          setError(
+            "Không lưu được đoạn audio trên máy. Giữ trang mở để bảo toàn bản ghi trong bộ nhớ.",
+          ),
+        );
     };
     const guardRevision = guard.getRevision();
     setStartingRecording(true);
@@ -600,13 +626,39 @@ export default function Student() {
         transcript: "",
         originalText: "",
         confidence: 0,
-        key: crypto.randomUUID(),
+        key: recordingKey,
       };
       a.sttSource =
         !window.oralDesktop && denoise && a.filteredAudio
           ? "filtered"
           : "original";
       setAnswer(a);
+      const recordedJob: UploadJob = {
+        id: a.key,
+        attemptId,
+        kind: "AUDIO",
+        blob: a.audio,
+        progress: 0,
+        status: "pending",
+      };
+      answerUploads.current.set(a.key, [recordedJob]);
+      await partWrites;
+      try {
+        await saveMediaBackup({
+          id: a.key,
+          attemptId,
+          kind: "AUDIO",
+          blob: a.audio,
+          savedAt: Date.now(),
+          sessionId: session.id,
+          backend: clientBackend?.mode ?? "default",
+        });
+        await deleteRecordingParts(a.key);
+      } catch {
+        setError(
+          "Không lưu được bản sao audio trên máy. Giữ trang mở và nộp ngay khi có mạng.",
+        );
+      }
       if (serverProcessing) {
         setProcessing(false);
         setError("");
@@ -739,6 +791,7 @@ export default function Student() {
         await send(`/uploads/${init.id}/complete`);
       }
       await deleteMediaBackup(job.id).catch(() => {});
+      await deleteRecordingParts(job.id).catch(() => {});
       update({ status: "done", progress: 100 });
       return true;
     } catch (e) {
@@ -752,8 +805,46 @@ export default function Student() {
       session.id,
       clientBackend?.mode ?? "default",
     );
+    const partials = await listPartialRecordings(
+      session.id,
+      clientBackend?.mode ?? "default",
+    );
+    for (const partial of partials)
+      if (!backups.some((row) => row.id === partial.id)) backups.push(partial);
+    const draft = backups.find(
+      (row) =>
+        !row.submission &&
+        row.kind === "AUDIO" &&
+        row.attemptId === session.current_attempt?.id,
+    );
+    if (draft && !answer) {
+      setAnswer({
+        attemptId: draft.attemptId,
+        audio: draft.blob,
+        filteredAudio: null,
+        sttSource: "original",
+        transcript: "",
+        originalText: "",
+        confidence: 0,
+        key: draft.id,
+      });
+      answerUploads.current.set(draft.id, [
+        {
+          id: draft.id,
+          attemptId: draft.attemptId,
+          kind: "AUDIO",
+          blob: draft.blob,
+          progress: 0,
+          status: "pending",
+        },
+      ]);
+    }
     const recovered: UploadJob[] = backups
-      .filter((row) => !jobs.some((job) => job.id === row.id))
+      .filter(
+        (row) =>
+          (row.kind === "SCREEN" || !!row.submission) &&
+          !jobs.some((job) => job.id === row.id),
+      )
       .map((row) => ({
         id: row.id,
         attemptId: row.attemptId,
@@ -797,6 +888,12 @@ export default function Student() {
         const newJobs = added;
         setJobs((all) => [...all, ...newJobs]);
       }
+      setJobs((all) => [
+        ...all,
+        ...added.filter(
+          (job) => !all.some((existing) => existing.id === job.id),
+        ),
+      ]);
       const savedPayload = {
         transcript: serverProcessing ? "" : answer.transcript,
         stt_confidence: serverProcessing

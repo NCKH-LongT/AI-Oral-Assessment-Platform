@@ -80,3 +80,64 @@ test("IndexedDB preserves audio and submit metadata across reload, isolates sess
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("incremental recording survives reload with ordered chunks and isolated sessions", async () => {
+  const source = await fs.readFile(
+    new URL("../apps/admin-web/lib/media-backup.ts", import.meta.url),
+    "utf8",
+  );
+  const js = ts.transpileModule(source, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ES2022,
+    },
+  }).outputText;
+  const server = http.createServer((req, res) => {
+    res.setHeader(
+      "Content-Type",
+      req.url === "/backup.js" ? "text/javascript" : "text/html",
+    );
+    res.end(req.url === "/backup.js" ? js : "<!doctype html>");
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  let browser;
+  try {
+    browser = await chromium.launch({
+      headless: true,
+      channel: process.env.TEST_BROWSER_CHANNEL || undefined,
+    });
+    const page = await browser.newPage();
+    await page.goto(`http://127.0.0.1:${server.address().port}`);
+    await page.evaluate(async () => {
+      const m = await import("/backup.js");
+      for (const sequence of [1, 0, 2])
+        await m.saveRecordingPart({
+          id: "recording",
+          sequence,
+          attemptId: "attempt",
+          sessionId: "session",
+          backend: "online",
+          kind: "AUDIO",
+          blob: new Blob([String(sequence)], { type: "audio/webm" }),
+          savedAt: 1,
+        });
+    });
+    await page.reload();
+    const result = await page.evaluate(async () => {
+      const m = await import("/backup.js");
+      const rows = await m.listPartialRecordings("session", "online");
+      const text = await rows[0].blob.text();
+      const other = (await m.listPartialRecordings("other", "online")).length;
+      await m.deleteRecordingParts("recording");
+      return {
+        text,
+        other,
+        remaining: (await m.listPartialRecordings("session", "online")).length,
+      };
+    });
+    assert.deepEqual(result, { text: "012", other: 0, remaining: 0 });
+  } finally {
+    await browser?.close();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

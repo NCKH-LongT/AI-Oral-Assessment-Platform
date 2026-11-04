@@ -7,7 +7,7 @@ export function useFaceCheck(
   streamId?: string,
 ) {
   const [eyeHint, setEyeHint] = useState("Chưa hiệu chuẩn hướng mắt");
-  const [state, setState] = useState<Framing>({
+  const [state, setState] = useState<Framing & { streamId?: string }>({
     ready: false,
     areaPercent: 0,
     message: "Đang chuẩn bị kiểm tra khuôn mặt…",
@@ -21,7 +21,8 @@ export function useFaceCheck(
       loaded = false,
       busy = false,
       streak = 0,
-      lastResult = 0;
+      lastResult = 0,
+      lastVideoTime = -1;
     const baseline: number[] = [];
     let away = 0;
     const timeout = setTimeout(() => {
@@ -64,6 +65,7 @@ export function useFaceCheck(
 
         streak = event.data.ready ? streak + 1 : 0;
         setState({
+          streamId,
           ready: streak >= 6,
           areaPercent: event.data.areaPercent,
           message:
@@ -98,9 +100,11 @@ export function useFaceCheck(
         busy ||
         !element ||
         element.readyState < 2 ||
-        document.hidden
+        document.hidden ||
+        element.currentTime === lastVideoTime
       )
         return;
+      lastVideoTime = element.currentTime;
       busy = true;
       try {
         const bitmap = await createImageBitmap(element);
@@ -137,6 +141,7 @@ export function useFaceCheck(
           areaPercent: 0,
           message: "Không yêu cầu kiểm tra camera.",
         }),
+    ready: !enabled || (state.ready && state.streamId === streamId),
     eyeHint,
   };
 }

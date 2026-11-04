@@ -50,3 +50,9 @@ Nguồn: https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine
 - Edge ghi WebM từ Web Audio oscillator, lưu nhiều đoạn vào IndexedDB, reload và decodeAudioData audio ghép lại: đạt. Đây là bản ghi kết thúc bình thường; chưa mô phỏng cắt/crash trước đoạn cuối.
 - 2 kiểm thử mediaRequest đạt: request treo bị abort và hiển thị hướng dẫn khôi phục, lỗi 409 giữ nguyên không tự retry.
 - Media request giới hạn 120 giây, auth refresh 15 giây. Timeout không khẳng định server chưa commit; replay dùng khóa ban đầu.
+
+### Kiểm thử UI và bản ghi bị ngắt
+
+- Playwright/Edge trên web dev: ghi audio, API submit trả 503, reload, mở lại phiên, khôi phục backup, tải lại: đạt. Mọi lần submit dùng cùng idempotency key và chỉ có một payload được backend giả lập nhận thành công. Đây là UI thật với API được mock, chưa phải Wi-Fi thật + backend production.
+- Edge ghi WebM rồi reload khi MediaRecorder vẫn đang chạy, không gọi stop: các chunk đã commit phục hồi và decodeAudioData thành công. Chưa khẳng định khôi phục phần cuối chưa commit hoặc tất cả định dạng trình duyệt.
+- Camera bỏ qua frame có currentTime trùng để không duy trì trạng thái đạt từ video bị đứng; kết quả gắn stream ID để đổi camera phải đo lại.

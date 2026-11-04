@@ -1331,8 +1331,9 @@ export default function Student() {
                 </ol>
                 <p className="muted">
                   Audio từng câu và video màn hình (khi bật) được lưu để giảng
-                  viên xem lại. Chưa hỗ trợ khôi phục bản ghi khi đóng ứng dụng;
-                  giữ cửa sổ mở đến khi nộp bài thành công.
+                  viên xem lại. Audio được lưu từng đoạn trên máy để hỗ trợ khôi
+                  phục. Giữ cửa sổ mở đến khi nộp thành công; đóng ứng dụng có
+                  thể mất phần audio chưa kịp lưu.
                 </p>
                 {!desktopSpeech.desktop && (
                   <>

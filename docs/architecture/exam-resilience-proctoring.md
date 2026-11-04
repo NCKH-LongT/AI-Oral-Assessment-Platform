@@ -32,3 +32,14 @@ Nguồn: https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine
 ## Camera đã triển khai trong code
 
 Đã cài MediaPipe tasks-vision 0.10.32. Model float16 phiên bản 1 và WASM phục vụ tại public/vision, có manifest SHA-256. Hook useFaceCheck chạy worker, tối đa một frame đang xử lý, 2 lần/giây. Sáu lần đo liên tiếp hợp lệ mở nút bắt đầu; kết quả quá 3 giây bị coi là cũ. Đây là kiểm tra phía client, chưa phải xác minh danh tính hay cơ chế chống vượt qua API. Theo dõi mắt còn phải phát triển. TypeScript và ba kiểm thử hình học đã đạt; camera thật và build web còn phải xác minh.
+
+## Kết quả kiểm chứng bổ sung — 04/11/2026
+
+- Nhánh đã push lên fork coco-doit6879: codex/exam-resilience-proctoring.
+- Build production đạt; worker tải model thật trong Edge headless và trả ready=false với ảnh trống.
+- 6 kiểm thử hình học mặt/mắt đạt. Chưa hiệu chuẩn ngưỡng trên người/camera thật.
+- 2 kiểm thử IndexedDB trên Edge đạt: lưu media/payload qua reload, phân tách session/backend; ghép phần audio theo thứ tự và xóa phần đã xử lý.
+- Đã lưu từng đoạn MediaRecorder vào IndexedDB trong lúc ghi; phục hồi bản chưa có payload vào câu trả lời hiện tại. Mất phần chưa được phát sinh hoặc chưa commit vẫn có thể xảy ra. Khả năng phát lại container audio bị cắt cuối cần kiểm tra bằng audio thật.
+- API recovery/upload: 6 passed, 1 skipped. Kiểm tra replay submit cùng khóa và complete upload không tạo trùng, đổi nội dung đã nộp bị 409.
+- 30 client ASGI đồng thời, SQLite file test riêng: 30/30 đạt, p50 toàn luồng 2624,5 ms, p95 2843,0 ms. Luồng login/list/create/replay/read. Không bao gồm socket, upload hay AI. Đây không phải cam kết tải production. PostgreSQL/Docker chưa chạy trong môi trường hiện tại.
+- Còn phải kiểm thử mất mạng xuyên suốt UI, audio thật phục hồi sau crash và upload đồng thời; cần điều chỉnh/tối ưu dựa trên kết quả đó trước triển khai.

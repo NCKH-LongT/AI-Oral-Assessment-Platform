@@ -11,7 +11,7 @@ export type MediaBackup = {
 };
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("oral-media-backups", 2);
+    const request = indexedDB.open("oral-media-backups", 3);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains("media"))
         request.result.createObjectStore("media", { keyPath: "id" });
@@ -19,8 +19,23 @@ function database(): Promise<IDBDatabase> {
         request.result.createObjectStore("parts", {
           keyPath: ["id", "sequence"],
         });
+      for (const name of ["media", "parts"]) {
+        const store = request.transaction!.objectStore(name);
+        if (!store.indexNames.contains("scope"))
+          store.createIndex("scope", ["sessionId", "backend"]);
+      }
     };
-    request.onsuccess = () => resolve(request.result);
+    let blocked = false;
+    request.onblocked = () => {
+      blocked = true;
+      reject(new Error("Đóng tab thi cũ để nâng cấp kho lưu audio."));
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => db.close();
+      if (blocked) db.close();
+      else resolve(db);
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -62,7 +77,10 @@ export async function listMediaBackups(
   try {
     return await new Promise((resolve, reject) => {
       const tx = db.transaction("media", "readonly");
-      const request = tx.objectStore("media").getAll();
+      const request = tx
+        .objectStore("media")
+        .index("scope")
+        .getAll([sessionId, backend]);
       tx.oncomplete = () =>
         resolve(
           (request.result as MediaBackup[]).filter(
@@ -102,7 +120,10 @@ export async function listPartialRecordings(
   try {
     return await new Promise((resolve, reject) => {
       const tx = db.transaction("parts", "readonly"),
-        req = tx.objectStore("parts").getAll();
+        req = tx
+          .objectStore("parts")
+          .index("scope")
+          .getAll([sessionId, backend]);
       tx.oncomplete = () => {
         const groups = new Map<string, RecordingPart[]>();
         for (const row of req.result as RecordingPart[])

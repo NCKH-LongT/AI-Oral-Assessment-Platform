@@ -64,3 +64,7 @@ Nguồn: https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine
 Tái lập: build web; chạy web production local; tải ảnh nguồn vào .data/mediapipe-portrait.jpg; đặt VISION_BASE_URL tới web local, TEST_BROWSER_CHANNEL=msedge rồi chạy `node tools/vision-smoke.mjs`. Script tự tìm worker bundle trong .next/static/chunks, không cố định hash chunk.
 
 Job upload đã giữ nguyên sessionId/backend lúc tạo; đổi backend sẽ không gửi bản ghi của server trước sang server mới. Cần tiếp tục kiểm thử các trường hợp điều hướng giữa nhiều phiên trên cùng thiết bị.
+
+### Kho lưu cục bộ không khả dụng
+
+Ba kiểm thử UI trên Edge đạt: API 503, request abort internetdisconnected, và IndexedDB.open ném QuotaExceededError. Hai trường hợp mạng khôi phục bằng cùng idempotency key sau reload; trường hợp quota vẫn upload online và hiển thị cảnh báo không bảo đảm phục hồi. DB xử lý onblocked/onversionchange để nâng cấp giữa các tab không chờ vô hạn. Hướng dẫn người dùng ở docs/exam-camera-network-guide.md.

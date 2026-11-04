@@ -121,6 +121,18 @@ function submissionBadge(status: string) {
 }
 
 export default function Student() {
+  const [backupWarning, setBackupWarning] = useState("");
+  async function persistMedia(row: Parameters<typeof saveMediaBackup>[0]) {
+    try {
+      await saveMediaBackup(row);
+      return true;
+    } catch {
+      setBackupWarning(
+        "Không lưu được bản sao trên máy (có thể hết dung lượng hoặc trình duyệt chặn lưu). Giữ trang mở và nộp ngay khi có mạng; không bảo đảm khôi phục sau khi đóng trang.",
+      );
+      return false;
+    }
+  }
   const [cameraRatio, setCameraRatio] = useState(4 / 3);
   const [displayBusy, setDisplayBusy] = useState(false);
   const [screenConsent, setScreenConsent] = useState(false);
@@ -587,7 +599,7 @@ export default function Student() {
           }),
         )
         .catch(() =>
-          setError(
+          setBackupWarning(
             "Không lưu được đoạn audio trên máy. Giữ trang mở để bảo toàn bản ghi trong bộ nhớ.",
           ),
         );
@@ -649,7 +661,7 @@ export default function Student() {
       answerUploads.current.set(a.key, [recordedJob]);
       await partWrites;
       try {
-        await saveMediaBackup({
+        const saved = await persistMedia({
           id: a.key,
           attemptId,
           kind: "AUDIO",
@@ -658,7 +670,7 @@ export default function Student() {
           sessionId: session.id,
           backend: clientBackend?.mode ?? "default",
         });
-        await deleteRecordingParts(a.key);
+        if (saved) await deleteRecordingParts(a.key);
       } catch {
         setError(
           "Không lưu được bản sao audio trên máy. Giữ trang mở và nộp ngay khi có mạng.",
@@ -734,11 +746,12 @@ export default function Student() {
     };
     update({ status: "uploading", error: undefined });
     try {
-      await saveMediaBackup({
+      await persistMedia({
         id: job.id,
         attemptId: job.attemptId,
         kind: job.kind,
         blob: job.blob,
+        // eslint-disable-next-line react-hooks/purity -- Upload handler runs after a user action, never during render.
         savedAt: Date.now(),
         sessionId: job.sessionId,
         backend: job.backend,
@@ -888,28 +901,18 @@ export default function Student() {
     if (!answer.audio.size) throw new Error("Media rỗng. Vui lòng ghi âm lại.");
     setSubmitting(true);
     try {
-      let added = answerUploads.current.get(answer.key);
-      if (!added) {
-        added = (["AUDIO"] as const).map((kind) => ({
-          id: crypto.randomUUID(),
+      const rawJobs: UploadJob[] = answerUploads.current.get(answer.key) ?? [
+        {
+          id: answer.key,
           sessionId: session.id,
           backend: clientBackend?.mode ?? "default",
           attemptId: answer.attemptId,
-          kind,
+          kind: "AUDIO",
           blob: answer.audio,
           progress: 0,
           status: "pending",
-        }));
-        answerUploads.current.set(answer.key, added);
-        const newJobs = added;
-        setJobs((all) => [...all, ...newJobs]);
-      }
-      setJobs((all) => [
-        ...all,
-        ...added.filter(
-          (job) => !all.some((existing) => existing.id === job.id),
-        ),
-      ]);
+        },
+      ];
       const savedPayload = {
         transcript: serverProcessing ? "" : answer.transcript,
         stt_confidence: serverProcessing
@@ -922,13 +925,27 @@ export default function Student() {
           ? { stt_skipped_reason: answer.sttSkippedReason }
           : {}),
       };
+      const added = rawJobs.map((job) => ({
+        ...job,
+        submission: { key: answer.key, payload: savedPayload },
+      }));
+      answerUploads.current.set(answer.key, added);
+      const currentJobs = added;
+      setJobs((all) => [
+        ...all.map(
+          (job) => currentJobs.find((item) => item.id === job.id) ?? job,
+        ),
+        ...currentJobs.filter(
+          (job) => !all.some((existing) => existing.id === job.id),
+        ),
+      ]);
       for (const job of added) {
-        job.submission = { key: answer.key, payload: savedPayload };
-        await saveMediaBackup({
+        await persistMedia({
           id: job.id,
           attemptId: job.attemptId,
           kind: job.kind,
           blob: job.blob,
+          // eslint-disable-next-line react-hooks/purity -- Submit handler timestamp is captured at submission time.
           savedAt: Date.now(),
           sessionId: session.id,
           backend: clientBackend?.mode ?? "default",
@@ -1891,6 +1908,11 @@ export default function Student() {
                 <UploadCloud size={18} />
                 Minh chứng
               </h3>
+              {backupWarning && (
+                <p role="alert" className="error">
+                  {backupWarning}
+                </p>
+              )}
               <Action className="button secondary" action={restoreMedia}>
                 Khôi phục bản ghi chờ tải trên máy
               </Action>

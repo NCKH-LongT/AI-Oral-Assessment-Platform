@@ -1,0 +1,10 @@
+{
+  "reference": "audio/reference.wav",
+  "cases": [
+    {"name": "same-file-control", "audio": "audio/reference.wav"},
+    {"name": "same-speaker-correct-repeat", "audio": "audio/correct.wav"},
+    {"name": "same-speaker-target-error", "audio": "audio/error.wav"},
+    {"name": "different-speaker-correct", "audio": "audio/other-speaker.wav"},
+    {"name": "different-sentence-control", "audio": "audio/different-sentence.wav"}
+  ]
+}

@@ -1,0 +1,10 @@
+audio/
+*.wav
+*.webm
+*.mp3
+*.mp4
+*-results.json
+results*.json
+*.csv
+__pycache__/
+*.flac

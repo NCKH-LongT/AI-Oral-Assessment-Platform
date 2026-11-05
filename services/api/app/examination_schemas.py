@@ -61,6 +61,15 @@ class CommissionIn(TeacherIn):
 
 
 class DraftQuestion(QuestionOutput):
+    criteria: list[Criterion] | None = Field(default=None, min_length=1, max_length=20)
+
+    @field_validator("criteria")
+    @classmethod
+    def unique_criteria(cls, value):
+        if value is not None and len({c.name for c in value}) != len(value):
+            raise ValueError("Tên tiêu chí phải duy nhất trong mỗi câu")
+        return value
+
     rich_content: dict | None = None
 
     @field_validator("rich_content")

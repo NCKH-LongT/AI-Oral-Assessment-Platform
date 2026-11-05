@@ -254,6 +254,7 @@ export type Review = Result & {
   }[];
 };
 export type StudentExam = {
+  entry_open?: boolean;
   opens_at?: number | null;
   closes_at?: number | null;
   server_time?: number;
@@ -273,6 +274,7 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  entry_open?: boolean;
   desktop_policy?: DesktopPolicy;
   timed_questions?: boolean;
   server_processing?: boolean;
@@ -447,7 +449,9 @@ export async function api<T>(
           );
         throw error;
       }
-      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt + Math.random() * 500));
+      await new Promise((resolve) =>
+        setTimeout(resolve, 500 * 2 ** attempt + Math.random() * 500),
+      );
     }
   }
 }

@@ -110,7 +110,8 @@ def _grade_answer(db, exam, session, attempt, transcript, confidence, local_revi
         }
     if not local_review:
         check_config(exam)
-    content_criteria = [criterion for criterion in snapshot["criteria"] if not pronunciation.is_criterion(criterion)]
+    from .question_rubrics import criteria_for
+    content_criteria = [criterion for criterion in criteria_for(snapshot, getattr(attempt, "question", None)) if not pronunciation.is_criterion(criterion)]
     chunks = []
     if content_criteria:
         chunks = ai.retrieve_frozen(
@@ -135,7 +136,9 @@ def _grade_answer(db, exam, session, attempt, transcript, confidence, local_revi
         "review_required": True, "model": "gopt-librispeech", "prompt_version": ai.PROMPT_VERSION,
         "retrieved_chunks": chunks, "reasoning_summary": "Rubric phát âm được chấm từ audio bằng GOPT.",
     }
-    assessment |= {"rubric_version": snapshot["rubric_version"], "knowledge_version": snapshot["knowledge_version"]}
+    from .question_rubrics import rubric_identity
+    assessment |= {"rubric_version": snapshot["rubric_version"], "knowledge_version": snapshot["knowledge_version"],
+                   **rubric_identity(snapshot, getattr(attempt, "question", None))}
     if local_review:
         assessment |= {"grading_provider": "local", "retrieval": "frozen-lexical-v1", "review_required": True}
     return pronunciation.assess(db, exam, attempt, transcript, assessment)

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from . import ai
 from .knowledge import chunk_scope, topic_data
 from .models import BookSection, Course, Document, LearningOutcome, Rubric, Topic
+from .question_rubrics import criteria_for, draft_criteria
 from .runtime_settings import settings
 from .security import by_id, fail
 
@@ -15,7 +16,7 @@ def data(row, *fields):
     return {k: getattr(row, k) for k in ("id", *fields)}
 
 
-def build_snapshot(db, exam):
+def build_snapshot(db, exam, *, tailor_rubrics=False):
     rubric = by_id(db, Rubric, exam.rubric_id)
     docs = db.scalars(
         select(Document).where(
@@ -60,6 +61,8 @@ def build_snapshot(db, exam):
                     topic, row["difficulty"], chunks, [q["text"] for q in questions],
                     outcomes=mappings[topic.id]["outcomes"],
                 )
+            question["criteria"] = (draft_criteria(question, rubric.criteria, chunks, mappings[topic.id]["outcomes"])
+                                    if tailor_rubrics and not supplied else criteria_for({"criteria": rubric.criteria}, question))
             questions.append(
                 question
                 | {
@@ -75,7 +78,9 @@ def build_snapshot(db, exam):
     doc_ids = sorted(d.id for d in docs)
     return {
         "hotwords": list(by_id(db, Course, exam.course_id).hotwords),
-        "exam_version": 2,
+        "exam_version": 3,
+        "question_rubric_version": 1,
+        "rubric_generation_prompt_version": "question-specific-v1" if tailor_rubrics and not supplied else "template-copy-v1",
         "generation_prompt_version": "topic-los-english-terms-v3",
         "topic_chunk_ids": topic_scopes,
         "topic_mappings": mappings,

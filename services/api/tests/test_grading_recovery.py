@@ -116,6 +116,7 @@ def test_target_validation_and_failed_retry_preserve_result(env, monkeypatch):
         original = deepcopy(target.snapshot)
         altered = deepcopy(original)
         altered["criteria"][0]["weight"] = 99
+        altered["questions"][0]["criteria"][0]["weight"] = 99
         target.snapshot = altered
         db.commit()
     body = {"target_exam_id": target_id, "reason": "Retry after config repair"}

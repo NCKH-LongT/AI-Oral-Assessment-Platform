@@ -577,6 +577,8 @@ def publish(key: str, db: Session = Depends(get_db), user=Depends(editor)):
     exam_access(db, exam, user)
     if exam.status == "PUBLISHED":
         return {"status": exam.status}
+    if exam.status == "CLOSED":
+        fail(409, "EXAM_CLOSED", "Dùng thao tác Mở lại kỳ thi để giữ nguyên đề đã công bố")
     if exam.workflow or not has_role(user, "ADMIN"):
         fail(409, "APPROVAL_REQUIRED", "Sinh bản nháp, giảng viên duyệt và khảo thí kiểm tra trước khi mở thi")
     exam.snapshot = build_snapshot(db, exam)
@@ -688,7 +690,7 @@ def review(key: str, db: Session = Depends(get_db), user=Depends(staff)):
 
 def grading_targets(db, exam, attempt):
     targets = []
-    for candidate in db.scalars(select(Exam).where(Exam.course_id == exam.course_id, Exam.status == "PUBLISHED")):
+    for candidate in db.scalars(select(Exam).where(Exam.course_id == exam.course_id, Exam.status.in_(["PUBLISHED", "CLOSED"]))):
         try:
             review_question(exam, candidate, attempt)
         except GradingError:

@@ -4,7 +4,7 @@ import time
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import Response
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from . import ai
@@ -12,6 +12,7 @@ from .db import get_db
 from .exam_generation import build_snapshot
 from .examination_schemas import (
     CommissionIn,
+    DraftQuestion,
     DraftReviewIn,
     HotwordsIn,
     ManualGradeIn,
@@ -38,8 +39,9 @@ from .models import (
     uid,
 )
 from .permissions import has_role, role_filter, teacher_scope
+from .question_rubrics import criteria_for, draft_criteria
 from .runtime_settings import settings
-from .schemas import ReviewIn, RubricIn
+from .schemas import ReviewIn
 from .security import (
     by_id,
     course_access,
@@ -78,6 +80,8 @@ def check_schedule(db, exam, user):
     if not has_role(user, "STUDENT") or not row:
         fail(403, "NOT_ASSIGNED", "Bạn không có tên trong danh sách kỳ thi")
     now = time.time()
+    if exam.status == "CLOSED":
+        fail(409, "EXAM_CLOSED", "Kỳ thi đã đóng vào thi mới. Liên hệ khảo thí để mở lại.")
     if exam.status != "PUBLISHED" or row.opens_at is None or row.closes_at is None or not row.opens_at <= now < row.closes_at:
         fail(409, "OUTSIDE_SCHEDULE", "Chưa đến giờ thi hoặc đã hết thời gian vào thi")
 
@@ -307,27 +311,44 @@ def generate(key: str, db: Session = Depends(get_db), user=Depends(editor)):
         fail(409, "DRAFT_REQUIRED", "Trả về bản nháp trước khi sinh lại đề")
     if not exam.blueprint:
         fail(422, "BLUEPRINT_REQUIRED", "Cấu hình chủ đề, số câu và độ khó trong Ngân hàng đề thi")
-    snapshot = build_snapshot(db, exam)
-    if exam.imported_questions:
-        criteria = snapshot["criteria"]
-    elif settings().ai_provider == "demo":
-        criteria = [
-            {"name": "Kiến thức chính xác", "description": "Giải thích đúng các khái niệm và bám tài liệu môn học", "max_score": 10, "weight": 6},
-            {"name": "Lập luận và ví dụ", "description": "Lập luận rõ ràng, ví dụ phù hợp với câu hỏi", "max_score": 10, "weight": 4},
-        ]
-    else:
-        criteria = ai.structured(
-            "Draft an assessment rubric appropriate to the supplied questions and expected concepts. "
-            "Define observable criteria with bounded scores and weights; teacher approval is required.",
-            {"questions": snapshot["questions"]}, RubricIn,
-        ).model_dump()["criteria"]
-    snapshot["criteria"] = criteria
+    snapshot = build_snapshot(db, exam, tailor_rubrics=True)
     snapshot.pop("published_at", None)
     snapshot["generated_at"] = time.time()
     exam.snapshot, exam.status, exam.workflow = snapshot, "GENERATED", True
     audit(db, user, "EXAM_DRAFT_GENERATED", exam_id=key)
     db.commit()
     return {"status": exam.status, "snapshot": exam.snapshot}
+
+
+@router.post("/admin/exams/{key}/questions/{position}/rubric-preview")
+def preview_rubric(key: str, position: int, body: DraftQuestion,
+                   db: Session = Depends(get_db), user=Depends(editor)):
+    from .grading import GradingError, check_config
+
+    exam = scoped_exam(db, key, user)
+    if exam.status != "GENERATED" or not exam.snapshot:
+        fail(409, "DRAFT_REQUIRED", "Chỉ gợi ý rubric cho bản nháp chưa duyệt")
+    if not 1 <= position <= len(exam.snapshot["questions"]):
+        fail(422, "QUESTION_INDEX", "Câu hỏi không thuộc đề")
+    try:
+        check_config(exam)
+    except GradingError as exc:
+        fail(409, exc.code, str(exc))
+    original = exam.snapshot["questions"][position - 1]
+    allowed = set(exam.snapshot["topic_chunk_ids"].get(original["topic_id"], []))
+    if not set(body.reference_chunk_ids) <= allowed:
+        fail(422, "INVALID_EVIDENCE", "Nguồn tham chiếu phải thuộc phạm vi tài liệu của câu hỏi")
+    evidence = ai.retrieve_frozen(db, exam.course_id, body.text, exam.snapshot["document_ids"],
+                                 set(body.reference_chunk_ids))
+    if not evidence:
+        fail(409, "NO_EVIDENCE", "Câu hỏi chưa có tài liệu tham chiếu hợp lệ")
+    question = original | body.model_dump(exclude_unset=True)
+    criteria = draft_criteria(question, criteria_for(exam.snapshot, original), evidence,
+                              exam.snapshot.get("topic_mappings", {}).get(original["topic_id"], {}).get("outcomes"))
+    audit(db, user, "QUESTION_RUBRIC_PREVIEWED", exam_id=key, position=position)
+    db.commit()
+    return {"criteria": criteria, "review_required": True,
+            "demo": settings().ai_provider == "demo"}
 
 
 @router.put("/admin/exams/{key}/draft")
@@ -343,8 +364,13 @@ def edit_draft(key: str, body: DraftReviewIn, db: Session = Depends(get_db), use
         allowed = set(exam.snapshot["topic_chunk_ids"].get(old["topic_id"], []))
         if not set(question.reference_chunk_ids) <= allowed:
             fail(422, "INVALID_EVIDENCE", "Nguồn tham chiếu phải thuộc phạm vi tài liệu của câu hỏi")
-        questions.append(old | question.model_dump())
-    exam.snapshot = exam.snapshot | {"questions": questions, "criteria": [c.model_dump() for c in body.criteria]}
+        if "criteria" in question.model_fields_set and question.criteria is None:
+            fail(422, "QUESTION_RUBRIC_REQUIRED", "Rubric riêng không được để trống")
+        updated = old | question.model_dump(exclude_unset=True)
+        updated["criteria"] = criteria_for({"criteria": [c.model_dump() for c in body.criteria]},
+                                           updated)
+        questions.append(updated)
+    exam.snapshot = exam.snapshot | {"questions": questions, "criteria": [c.model_dump() for c in body.criteria], "question_rubric_version": 1}
     audit(db, user, "EXAM_DRAFT_EDITED", exam_id=key)
     db.commit()
     return {"status": exam.status}
@@ -355,6 +381,8 @@ def teacher_approve(key: str, db: Session = Depends(get_db), user=Depends(editor
     exam = scoped_exam(db, key, user)
     if exam.status != "GENERATED":
         fail(409, "DRAFT_REQUIRED", "Sinh và kiểm tra câu hỏi/rubric trước khi duyệt")
+    for question in exam.snapshot["questions"]:
+        criteria_for(exam.snapshot, question)
     exam.snapshot = exam.snapshot | {"teacher_approved_by": user.id, "teacher_approved_at": time.time()}
     exam.status = "TEACHER_APPROVED"
     audit(db, user, "EXAM_TEACHER_APPROVED", exam_id=key)
@@ -376,7 +404,7 @@ def return_draft(key: str, body: ReviewIn, db: Session = Depends(get_db), user=D
 @router.put("/admin/exams/{key}/schedule")
 def schedule(key: str, body: ScheduleIn, db: Session = Depends(get_db), user=Depends(exam_officer)):
     exam = scoped_exam(db, key, user)
-    if exam.status not in {"TEACHER_APPROVED", "PUBLISHED"}:
+    if exam.status not in {"TEACHER_APPROVED", "PUBLISHED", "CLOSED"}:
         fail(409, "APPROVAL_REQUIRED", "Xếp lịch sau khi giảng viên duyệt đề")
     if body.closes_at - body.opens_at < exam.time_limit or body.closes_at <= time.time():
         fail(422, "SCHEDULE_LENGTH", "Khoảng thi phải đủ thời lượng bài thi và chưa kết thúc")
@@ -386,8 +414,9 @@ def schedule(key: str, body: ScheduleIn, db: Session = Depends(get_db), user=Dep
         fail(422, "NOT_ASSIGNED", "Sinh viên chưa có trong danh sách kỳ thi")
     if db.scalar(select(ExamSession.id).where(
         ExamSession.exam_id == key, ExamSession.student_id.in_(ids), ExamSession.deleted_at.is_(None),
+        or_(ExamSession.started_at.is_not(None), ExamSession.status != "DEVICE_CHECK"),
     ).limit(1)):
-        fail(409, "SCHEDULE_LOCKED", "Không đổi lịch sinh viên đã tạo phiên thi; chỉ chọn sinh viên chưa thi")
+        fail(409, "SCHEDULE_LOCKED", "Không đổi lịch sinh viên đã bắt đầu thi; chỉ chọn sinh viên chưa bắt đầu")
     for row in rows:
         row.opens_at, row.closes_at = body.opens_at, body.closes_at
     audit(db, user, "EXAM_SCHEDULED", exam_id=key, student_ids=sorted(ids), opens_at=body.opens_at, closes_at=body.closes_at)
@@ -407,6 +436,32 @@ def office_approve(key: str, db: Session = Depends(get_db), user=Depends(exam_of
     exam.snapshot = exam.snapshot | {"office_approved_by": user.id, "published_at": time.time()}
     exam.status = "PUBLISHED"
     audit(db, user, "EXAM_OFFICE_APPROVED", exam_id=key)
+    db.commit()
+    return {"status": exam.status}
+
+
+@router.post("/admin/exams/{key}/close")
+def close_exam(key: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    exam = scoped_exam(db, key, user)
+    if exam.status == "CLOSED":
+        return {"status": exam.status}
+    if exam.status != "PUBLISHED":
+        fail(409, "INVALID_STATE", "Chỉ đóng kỳ thi đang mở")
+    exam.status = "CLOSED"
+    audit(db, user, "EXAM_CLOSED", exam_id=key)
+    db.commit()
+    return {"status": exam.status}
+
+
+@router.post("/admin/exams/{key}/reopen")
+def reopen_exam(key: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    exam = scoped_exam(db, key, user)
+    if exam.status == "PUBLISHED":
+        return {"status": exam.status}
+    if exam.status != "CLOSED":
+        fail(409, "INVALID_STATE", "Chỉ mở lại kỳ thi đã đóng")
+    exam.status = "PUBLISHED"
+    audit(db, user, "EXAM_REOPENED", exam_id=key)
     db.commit()
     return {"status": exam.status}
 

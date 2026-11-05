@@ -1280,7 +1280,20 @@ function CourseWorkspace({
                     )}
                   </div>
                 )}
-                {e.status === "PUBLISHED" && (
+                {(admin || officer) &&
+                  !e.workflow &&
+                  ["PUBLISHED", "CLOSED"].includes(e.status) && (
+                    <Action
+                      action={() =>
+                        mutate(
+                          `/admin/exams/${e.id}/${e.status === "CLOSED" ? "reopen" : "close"}`,
+                        )
+                      }
+                    >
+                      {e.status === "CLOSED" ? "Mở lại kỳ thi" : "Đóng kỳ thi"}
+                    </Action>
+                  )}
+                {["PUBLISHED", "CLOSED"].includes(e.status) && (
                   <>
                     <p className="muted">
                       Đề đã công bố được giữ nguyên để bảo toàn kết quả. Sao

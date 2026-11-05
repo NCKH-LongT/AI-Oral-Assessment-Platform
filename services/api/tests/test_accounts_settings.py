@@ -1,4 +1,5 @@
 import json
+import os
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -41,7 +42,8 @@ def test_runtime_credentials_permissions_redaction_and_live_updates(env, platfor
     result = ok(admin.put("/admin/settings/platform", json=body))
     assert result["gemini_key_configured"] and result["google_secret_configured"]
     assert "private-gemini-test" not in json.dumps(result) and "test-client-secret" not in json.dumps(result)
-    assert platform_file.stat().st_mode & 0o777 == 0o600
+    if os.name == "posix":  # Windows stat modes do not express POSIX permission bits.
+        assert platform_file.stat().st_mode & 0o777 == 0o600
     assert runtime_settings.settings().gemini_api_key == "private-gemini-test"
     body = config_body(google_client_secret=None, ai_provider="gemini")
     ok(admin.put("/admin/settings/platform", json=body))

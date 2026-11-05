@@ -13,6 +13,7 @@ def test_published_roster_manual_excel_and_schedule_preserve_existing(env):
     ok(import_roster(office, key))
     approve_and_schedule(clients, key)
     sitting = ok(clients["student"].post("/exam-sessions", json={"exam_id": key}))
+    ok(clients["student"].post(f"/exam-sessions/{sitting['id']}/start"))
     before = ok(office.get(f"/admin/exams/{key}/roster"))[0]
     with factory() as db:
         snapshot = db.get(Exam, key).snapshot

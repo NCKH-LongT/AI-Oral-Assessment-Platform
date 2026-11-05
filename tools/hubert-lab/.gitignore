@@ -1,0 +1,11 @@
+.venv/
+audio/
+results*.json
+__pycache__/
+
+*-results.json
+*.wav
+*.flac
+*.webm
+*.mp3
+*.mp4

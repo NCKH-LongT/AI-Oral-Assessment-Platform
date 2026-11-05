@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api, send, errorText, Criterion } from "./api";
 import dynamic from "next/dynamic";
+import CriterionEditor from "./criterion-editor";
 import { QuestionContent, type RichContent } from "./question-content";
 import { Action, Badge, Empty, Form } from "./shared";
 
@@ -11,6 +12,7 @@ const QuestionEditor = dynamic(() => import("./question-editor"), {
 });
 
 type Question = {
+  criteria?: Criterion[];
   text: string;
   rich_content?: RichContent | null;
   preparation_seconds?: number;
@@ -39,6 +41,8 @@ export default function ExamDraftReview({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState("");
   const [imageBusy, setImageBusy] = useState(false);
+  const [rubricBusy, setRubricBusy] = useState<number | null>(null);
+  const [rubricNote, setRubricNote] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
   const [original, setOriginal] = useState<Question | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -79,29 +83,22 @@ export default function ExamDraftReview({
     setDirty(true);
     setSaved(false);
   }
-  function updateCriterion(index: number, patch: Partial<Criterion>) {
-    setDraft({
-      ...draft!,
-      snapshot: {
-        ...snapshot,
-        criteria: snapshot.criteria.map((c, i) =>
-          i === index ? { ...c, ...patch } : c,
-        ),
-      },
-    });
-    setDirty(true);
-    setSaved(false);
-  }
   return (
     <section className="panel">
       <div className="section-title">
         <h3>Review câu hỏi & rubric</h3>
         <Badge status={draft.status} />
       </div>
+      <p>
+        Mỗi câu có rubric riêng, được cố định khi duyệt đề. Khi đổi câu hỏi, cần
+        kiểm tra lại tiêu chí. Điểm phát âm phải dựa trên audio.
+      </p>
       <Form
         label={canEdit ? "Lưu nội dung đã review" : "Tải lại nội dung"}
         onSubmit={async () => {
           if (canEdit) {
+            if (rubricBusy !== null)
+              throw new Error("Chờ gợi ý rubric hoàn tất trước khi lưu.");
             if (imageBusy) throw new Error("Chờ xử lý ảnh xong trước khi lưu.");
             if (
               snapshot.questions.some(
@@ -114,6 +111,7 @@ export default function ExamDraftReview({
               {
                 questions: snapshot.questions.map(
                   ({
+                    criteria,
                     text,
                     rich_content,
                     expected_concepts,
@@ -122,6 +120,7 @@ export default function ExamDraftReview({
                     preparation_seconds = 10,
                     recording_seconds = 60,
                   }) => ({
+                    criteria: criteria ?? snapshot.criteria,
                     text,
                     rich_content,
                     expected_concepts,
@@ -143,7 +142,7 @@ export default function ExamDraftReview({
         }}
       >
         {snapshot.questions.map((q, i) => (
-          <fieldset key={i} disabled={!canEdit}>
+          <fieldset key={i} disabled={!canEdit || rubricBusy !== null}>
             <legend>
               Câu {i + 1} ·{" "}
               {
@@ -268,71 +267,108 @@ export default function ExamDraftReview({
                   .join(" · ")}
               </p>
             )}
+            <h4>Rubric của câu {i + 1}</h4>
+            {canEdit && canApprove && (
+              <button
+                type="button"
+                className="button secondary"
+                disabled={imageBusy || rubricBusy !== null}
+                onClick={async () => {
+                  setRubricBusy(i);
+                  setError("");
+                  setRubricNote("");
+                  try {
+                    const result = await send<{
+                      criteria: Criterion[];
+                      demo: boolean;
+                    }>(
+                      `/admin/exams/${examId}/questions/${i + 1}/rubric-preview`,
+                      {
+                        text: q.text,
+                        rich_content: q.rich_content,
+                        expected_concepts: q.expected_concepts,
+                        reference_chunk_ids: q.reference_chunk_ids,
+                        english_terms: q.english_terms,
+                        preparation_seconds: q.preparation_seconds ?? 10,
+                        recording_seconds: q.recording_seconds ?? 60,
+                      },
+                    );
+                    updateQuestion(i, { criteria: result.criteria });
+                    setRubricNote(
+                      result.demo
+                        ? "Chế độ demo: đã sao chép tiêu chí mẫu, chưa có gợi ý AI thật."
+                        : `Đã gợi ý rubric câu ${i + 1}. Kiểm tra và lưu trước khi duyệt.`,
+                    );
+                  } catch (error) {
+                    setError(errorText(error));
+                  } finally {
+                    setRubricBusy(null);
+                  }
+                }}
+              >
+                {rubricBusy === i
+                  ? "Đang gợi ý rubric…"
+                  : `Gợi ý rubric AI cho câu ${i + 1}`}
+              </button>
+            )}
+
+            {q.criteria ? (
+              <CriterionEditor
+                criteria={q.criteria}
+                disabled={!canEdit}
+                onChange={(criteria) => updateQuestion(i, { criteria })}
+              />
+            ) : (
+              <>
+                <p>
+                  Câu này dùng rubric chung của đề cũ. Có thể tạo bản riêng để
+                  điều chỉnh.
+                </p>
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="button secondary"
+                    onClick={() =>
+                      updateQuestion(i, {
+                        criteria: snapshot.criteria.map((c) => ({ ...c })),
+                      })
+                    }
+                  >
+                    Tạo rubric riêng cho câu {i + 1}
+                  </button>
+                )}
+              </>
+            )}
             <small>
               Nguồn tham chiếu: {q.reference_chunk_ids.length} đoạn tài liệu
             </small>
           </fieldset>
         ))}
-        <h4>Rubric chấm điểm</h4>
-        {snapshot.criteria.map((c, i) => (
-          <fieldset key={i} disabled={!canEdit}>
-            <legend>Tiêu chí {i + 1}</legend>
-            <label>
-              Tên
-              <input
-                required
-                maxLength={100}
-                value={c.name}
-                onChange={(e) => updateCriterion(i, { name: e.target.value })}
-              />
-            </label>
-            <label>
-              Mô tả
-              <textarea
-                required
-                value={c.description}
-                onChange={(e) =>
-                  updateCriterion(i, { description: e.target.value })
-                }
-              />
-            </label>
-            <div className="inline">
-              <label>
-                Điểm tối đa
-                <input
-                  type="number"
-                  min="0.1"
-                  max="100"
-                  step="0.1"
-                  required
-                  value={c.max_score}
-                  onChange={(e) =>
-                    updateCriterion(i, { max_score: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                Trọng số
-                <input
-                  type="number"
-                  min="0.1"
-                  max="100"
-                  step="0.1"
-                  required
-                  value={c.weight}
-                  onChange={(e) =>
-                    updateCriterion(i, { weight: Number(e.target.value) })
-                  }
-                />
-              </label>
-            </div>
-          </fieldset>
-        ))}
+        {snapshot.questions.some((q) => !q.criteria) && (
+          <>
+            <h4>Rubric chung cho các câu chưa có rubric riêng</h4>
+            <CriterionEditor
+              criteria={snapshot.criteria}
+              disabled={!canEdit || rubricBusy !== null}
+              onChange={(criteria) => {
+                setDraft({ ...draft, snapshot: { ...snapshot, criteria } });
+                setDirty(true);
+                setSaved(false);
+              }}
+            />
+          </>
+        )}
       </Form>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      {rubricNote && <p role="status">{rubricNote}</p>}
       {saved && <p role="status">Đã lưu nội dung review.</p>}
       {canEdit && canApprove && (
         <Action
-          disabled={dirty}
+          disabled={dirty || rubricBusy !== null || imageBusy}
           action={async () => {
             await send(`/admin/exams/${examId}/teacher-approve`);
             setDraft(await api<Draft>(`/admin/exams/${examId}/draft`));

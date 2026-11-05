@@ -1141,6 +1141,12 @@ export default function Student() {
                       : "—"}
                   </p>
                 )}
+                {e.entry_open === false && (
+                  <p role="status">
+                    Kỳ thi đã đóng vào thi mới. Phiên đã bắt đầu vẫn được tiếp
+                    tục.
+                  </p>
+                )}
                 <Action action={() => openExam(e.id)}>
                   {!e.session_id
                     ? "Mở bài thi →"
@@ -1405,8 +1411,14 @@ export default function Student() {
                     nhận.
                   </label>
                 )}
+                {session.entry_open === false && (
+                  <p role="alert">
+                    Kỳ thi đang đóng. Bạn chưa thể bắt đầu; chờ khảo thí mở lại.
+                  </p>
+                )}
                 <Action
                   disabled={
+                    session.entry_open === false ||
                     !stream ||
                     (cameraRequired && !faceCheck.ready) ||
                     !!deviceError ||

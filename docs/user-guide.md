@@ -231,3 +231,9 @@ Bản ghi dùng cơ chế lưu trữ, phân quyền và xóa cùng bài thi hi�
 ## Kiểm tra camera và phục hồi khi mất mạng
 
 Bản thử nghiệm kiểm tra một khuôn mặt đủ lớn, nằm trong khung và ổn định trước khi bật nút bắt đầu. Hướng mắt là ước lượng hỗ trợ, không tự xác định gian lận. Audio được lưu từng đoạn trên máy; nếu tải lại trang, mở đúng lượt thi và chọn **Khôi phục bản ghi chờ tải trên máy**. Xem [hướng dẫn camera, mạng yếu và phục hồi bài](exam-camera-network-guide.md) để biết giới hạn và cách xử lý lỗi lưu trữ.
+
+## Đóng/mở kỳ thi và rubric theo từng câu
+
+Khảo thí/admin có thể **Đóng kỳ thi** để chặn vào thi mới, rồi **Mở lại kỳ thi** khi cần. Sinh viên đã bắt đầu vẫn làm và nộp bình thường, kể cả mở lại phiên sau reload. Mở lại giữ lịch đã xếp; lịch hết cần được xếp lại cho người chưa bắt đầu.
+
+Giảng viên review rubric ngay dưới từng câu, có thể thêm/xóa/sửa tiêu chí hoặc bấm **Gợi ý rubric AI cho câu**. Gợi ý không tự lưu; cần kiểm tra, lưu và duyệt. Rubric đã duyệt được dùng nhất quán cho mọi sinh viên và các lần chấm lại. Đề cũ vẫn dùng tiêu chí đã lưu. Xem [chi tiết rubric và vòng đời đề](architecture/exam-lifecycle-rubrics.md).

@@ -34,7 +34,9 @@ def test_full_local_review_pins_models_avoids_cloud_and_preserves_evidence(env, 
     with env[1]() as db:
         exam = db.get(Exam, context["exam"]["id"])
         exam.snapshot = exam.snapshot | {"criteria": CRITERIA if pronounce else CRITERIA[:1], "speech_language": "en"}
-        before = db.get(Attempt, attempt_id).assessment
+        attempt = db.get(Attempt, attempt_id)
+        attempt.question = attempt.question | {"criteria": exam.snapshot["criteria"]}
+        before = attempt.assessment
         db.commit()
     cfg = settings()
     monkeypatch.setattr(cfg, "local_review_llm_model", "local-test-model")
@@ -109,7 +111,8 @@ def test_local_review_failures_preserve_previous_assessment(env, monkeypatch, ca
     context, _, attempt_id, audio, _ = ready(env)
     monkeypatch.setattr(settings(), "local_review_llm_model", "local-test-model")
     with env[1]() as db:
-        before = db.get(Attempt, attempt_id).assessment
+        attempt = db.get(Attempt, attempt_id)
+        before = attempt.assessment
     job = ok(env[0]["admin"].post(f"/admin/attempts/{attempt_id}/local-review", json={"reason": "Check original audio"}), 202)
     calls = []
 
@@ -178,7 +181,9 @@ def test_real_pronunciation_failure_visible_in_admin_error_logs(env, monkeypatch
         exam = db.get(Exam, context["exam"]["id"])
         exam.snapshot = exam.snapshot | {"criteria": CRITERIA[1:],
                                         "speech_language": "vi" if problem == "language" else "en"}
-        before = db.get(Attempt, attempt_id).assessment
+        attempt = db.get(Attempt, attempt_id)
+        attempt.question = attempt.question | {"criteria": exam.snapshot["criteria"]}
+        before = attempt.assessment
         db.commit()
     client = env[0]["admin"]
     job = ok(client.post(f"/admin/attempts/{attempt_id}/local-review",

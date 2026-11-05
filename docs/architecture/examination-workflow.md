@@ -33,16 +33,16 @@ sửa và duyệt lại. [Editor và minh chứng mới](question-editor-recordi
 3. Khảo thí tải [Excel mẫu](../templates/danh-sach-sinh-vien.xlsx), sửa dữ liệu rồi nhập trong tab **Sinh viên & lịch thi** của kỳ thi. Có thể nhập trước khi giảng viên soạn đề.
 4. Giảng viên vào **Môn học → môn được giao** để bổ sung giáo trình, chủ đề và LO. Trong **Ngân hàng đề thi → chọn môn → Sửa bản nháp**, chọn rubric, số câu và độ khó EASY/MEDIUM/HARD. Mỗi hàng blueprint có chủ đề, độ khó, số lượng; chọn số lượng 1 để cấu hình từng câu. Tối đa 20 câu.
 5. Cấu hình **Hotword STT của môn học** nếu cần, rồi bấm **Sinh câu hỏi & rubric để review**. AI tạo bản GENERATED, chưa mở cho sinh viên. Demo tạo nội dung mẫu, không chấm điểm AI thật.
-6. Giảng viên sửa câu hỏi, ý chính mong đợi, tên/mô tả/điểm tối đa/trọng số rubric; bấm **Lưu nội dung đã review**, sau đó **Duyệt đề & gửi khảo thí**. Trạng thái TEACHER_APPROVED. Các nguồn tham chiếu phải nằm trong tài liệu của chủ đề; server kiểm tra điều này.
+6. Giảng viên sửa câu hỏi, ý chính mong đợi và rubric riêng của từng câu (tên/mô tả mức điểm/điểm tối đa/trọng số); có thể bấm **Gợi ý rubric AI cho câu** rồi kiểm tra lại. Bản gợi ý chưa lưu cho đến khi bấm lưu; bấm **Lưu nội dung đã review**, sau đó **Duyệt đề & gửi khảo thí**. Trạng thái TEACHER_APPROVED. Các nguồn tham chiếu phải nằm trong tài liệu của chủ đề; server kiểm tra điều này.
 7. Khảo thí xem toàn bộ đề/rubric trong **Điều phối kỳ thi → Đề thi & duyệt**. Nếu cần sửa, nhập lý do **Trả về bản nháp**; hệ thống hủy bản sinh và dấu duyệt, giảng viên cấu hình/sinh/review lại.
 8. Trong tab **Sinh viên & lịch thi**, khảo thí chọn một, nhiều hoặc tất cả sinh viên, nhập giờ mở/đóng vào thi rồi **Lưu lịch thi**. Chỉ xếp lịch sau khi giảng viên duyệt. Mỗi sinh viên có thể có khung giờ riêng; thời gian nhập theo múi giờ máy, lưu dưới dạng Unix timestamp.
-9. Khi tất cả sinh viên có lịch hợp lệ, khảo thí bấm **Xác nhận đã kiểm tra đề & mở kỳ thi**. Trạng thái PUBLISHED, khóa đề, danh sách và lịch. Bản snapshot lưu câu hỏi, rubric, nguồn kiến thức, cấu hình AI, hotword môn học và dấu duyệt.
+9. Khi tất cả sinh viên có lịch hợp lệ, khảo thí bấm **Xác nhận đã kiểm tra đề & mở kỳ thi**. Trạng thái PUBLISHED, cố định nội dung đề và rubric; khảo thí vẫn có thể bổ sung sinh viên hoặc đổi lịch người chưa bắt đầu thi. Bản snapshot lưu câu hỏi, rubric, nguồn kiến thức, cấu hình AI, hotword môn học và dấu duyệt.
 10. Sinh viên mở desktop, đăng nhập bằng email trong Excel, vào **Bài thi của tôi**, chọn bài khi đến giờ. Server kiểm tra danh sách và lịch ở cả bước tạo phiên và bắt đầu thi. Quyền thi kỳ thi dựa trên danh sách và lịch được khảo thí xác nhận.
 11. Sau khi nộp, worker server chấm AI. Bài có điểm AI trung bình **< 5/10**, thiếu điểm hoặc cần kiểm tra độ tin cậy chuyển REVIEW_REQUIRED; sinh viên chưa thấy điểm chính thức.
 12. Giảng viên mở **Kết quả & xem lại**. Bài dưới 5 có nền cảnh báo và điểm AI đề xuất. Xem transcript/audio/video, nhập điểm 0–10 cùng nhận xét ít nhất 10 ký tự, bấm **Lưu điểm chính thức**. Hệ thống lưu riêng điểm AI, người chấm lại, thời gian và lý do; giữ audit trước/sau.
 13. Khảo thí chọn **Xuất điểm Excel** trong kỳ thi. Mỗi lần thi không bị xóa là một dòng; sinh viên chưa thi vẫn có dòng NOT_STARTED. `final_score` chỉ có khi COMPLETED; điểm đang chờ duyệt không bị xuất nhầm thành điểm chính thức.
 
-Giờ đóng là **hạn bắt đầu vào thi**, không phải thời điểm cưỡng bức kết thúc mọi phiên. Sau khi bắt đầu hợp lệ, sinh viên có đủ `time_limit`. Khung giờ vào thi tối thiểu bằng thời lượng đề. Đề đã PUBLISHED không sửa trực tiếp; tạo kỳ thi mới khi cần thay đề/lịch/danh sách.
+Giờ đóng là **hạn bắt đầu vào thi**, không phải thời điểm cưỡng bức kết thúc mọi phiên. Sau khi bắt đầu hợp lệ, sinh viên có đủ `time_limit`. Khung giờ vào thi tối thiểu bằng thời lượng đề. Đề đã PUBLISHED/CLOSED không sửa nội dung hoặc rubric trực tiếp; tạo/sao chép đề mới khi cần thay nội dung. Có thể xếp lại lịch sinh viên chưa bắt đầu thi.
 
 ## Excel
 
@@ -102,3 +102,12 @@ Sinh viên & lịch thi; có tìm kiếm tên/MSSV/email, cột Số lượt thi
 nộp bài và các nút Xem bài lần N. Chỉ đếm phiên chưa xóa, khác DEVICE_CHECK.
 Roster tự cập nhật 10 giây khi đang hiển thị; xem bài dùng ReviewPage chia
 tab và quay lại giữ bộ lọc. [Chi tiết](review-diagnostics.md).
+
+
+## Đóng và mở lại kỳ thi
+
+Khảo thí/admin mở kỳ thi, tab **Đề thi & duyệt**, bấm **Đóng kỳ thi**. Trạng thái CLOSED chặn tạo lượt mới và bắt đầu phiên đang ở bước kiểm tra thiết bị. Người đã IN_PROGRESS vẫn được tiếp tục, nộp, upload bằng chứng và mở lại phiên sau reload. Lịch, snapshot và kết quả không bị xóa/đổi. Người có phiên vẫn thấy đường vào phiên của mình; người chưa có phiên không thấy kỳ thi đóng.
+
+Bấm **Mở lại kỳ thi** trả về PUBLISHED, giữ nguyên lịch cũ. Nếu lịch đã hết, xếp lại lịch người chưa bắt đầu rồi mở lại. Người đã bắt đầu không được đổi lịch. Đề công bố bằng luồng admin cũ có cùng nút trong Ngân hàng đề thi. Đóng/mở là thao tác có audit và gọi lại cùng trạng thái không tạo thêm audit trùng. Không dùng endpoint publish để mở lại đề đóng vì có thể làm thay snapshot.
+
+Chi tiết rubric riêng và tương thích dữ liệu cũ: [rubric theo câu hỏi](exam-lifecycle-rubrics.md).

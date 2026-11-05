@@ -221,6 +221,7 @@ export default function Examination({
                     Chờ khảo thí kiểm tra
                   </option>
                   <option value="PUBLISHED">Đã công bố</option>
+                  <option value="CLOSED">Đã đóng</option>
                 </select>
               </label>
             </div>
@@ -473,7 +474,25 @@ function ExamOperations({
             </Action>
           </>
         )}
-        {["GENERATED", "TEACHER_APPROVED", "PUBLISHED"].includes(
+        {officer && ["PUBLISHED", "CLOSED"].includes(exam.status) && (
+          <div>
+            <p>
+              Đóng kỳ thi sẽ chặn vào thi mới. Phiên đã bắt đầu vẫn được làm hết
+              thời lượng. Mở lại vẫn áp dụng lịch thi đã đặt.
+            </p>
+            <Action
+              action={async () => {
+                await send(
+                  `/admin/exams/${exam.id}/${exam.status === "CLOSED" ? "reopen" : "close"}`,
+                );
+                await refresh();
+              }}
+            >
+              {exam.status === "CLOSED" ? "Mở lại kỳ thi" : "Đóng kỳ thi"}
+            </Action>
+          </div>
+        )}
+        {["GENERATED", "TEACHER_APPROVED", "PUBLISHED", "CLOSED"].includes(
           exam.status,
         ) && (
           <ExamDraftReview
@@ -738,62 +757,63 @@ function ExamOperations({
             </div>
           </>
         )}
-        {officer && ["TEACHER_APPROVED", "PUBLISHED"].includes(exam.status) && (
-          <>
-            <h3>Xếp lịch cho {selected.length} sinh viên đã chọn</h3>
-            <p>
-              Giờ hiển thị theo múi giờ của máy. Sinh viên được bắt đầu trong
-              khoảng này và có đủ thời lượng bài thi kể từ lúc bắt đầu.
-            </p>
-            <Form
-              className={`form ${styles.createForm}`}
-              label="Lưu lịch thi"
-              onSubmit={async (d) => {
-                if (!selected.length)
-                  throw new Error("Chọn ít nhất một sinh viên");
-                if (
-                  new Date(String(d.get("closes_at"))) <=
-                  new Date(String(d.get("opens_at")))
-                )
-                  throw new Error("Giờ đóng phải sau giờ mở vào thi");
-                await send(
-                  `/admin/exams/${exam.id}/schedule`,
-                  {
-                    student_ids: selected,
-                    opens_at:
-                      new Date(String(d.get("opens_at"))).getTime() / 1000,
-                    closes_at:
-                      new Date(String(d.get("closes_at"))).getTime() / 1000,
-                  },
-                  "PUT",
-                );
-                await loadRoster();
-                setMessage("Đã lưu lịch thi.");
-              }}
-            >
-              <Field
-                label="Giờ mở vào thi"
-                name="opens_at"
-                type="datetime-local"
-              />
-              <Field
-                label="Giờ đóng vào thi"
-                name="closes_at"
-                type="datetime-local"
-              />
-            </Form>
-            {exam.status === "TEACHER_APPROVED" && (
-              <Action
-                action={async () => {
-                  await send(`/admin/exams/${exam.id}/office-approve`);
-                  await refresh();
+        {officer &&
+          ["TEACHER_APPROVED", "PUBLISHED", "CLOSED"].includes(exam.status) && (
+            <>
+              <h3>Xếp lịch cho {selected.length} sinh viên đã chọn</h3>
+              <p>
+                Giờ hiển thị theo múi giờ của máy. Sinh viên được bắt đầu trong
+                khoảng này và có đủ thời lượng bài thi kể từ lúc bắt đầu.
+              </p>
+              <Form
+                className={`form ${styles.createForm}`}
+                label="Lưu lịch thi"
+                onSubmit={async (d) => {
+                  if (!selected.length)
+                    throw new Error("Chọn ít nhất một sinh viên");
+                  if (
+                    new Date(String(d.get("closes_at"))) <=
+                    new Date(String(d.get("opens_at")))
+                  )
+                    throw new Error("Giờ đóng phải sau giờ mở vào thi");
+                  await send(
+                    `/admin/exams/${exam.id}/schedule`,
+                    {
+                      student_ids: selected,
+                      opens_at:
+                        new Date(String(d.get("opens_at"))).getTime() / 1000,
+                      closes_at:
+                        new Date(String(d.get("closes_at"))).getTime() / 1000,
+                    },
+                    "PUT",
+                  );
+                  await loadRoster();
+                  setMessage("Đã lưu lịch thi.");
                 }}
               >
-                Xác nhận đã kiểm tra đề & mở kỳ thi
-              </Action>
-            )}
-          </>
-        )}
+                <Field
+                  label="Giờ mở vào thi"
+                  name="opens_at"
+                  type="datetime-local"
+                />
+                <Field
+                  label="Giờ đóng vào thi"
+                  name="closes_at"
+                  type="datetime-local"
+                />
+              </Form>
+              {exam.status === "TEACHER_APPROVED" && (
+                <Action
+                  action={async () => {
+                    await send(`/admin/exams/${exam.id}/office-approve`);
+                    await refresh();
+                  }}
+                >
+                  Xác nhận đã kiểm tra đề & mở kỳ thi
+                </Action>
+              )}
+            </>
+          )}
       </section>
     </div>
   );

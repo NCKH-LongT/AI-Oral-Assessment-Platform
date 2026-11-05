@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from . import diagnostics, speech, storage
 from .models import Upload
+from .question_rubrics import criteria_for
 from .runtime_settings import settings
 
 FAILURE_MESSAGES = {
@@ -86,7 +87,7 @@ def is_criterion(criterion):
 
 def assess(db, exam, attempt, transcript, assessment):
     cfg = settings()
-    criteria = exam.snapshot.get("criteria", [])
+    criteria = criteria_for(exam.snapshot, getattr(attempt, "question", None))
     required = [criterion for criterion in criteria if is_criterion(criterion)]
     if not required or exam.snapshot.get("practice"):
         return assessment

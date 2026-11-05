@@ -124,6 +124,10 @@ def test_queue_calls_gopt_after_stt_and_content_and_can_retry_failure(env, monke
     with env[1]() as db:
         exam = db.get(Exam, context["exam"]["id"])
         exam.snapshot = exam.snapshot | {"criteria": CRITERIA}
+        # Fixture configuration must now set the frozen per-question rubric too.
+        for aid in attempts:
+            attempt = db.get(Attempt, aid)
+            attempt.question = attempt.question | {"criteria": CRITERIA}
         db.commit()
     monkeypatch.setattr(pronunciation, "settings", lambda: settings().model_copy(update={"gopt_enabled": True}))
     monkeypatch.setattr(speech, "exam_policy", lambda *args: {"language": "en"})

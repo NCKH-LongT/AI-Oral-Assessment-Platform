@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { hasRole, roleNames } from "../components/api";
 import { useEffect, useState } from "react";
 import {
@@ -154,6 +155,22 @@ export default function Home() {
             <Field label="Mật khẩu" name="password" type="password" />
           </Form>
           <GoogleLogin onLogin={setUser} />
+          <div style={{ marginTop: 14, textAlign: "center" }}>
+            <Link
+              href="/test-camera"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--teal)",
+                textDecoration: "underline",
+              }}
+            >
+              📹 Thử nghiệm nhận diện Camera & Gian lận
+            </Link>
+          </div>
           {typeof window !== "undefined" && window.oralDesktop && (
             <DesktopPolicySummary />
           )}
@@ -282,6 +299,22 @@ export default function Home() {
             </button>
           ))}
         </nav>
+        <div style={{ padding: "8px 16px" }}>
+          <Link
+            href="/test-camera"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              color: "var(--teal)",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            📹 Test Camera & Gian lận
+          </Link>
+        </div>
         <div className="sidebar-note">
           <span className="status-dot" />
           Đánh giá có căn cứ

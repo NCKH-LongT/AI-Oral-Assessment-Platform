@@ -1432,13 +1432,83 @@ export default function Student() {
                     Kỳ thi đang đóng. Bạn chưa thể bắt đầu; chờ khảo thí mở lại.
                   </p>
                 )}
+                {(() => {
+                  const reasons: string[] = [];
+                  if (session.entry_open === false)
+                    reasons.push("Kỳ thi đang đóng bởi ban khảo thí.");
+                  if (!stream)
+                    reasons.push("Chưa nhận được microphone/camera (Hãy cho phép quyền truy cập thiết bị).");
+                  if (deviceError)
+                    reasons.push(`Lỗi thiết bị: ${deviceError}`);
+                  if (cameraRequired && !bypassCamera && !faceCheck.ready)
+                    reasons.push("Chưa hoàn tất kiểm tra khuôn mặt.");
+                  if (session.screen_required && !screenConsent)
+                    reasons.push("Chưa tích chọn đồng ý ghi toàn màn hình (ở phía trên).");
+                  if (connecting)
+                    reasons.push("Đang kết nối thiết bị...");
+                  if (displayBusy)
+                    reasons.push("Cấu hình màn hình đang thay đổi.");
+                  if (guard.preparing)
+                    reasons.push("Hệ thống bảo vệ đang chuẩn bị.");
+                  if (processing)
+                    reasons.push("Đang xử lý dữ liệu.");
+
+                  if (reasons.length === 0) return null;
+
+                  return (
+                    <div
+                      style={{
+                        marginBottom: "0.75rem",
+                        padding: "0.6rem 0.85rem",
+                        backgroundColor: "#fffbeb",
+                        border: "1px solid #fde68a",
+                        borderRadius: "6px",
+                        fontSize: "0.85rem",
+                        color: "#92400e",
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
+                        ⚠️ Chưa thể bắt đầu thi do:
+                      </div>
+                      <ul style={{ margin: "0.25rem 0 0 1.25rem", padding: 0 }}>
+                        {reasons.map((r, i) => (
+                          <li key={i}>{r}</li>
+                        ))}
+                      </ul>
+                      {cameraRequired && !bypassCamera && !faceCheck.ready && (
+                        <button
+                          type="button"
+                          className="button-link"
+                          style={{
+                            marginTop: "0.5rem",
+                            display: "inline-block",
+                            padding: "4px 10px",
+                            backgroundColor: "#fef3c7",
+                            border: "1px solid #d97706",
+                            borderRadius: "4px",
+                            color: "#b45309",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            setBypassCamera(true);
+                            try {
+                              localStorage.setItem("oral_bypass_camera", "true");
+                            } catch {}
+                          }}
+                        >
+                          ⚡ Bấm vào đây để bỏ qua kiểm tra camera
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
                 <Action
                   disabled={
                     session.entry_open === false ||
                     !stream ||
                     (cameraRequired && !bypassCamera && !faceCheck.ready) ||
                     !!deviceError ||
-                    !noiseReady ||
                     connecting ||
                     displayBusy ||
                     guard.preparing ||

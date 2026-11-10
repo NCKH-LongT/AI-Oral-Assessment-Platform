@@ -172,7 +172,7 @@ export default function Student() {
   const [connecting, setConnecting] = useState(false);
   const [startingRecording, setStartingRecording] = useState(false);
   const connectingRef = useRef(false);
-  const [denoise, setDenoise] = useState(false);
+  const [denoise, setDenoise] = useState(true);
   const [gainDb, setGainDb] = useState(0);
   const [micPeak, setMicPeak] = useState(-120);
   const gainRef = useRef<MicrophoneGain | null>(null);
@@ -407,50 +407,45 @@ export default function Student() {
         s.getTracks().forEach((t) => t.stop());
         return;
       }
-      // Desktop records the device tracks directly. Optional gain/RNNoise
-      // processing belongs only to the browser exam flow.
-      if (!window.oralDesktop) {
-        let gain: MicrophoneGain;
-        try {
-          gain = await createMicrophoneGain(s, gainDb);
-        } catch (error) {
+      let gain: MicrophoneGain;
+      try {
+        gain = await createMicrophoneGain(s, gainDb);
+      } catch (error) {
+        s.getTracks().forEach((t) => t.stop());
+        throw error;
+      }
+      if (generation !== deviceGeneration.current) {
+        await gain.close();
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      gainRef.current = gain;
+      try {
+        const filter = await createNoiseFilter(gain.stream, () => {
+          if (generation === deviceGeneration.current) {
+            filterFailures.current++;
+            setFilterError(
+              "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
+            );
+          }
+        });
+        if (generation !== deviceGeneration.current) {
+          await filter.close();
+          await gain.close();
           s.getTracks().forEach((t) => t.stop());
-          throw error;
+          return;
         }
+        filter.setEnabled(denoise);
+        filterRef.current = filter;
+      } catch {
         if (generation !== deviceGeneration.current) {
           await gain.close();
           s.getTracks().forEach((t) => t.stop());
           return;
         }
-        gainRef.current = gain;
-        try {
-          const filter = await createNoiseFilter(gain.stream, () => {
-            if (generation === deviceGeneration.current) {
-              filterFailures.current++;
-              setFilterError(
-                "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
-              );
-            }
-          });
-          if (generation !== deviceGeneration.current) {
-            await filter.close();
-            await gain.close();
-            s.getTracks().forEach((t) => t.stop());
-            return;
-          }
-          // Browser retains a filtered alternative for STT retries.
-          filter.setEnabled(true);
-          filterRef.current = filter;
-        } catch {
-          if (generation !== deviceGeneration.current) {
-            await gain.close();
-            s.getTracks().forEach((t) => t.stop());
-            return;
-          }
-          setFilterError(
-            "Không tải được RNNoise. Tắt lọc nhiễu để thu bản gốc hoặc kết nối lại mic.",
-          );
-        }
+        setFilterError(
+          "Không tải được RNNoise. Tắt lọc nhiễu để thu bản gốc hoặc kết nối lại mic.",
+        );
       }
       s.getTracks().forEach((t) => {
         t.onended = () => {
@@ -554,24 +549,23 @@ export default function Student() {
       throw new Error(
         "Trình duyệt chưa hỗ trợ định dạng ghi âm. Dùng Chrome hoặc Electron.",
       );
-    if (!window.oralDesktop && denoise && (!filterRef.current || filterError))
+    if (denoise && (!filterRef.current || filterError))
       throw new Error(
         "Lọc nhiễu chưa sẵn sàng. Tắt lọc nhiễu hoặc kết nối lại mic.",
       );
     const attemptId = session.current_attempt.id;
-    const capture = new MediaStream([
-      ...(window.oralDesktop
-        ? stream
-        : gainRef.current?.stream || stream
-      ).getAudioTracks(),
-    ]);
+    const activeAudioStream =
+      denoise && filterRef.current && !filterError
+        ? filterRef.current.stream
+        : gainRef.current?.stream || stream;
+    const capture = new MediaStream(activeAudioStream.getAudioTracks());
     const audioRecorder = new MediaRecorder(
       new MediaStream(capture.getAudioTracks()),
       { mimeType: am },
     );
     const filterVersion = filterFailures.current;
     const cleanRecorder =
-      !window.oralDesktop && filterRef.current && !filterError
+      filterRef.current && !filterError
         ? new MediaRecorder(filterRef.current.stream, { mimeType: am })
         : null;
     const audioChunks: BlobPart[] = [],
@@ -645,18 +639,16 @@ export default function Student() {
         confidence: 0,
         key: recordingKey,
       };
-      a.sttSource =
-        !window.oralDesktop && denoise && a.filteredAudio
-          ? "filtered"
-          : "original";
+      a.sttSource = denoise && a.filteredAudio ? "filtered" : "original";
       setAnswer(a);
+      const audioToUpload = denoise && a.filteredAudio ? a.filteredAudio : a.audio;
       const recordedJob: UploadJob = {
         id: a.key,
         sessionId: session.id,
         backend: clientBackend?.mode ?? "default",
         attemptId,
         kind: "AUDIO",
-        blob: a.audio,
+        blob: audioToUpload,
         progress: 0,
         status: "pending",
       };
@@ -667,7 +659,7 @@ export default function Student() {
           id: a.key,
           attemptId,
           kind: "AUDIO",
-          blob: a.audio,
+          blob: audioToUpload,
           savedAt: Date.now(),
           sessionId: session.id,
           backend: clientBackend?.mode ?? "default",
@@ -1358,29 +1350,28 @@ export default function Student() {
                   phục. Giữ cửa sổ mở đến khi nộp thành công; đóng ứng dụng có
                   thể mất phần audio chưa kịp lưu.
                 </p>
-                {!desktopSpeech.desktop && (
-                  <>
-                    <label className="check">
-                      <input
-                        type="checkbox"
-                        checked={denoise}
-                        onChange={(event) => {
-                          setDenoise(event.target.checked);
-                        }}
-                      />
-                      Lọc nhiễu RNNoise khi nhận dạng câu trả lời
-                    </label>
-                    {filterError && (
-                      <p role="alert" className="error">
-                        {filterError}
-                      </p>
-                    )}
-                    <p className="muted">
-                      Mặc định STT dùng bản gốc. Audio gốc được giữ để đối
-                      chiếu. Lựa chọn lọc chỉ áp dụng cho audio dùng STT.
+                <>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={denoise}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setDenoise(checked);
+                        filterRef.current?.setEnabled(checked);
+                      }}
+                    />
+                    Lọc tạp âm thông minh RNNoise (loại bỏ tiếng quạt, bàn phím, tiếng ồn xung quanh)
+                  </label>
+                  {filterError && (
+                    <p role="alert" className="error">
+                      {filterError}
                     </p>
-                  </>
-                )}
+                  )}
+                  <p className="muted">
+                    Khuyên dùng bật lọc nhiễu RNNoise để giọng nói thu vào trong trẻo, không bị dính tạp âm khi thi.
+                  </p>
+                </>
                 {stream && !deviceError && (
                   <NoiseCheck
                     key={`${stream.id}:${gainDb}`}
@@ -1647,8 +1638,7 @@ export default function Student() {
                             setProcessing(true);
                             try {
                               const audio =
-                                !window.oralDesktop &&
-                                answer.sttSource === "filtered"
+                                answer.sttSource === "filtered" && answer.filteredAudio
                                   ? answer.filteredAudio
                                   : answer.audio;
                               if (!audio)

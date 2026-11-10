@@ -1345,12 +1345,9 @@ export default function Student() {
                       : "Cho phép truy cập microphone; lượt thi này không yêu cầu camera."}
                   </li>
                   <li>Kiểm tra thiết bị và thanh tín hiệu microphone.</li>
-                  {!desktopSpeech.desktop && (
-                    <li>
-                      Kiểm tra độ ồn, tìm chỗ yên lặng nếu được nhắc hoặc chọn
-                      bỏ qua.
-                    </li>
-                  )}
+                  <li>
+                    Kiểm tra độ ồn, thu âm thử để nghe lại microphone và xác nhận âm thanh rõ ràng.
+                  </li>
                   {cameraRequired && (
                     <li>Camera chỉ ghi khi bạn bấm “Bắt đầu trả lời”.</li>
                   )}
@@ -1382,15 +1379,15 @@ export default function Student() {
                       Mặc định STT dùng bản gốc. Audio gốc được giữ để đối
                       chiếu. Lựa chọn lọc chỉ áp dụng cho audio dùng STT.
                     </p>
-                    {stream && !deviceError && (
-                      <NoiseCheck
-                        key={`${stream.id}:${gainDb}`}
-                        stream={stream}
-                        gainDb={gainDb}
-                        onReady={setNoiseReady}
-                      />
-                    )}
                   </>
+                )}
+                {stream && !deviceError && (
+                  <NoiseCheck
+                    key={`${stream.id}:${gainDb}`}
+                    stream={stream}
+                    gainDb={gainDb}
+                    onReady={setNoiseReady}
+                  />
                 )}
                 {desktopSpeech.desktop && !serverProcessing && (
                   <p className="muted">
@@ -1424,7 +1421,7 @@ export default function Student() {
                     !stream ||
                     (cameraRequired && !faceCheck.ready) ||
                     !!deviceError ||
-                    (!desktopSpeech.desktop && !noiseReady) ||
+                    !noiseReady ||
                     connecting ||
                     displayBusy ||
                     guard.preparing ||

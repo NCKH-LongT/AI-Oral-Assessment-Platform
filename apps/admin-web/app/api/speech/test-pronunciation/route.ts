@@ -24,8 +24,10 @@ export async function POST(request: Request) {
       backendForm.append("audio", audio, "answer.webm");
       backendForm.append("transcript", transcript);
 
+      const backendBase =
+        process.env.API_INTERNAL_URL || "http://127.0.0.1:8000";
       const res = await fetch(
-        "http://127.0.0.1:8000/speech/test-pronunciation",
+        `${backendBase.replace(/\/$/, "")}/speech/test-pronunciation`,
         {
           method: "POST",
           body: backendForm,

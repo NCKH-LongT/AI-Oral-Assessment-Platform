@@ -6,7 +6,8 @@ const config: NextConfig = {
   experimental: { proxyTimeout: 300000 },
   async rewrites() {
     return {
-      beforeFiles:
+      beforeFiles: [],
+      afterFiles:
         process.env.ORAL_CLIENT_ENABLED === "1"
           ? []
           : [

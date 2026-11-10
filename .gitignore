@@ -28,3 +28,6 @@ apps/admin-web/public/audio/
 apps/desktop/resources/stt/model/
 apps/desktop/resources/stt/whisper-small/
 .venv-stt/
+.venv-resilience/
+
+.venv-hubert-lab/

@@ -1,5 +1,15 @@
 "use client";
 import Image from "next/image";
+import { mediaRequest } from "../lib/media-request";
+import { useFaceCheck } from "./use-face-check";
+import {
+  saveMediaBackup,
+  deleteMediaBackup,
+  listMediaBackups,
+  saveRecordingPart,
+  listPartialRecordings,
+  deleteRecordingParts,
+} from "../lib/media-backup";
 import { QuestionContent } from "./question-content";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -14,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   api,
+  clientBackend,
   send,
   errorText,
   ExamSession,
@@ -79,6 +90,8 @@ type PendingAnswer = {
   key: string;
 };
 type UploadJob = {
+  sessionId: string;
+  backend: string;
   id: string;
   attemptId: string;
   kind: "AUDIO" | "SCREEN";
@@ -86,6 +99,7 @@ type UploadJob = {
   progress: number;
   status: "pending" | "uploading" | "done" | "failed";
   error?: string;
+  submission?: { key: string; payload: Record<string, unknown> };
 };
 const hash = async (blob: Blob) =>
   Array.from(
@@ -107,6 +121,18 @@ function submissionBadge(status: string) {
 }
 
 export default function Student() {
+  const [backupWarning, setBackupWarning] = useState("");
+  async function persistMedia(row: Parameters<typeof saveMediaBackup>[0]) {
+    try {
+      await saveMediaBackup(row);
+      return true;
+    } catch {
+      setBackupWarning(
+        "Không lưu được bản sao trên máy (có thể hết dung lượng hoặc trình duyệt chặn lưu). Giữ trang mở và nộp ngay khi có mạng; không bảo đảm khôi phục sau khi đóng trang.",
+      );
+      return false;
+    }
+  }
   const [cameraRatio, setCameraRatio] = useState(4 / 3);
   const [displayBusy, setDisplayBusy] = useState(false);
   const [screenConsent, setScreenConsent] = useState(false);
@@ -121,6 +147,12 @@ export default function Student() {
   const autoSubmitRecording = useRef(false);
   const answerUploads = useRef(new Map<string, UploadJob[]>());
   const cameraRequired = session?.desktop_policy?.require_camera ?? true;
+  const [bypassCamera, setBypassCamera] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("oral_bypass_camera") === "true";
+    }
+    return false;
+  });
   const timedQuestions = !!session?.timed_questions;
   const serverProcessing = !!session?.server_processing;
   const sessionFinished =
@@ -146,7 +178,7 @@ export default function Student() {
   const [connecting, setConnecting] = useState(false);
   const [startingRecording, setStartingRecording] = useState(false);
   const connectingRef = useRef(false);
-  const [denoise, setDenoise] = useState(false);
+  const [denoise, setDenoise] = useState(true);
   const [gainDb, setGainDb] = useState(0);
   const [micPeak, setMicPeak] = useState(-120);
   const gainRef = useRef<MicrophoneGain | null>(null);
@@ -157,6 +189,11 @@ export default function Student() {
   const preview = useRef<HTMLVideoElement>(null),
     recorders = useRef<MediaRecorder[]>([]),
     streamRef = useRef<MediaStream | null>(null);
+  const faceCheck = useFaceCheck(
+    preview,
+    cameraRequired && !!stream && !!session,
+    stream?.id,
+  );
   const stopRef = useRef<() => void>(() => {}),
     localDeadline = useRef<number | null>(null),
     recordingRef = useRef(false);
@@ -353,71 +390,88 @@ export default function Student() {
         throw new Error(
           "Cần trình duyệt hỗ trợ MediaRecorder trên HTTPS hoặc localhost.",
         );
-      const s = await navigator.mediaDevices.getUserMedia({
-        video: cameraRequired
-          ? {
-              ...(selectedCamera
-                ? { deviceId: { exact: selectedCamera } }
-                : {}),
-              width: { ideal: 640 },
-              height: { ideal: 480 },
-            }
-          : false,
-        audio: {
-          ...(selectedMic ? { deviceId: { exact: selectedMic } } : {}),
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      });
+      let s: MediaStream;
+      const wantVideo = cameraRequired;
+      try {
+        s = await navigator.mediaDevices.getUserMedia({
+          video: wantVideo
+            ? {
+                ...(selectedCamera
+                  ? { deviceId: { exact: selectedCamera } }
+                  : {}),
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+              }
+            : false,
+          audio: {
+            ...(selectedMic ? { deviceId: { exact: selectedMic } } : {}),
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: { ideal: 1 },
+            sampleRate: { ideal: 16000 },
+          },
+        });
+      } catch (error) {
+        if (bypassCamera && wantVideo) {
+          s = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: {
+              ...(selectedMic ? { deviceId: { exact: selectedMic } } : {}),
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: { ideal: 1 },
+              sampleRate: { ideal: 16000 },
+            },
+          });
+        } else {
+          throw error;
+        }
+      }
       if (generation !== deviceGeneration.current) {
         s.getTracks().forEach((t) => t.stop());
         return;
       }
-      // Desktop records the device tracks directly. Optional gain/RNNoise
-      // processing belongs only to the browser exam flow.
-      if (!window.oralDesktop) {
-        let gain: MicrophoneGain;
-        try {
-          gain = await createMicrophoneGain(s, gainDb);
-        } catch (error) {
+      let gain: MicrophoneGain;
+      try {
+        gain = await createMicrophoneGain(s, gainDb);
+      } catch (error) {
+        s.getTracks().forEach((t) => t.stop());
+        throw error;
+      }
+      if (generation !== deviceGeneration.current) {
+        await gain.close();
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      gainRef.current = gain;
+      try {
+        const filter = await createNoiseFilter(gain.stream, () => {
+          if (generation === deviceGeneration.current) {
+            filterFailures.current++;
+            setFilterError(
+              "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
+            );
+          }
+        });
+        if (generation !== deviceGeneration.current) {
+          await filter.close();
+          await gain.close();
           s.getTracks().forEach((t) => t.stop());
-          throw error;
+          return;
         }
+        filter.setEnabled(denoise);
+        filterRef.current = filter;
+      } catch {
         if (generation !== deviceGeneration.current) {
           await gain.close();
           s.getTracks().forEach((t) => t.stop());
           return;
         }
-        gainRef.current = gain;
-        try {
-          const filter = await createNoiseFilter(gain.stream, () => {
-            if (generation === deviceGeneration.current) {
-              filterFailures.current++;
-              setFilterError(
-                "RNNoise bị lỗi. Tắt lọc nhiễu hoặc kết nối lại mic trước khi ghi âm.",
-              );
-            }
-          });
-          if (generation !== deviceGeneration.current) {
-            await filter.close();
-            await gain.close();
-            s.getTracks().forEach((t) => t.stop());
-            return;
-          }
-          // Browser retains a filtered alternative for STT retries.
-          filter.setEnabled(true);
-          filterRef.current = filter;
-        } catch {
-          if (generation !== deviceGeneration.current) {
-            await gain.close();
-            s.getTracks().forEach((t) => t.stop());
-            return;
-          }
-          setFilterError(
-            "Không tải được RNNoise. Tắt lọc nhiễu để thu bản gốc hoặc kết nối lại mic.",
-          );
-        }
+        setFilterError(
+          "Không tải được RNNoise. Tắt lọc nhiễu để thu bản gốc hoặc kết nối lại mic.",
+        );
       }
       s.getTracks().forEach((t) => {
         t.onended = () => {
@@ -521,24 +575,23 @@ export default function Student() {
       throw new Error(
         "Trình duyệt chưa hỗ trợ định dạng ghi âm. Dùng Chrome hoặc Electron.",
       );
-    if (!window.oralDesktop && denoise && (!filterRef.current || filterError))
+    if (denoise && (!filterRef.current || filterError))
       throw new Error(
         "Lọc nhiễu chưa sẵn sàng. Tắt lọc nhiễu hoặc kết nối lại mic.",
       );
     const attemptId = session.current_attempt.id;
-    const capture = new MediaStream([
-      ...(window.oralDesktop
-        ? stream
-        : gainRef.current?.stream || stream
-      ).getAudioTracks(),
-    ]);
+    const activeAudioStream =
+      denoise && filterRef.current && !filterError
+        ? filterRef.current.stream
+        : gainRef.current?.stream || stream;
+    const capture = new MediaStream(activeAudioStream.getAudioTracks());
     const audioRecorder = new MediaRecorder(
       new MediaStream(capture.getAudioTracks()),
       { mimeType: am },
     );
     const filterVersion = filterFailures.current;
     const cleanRecorder =
-      !window.oralDesktop && filterRef.current && !filterError
+      filterRef.current && !filterError
         ? new MediaRecorder(filterRef.current.stream, { mimeType: am })
         : null;
     const audioChunks: BlobPart[] = [],
@@ -547,8 +600,31 @@ export default function Student() {
       cleanRecorder.ondataavailable = (e) => {
         if (e.data.size) cleanChunks.push(e.data);
       };
+    const recordingKey = crypto.randomUUID();
+    let partSequence = 0;
+    let partWrites = Promise.resolve();
     audioRecorder.ondataavailable = (e) => {
-      if (e.data.size) audioChunks.push(e.data);
+      if (!e.data.size) return;
+      audioChunks.push(e.data);
+      const sequence = partSequence++;
+      partWrites = partWrites
+        .then(() =>
+          saveRecordingPart({
+            id: recordingKey,
+            sequence,
+            attemptId,
+            kind: "AUDIO",
+            blob: e.data,
+            sessionId: session.id,
+            backend: clientBackend?.mode ?? "default",
+            savedAt: Date.now(),
+          }),
+        )
+        .catch(() =>
+          setBackupWarning(
+            "Không lưu được đoạn audio trên máy. Giữ trang mở để bảo toàn bản ghi trong bộ nhớ.",
+          ),
+        );
     };
     const guardRevision = guard.getRevision();
     setStartingRecording(true);
@@ -587,13 +663,39 @@ export default function Student() {
         transcript: "",
         originalText: "",
         confidence: 0,
-        key: crypto.randomUUID(),
+        key: recordingKey,
       };
-      a.sttSource =
-        !window.oralDesktop && denoise && a.filteredAudio
-          ? "filtered"
-          : "original";
+      a.sttSource = denoise && a.filteredAudio ? "filtered" : "original";
       setAnswer(a);
+      const audioToUpload = denoise && a.filteredAudio ? a.filteredAudio : a.audio;
+      const recordedJob: UploadJob = {
+        id: a.key,
+        sessionId: session.id,
+        backend: clientBackend?.mode ?? "default",
+        attemptId,
+        kind: "AUDIO",
+        blob: audioToUpload,
+        progress: 0,
+        status: "pending",
+      };
+      answerUploads.current.set(a.key, [recordedJob]);
+      await partWrites;
+      try {
+        const saved = await persistMedia({
+          id: a.key,
+          attemptId,
+          kind: "AUDIO",
+          blob: audioToUpload,
+          savedAt: Date.now(),
+          sessionId: session.id,
+          backend: clientBackend?.mode ?? "default",
+        });
+        if (saved) await deleteRecordingParts(a.key);
+      } catch {
+        setError(
+          "Không lưu được bản sao audio trên máy. Giữ trang mở và nộp ngay khi có mạng.",
+        );
+      }
       if (serverProcessing) {
         setProcessing(false);
         setError("");
@@ -651,6 +753,9 @@ export default function Student() {
     return timing;
   }
   async function runUpload(job: UploadJob) {
+    if (job.backend !== (clientBackend?.mode ?? "default"))
+      throw new Error("Chuyển về đúng server của bản ghi trước khi tải lại.");
+    if (job.status === "uploading") return false;
     const update = (patch: Partial<UploadJob>) => {
       Object.assign(job, patch);
       for (const item of screenJobs.current.values())
@@ -661,19 +766,40 @@ export default function Student() {
     };
     update({ status: "uploading", error: undefined });
     try {
-      const init = await send<{
+      await persistMedia({
+        id: job.id,
+        attemptId: job.attemptId,
+        kind: job.kind,
+        blob: job.blob,
+        // eslint-disable-next-line react-hooks/purity -- Upload handler runs after a user action, never during render.
+        savedAt: Date.now(),
+        sessionId: job.sessionId,
+        backend: job.backend,
+        submission: job.submission,
+      });
+      if (job.submission) {
+        await mediaRequest(`/question-attempts/${job.attemptId}/submit`, {
+          method: "POST",
+          body: JSON.stringify(job.submission.payload),
+          headers: { "Idempotency-Key": job.submission.key },
+        });
+      }
+      const init = await mediaRequest<{
         id: string;
         chunk_size: number;
         status: string;
       }>("/uploads/init", {
-        attempt_id: job.attemptId,
-        kind: job.kind,
-        mime_type: job.blob.type,
-        size: job.blob.size,
-        sha256: await hash(job.blob),
+        method: "POST",
+        body: JSON.stringify({
+          attempt_id: job.attemptId,
+          kind: job.kind,
+          mime_type: job.blob.type,
+          size: job.blob.size,
+          sha256: await hash(job.blob),
+        }),
       });
       if (init.status !== "COMPLETED") {
-        const state = await api<{ received_chunks: number[] }>(
+        const state = await mediaRequest<{ received_chunks: number[] }>(
           `/uploads/${init.id}/status`,
         );
         const count = Math.ceil(job.blob.size / init.chunk_size);
@@ -684,33 +810,89 @@ export default function Student() {
               (i + 1) * init.chunk_size,
             );
             const checksum = await hash(part);
-            let last: unknown;
-            for (let retry = 0; retry < 3; retry++) {
-              try {
-                await api(`/uploads/${init.id}/chunks/${i}`, {
-                  method: "PUT",
-                  body: part,
-                  headers: { "X-Chunk-Sha256": checksum },
-                });
-                last = null;
-                break;
-              } catch (e) {
-                last = e;
-                await new Promise((r) => setTimeout(r, 500 * 2 ** retry));
-              }
-            }
-            if (last) throw last;
+            await mediaRequest(`/uploads/${init.id}/chunks/${i}`, {
+              method: "PUT",
+              body: part,
+              headers: { "X-Chunk-Sha256": checksum },
+            });
           }
           update({ progress: Math.round(((i + 1) / count) * 95) });
         }
-        await send(`/uploads/${init.id}/complete`);
+        await mediaRequest(`/uploads/${init.id}/complete`, { method: "POST" });
       }
+      await deleteMediaBackup(job.id).catch(() => {});
+      await deleteRecordingParts(job.id).catch(() => {});
       update({ status: "done", progress: 100 });
       return true;
     } catch (e) {
       update({ status: "failed", error: errorText(e) });
       return false;
     }
+  }
+  async function restoreMedia() {
+    if (!session) return;
+    const backups = await listMediaBackups(
+      session.id,
+      clientBackend?.mode ?? "default",
+    );
+    const partials = await listPartialRecordings(
+      session.id,
+      clientBackend?.mode ?? "default",
+    );
+    for (const partial of partials)
+      if (!backups.some((row) => row.id === partial.id)) backups.push(partial);
+    const draft = backups.find(
+      (row) =>
+        !row.submission &&
+        row.kind === "AUDIO" &&
+        row.attemptId === session.current_attempt?.id,
+    );
+    if (draft && !answer) {
+      setAnswer({
+        attemptId: draft.attemptId,
+        audio: draft.blob,
+        filteredAudio: null,
+        sttSource: "original",
+        transcript: "",
+        originalText: "",
+        confidence: 0,
+        key: draft.id,
+      });
+      answerUploads.current.set(draft.id, [
+        {
+          id: draft.id,
+          sessionId: draft.sessionId,
+          backend: draft.backend,
+          attemptId: draft.attemptId,
+          kind: "AUDIO",
+          blob: draft.blob,
+          progress: 0,
+          status: "pending",
+        },
+      ]);
+    }
+    const recovered: UploadJob[] = backups
+      .filter(
+        (row) =>
+          (row.kind === "SCREEN" || !!row.submission) &&
+          !jobs.some((job) => job.id === row.id),
+      )
+      .map((row) => ({
+        id: row.id,
+        sessionId: row.sessionId,
+        backend: row.backend,
+        attemptId: row.attemptId,
+        kind: row.kind,
+        blob: row.blob,
+        submission: row.submission,
+        progress: 0,
+        status: "failed",
+        error:
+          "Bản ghi lưu trên máy, chưa xác nhận tải lên. Bấm Tải lại khi có mạng.",
+      }));
+    setJobs((all) => [...all, ...recovered]);
+    if (!backups.length)
+      setError("Không có bản ghi chờ tải cho phiên thi này trên trình duyệt.");
   }
   async function submit(pendingAnswer = answer, automatic = false) {
     const answer = pendingAnswer;
@@ -726,6 +908,57 @@ export default function Student() {
     if (!answer.audio.size) throw new Error("Media rỗng. Vui lòng ghi âm lại.");
     setSubmitting(true);
     try {
+      const rawJobs: UploadJob[] = answerUploads.current.get(answer.key) ?? [
+        {
+          id: answer.key,
+          sessionId: session.id,
+          backend: clientBackend?.mode ?? "default",
+          attemptId: answer.attemptId,
+          kind: "AUDIO",
+          blob: answer.audio,
+          progress: 0,
+          status: "pending",
+        },
+      ];
+      const savedPayload = {
+        transcript: serverProcessing ? "" : answer.transcript,
+        stt_confidence: serverProcessing
+          ? null
+          : answer.transcript === answer.originalText
+            ? answer.confidence
+            : 0,
+        ...(serverProcessing ? { processing_mode: "server_audio" } : {}),
+        ...(answer.sttSkippedReason
+          ? { stt_skipped_reason: answer.sttSkippedReason }
+          : {}),
+      };
+      const added = rawJobs.map((job) => ({
+        ...job,
+        submission: { key: answer.key, payload: savedPayload },
+      }));
+      answerUploads.current.set(answer.key, added);
+      const currentJobs = added;
+      setJobs((all) => [
+        ...all.map(
+          (job) => currentJobs.find((item) => item.id === job.id) ?? job,
+        ),
+        ...currentJobs.filter(
+          (job) => !all.some((existing) => existing.id === job.id),
+        ),
+      ]);
+      for (const job of added) {
+        await persistMedia({
+          id: job.id,
+          attemptId: job.attemptId,
+          kind: job.kind,
+          blob: job.blob,
+          // eslint-disable-next-line react-hooks/purity -- Submit handler timestamp is captured at submission time.
+          savedAt: Date.now(),
+          sessionId: session.id,
+          backend: clientBackend?.mode ?? "default",
+          submission: job.submission,
+        });
+      }
       const confidence =
         answer.transcript === answer.originalText ? answer.confidence : 0;
       await api(`/question-attempts/${answer.attemptId}/submit`, {
@@ -740,20 +973,6 @@ export default function Student() {
         }),
         headers: { "Idempotency-Key": answer.key },
       });
-      let added = answerUploads.current.get(answer.key);
-      if (!added) {
-        added = (["AUDIO"] as const).map((kind) => ({
-          id: crypto.randomUUID(),
-          attemptId: answer.attemptId,
-          kind,
-          blob: answer.audio,
-          progress: 0,
-          status: "pending",
-        }));
-        answerUploads.current.set(answer.key, added);
-        const newJobs = added;
-        setJobs((all) => [...all, ...newJobs]);
-      }
       setError("");
       if (automatic) {
         const uploaded = await Promise.all(
@@ -772,6 +991,17 @@ export default function Student() {
         setAnswer(null);
         answerUploads.current.delete(answer.key);
       }
+    } catch (error) {
+      const pending = answerUploads.current.get(answer.key) ?? [];
+      for (const job of pending)
+        if (job.status !== "done") {
+          job.status = "failed";
+          job.error = errorText(error);
+        }
+      setJobs((all) =>
+        all.map((job) => pending.find((item) => item.id === job.id) ?? job),
+      );
+      throw error;
     } finally {
       setSubmitting(false);
     }
@@ -806,6 +1036,8 @@ export default function Student() {
     const existing = screenJobs.current.get(blob);
     if (existing) return existing;
     const job: UploadJob = {
+      sessionId: session!.id,
+      backend: clientBackend?.mode ?? "default",
       id: crypto.randomUUID(),
       attemptId,
       kind: "SCREEN",
@@ -927,6 +1159,12 @@ export default function Student() {
                     {e.closes_at
                       ? new Date(e.closes_at * 1000).toLocaleString("vi-VN")
                       : "—"}
+                  </p>
+                )}
+                {e.entry_open === false && (
+                  <p role="status">
+                    Kỳ thi đã đóng vào thi mới. Phiên đã bắt đầu vẫn được tiếp
+                    tục.
                   </p>
                 )}
                 <Action action={() => openExam(e.id)}>
@@ -1125,51 +1363,48 @@ export default function Student() {
                       : "Cho phép truy cập microphone; lượt thi này không yêu cầu camera."}
                   </li>
                   <li>Kiểm tra thiết bị và thanh tín hiệu microphone.</li>
-                  {!desktopSpeech.desktop && (
-                    <li>
-                      Kiểm tra độ ồn, tìm chỗ yên lặng nếu được nhắc hoặc chọn
-                      bỏ qua.
-                    </li>
-                  )}
+                  <li>
+                    Kiểm tra độ ồn, thu âm thử để nghe lại microphone và xác nhận âm thanh rõ ràng.
+                  </li>
                   {cameraRequired && (
                     <li>Camera chỉ ghi khi bạn bấm “Bắt đầu trả lời”.</li>
                   )}
                 </ol>
                 <p className="muted">
                   Audio từng câu và video màn hình (khi bật) được lưu để giảng
-                  viên xem lại. Chưa hỗ trợ khôi phục bản ghi khi đóng ứng dụng;
-                  giữ cửa sổ mở đến khi nộp bài thành công.
+                  viên xem lại. Audio được lưu từng đoạn trên máy để hỗ trợ khôi
+                  phục. Giữ cửa sổ mở đến khi nộp thành công; đóng ứng dụng có
+                  thể mất phần audio chưa kịp lưu.
                 </p>
-                {!desktopSpeech.desktop && (
-                  <>
-                    <label className="check">
-                      <input
-                        type="checkbox"
-                        checked={denoise}
-                        onChange={(event) => {
-                          setDenoise(event.target.checked);
-                        }}
-                      />
-                      Lọc nhiễu RNNoise khi nhận dạng câu trả lời
-                    </label>
-                    {filterError && (
-                      <p role="alert" className="error">
-                        {filterError}
-                      </p>
-                    )}
-                    <p className="muted">
-                      Mặc định STT dùng bản gốc. Audio gốc được giữ để đối
-                      chiếu. Lựa chọn lọc chỉ áp dụng cho audio dùng STT.
+                <>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={denoise}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setDenoise(checked);
+                        filterRef.current?.setEnabled(checked);
+                      }}
+                    />
+                    Lọc tạp âm thông minh RNNoise (loại bỏ tiếng quạt, bàn phím, tiếng ồn xung quanh)
+                  </label>
+                  {filterError && (
+                    <p role="alert" className="error">
+                      {filterError}
                     </p>
-                    {stream && !deviceError && (
-                      <NoiseCheck
-                        key={`${stream.id}:${gainDb}`}
-                        stream={stream}
-                        gainDb={gainDb}
-                        onReady={setNoiseReady}
-                      />
-                    )}
-                  </>
+                  )}
+                  <p className="muted">
+                    Khuyên dùng bật lọc nhiễu RNNoise để giọng nói thu vào trong trẻo, không bị dính tạp âm khi thi.
+                  </p>
+                </>
+                {stream && !deviceError && (
+                  <NoiseCheck
+                    key={`${stream.id}:${gainDb}`}
+                    stream={stream}
+                    gainDb={gainDb}
+                    onReady={setNoiseReady}
+                  />
                 )}
                 {desktopSpeech.desktop && !serverProcessing && (
                   <p className="muted">
@@ -1192,11 +1427,88 @@ export default function Student() {
                     nhận.
                   </label>
                 )}
+                {session.entry_open === false && (
+                  <p role="alert">
+                    Kỳ thi đang đóng. Bạn chưa thể bắt đầu; chờ khảo thí mở lại.
+                  </p>
+                )}
+                {(() => {
+                  const reasons: string[] = [];
+                  if (session.entry_open === false)
+                    reasons.push("Kỳ thi đang đóng bởi ban khảo thí.");
+                  if (!stream)
+                    reasons.push("Chưa nhận được microphone/camera (Hãy cho phép quyền truy cập thiết bị).");
+                  if (deviceError)
+                    reasons.push(`Lỗi thiết bị: ${deviceError}`);
+                  if (cameraRequired && !bypassCamera && !faceCheck.ready)
+                    reasons.push("Chưa hoàn tất kiểm tra khuôn mặt.");
+                  if (session.screen_required && !screenConsent)
+                    reasons.push("Chưa tích chọn đồng ý ghi toàn màn hình (ở phía trên).");
+                  if (connecting)
+                    reasons.push("Đang kết nối thiết bị...");
+                  if (displayBusy)
+                    reasons.push("Cấu hình màn hình đang thay đổi.");
+                  if (guard.preparing)
+                    reasons.push("Hệ thống bảo vệ đang chuẩn bị.");
+                  if (processing)
+                    reasons.push("Đang xử lý dữ liệu.");
+
+                  if (reasons.length === 0) return null;
+
+                  return (
+                    <div
+                      style={{
+                        marginBottom: "0.75rem",
+                        padding: "0.6rem 0.85rem",
+                        backgroundColor: "#fffbeb",
+                        border: "1px solid #fde68a",
+                        borderRadius: "6px",
+                        fontSize: "0.85rem",
+                        color: "#92400e",
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
+                        ⚠️ Chưa thể bắt đầu thi do:
+                      </div>
+                      <ul style={{ margin: "0.25rem 0 0 1.25rem", padding: 0 }}>
+                        {reasons.map((r, i) => (
+                          <li key={i}>{r}</li>
+                        ))}
+                      </ul>
+                      {cameraRequired && !bypassCamera && !faceCheck.ready && (
+                        <button
+                          type="button"
+                          className="button-link"
+                          style={{
+                            marginTop: "0.5rem",
+                            display: "inline-block",
+                            padding: "4px 10px",
+                            backgroundColor: "#fef3c7",
+                            border: "1px solid #d97706",
+                            borderRadius: "4px",
+                            color: "#b45309",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            setBypassCamera(true);
+                            try {
+                              localStorage.setItem("oral_bypass_camera", "true");
+                            } catch {}
+                          }}
+                        >
+                          ⚡ Bấm vào đây để bỏ qua kiểm tra camera
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
                 <Action
                   disabled={
+                    session.entry_open === false ||
                     !stream ||
+                    (cameraRequired && !bypassCamera && !faceCheck.ready) ||
                     !!deviceError ||
-                    (!desktopSpeech.desktop && !noiseReady) ||
                     connecting ||
                     displayBusy ||
                     guard.preparing ||
@@ -1204,6 +1516,10 @@ export default function Student() {
                     (session.screen_required && !screenConsent)
                   }
                   action={async () => {
+                    if (cameraRequired && !bypassCamera && !faceCheck.ready)
+                      throw new Error(
+                        "Hoàn tất kiểm tra khuôn mặt trước khi bắt đầu.",
+                      );
                     if (
                       window.oralDesktop?.beginExam ||
                       session.screen_required ||
@@ -1418,8 +1734,7 @@ export default function Student() {
                             setProcessing(true);
                             try {
                               const audio =
-                                !window.oralDesktop &&
-                                answer.sttSource === "filtered"
+                                answer.sttSource === "filtered" && answer.filteredAudio
                                   ? answer.filteredAudio
                                   : answer.audio;
                               if (!audio)
@@ -1517,6 +1832,52 @@ export default function Student() {
                       Chưa kết nối camera
                     </span>
                   )}
+                </div>
+              )}
+              {cameraRequired && (
+                <div style={{ margin: "0.5rem 0" }}>
+                  <p role="status" style={{ margin: 0 }}>
+                    Khung mặt: {bypassCamera ? "Đã bỏ qua" : `${faceCheck.areaPercent}% ảnh`} ·{" "}
+                    {bypassCamera
+                      ? "Đã bật chế độ bỏ qua kiểm tra camera cho thử nghiệm."
+                      : stream
+                        ? faceCheck.message
+                        : "Kết nối camera để bắt đầu kiểm tra."}
+                    {!bypassCamera && faceCheck.eyeHint && (
+                      <>
+                        <br />
+                        {faceCheck.eyeHint}
+                      </>
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    className="button-link"
+                    style={{
+                      fontSize: "0.82rem",
+                      marginTop: "0.35rem",
+                      padding: "4px 10px",
+                      cursor: "pointer",
+                      borderRadius: "6px",
+                      border: bypassCamera ? "1px solid #f59e0b" : "1px dashed #64748b",
+                      backgroundColor: bypassCamera ? "#fef3c7" : "#f1f5f9",
+                      color: bypassCamera ? "#b45309" : "#334155",
+                      fontWeight: 500,
+                    }}
+                    onClick={() => {
+                      setBypassCamera((prev) => {
+                        const next = !prev;
+                        try {
+                          localStorage.setItem("oral_bypass_camera", String(next));
+                        } catch {}
+                        return next;
+                      });
+                    }}
+                  >
+                    {bypassCamera
+                      ? "✓ Đang bỏ qua kiểm tra camera (Nhấn để bật lại)"
+                      : "⚡ Bỏ qua kiểm tra camera (Dành cho thử nghiệm)"}
+                  </button>
                 </div>
               )}
               <div className="mic-meter">
@@ -1670,6 +2031,18 @@ export default function Student() {
                 <UploadCloud size={18} />
                 Minh chứng
               </h3>
+              {backupWarning && (
+                <p role="alert" className="error">
+                  {backupWarning}
+                </p>
+              )}
+              <Action className="button secondary" action={restoreMedia}>
+                Khôi phục bản ghi chờ tải trên máy
+              </Action>
+              <p className="muted">
+                Khi mất mạng, giữ trang thi mở. Bản ghi đã lưu trên máy có thể
+                tải lại khi kết nối trở lại; thời gian thi vẫn tiếp tục.
+              </p>
               {!jobs.length ? (
                 <p className="muted">
                   Chỉ audio được tải lên sau mỗi câu. Video màn hình được lưu

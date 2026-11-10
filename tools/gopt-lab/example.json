@@ -1,0 +1,9 @@
+{
+  "cases": [
+    {"name": "Cả câu - transcript đúng", "audio": "sentence.wav", "transcript": "I like coffee"},
+    {"name": "Cả câu - transcript thay đổi", "audio": "sentence.wav", "transcript": "I like tea"},
+    {"name": "Từ I", "audio": "word-i.wav", "transcript": "I"},
+    {"name": "Từ like", "audio": "word-like.wav", "transcript": "like"},
+    {"name": "Từ coffee", "audio": "word-coffee.wav", "transcript": "coffee"}
+  ]
+}

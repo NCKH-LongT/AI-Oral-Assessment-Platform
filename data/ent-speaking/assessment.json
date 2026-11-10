@@ -11,7 +11,7 @@
       },
       {
         "name": "Pronunciation",
-        "description": "0 - below 0.6 — Insufficient evidence: Pronunciation makes it impossible to understand speech. Or speaks nothing.\n0.6 - below 1 — Attempt made: Speech is a little hard to be understood due to lots of errors in pronunciation.\n1 - below 1.6 — Meets standard: Speaks with a clear voice but still in L1 accent. Speech is understandable. Some errors in word pronunciation, stress and sentence intonation may be found.\n1.6 - 2 — Exceeds standard: Speaks with a clear voice and near-native pronunciation, stress and intonation. L1 accent has minimal effects.",
+        "description": "Chấm phát âm và âm học trực tiếp qua HuBERT & Audio QA từ âm thanh gốc (độ chính xác âm vị, độ trôi chảy WPM, ngữ điệu prosody, tỉ số SNR và chống clipping). Thang điểm chuẩn hóa:\n0 - below 0.6 — Insufficient evidence: Phát âm không nghe được hoặc micro lỗi (tự động chuyển GV chấm lại nếu Audio QA = POOR).\n0.6 - below 1 — Attempt made: Phát âm còn nhiều lỗi âm vị, ngập ngừng, khó theo dõi.\n1 - below 1.6 — Meets standard: Phát âm rõ ràng, hiểu được dù còn âm hưởng L1 accent; một số lỗi nhỏ về trọng âm và ngữ điệu câu.\n1.6 - 2 — Exceeds standard: Phát âm chuẩn xác, ngữ điệu tự nhiên, trôi chảy lưu loát, gần chuẩn bản xứ.",
         "max_score": 2,
         "weight": 1
       },
@@ -35,7 +35,7 @@
       }
     ]
   },
-  "policy": "Ghi chú triển khai (không phải nguyên văn nguồn): 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Điểm tự động từng câu/trung bình các câu của app không tương đương điểm rubric tổng thể. Giảng viên cần nghe audio để chấm Pronunciation và khía cạnh ngập ngừng/nhịp nói của Fluency; không suy ra từ transcript. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất. LO và expected_concepts do người nhập biên soạn để tổ chức dữ liệu, không phải chuẩn đầu ra/đáp án chính thức của tài liệu. Difficulty MEDIUM là mặc định kỹ thuật, không quy đổi trình độ CEFR.",
+  "policy": "Ghi chú triển khai: 5 tiêu chí x 2 điểm = 10 điểm cho toàn bộ phần thể hiện của từng sinh viên. Hệ thống tích hợp HuBERT và Audio QA tự động chấm âm học tiêu chí Pronunciation từ audio gốc và tính WPM cho Fluency; tự động bảo vệ sinh viên khi mic lỗi. Giảng viên thẩm định lại khi có cờ WARNING hoặc POOR. Bộ nhập chỉ tạo bản nháp chờ duyệt, chưa giao lịch thi. Các câu hỏi mở không có một đáp án nội dung duy nhất.",
   "rubric_source": {
     "filename": "Speaking Rubric.xlsx",
     "sha256": "d6a5432eb2d5fba0cb29b6f6493792f2aa21c4fad32c60852e2456430b6b445b"

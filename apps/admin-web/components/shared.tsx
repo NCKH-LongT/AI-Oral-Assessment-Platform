@@ -15,6 +15,7 @@ const labels: Record<string, string> = {
   GENERATED: "Chờ giảng viên duyệt",
   TEACHER_APPROVED: "Chờ khảo thí kiểm tra",
   PUBLISHED: "Đã công bố",
+  CLOSED: "Đã đóng",
   READY: "Sẵn sàng",
   PENDING: "Đang xử lý",
   FAILED: "Có lỗi",

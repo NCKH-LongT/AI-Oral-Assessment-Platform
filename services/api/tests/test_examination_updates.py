@@ -13,6 +13,7 @@ def test_published_roster_manual_excel_and_schedule_preserve_existing(env):
     ok(import_roster(office, key))
     approve_and_schedule(clients, key)
     sitting = ok(clients["student"].post("/exam-sessions", json={"exam_id": key}))
+    ok(clients["student"].post(f"/exam-sessions/{sitting['id']}/start"))
     before = ok(office.get(f"/admin/exams/{key}/roster"))[0]
     with factory() as db:
         snapshot = db.get(Exam, key).snapshot
@@ -64,3 +65,28 @@ def test_roster_results_hide_deleted_sessions_and_respect_permissions(env):
         db.get(ExamSession, sitting["id"]).deleted_at = time.time()
         db.commit()
     assert ok(clients["admin"].get(endpoint))[0]["sessions"] == []
+
+
+def test_exam_list_counts_participants_and_real_non_deleted_sittings(env):
+    clients, factory, key, _ = setup_workflow(env)
+    ok(import_roster(clients["reviewer"], key))
+    approve_and_schedule(clients, key)
+    sitting = ok(clients["student"].post("/exam-sessions", json={"exam_id": key}))
+
+    def counts():
+        return next(row for row in ok(clients["teacher"].get("/admin/examination/exams")) if row["id"] == key)
+
+    assert counts()["participant_count"] == 1
+    assert counts()["sitting_count"] == 0  # Device check isn't an exam sitting yet.
+    with factory() as db:
+        row = db.get(ExamSession, sitting["id"])
+        row.status = "COMPLETED"
+        db.add(ExamSession(exam_id=key, student_id=row.student_id, status="IN_PROGRESS", attempt_number=2))
+        db.commit()
+    assert counts()["sitting_count"] == 2
+    assert len(ok(clients["teacher"].get(f"/admin/exams/{key}/roster"))[0]["sessions"]) == 2
+    with factory() as db:
+        db.get(ExamSession, sitting["id"]).deleted_at = time.time()
+        db.commit()
+    assert counts()["sitting_count"] == 1
+    assert clients["student"].get("/admin/examination/exams").status_code == 403

@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
@@ -66,3 +67,34 @@ def stt(
     if not result["transcript"]:
         fail(422, "NO_SPEECH", "Không nhận diện được lời nói. Vui lòng ghi âm lại.")
     return result
+
+
+@router.post("/speech/test-pronunciation")
+async def test_pronunciation(
+    audio: UploadFile = File(...),
+    transcript: str = Form(default="I am ready for the English oral assessment."),
+):
+    """Test endpoint for audio QA and HuBERT pronunciation evaluation."""
+    cfg = settings()
+    content = await audio.read()
+    if not content or len(content) > 30 * 1024 * 1024:
+        fail(413, "AUDIO_SIZE", "Audio test phải dưới 30 MB")
+
+    # 1. Forward to GOPT / HuBERT service if available
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                cfg.gopt_url.rstrip("/") + "/assess",
+                data={"transcript": transcript},
+                files={"audio": ("audio.webm", content, audio.content_type or "audio/webm")},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                data["backend_source"] = "gopt_service"
+                return data
+    except Exception:
+        pass
+
+    # 2. Dynamic acoustic and phonetic evaluation via local HuBERT / Whisper / Audio QA engine
+    from .pronunciation_eval import evaluate_pronunciation
+    return evaluate_pronunciation(content, transcript)

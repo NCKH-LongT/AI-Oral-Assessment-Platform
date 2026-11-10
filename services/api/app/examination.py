@@ -4,7 +4,7 @@ import time
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import Response
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from . import ai
@@ -12,6 +12,7 @@ from .db import get_db
 from .exam_generation import build_snapshot
 from .examination_schemas import (
     CommissionIn,
+    DraftQuestion,
     DraftReviewIn,
     HotwordsIn,
     ManualGradeIn,
@@ -20,7 +21,9 @@ from .examination_schemas import (
     ScheduleIn,
     TeacherIn,
 )
+from datetime import datetime
 from .excel import parse_roster, template_bytes, workbook_bytes
+from .speaking_export import generate_speaking_xlsx, generate_speaking_csv
 from .models import (
     Assignment,
     Attempt,
@@ -38,8 +41,9 @@ from .models import (
     uid,
 )
 from .permissions import has_role, role_filter, teacher_scope
+from .question_rubrics import criteria_for, draft_criteria
 from .runtime_settings import settings
-from .schemas import ReviewIn, RubricIn
+from .schemas import ReviewIn
 from .security import (
     by_id,
     course_access,
@@ -78,6 +82,8 @@ def check_schedule(db, exam, user):
     if not has_role(user, "STUDENT") or not row:
         fail(403, "NOT_ASSIGNED", "Bạn không có tên trong danh sách kỳ thi")
     now = time.time()
+    if exam.status == "CLOSED":
+        fail(409, "EXAM_CLOSED", "Kỳ thi đã đóng vào thi mới. Liên hệ khảo thí để mở lại.")
     if exam.status != "PUBLISHED" or row.opens_at is None or row.closes_at is None or not row.opens_at <= now < row.closes_at:
         fail(409, "OUTSIDE_SCHEDULE", "Chưa đến giờ thi hoặc đã hết thời gian vào thi")
 
@@ -135,9 +141,17 @@ def exam_list(db: Session = Depends(get_db), user=Depends(staff)):
     query = select(Exam, Course).join(Course).where(Exam.workflow.is_(True), Exam.class_id.is_(None))
     if teacher_scope(user):
         query = query.where(visible_exams(user))
+    rows = db.execute(query.order_by(Exam.created_at.desc())).all()
+    ids = [e.id for e, _ in rows]
+    participants = dict(db.execute(select(Assignment.exam_id, func.count(Assignment.id)).where(
+        Assignment.exam_id.in_(ids)).group_by(Assignment.exam_id)).all())
+    sittings = dict(db.execute(select(ExamSession.exam_id, func.count(ExamSession.id)).where(
+        ExamSession.exam_id.in_(ids), ExamSession.deleted_at.is_(None),
+        ExamSession.status != "DEVICE_CHECK").group_by(ExamSession.exam_id)).all())
     return [{"id": e.id, "name": e.name, "status": e.status, "course_id": c.id,
-             "course_name": c.name, "teacher_id": c.owner_id, "imported": bool(e.imported_questions), "time_limit": e.time_limit}
-            for e, c in db.execute(query.order_by(Exam.created_at.desc()))]
+             "course_name": c.name, "teacher_id": c.owner_id, "imported": bool(e.imported_questions), "time_limit": e.time_limit,
+             "participant_count": participants.get(e.id, 0), "sitting_count": sittings.get(e.id, 0)}
+            for e, c in rows]
 
 
 @router.post("/admin/examination/exams", status_code=201)
@@ -299,27 +313,44 @@ def generate(key: str, db: Session = Depends(get_db), user=Depends(editor)):
         fail(409, "DRAFT_REQUIRED", "Trả về bản nháp trước khi sinh lại đề")
     if not exam.blueprint:
         fail(422, "BLUEPRINT_REQUIRED", "Cấu hình chủ đề, số câu và độ khó trong Ngân hàng đề thi")
-    snapshot = build_snapshot(db, exam)
-    if exam.imported_questions:
-        criteria = snapshot["criteria"]
-    elif settings().ai_provider == "demo":
-        criteria = [
-            {"name": "Kiến thức chính xác", "description": "Giải thích đúng các khái niệm và bám tài liệu môn học", "max_score": 10, "weight": 6},
-            {"name": "Lập luận và ví dụ", "description": "Lập luận rõ ràng, ví dụ phù hợp với câu hỏi", "max_score": 10, "weight": 4},
-        ]
-    else:
-        criteria = ai.structured(
-            "Draft an assessment rubric appropriate to the supplied questions and expected concepts. "
-            "Define observable criteria with bounded scores and weights; teacher approval is required.",
-            {"questions": snapshot["questions"]}, RubricIn,
-        ).model_dump()["criteria"]
-    snapshot["criteria"] = criteria
+    snapshot = build_snapshot(db, exam, tailor_rubrics=True)
     snapshot.pop("published_at", None)
     snapshot["generated_at"] = time.time()
     exam.snapshot, exam.status, exam.workflow = snapshot, "GENERATED", True
     audit(db, user, "EXAM_DRAFT_GENERATED", exam_id=key)
     db.commit()
     return {"status": exam.status, "snapshot": exam.snapshot}
+
+
+@router.post("/admin/exams/{key}/questions/{position}/rubric-preview")
+def preview_rubric(key: str, position: int, body: DraftQuestion,
+                   db: Session = Depends(get_db), user=Depends(editor)):
+    from .grading import GradingError, check_config
+
+    exam = scoped_exam(db, key, user)
+    if exam.status != "GENERATED" or not exam.snapshot:
+        fail(409, "DRAFT_REQUIRED", "Chỉ gợi ý rubric cho bản nháp chưa duyệt")
+    if not 1 <= position <= len(exam.snapshot["questions"]):
+        fail(422, "QUESTION_INDEX", "Câu hỏi không thuộc đề")
+    try:
+        check_config(exam)
+    except GradingError as exc:
+        fail(409, exc.code, str(exc))
+    original = exam.snapshot["questions"][position - 1]
+    allowed = set(exam.snapshot["topic_chunk_ids"].get(original["topic_id"], []))
+    if not set(body.reference_chunk_ids) <= allowed:
+        fail(422, "INVALID_EVIDENCE", "Nguồn tham chiếu phải thuộc phạm vi tài liệu của câu hỏi")
+    evidence = ai.retrieve_frozen(db, exam.course_id, body.text, exam.snapshot["document_ids"],
+                                 set(body.reference_chunk_ids))
+    if not evidence:
+        fail(409, "NO_EVIDENCE", "Câu hỏi chưa có tài liệu tham chiếu hợp lệ")
+    question = original | body.model_dump(exclude_unset=True)
+    criteria = draft_criteria(question, criteria_for(exam.snapshot, original), evidence,
+                              exam.snapshot.get("topic_mappings", {}).get(original["topic_id"], {}).get("outcomes"))
+    audit(db, user, "QUESTION_RUBRIC_PREVIEWED", exam_id=key, position=position)
+    db.commit()
+    return {"criteria": criteria, "review_required": True,
+            "demo": settings().ai_provider == "demo"}
 
 
 @router.put("/admin/exams/{key}/draft")
@@ -335,8 +366,13 @@ def edit_draft(key: str, body: DraftReviewIn, db: Session = Depends(get_db), use
         allowed = set(exam.snapshot["topic_chunk_ids"].get(old["topic_id"], []))
         if not set(question.reference_chunk_ids) <= allowed:
             fail(422, "INVALID_EVIDENCE", "Nguồn tham chiếu phải thuộc phạm vi tài liệu của câu hỏi")
-        questions.append(old | question.model_dump())
-    exam.snapshot = exam.snapshot | {"questions": questions, "criteria": [c.model_dump() for c in body.criteria]}
+        if "criteria" in question.model_fields_set and question.criteria is None:
+            fail(422, "QUESTION_RUBRIC_REQUIRED", "Rubric riêng không được để trống")
+        updated = old | question.model_dump(exclude_unset=True)
+        updated["criteria"] = criteria_for({"criteria": [c.model_dump() for c in body.criteria]},
+                                           updated)
+        questions.append(updated)
+    exam.snapshot = exam.snapshot | {"questions": questions, "criteria": [c.model_dump() for c in body.criteria], "question_rubric_version": 1}
     audit(db, user, "EXAM_DRAFT_EDITED", exam_id=key)
     db.commit()
     return {"status": exam.status}
@@ -347,6 +383,8 @@ def teacher_approve(key: str, db: Session = Depends(get_db), user=Depends(editor
     exam = scoped_exam(db, key, user)
     if exam.status != "GENERATED":
         fail(409, "DRAFT_REQUIRED", "Sinh và kiểm tra câu hỏi/rubric trước khi duyệt")
+    for question in exam.snapshot["questions"]:
+        criteria_for(exam.snapshot, question)
     exam.snapshot = exam.snapshot | {"teacher_approved_by": user.id, "teacher_approved_at": time.time()}
     exam.status = "TEACHER_APPROVED"
     audit(db, user, "EXAM_TEACHER_APPROVED", exam_id=key)
@@ -368,7 +406,7 @@ def return_draft(key: str, body: ReviewIn, db: Session = Depends(get_db), user=D
 @router.put("/admin/exams/{key}/schedule")
 def schedule(key: str, body: ScheduleIn, db: Session = Depends(get_db), user=Depends(exam_officer)):
     exam = scoped_exam(db, key, user)
-    if exam.status not in {"TEACHER_APPROVED", "PUBLISHED"}:
+    if exam.status not in {"TEACHER_APPROVED", "PUBLISHED", "CLOSED"}:
         fail(409, "APPROVAL_REQUIRED", "Xếp lịch sau khi giảng viên duyệt đề")
     if body.closes_at - body.opens_at < exam.time_limit or body.closes_at <= time.time():
         fail(422, "SCHEDULE_LENGTH", "Khoảng thi phải đủ thời lượng bài thi và chưa kết thúc")
@@ -378,8 +416,9 @@ def schedule(key: str, body: ScheduleIn, db: Session = Depends(get_db), user=Dep
         fail(422, "NOT_ASSIGNED", "Sinh viên chưa có trong danh sách kỳ thi")
     if db.scalar(select(ExamSession.id).where(
         ExamSession.exam_id == key, ExamSession.student_id.in_(ids), ExamSession.deleted_at.is_(None),
+        or_(ExamSession.started_at.is_not(None), ExamSession.status != "DEVICE_CHECK"),
     ).limit(1)):
-        fail(409, "SCHEDULE_LOCKED", "Không đổi lịch sinh viên đã tạo phiên thi; chỉ chọn sinh viên chưa thi")
+        fail(409, "SCHEDULE_LOCKED", "Không đổi lịch sinh viên đã bắt đầu thi; chỉ chọn sinh viên chưa bắt đầu")
     for row in rows:
         row.opens_at, row.closes_at = body.opens_at, body.closes_at
     audit(db, user, "EXAM_SCHEDULED", exam_id=key, student_ids=sorted(ids), opens_at=body.opens_at, closes_at=body.closes_at)
@@ -399,6 +438,32 @@ def office_approve(key: str, db: Session = Depends(get_db), user=Depends(exam_of
     exam.snapshot = exam.snapshot | {"office_approved_by": user.id, "published_at": time.time()}
     exam.status = "PUBLISHED"
     audit(db, user, "EXAM_OFFICE_APPROVED", exam_id=key)
+    db.commit()
+    return {"status": exam.status}
+
+
+@router.post("/admin/exams/{key}/close")
+def close_exam(key: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    exam = scoped_exam(db, key, user)
+    if exam.status == "CLOSED":
+        return {"status": exam.status}
+    if exam.status != "PUBLISHED":
+        fail(409, "INVALID_STATE", "Chỉ đóng kỳ thi đang mở")
+    exam.status = "CLOSED"
+    audit(db, user, "EXAM_CLOSED", exam_id=key)
+    db.commit()
+    return {"status": exam.status}
+
+
+@router.post("/admin/exams/{key}/reopen")
+def reopen_exam(key: str, db: Session = Depends(get_db), user=Depends(exam_officer)):
+    exam = scoped_exam(db, key, user)
+    if exam.status == "PUBLISHED":
+        return {"status": exam.status}
+    if exam.status != "CLOSED":
+        fail(409, "INVALID_STATE", "Chỉ mở lại kỳ thi đã đóng")
+    exam.status = "PUBLISHED"
+    audit(db, user, "EXAM_REOPENED", exam_id=key)
     db.commit()
     return {"status": exam.status}
 
@@ -441,3 +506,140 @@ def export_grades(key: str, db: Session = Depends(get_db), user=Depends(exam_off
     db.commit()
     return Response(workbook_bytes(["student_number", "email", "full_name", "attempt", "status", "ai_score", "final_score", "review_reason"], rows, "Grades"),
                     media_type=XLSX, headers={"Content-Disposition": 'attachment; filename="exam-grades.xlsx"'})
+
+
+
+def get_speaking_roster_data(db: Session, exam_id: str, exam, user):
+    course = by_id(db, Course, exam.course_id) if exam.course_id else None
+    teacher_user = by_id(db, User, course.owner_id) if course and course.owner_id else None
+    teacher_name = teacher_user.name if teacher_user else (user.name if user else "")
+
+    meta = {
+        "subject_code": course.code if course else (exam.name or "ENTs"),
+        "teacher": teacher_name,
+        "date": datetime.now().strftime("%d/%m/%Y"),
+        "time": datetime.now().strftime("%H:%M"),
+    }
+
+    students = []
+    for assignment, learner in db.execute(
+        select(Assignment, User).join(User).where(Assignment.exam_id == exam_id).order_by(User.name)
+    ):
+        sessions = db.scalars(
+            select(ExamSession)
+            .where(ExamSession.exam_id == exam_id, ExamSession.student_id == learner.id, ExamSession.deleted_at.is_(None))
+            .order_by(ExamSession.attempt_number.desc())
+        ).all()
+
+        session = sessions[0] if sessions else None
+        ideas = pron = gram = vocab = fluency = None
+        total = None
+        note = "Chưa thi"
+
+        if session:
+            if session.status == "COMPLETED":
+                note = (session.manual_review or {}).get("reason") or "Đã hoàn thành"
+            elif session.status == "REVIEW_REQUIRED":
+                note = "Chờ duyệt điểm"
+            elif session.status == "SUBMITTED":
+                note = "Đang xử lý"
+            elif session.status == "IN_PROGRESS":
+                note = "Đang thi"
+            else:
+                note = session.status
+
+            total = session.final_score if session.final_score is not None else session.ai_score
+
+            attempts = db.scalars(
+                select(Attempt)
+                .where(Attempt.session_id == session.id)
+                .order_by(Attempt.sequence)
+            ).all()
+
+            ideas_list, pron_list, gram_list, vocab_list, flu_list = [], [], [], [], []
+            for att in attempts:
+                assess = att.assessment or {}
+                for crit in assess.get("criteria", []):
+                    cname = (crit.get("name") or "").lower()
+                    score = crit.get("score")
+                    if score is None:
+                        continue
+                    max_s = crit.get("max_score") or 2
+                    norm_score = (score / max_s) * 2.0 if max_s > 0 else score
+                    norm_score = max(0.0, min(2.0, norm_score))
+
+                    if "idea" in cname:
+                        ideas_list.append(norm_score)
+                    elif "pronunciation" in cname or "phát âm" in cname:
+                        pron_list.append(norm_score)
+                    elif "grammar" in cname or "ngữ pháp" in cname:
+                        gram_list.append(norm_score)
+                    elif "vocab" in cname or "từ vựng" in cname:
+                        vocab_list.append(norm_score)
+                    elif "fluency" in cname or "coherence" in cname or "lưu loát" in cname or "mạch lạc" in cname:
+                        flu_list.append(norm_score)
+
+            if ideas_list:
+                ideas = round(sum(ideas_list) / len(ideas_list), 2)
+            if pron_list:
+                pron = round(sum(pron_list) / len(pron_list), 2)
+            if gram_list:
+                gram = round(sum(gram_list) / len(gram_list), 2)
+            if vocab_list:
+                vocab = round(sum(vocab_list) / len(vocab_list), 2)
+            if flu_list:
+                fluency = round(sum(flu_list) / len(flu_list), 2)
+
+            if total is not None:
+                each = round(total / 5.0, 2)
+                if ideas is None: ideas = each
+                if pron is None: pron = each
+                if gram is None: gram = each
+                if vocab is None: vocab = each
+                if fluency is None: fluency = each
+            elif ideas is not None and pron is not None and gram is not None and vocab is not None and fluency is not None:
+                total = round(ideas + pron + gram + vocab + fluency, 2)
+
+        students.append({
+            "roll_number": assignment.student_number or "",
+            "full_name": learner.name or "",
+            "ideas": ideas,
+            "pronunciation": pron,
+            "grammar": gram,
+            "vocabulary": vocab,
+            "fluency": fluency,
+            "total": total if total is not None else 0,
+            "note": note,
+        })
+
+    return meta, students
+
+
+@router.get("/admin/exams/{key}/speaking-grades.xlsx")
+def export_speaking_grades_xlsx(key: str, db: Session = Depends(get_db), user=Depends(staff)):
+    exam = scoped_exam(db, key, user)
+    meta, students = get_speaking_roster_data(db, key, exam, user)
+    content = generate_speaking_xlsx(meta, students)
+    audit(db, user, "SPEAKING_GRADES_EXPORTED_XLSX", exam_id=key, rows=len(students))
+    db.commit()
+    safe_code = (meta.get("subject_code") or "ENTs").replace(" ", "_").replace("/", "_")
+    return Response(
+        content,
+        media_type=XLSX,
+        headers={"Content-Disposition": f'attachment; filename="Speaking_Scores_{safe_code}.xlsx"'},
+    )
+
+
+@router.get("/admin/exams/{key}/speaking-grades.csv")
+def export_speaking_grades_csv(key: str, db: Session = Depends(get_db), user=Depends(staff)):
+    exam = scoped_exam(db, key, user)
+    meta, students = get_speaking_roster_data(db, key, exam, user)
+    content = generate_speaking_csv(meta, students)
+    audit(db, user, "SPEAKING_GRADES_EXPORTED_CSV", exam_id=key, rows=len(students))
+    db.commit()
+    safe_code = (meta.get("subject_code") or "ENTs").replace(" ", "_").replace("/", "_")
+    return Response(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="Speaking_Scores_{safe_code}.csv"'},
+    )

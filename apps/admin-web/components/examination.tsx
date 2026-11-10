@@ -10,6 +10,8 @@ import ExamDraftReview from "./exam-draft-review";
 import ExamRosterPicker from "./exam-roster-picker";
 
 type ExamRow = {
+  participant_count?: number;
+  sitting_count?: number;
   imported?: boolean;
   id: string;
   name: string;
@@ -48,6 +50,9 @@ export default function Examination({
   const [courses, setCourses] = useState<Course[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+  const [initialPanel, setInitialPanel] = useState<"content" | "roster">(
+    "content",
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -101,6 +106,7 @@ export default function Examination({
           <ExamOperations
             key={exam.id}
             exam={exam}
+            initialPanel={initialPanel}
             courses={courses}
             officer={officer}
             editable={hasRole(user, "ADMIN", "TEACHER")}
@@ -139,6 +145,7 @@ export default function Examination({
                       },
                     );
                     await load();
+                    setInitialPanel("content");
                     setSelected(created.id);
                   }}
                 >
@@ -214,6 +221,7 @@ export default function Examination({
                     Chờ khảo thí kiểm tra
                   </option>
                   <option value="PUBLISHED">Đã công bố</option>
+                  <option value="CLOSED">Đã đóng</option>
                 </select>
               </label>
             </div>
@@ -229,9 +237,26 @@ export default function Examination({
                     </div>
                     <h3>{e.name}</h3>
                     <p>{e.course_name}</p>
+                    <p>
+                      {e.participant_count ?? 0} sinh viên ·{" "}
+                      {e.sitting_count ?? 0} lượt thi
+                    </p>
                     <button
                       className="button secondary"
-                      onClick={() => setSelected(e.id)}
+                      aria-label={`Danh sách thí sinh ${e.name}`}
+                      onClick={() => {
+                        setInitialPanel("roster");
+                        setSelected(e.id);
+                      }}
+                    >
+                      Danh sách thí sinh →
+                    </button>
+                    <button
+                      className="button secondary"
+                      onClick={() => {
+                        setInitialPanel("content");
+                        setSelected(e.id);
+                      }}
                       aria-label={`Mở kỳ thi ${e.name}`}
                     >
                       Mở kỳ thi →
@@ -256,6 +281,7 @@ export default function Examination({
 
 function ExamOperations({
   exam,
+  initialPanel,
   courses,
   officer,
   editable,
@@ -264,6 +290,7 @@ function ExamOperations({
   navigate,
 }: {
   exam: ExamRow;
+  initialPanel: "content" | "roster";
   courses: Course[];
   officer: boolean;
   editable: boolean;
@@ -272,7 +299,7 @@ function ExamOperations({
   navigate: (page: string) => void;
 }) {
   const [activePanel, setActivePanel] = useState<"content" | "roster">(
-    "content",
+    initialPanel,
   );
   const [rosterLoading, setRosterLoading] = useState(true);
   const [roster, setRoster] = useState<Candidate[]>([]);
@@ -281,6 +308,7 @@ function ExamOperations({
   const [selected, setSelected] = useState<string[]>([]);
   const [review, setReview] = useState<Review | null>(null);
   const [completedOnly, setCompletedOnly] = useState(false);
+  const [search, setSearch] = useState("");
   const reviewId = review?.id;
   const openReview = async (id: string) => {
     setReview(await api<Review>(`/admin/results/${id}`));
@@ -318,12 +346,46 @@ function ExamOperations({
       .catch((e) => setError(errorText(e)))
       .finally(() => setRosterLoading(false));
   }, [loadRoster]);
+  useEffect(() => {
+    if (activePanel !== "roster" || reviewId) return;
+    let active = true;
+    let fetching = false;
+    const timer = setInterval(async () => {
+      if (document.hidden || fetching) return;
+      fetching = true;
+      try {
+        const rows = await api<Candidate[]>(`/admin/exams/${exam.id}/roster`);
+        if (active) {
+          setRoster(rows);
+          setSelected((ids) =>
+            ids.filter((id) =>
+              rows.some(
+                (row) => row.student_id === id && !row.sessions?.length,
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (active) setError(errorText(e));
+      } finally {
+        fetching = false;
+      }
+    }, 10000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [activePanel, reviewId, exam.id]);
   const completed = (row: Candidate) =>
     (row.sessions ?? []).some((sitting) =>
       ["SUBMITTED", "REVIEW_REQUIRED", "COMPLETED"].includes(sitting.status),
     );
   const visibleRoster = roster.filter(
-    (row) => !completedOnly || completed(row),
+    (row) =>
+      (!completedOnly || completed(row)) &&
+      `${row.name} ${row.email} ${row.student_number}`
+        .toLocaleLowerCase("vi")
+        .includes(search.trim().toLocaleLowerCase("vi")),
   );
   const schedulable = visibleRoster.filter(
     (row) => !(row.sessions ?? []).length,
@@ -412,7 +474,25 @@ function ExamOperations({
             </Action>
           </>
         )}
-        {["GENERATED", "TEACHER_APPROVED", "PUBLISHED"].includes(
+        {officer && ["PUBLISHED", "CLOSED"].includes(exam.status) && (
+          <div>
+            <p>
+              Đóng kỳ thi sẽ chặn vào thi mới. Phiên đã bắt đầu vẫn được làm hết
+              thời lượng. Mở lại vẫn áp dụng lịch thi đã đặt.
+            </p>
+            <Action
+              action={async () => {
+                await send(
+                  `/admin/exams/${exam.id}/${exam.status === "CLOSED" ? "reopen" : "close"}`,
+                );
+                await refresh();
+              }}
+            >
+              {exam.status === "CLOSED" ? "Mở lại kỳ thi" : "Đóng kỳ thi"}
+            </Action>
+          </div>
+        )}
+        {["GENERATED", "TEACHER_APPROVED", "PUBLISHED", "CLOSED"].includes(
           exam.status,
         ) && (
           <ExamDraftReview
@@ -447,6 +527,24 @@ function ExamOperations({
         aria-label="Sinh viên và lịch thi"
       >
         <h2>Danh sách sinh viên ({roster.length})</h2>
+        <p className="muted">
+          {
+            roster.filter((r) =>
+              r.sessions?.some((s) => s.status === "IN_PROGRESS"),
+            ).length
+          }{" "}
+          đang thi · {roster.filter(completed).length} đã nộp bài. Số lượt thi
+          không tính phiên kiểm tra thiết bị và lượt đã xóa. Danh sách tự cập
+          nhật mỗi 10 giây.
+        </p>
+        <label>
+          Tìm sinh viên theo tên, MSSV hoặc email
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
         {officer && (
           <div className={styles.actions}>
             <a
@@ -462,6 +560,22 @@ function ExamOperations({
               download
             >
               Xuất điểm Excel
+            </a>
+            <a
+              className="button secondary"
+              href={`/api/admin/exams/${exam.id}/speaking-grades.xlsx`}
+              download
+              title="Xuất bảng điểm thi Nói chuẩn mẫu ENTs 5 tiêu chí (2đ mỗi tiêu chí)"
+            >
+              📊 Xuất bảng điểm Speaking (Excel)
+            </a>
+            <a
+              className="button secondary"
+              href={`/api/admin/exams/${exam.id}/speaking-grades.csv`}
+              download
+              title="Xuất bảng điểm thi Nói định dạng CSV"
+            >
+              📄 Xuất Speaking (CSV)
             </a>
           </div>
         )}
@@ -584,6 +698,9 @@ function ExamOperations({
               />
               Chọn tất cả sinh viên chưa tạo phiên thi
             </label>
+            {!visibleRoster.length && (
+              <Empty>Không có sinh viên phù hợp với bộ lọc.</Empty>
+            )}
             <div className="table-wrap">
               <table>
                 <thead>
@@ -594,6 +711,7 @@ function ExamOperations({
                     <th>Email</th>
                     <th>Mở vào thi</th>
                     <th>Đóng vào thi</th>
+                    <th>Số lượt thi</th>
                     <th>Bài thi & kết quả</th>
                   </tr>
                 </thead>
@@ -629,6 +747,13 @@ function ExamOperations({
                       <td>{date(r.opens_at)}</td>
                       <td>{date(r.closes_at)}</td>
                       <td>
+                        {
+                          (r.sessions ?? []).filter(
+                            (s) => s.status !== "DEVICE_CHECK",
+                          ).length
+                        }
+                      </td>
+                      <td>
                         {r.sessions?.length
                           ? r.sessions.map((sitting) => (
                               <div key={sitting.id}>
@@ -648,62 +773,63 @@ function ExamOperations({
             </div>
           </>
         )}
-        {officer && ["TEACHER_APPROVED", "PUBLISHED"].includes(exam.status) && (
-          <>
-            <h3>Xếp lịch cho {selected.length} sinh viên đã chọn</h3>
-            <p>
-              Giờ hiển thị theo múi giờ của máy. Sinh viên được bắt đầu trong
-              khoảng này và có đủ thời lượng bài thi kể từ lúc bắt đầu.
-            </p>
-            <Form
-              className={`form ${styles.createForm}`}
-              label="Lưu lịch thi"
-              onSubmit={async (d) => {
-                if (!selected.length)
-                  throw new Error("Chọn ít nhất một sinh viên");
-                if (
-                  new Date(String(d.get("closes_at"))) <=
-                  new Date(String(d.get("opens_at")))
-                )
-                  throw new Error("Giờ đóng phải sau giờ mở vào thi");
-                await send(
-                  `/admin/exams/${exam.id}/schedule`,
-                  {
-                    student_ids: selected,
-                    opens_at:
-                      new Date(String(d.get("opens_at"))).getTime() / 1000,
-                    closes_at:
-                      new Date(String(d.get("closes_at"))).getTime() / 1000,
-                  },
-                  "PUT",
-                );
-                await loadRoster();
-                setMessage("Đã lưu lịch thi.");
-              }}
-            >
-              <Field
-                label="Giờ mở vào thi"
-                name="opens_at"
-                type="datetime-local"
-              />
-              <Field
-                label="Giờ đóng vào thi"
-                name="closes_at"
-                type="datetime-local"
-              />
-            </Form>
-            {exam.status === "TEACHER_APPROVED" && (
-              <Action
-                action={async () => {
-                  await send(`/admin/exams/${exam.id}/office-approve`);
-                  await refresh();
+        {officer &&
+          ["TEACHER_APPROVED", "PUBLISHED", "CLOSED"].includes(exam.status) && (
+            <>
+              <h3>Xếp lịch cho {selected.length} sinh viên đã chọn</h3>
+              <p>
+                Giờ hiển thị theo múi giờ của máy. Sinh viên được bắt đầu trong
+                khoảng này và có đủ thời lượng bài thi kể từ lúc bắt đầu.
+              </p>
+              <Form
+                className={`form ${styles.createForm}`}
+                label="Lưu lịch thi"
+                onSubmit={async (d) => {
+                  if (!selected.length)
+                    throw new Error("Chọn ít nhất một sinh viên");
+                  if (
+                    new Date(String(d.get("closes_at"))) <=
+                    new Date(String(d.get("opens_at")))
+                  )
+                    throw new Error("Giờ đóng phải sau giờ mở vào thi");
+                  await send(
+                    `/admin/exams/${exam.id}/schedule`,
+                    {
+                      student_ids: selected,
+                      opens_at:
+                        new Date(String(d.get("opens_at"))).getTime() / 1000,
+                      closes_at:
+                        new Date(String(d.get("closes_at"))).getTime() / 1000,
+                    },
+                    "PUT",
+                  );
+                  await loadRoster();
+                  setMessage("Đã lưu lịch thi.");
                 }}
               >
-                Xác nhận đã kiểm tra đề & mở kỳ thi
-              </Action>
-            )}
-          </>
-        )}
+                <Field
+                  label="Giờ mở vào thi"
+                  name="opens_at"
+                  type="datetime-local"
+                />
+                <Field
+                  label="Giờ đóng vào thi"
+                  name="closes_at"
+                  type="datetime-local"
+                />
+              </Form>
+              {exam.status === "TEACHER_APPROVED" && (
+                <Action
+                  action={async () => {
+                    await send(`/admin/exams/${exam.id}/office-approve`);
+                    await refresh();
+                  }}
+                >
+                  Xác nhận đã kiểm tra đề & mở kỳ thi
+                </Action>
+              )}
+            </>
+          )}
       </section>
     </div>
   );

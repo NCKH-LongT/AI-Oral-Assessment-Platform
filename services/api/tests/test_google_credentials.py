@@ -58,8 +58,9 @@ def test_admin_upload_shared_storage_metadata_and_restart(env, credential_env):
     assert result["provider"] == before["provider"]
     assert "private_key" not in json.dumps(result)
     path = credentials.managed_path()
-    assert path.stat().st_mode & 0o777 == 0o600
-    assert path.parent.stat().st_mode & 0o777 == 0o700
+    if os.name == "posix":  # Windows stat modes do not express POSIX permission bits.
+        assert path.stat().st_mode & 0o777 == 0o600
+        assert path.parent.stat().st_mode & 0o777 == 0o700
     with factory() as db:
         audits = db.scalars(select(Audit).where(Audit.event == "GOOGLE_CREDENTIALS_UPLOADED")).all()
         assert len(audits) == 1

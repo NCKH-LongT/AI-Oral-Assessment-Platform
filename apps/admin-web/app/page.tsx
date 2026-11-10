@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { hasRole, roleNames } from "../components/api";
 import { useEffect, useState } from "react";
 import {
@@ -15,6 +16,8 @@ import {
 import { api, send, User } from "../components/api";
 import { Action, Form, Field } from "../components/shared";
 import Academic from "../components/academic";
+import DiagnosticLogs from "../components/diagnostic-logs";
+import { reportWebEvent } from "../components/api";
 import Admin from "../components/admin";
 import Student from "../components/student";
 import GoogleLogin from "../components/google-login";
@@ -28,6 +31,35 @@ export default function Home() {
     [loading, setLoading] = useState(true),
     [page, setPage] = useState("dashboard"),
     [navigationVersion, setNavigationVersion] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    const error = (event: ErrorEvent) =>
+      reportWebEvent(
+        "client_error",
+        "/",
+        "GET",
+        undefined,
+        undefined,
+        page,
+        event.error?.name || "UnknownError",
+      );
+    const rejection = (event: PromiseRejectionEvent) =>
+      reportWebEvent(
+        "unhandled_rejection",
+        "/",
+        "GET",
+        undefined,
+        undefined,
+        page,
+        event.reason?.name || "UnknownError",
+      );
+    window.addEventListener("error", error);
+    window.addEventListener("unhandledrejection", rejection);
+    return () => {
+      window.removeEventListener("error", error);
+      window.removeEventListener("unhandledrejection", rejection);
+    };
+  }, [user, page]);
   const navigate = (destination: string) => {
     setPage(destination);
     // A menu click always opens its root, including the currently active menu.
@@ -123,6 +155,36 @@ export default function Home() {
             <Field label="Mật khẩu" name="password" type="password" />
           </Form>
           <GoogleLogin onLogin={setUser} />
+          <div style={{ marginTop: 14, textAlign: "center", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+            <Link
+              href="/test-camera"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--teal)",
+                textDecoration: "underline",
+              }}
+            >
+              📹 Thử nghiệm nhận diện Camera & Gian lận
+            </Link>
+            <Link
+              href="/test-audio"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--teal)",
+                textDecoration: "underline",
+              }}
+            >
+              🎙️ Thử nghiệm Micro & Chấm Phát Âm HuBERT
+            </Link>
+          </div>
           {typeof window !== "undefined" && window.oralDesktop && (
             <DesktopPolicySummary />
           )}
@@ -222,6 +284,7 @@ export default function Home() {
                 icon: ShieldCheck,
               },
               { id: "settings", label: "Cấu hình hệ thống", icon: AudioLines },
+              { id: "logs", label: "Log hệ thống", icon: ShieldCheck },
             ]
           : []),
       ];
@@ -250,6 +313,36 @@ export default function Home() {
             </button>
           ))}
         </nav>
+        <div style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <Link
+            href="/test-camera"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              color: "var(--teal)",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            📹 Test Camera & Gian lận
+          </Link>
+          <Link
+            href="/test-audio"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              color: "var(--teal)",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            🎙️ Test Mic & Chấm Phát Âm
+          </Link>
+        </div>
         <div className="sidebar-note">
           <span className="status-dot" />
           Đánh giá có căn cứ
@@ -307,6 +400,8 @@ export default function Home() {
           )}
           {["classes", "departments"].includes(page) ? (
             <Academic key={page} user={user} page={page} />
+          ) : page === "logs" && hasRole(user, "ADMIN") ? (
+            <DiagnosticLogs />
           ) : page === "storage" && hasRole(user, "ADMIN") ? (
             <StorageManager />
           ) : page === "examination" && !isStudent ? (

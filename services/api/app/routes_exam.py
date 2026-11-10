@@ -77,6 +77,7 @@ def public_session(db, session):
         "server_processing": not bool(exam.snapshot.get("practice")),
         "attempt_number": session.attempt_number,
         "exam_name": exam.name,
+        "entry_open": exam.status == "PUBLISHED",
         "practice": bool(exam.snapshot.get("practice")),
         "status": submission_status(session.status),
         "started_at": session.started_at,
@@ -111,7 +112,9 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
     exams = db.scalars(
         select(Exam)
         .where(
-            Exam.status == "PUBLISHED",
+            or_(Exam.status == "PUBLISHED",
+                (Exam.status == "CLOSED") & Exam.id.in_(select(ExamSession.exam_id).where(
+                    ExamSession.student_id == user.id, ExamSession.deleted_at.is_(None)))),
             or_(
                 Exam.course_id.in_(
                     select(CourseEnrollment.course_id).where(CourseEnrollment.student_id == user.id)
@@ -143,9 +146,10 @@ def available(db: Session = Depends(get_db), user=Depends(current_user)):
                 "closes_at": assignment.closes_at if assignment else None,
                 "server_time": time.time(),
                 "workflow": exam.workflow,
+                "entry_open": exam.status == "PUBLISHED",
                 "session_id": session.id if session else None,
                 "status": submission_status(session.status) if session else "ASSIGNED",
-                **allowance(db, exam, user.id, sessions),
+                **(allowance(db, exam, user.id, sessions) | ({"can_start_new": False} if exam.status == "CLOSED" else {})),
                 "history": [submission_history_row(s) for s in sessions],
             }
         )
@@ -169,9 +173,15 @@ def create_session(body: s.SessionIn, db: Session = Depends(get_db), user=Depend
     )
     if exam.workflow and (not has_role(user, "STUDENT") or not schedule_for(db, exam, user.id)):
         fail(403, "NOT_ASSIGNED", "Bạn không có tên trong danh sách kỳ thi")
-    if exam.status != "PUBLISHED" or not allowed:
+    if not allowed:
         fail(403, "NOT_ASSIGNED", "Bạn chưa được giao bài thi này")
     sessions = sessions_for(db, exam.id, user.id)
+    if exam.status == "CLOSED":
+        if sessions and not body.new_attempt:
+            return public_session(db, next((s for s in sessions if s.status == "IN_PROGRESS"), sessions[0]))
+        fail(409, "EXAM_CLOSED", "Kỳ thi đã đóng vào thi mới")
+    if exam.status != "PUBLISHED":
+        fail(403, "NOT_ASSIGNED", "Bạn chưa được giao bài thi này")
     existing = next((s for s in sessions if s.status in ACTIVE), None)
     if existing:
         return public_session(db, existing)
@@ -208,13 +218,16 @@ def get_session(key: str, db: Session = Depends(get_db), user=Depends(current_us
 def start_session(key: str, body: s.ExamStartIn | None = None, db: Session = Depends(get_db), user=Depends(current_user)):
     session = owned_session(db, key, user, lock=True)
     if session.status == "DEVICE_CHECK":
+        exam = by_id(db, Exam, session.exam_id, lock=True)
+        if exam.status == "CLOSED":
+            fail(409, "EXAM_CLOSED", "Kỳ thi đã đóng vào thi mới")
         if session.screen_required:
             if not body or not body.screen_consent:
                 fail(409, "SCREEN_CONSENT_REQUIRED", "Đồng ý và bật ghi toàn màn hình trước khi bắt đầu thi")
             session.screen_consent_at = time.time()
-        check_schedule(db, by_id(db, Exam, session.exam_id), user)
+        check_schedule(db, exam, user)
         try:
-            check_config(by_id(db, Exam, session.exam_id))
+            check_config(exam)
         except GradingError as exc:
             fail(409, exc.code, str(exc))
         session.status, session.started_at = "IN_PROGRESS", time.time()

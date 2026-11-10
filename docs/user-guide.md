@@ -1,5 +1,25 @@
 # Hướng dẫn sử dụng OralAI
 
+## Xem bài theo tab và tra log (25/10/2026)
+
+Trong **Kết quả & xem lại**, mở bài của sinh viên rồi chọn **Tổng quan &
+điểm**, **Câu trả lời** hoặc **Màn hình & giám sát**. Tab Câu trả lời cho
+chọn từng câu; mở **Nhận dạng, chấm lại AI & lịch sử** để dùng chức năng
+chấm lại hiện có. Chuyển tab/câu sẽ dừng audio/video đang xem.
+
+Trong **Điều phối kỳ thi**, bấm **Danh sách thí sinh** trên thẻ kỳ thi để
+xem người được giao thi, số lượt thi và trạng thái từng lượt. Tìm theo
+MSSV/tên/email; bấm **Xem bài lần N** để mở đúng lượt. Số lượt không tính
+phiên kiểm tra thiết bị hoặc lượt đã xóa. Danh sách tự cập nhật 10 giây.
+
+Admin vào **Log hệ thống** để lọc nguồn API/WEB/AI/WORKER, mức log, model
+và mã request/tác vụ/lượt thi. Bấm dòng log để mở chi tiết; bật làm mới tự
+động khi theo dõi chấm bài. **Log xử lý** trong bài thi tự điền mã lượt
+đó. Mặc định xem 24 giờ; chọn 7 ngày khi tra bài cũ. Chưa có log có thể do
+bài xử lý trước khi triển khai hoặc log đã hết hạn (7 ngày/10.000 sự kiện).
+[Phạm vi dữ liệu và vận hành log](architecture/review-diagnostics.md).
+
+
 Bấm tên menu bên trái để quay về trang gốc của mục đó. Thao tác này có hiệu lực cả khi menu đang được chọn và bạn đang xem chi tiết bên trong; các lựa chọn/bộ lọc cục bộ được đặt lại.
 
 ## Cấp nhiều vai trò
@@ -207,3 +227,13 @@ Lần thi mới trên Desktop bắt buộc ghi toàn màn hình sau khi sinh vi�
 Mục **Sự kiện giám sát bài thi** ghi thời điểm server nhận các sự kiện như rời cửa sổ, thay màn hình, ngắt ghi hoặc khởi động lại. Bài có sự kiện cần giảng viên xem lại trước khi công bố điểm. Đối chiếu bản ghi và hoàn cảnh thực tế trước khi chấm lại, không coi một sự kiện là bằng chứng chắc chắn của gian lận. Độ trễ mạng có thể làm thời điểm nhận sự kiện khác thời điểm xảy ra.
 
 Bản ghi dùng cơ chế lưu trữ, phân quyền và xóa cùng bài thi hiện có; bản này chưa bổ sung tự động xóa theo thời hạn. Hạn chế kỹ thuật và yêu cầu cập nhật server/desktop được ghi trong [hướng dẫn desktop](../readme-desktop.md#truy-cập-và-ghi-màn-hình-bắt-buộc).
+
+## Kiểm tra camera và phục hồi khi mất mạng
+
+Bản thử nghiệm kiểm tra một khuôn mặt đủ lớn, nằm trong khung và ổn định trước khi bật nút bắt đầu. Hướng mắt là ước lượng hỗ trợ, không tự xác định gian lận. Audio được lưu từng đoạn trên máy; nếu tải lại trang, mở đúng lượt thi và chọn **Khôi phục bản ghi chờ tải trên máy**. Xem [hướng dẫn camera, mạng yếu và phục hồi bài](exam-camera-network-guide.md) để biết giới hạn và cách xử lý lỗi lưu trữ.
+
+## Đóng/mở kỳ thi và rubric theo từng câu
+
+Khảo thí/admin có thể **Đóng kỳ thi** để chặn vào thi mới, rồi **Mở lại kỳ thi** khi cần. Sinh viên đã bắt đầu vẫn làm và nộp bình thường, kể cả mở lại phiên sau reload. Mở lại giữ lịch đã xếp; lịch hết cần được xếp lại cho người chưa bắt đầu.
+
+Giảng viên review rubric ngay dưới từng câu, có thể thêm/xóa/sửa tiêu chí hoặc bấm **Gợi ý rubric AI cho câu**. Gợi ý không tự lưu; cần kiểm tra, lưu và duyệt. Rubric đã duyệt được dùng nhất quán cho mọi sinh viên và các lần chấm lại. Đề cũ vẫn dùng tiêu chí đã lưu. Xem [chi tiết rubric và vòng đời đề](architecture/exam-lifecycle-rubrics.md).

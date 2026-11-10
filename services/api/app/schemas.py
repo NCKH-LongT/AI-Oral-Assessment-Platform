@@ -44,7 +44,7 @@ class CourseDeleteIn(Input):
 class LOIn(Input):
     code: str = Field(min_length=1, max_length=50)
     description: str = Field(min_length=1, max_length=3000)
-    weight: float = Field(default=1, gt=0, le=100)
+    weight: float = Field(default=1, gt=0, le=100, allow_inf_nan=False)
 
 
 class TopicIn(Input):
@@ -97,8 +97,8 @@ class GradeReviewIn(ReviewIn):
 class Criterion(Input):
     name: str = Field(min_length=1, max_length=100)
     description: str = Field(min_length=1, max_length=3000)
-    max_score: float = Field(gt=0, le=100)
-    weight: float = Field(default=1, gt=0, le=100)
+    max_score: float = Field(gt=0, le=100, allow_inf_nan=False)
+    weight: float = Field(default=1, gt=0, le=100, allow_inf_nan=False)
 
 
 class RubricIn(Input):

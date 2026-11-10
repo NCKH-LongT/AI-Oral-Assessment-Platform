@@ -83,19 +83,21 @@ def assessment_view(assessment, exam):
 
 def review_question(source, target, attempt):
     """Allow new AI/evidence versions only for the exact same question and rubric."""
-    if target.status != "PUBLISHED" or target.course_id != source.course_id:
+    if target.status not in {"PUBLISHED", "CLOSED"} or target.course_id != source.course_id:
         raise GradingError("INCOMPATIBLE_EXAM", "Phiên bản chấm phải được công bố trong cùng môn học.")
     old, new = source.snapshot or {}, target.snapshot or {}
     if old.get("practice") or new.get("practice") or new.get("ai_provider") == "demo":
         raise GradingError("GRADING_UNAVAILABLE", "Chọn đề có bật LLM thật; bài luyện tập không được chấm điểm.")
-    if old.get("criteria") != new.get("criteria") or source.time_limit != target.time_limit:
+    if source.time_limit != target.time_limit:
         raise GradingError("INCOMPATIBLE_EXAM", "Phiên bản mới phải giữ nguyên rubric và thời lượng đề gốc.")
     check_config(target)
     # All question semantics must stay identical; only storage/reference IDs may change.
     def content(q):
         return {k: v for k, v in q.items() if k not in {
-            "reference_chunk_ids", "topic_id", "learning_outcome_id", "learning_outcome_ids", "chapter_ids"}}
-    matches = [q for q in new.get("questions", []) if content(q) == content(attempt.question)]
+            "reference_chunk_ids", "topic_id", "learning_outcome_id", "learning_outcome_ids", "chapter_ids", "criteria"}}
+    from .question_rubrics import criteria_for
+    matches = [q for q in new.get("questions", []) if content(q) == content(attempt.question)
+               and criteria_for(new, q) == criteria_for(old, attempt.question)]
     if len(matches) != 1:
         raise GradingError("INCOMPATIBLE_EXAM", "Không tìm thấy đúng câu hỏi gốc trong phiên bản được chọn.")
     return matches[0]

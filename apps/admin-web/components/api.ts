@@ -198,6 +198,24 @@ export type Assessment = {
       prosody: number;
       total: number;
     };
+    audio_quality?: {
+      status: "PASSED" | "WARNING" | "POOR";
+      snr_db: number;
+      rms_dbfs: number;
+      clipping_ratio: number;
+      speech_ratio: number;
+      speech_duration: number;
+      duration: number;
+      issues: string[];
+      recommendation: string;
+    };
+    metrics?: {
+      wpm: number;
+      speech_duration_seconds: number;
+      speech_ratio: number;
+      snr_db: number;
+      word_count: number;
+    };
     segments?: number;
     phones?: number;
   };
@@ -254,6 +272,7 @@ export type Review = Result & {
   }[];
 };
 export type StudentExam = {
+  entry_open?: boolean;
   opens_at?: number | null;
   closes_at?: number | null;
   server_time?: number;
@@ -273,6 +292,7 @@ export type StudentExam = {
   status: string;
 };
 export type ExamSession = {
+  entry_open?: boolean;
   desktop_policy?: DesktopPolicy;
   timed_questions?: boolean;
   server_processing?: boolean;
@@ -316,12 +336,87 @@ let refreshing: Promise<Response> | null = null;
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(message: string, status: number, code?: string) {
+  requestId?: string;
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    requestId?: string,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.requestId = requestId;
   }
+}
+
+let clientLogWindow = 0;
+let clientLogCount = 0;
+export function reportWebEvent(
+  event: "request_failed" | "client_error" | "unhandled_rejection",
+  path = "/",
+  method = "GET",
+  http_status?: number,
+  request_id?: string,
+  view = "unknown",
+  exception_type?: string,
+) {
+  if (
+    typeof window === "undefined" ||
+    path.includes("diagnostics") ||
+    path.startsWith("/auth/")
+  )
+    return;
+  const now = Date.now();
+  if (now - clientLogWindow > 60000) {
+    clientLogWindow = now;
+    clientLogCount = 0;
+  }
+  if (clientLogCount++ >= 10) return;
+  // A separate best-effort request never recursively reports telemetry errors.
+  void fetch("/api/diagnostics/client", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...backendHeaders() },
+    body: JSON.stringify({
+      event,
+      view: [
+        "dashboard",
+        "courses",
+        "exams",
+        "results",
+        "users",
+        "settings",
+        "storage",
+        "logs",
+        "academic",
+        "classes",
+        "departments",
+        "examination",
+        "student",
+      ].includes(view)
+        ? view
+        : "unknown",
+      exception_type: exception_type
+        ? [
+            "Error",
+            "TypeError",
+            "RangeError",
+            "ReferenceError",
+            "SyntaxError",
+            "URIError",
+            "EvalError",
+          ].includes(exception_type)
+          ? exception_type
+          : "UnknownError"
+        : undefined,
+      path: path.split("?")[0].split("#")[0],
+      method,
+      http_status,
+      ...(/^[a-fA-F0-9-]{36}$/.test(request_id || "") ? { request_id } : {}),
+    }),
+  }).catch(() => {});
 }
 
 function canRetry(path: string, init: RequestInit) {
@@ -358,13 +453,23 @@ export async function api<T>(
         !canRetry(path, init) ||
         attempt >= 2
       ) {
+        if (!init.signal?.aborted)
+          reportWebEvent(
+            "request_failed",
+            path,
+            (init.method || "GET").toUpperCase(),
+            error instanceof ApiError ? error.status : 0,
+            error instanceof ApiError ? error.requestId : undefined,
+          );
         if (error instanceof TypeError)
           throw new Error(
             `Kết nối bị gián đoạn khi gửi ${(init.method || "GET").toUpperCase()} ${path}. Kiểm tra mạng rồi thử lại.`,
           );
         throw error;
       }
-      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+      await new Promise((resolve) =>
+        setTimeout(resolve, 500 * 2 ** attempt + Math.random() * 500),
+      );
     }
   }
 }
@@ -387,6 +492,7 @@ async function requestJSON<T>(
   });
   if (response.status === 401 && retry && !path.startsWith("/auth/")) {
     refreshing ||= fetch("/api/auth/refresh", {
+      signal: AbortSignal.timeout(15000),
       method: "POST",
       credentials: "include",
       headers: backendHeaders(),
@@ -413,6 +519,7 @@ async function requestJSON<T>(
         ` [${(init.method || "GET").toUpperCase()} ${path} · HTTP ${response.status}${detail ? ` · ${detail}` : ""}]`,
       response.status,
       code,
+      requestId,
     );
   }
   return response.json();

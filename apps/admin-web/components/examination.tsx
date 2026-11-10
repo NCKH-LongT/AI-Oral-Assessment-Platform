@@ -561,6 +561,22 @@ function ExamOperations({
             >
               Xuất điểm Excel
             </a>
+            <a
+              className="button secondary"
+              href={`/api/admin/exams/${exam.id}/speaking-grades.xlsx`}
+              download
+              title="Xuất bảng điểm thi Nói chuẩn mẫu ENTs 5 tiêu chí (2đ mỗi tiêu chí)"
+            >
+              📊 Xuất bảng điểm Speaking (Excel)
+            </a>
+            <a
+              className="button secondary"
+              href={`/api/admin/exams/${exam.id}/speaking-grades.csv`}
+              download
+              title="Xuất bảng điểm thi Nói định dạng CSV"
+            >
+              📄 Xuất Speaking (CSV)
+            </a>
           </div>
         )}
         {officer && (

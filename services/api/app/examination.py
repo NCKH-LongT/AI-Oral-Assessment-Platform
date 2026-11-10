@@ -21,7 +21,9 @@ from .examination_schemas import (
     ScheduleIn,
     TeacherIn,
 )
+from datetime import datetime
 from .excel import parse_roster, template_bytes, workbook_bytes
+from .speaking_export import generate_speaking_xlsx, generate_speaking_csv
 from .models import (
     Assignment,
     Attempt,
@@ -504,3 +506,140 @@ def export_grades(key: str, db: Session = Depends(get_db), user=Depends(exam_off
     db.commit()
     return Response(workbook_bytes(["student_number", "email", "full_name", "attempt", "status", "ai_score", "final_score", "review_reason"], rows, "Grades"),
                     media_type=XLSX, headers={"Content-Disposition": 'attachment; filename="exam-grades.xlsx"'})
+
+
+
+def get_speaking_roster_data(db: Session, exam_id: str, exam, user):
+    course = by_id(db, Course, exam.course_id) if exam.course_id else None
+    teacher_user = by_id(db, User, course.owner_id) if course and course.owner_id else None
+    teacher_name = teacher_user.name if teacher_user else (user.name if user else "")
+
+    meta = {
+        "subject_code": course.code if course else (exam.name or "ENTs"),
+        "teacher": teacher_name,
+        "date": datetime.now().strftime("%d/%m/%Y"),
+        "time": datetime.now().strftime("%H:%M"),
+    }
+
+    students = []
+    for assignment, learner in db.execute(
+        select(Assignment, User).join(User).where(Assignment.exam_id == exam_id).order_by(User.name)
+    ):
+        sessions = db.scalars(
+            select(ExamSession)
+            .where(ExamSession.exam_id == exam_id, ExamSession.student_id == learner.id, ExamSession.deleted_at.is_(None))
+            .order_by(ExamSession.attempt_number.desc())
+        ).all()
+
+        session = sessions[0] if sessions else None
+        ideas = pron = gram = vocab = fluency = None
+        total = None
+        note = "Chưa thi"
+
+        if session:
+            if session.status == "COMPLETED":
+                note = (session.manual_review or {}).get("reason") or "Đã hoàn thành"
+            elif session.status == "REVIEW_REQUIRED":
+                note = "Chờ duyệt điểm"
+            elif session.status == "SUBMITTED":
+                note = "Đang xử lý"
+            elif session.status == "IN_PROGRESS":
+                note = "Đang thi"
+            else:
+                note = session.status
+
+            total = session.final_score if session.final_score is not None else session.ai_score
+
+            attempts = db.scalars(
+                select(Attempt)
+                .where(Attempt.session_id == session.id)
+                .order_by(Attempt.sequence)
+            ).all()
+
+            ideas_list, pron_list, gram_list, vocab_list, flu_list = [], [], [], [], []
+            for att in attempts:
+                assess = att.assessment or {}
+                for crit in assess.get("criteria", []):
+                    cname = (crit.get("name") or "").lower()
+                    score = crit.get("score")
+                    if score is None:
+                        continue
+                    max_s = crit.get("max_score") or 2
+                    norm_score = (score / max_s) * 2.0 if max_s > 0 else score
+                    norm_score = max(0.0, min(2.0, norm_score))
+
+                    if "idea" in cname:
+                        ideas_list.append(norm_score)
+                    elif "pronunciation" in cname or "phát âm" in cname:
+                        pron_list.append(norm_score)
+                    elif "grammar" in cname or "ngữ pháp" in cname:
+                        gram_list.append(norm_score)
+                    elif "vocab" in cname or "từ vựng" in cname:
+                        vocab_list.append(norm_score)
+                    elif "fluency" in cname or "coherence" in cname or "lưu loát" in cname or "mạch lạc" in cname:
+                        flu_list.append(norm_score)
+
+            if ideas_list:
+                ideas = round(sum(ideas_list) / len(ideas_list), 2)
+            if pron_list:
+                pron = round(sum(pron_list) / len(pron_list), 2)
+            if gram_list:
+                gram = round(sum(gram_list) / len(gram_list), 2)
+            if vocab_list:
+                vocab = round(sum(vocab_list) / len(vocab_list), 2)
+            if flu_list:
+                fluency = round(sum(flu_list) / len(flu_list), 2)
+
+            if total is not None:
+                each = round(total / 5.0, 2)
+                if ideas is None: ideas = each
+                if pron is None: pron = each
+                if gram is None: gram = each
+                if vocab is None: vocab = each
+                if fluency is None: fluency = each
+            elif ideas is not None and pron is not None and gram is not None and vocab is not None and fluency is not None:
+                total = round(ideas + pron + gram + vocab + fluency, 2)
+
+        students.append({
+            "roll_number": assignment.student_number or "",
+            "full_name": learner.name or "",
+            "ideas": ideas,
+            "pronunciation": pron,
+            "grammar": gram,
+            "vocabulary": vocab,
+            "fluency": fluency,
+            "total": total if total is not None else 0,
+            "note": note,
+        })
+
+    return meta, students
+
+
+@router.get("/admin/exams/{key}/speaking-grades.xlsx")
+def export_speaking_grades_xlsx(key: str, db: Session = Depends(get_db), user=Depends(staff)):
+    exam = scoped_exam(db, key, user)
+    meta, students = get_speaking_roster_data(db, key, exam, user)
+    content = generate_speaking_xlsx(meta, students)
+    audit(db, user, "SPEAKING_GRADES_EXPORTED_XLSX", exam_id=key, rows=len(students))
+    db.commit()
+    safe_code = (meta.get("subject_code") or "ENTs").replace(" ", "_").replace("/", "_")
+    return Response(
+        content,
+        media_type=XLSX,
+        headers={"Content-Disposition": f'attachment; filename="Speaking_Scores_{safe_code}.xlsx"'},
+    )
+
+
+@router.get("/admin/exams/{key}/speaking-grades.csv")
+def export_speaking_grades_csv(key: str, db: Session = Depends(get_db), user=Depends(staff)):
+    exam = scoped_exam(db, key, user)
+    meta, students = get_speaking_roster_data(db, key, exam, user)
+    content = generate_speaking_csv(meta, students)
+    audit(db, user, "SPEAKING_GRADES_EXPORTED_CSV", exam_id=key, rows=len(students))
+    db.commit()
+    safe_code = (meta.get("subject_code") or "ENTs").replace(" ", "_").replace("/", "_")
+    return Response(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="Speaking_Scores_{safe_code}.csv"'},
+    )

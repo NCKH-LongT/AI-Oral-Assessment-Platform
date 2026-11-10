@@ -132,12 +132,34 @@ export default function ResultsBrowser({
             hoặc ngày thi. Trạng thái tự cập nhật.
           </p>
         </div>
-        <button
-          className="button secondary"
-          onClick={() => setRevision((value) => value + 1)}
-        >
-          Làm mới
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+          {filters.exam && (
+            <>
+              <a
+                className="button secondary"
+                href={`/api/admin/exams/${filters.exam}/speaking-grades.xlsx`}
+                download
+                title="Xuất bảng điểm thi Nói chuẩn mẫu ENTs 5 tiêu chí (Ideas, Pronunciation, Grammar, Vocab, Fluency)"
+              >
+                📊 Xuất bảng điểm Speaking (Excel)
+              </a>
+              <a
+                className="button secondary"
+                href={`/api/admin/exams/${filters.exam}/speaking-grades.csv`}
+                download
+                title="Xuất bảng điểm thi Nói định dạng CSV"
+              >
+                📄 Xuất Speaking (CSV)
+              </a>
+            </>
+          )}
+          <button
+            className="button secondary"
+            onClick={() => setRevision((value) => value + 1)}
+          >
+            Làm mới
+          </button>
+        </div>
       </div>
       <section className="panel">
         <div className="results-filters">

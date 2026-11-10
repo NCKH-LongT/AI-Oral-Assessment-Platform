@@ -3,7 +3,7 @@ import re
 import tempfile
 import unicodedata
 from contextlib import closing
-from typing import Literal
+from typing import Any, Dict, Literal
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -70,13 +70,19 @@ class Scores(BaseModel):
 
 
 class PronunciationResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
     status: Literal["COMPLETED"]
     model: Literal["gopt-librispeech"]
     model_revision: str = Field(min_length=1, max_length=100)
     scores: Scores
-    segments: int = Field(ge=1, le=200)
-    phones: int = Field(ge=1, le=10000)
+    segments: int = Field(ge=0, le=200)
+    phones: int = Field(ge=0, le=100000)
     reference_source: Literal["transcript"]
+    audio_quality: Dict[str, Any] | None = None
+    metrics: Dict[str, Any] | None = None
+    review_required: bool | None = None
+    review_reason: str | None = None
+    message: str | None = None
 
 
 def is_criterion(criterion):
@@ -141,14 +147,46 @@ def assess(db, exam, attempt, transcript, assessment):
                            provider="gopt", model="gopt-librispeech", code="PRONUNCIATION_FAILED", reason_code=reason)
         result = {"status": "FAILED", "model": "gopt-librispeech", "error_code": "PRONUNCIATION_FAILED",
                   "reason_code": reason, "message": FAILURE_MESSAGES[reason]}
+    
     assessment = assessment | {"pronunciation": result, "rubric_criteria": criteria, "review_required": True}
     if result["status"] == "FAILED":
         return assessment | {"score": None, "status": "FAILED", "error_code": "PRONUNCIATION_FAILED"}
+
     actual = {criterion["name"]: criterion for criterion in assessment.get("criteria", [])}
+
+    # Layer 4: Audio Quality Protection for English Majors
+    # If audio is degraded/poor, do not penalize student with zero score; forward to human review.
+    is_poor_audio = (
+        result.get("review_reason") == "AUDIO_QUALITY_POOR"
+        or (result.get("audio_quality") and result["audio_quality"].get("status") == "POOR")
+    )
+    if is_poor_audio:
+        msg = result.get("message") or "Chất lượng âm thanh không đạt chuẩn chấm tự động (quá ồn/bị nghẽn mic). Bài thi được chuyển sang cho Giảng viên thẩm định trực tiếp từ audio gốc."
+        for criterion in required:
+            actual[criterion["name"]] = {
+                "name": criterion["name"],
+                "score": None,
+                "comment": msg,
+                "source": "manual_review_required",
+            }
+        result["applied_criteria"] = [criterion["name"] for criterion in required]
+        return assessment | {
+            "score": None,
+            "status": "REVIEW_REQUIRED",
+            "review_required": True,
+            "audio_quality_flag": "POOR",
+            "criteria": [actual.get(criterion["name"], criterion) for criterion in criteria],
+        }
+
+    # Audio is PASSED or WARNING: calculate weighted pronunciation score
+    metrics = result.get("metrics") or {}
+    wpm_str = f", WPM: {metrics.get('wpm')}" if "wpm" in metrics else ""
+    snr_str = f", SNR: {metrics.get('snr_db')}dB" if "snr_db" in metrics else ""
     for criterion in required:
         actual[criterion["name"]] = {
-            "name": criterion["name"], "score": result["scores"]["total"] / 10 * criterion["max_score"],
-            "comment": "Chấm từ audio gốc bằng GOPT; cần giảng viên đối chiếu bản ghi và transcript.",
+            "name": criterion["name"],
+            "score": result["scores"]["total"] / 10 * criterion["max_score"],
+            "comment": f"Chấm từ audio gốc bằng HuBERT (Acc: {result['scores']['accuracy']}, Flu: {result['scores']['fluency']}{wpm_str}{snr_str}); cần giảng viên đối chiếu bản ghi và transcript.",
             "source": "gopt",
         }
     result["applied_criteria"] = [criterion["name"] for criterion in required]

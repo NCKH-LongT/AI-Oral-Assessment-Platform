@@ -396,9 +396,11 @@ export default function Student() {
           : false,
         audio: {
           ...(selectedMic ? { deviceId: { exact: selectedMic } } : {}),
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: { ideal: 1 },
+          sampleRate: { ideal: 16000 },
         },
       });
       if (generation !== deviceGeneration.current) {

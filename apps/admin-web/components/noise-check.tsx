@@ -23,10 +23,12 @@ export default function NoiseCheck({
     filtered?: string;
   } | null>(null);
   const [listenFiltered, setListenFiltered] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const urls = useRef<string[]>([]);
   const playback = useRef<HTMLAudioElement>(null);
   const playbackPanel = useRef<HTMLDivElement>(null);
   const controller = useRef<AbortController | null>(null);
+
   useEffect(() => {
     onReady(false);
     return () => {
@@ -46,6 +48,7 @@ export default function NoiseCheck({
     urls.current = [];
     setRecording(null);
     setListenFiltered(false);
+    setConfirmed(false);
     const current = new AbortController();
     controller.current = current;
     onReady(false);
@@ -74,7 +77,7 @@ export default function NoiseCheck({
       setPeak(result.peakDbfs);
       if (result.filterError) setError(result.filterError);
       setStatus(result.status);
-      onReady(result.status === "quiet");
+      onReady(confirmed && result.status === "quiet");
     } catch (e) {
       if (current.signal.aborted) return;
       setStatus("error");
@@ -84,10 +87,10 @@ export default function NoiseCheck({
 
   return (
     <section className="noise-check" aria-label="Kiểm tra độ ồn">
-      <h3>Thu thử, nghe lại và kiểm tra độ ồn</h3>
+      <h3>Thu thử, nghe lại và kiểm tra độ ồn (Audio Calibration)</h3>
       <p>
-        Thu thử 10 giây: giữ im lặng trong 3 giây đầu để đo tiếng ồn, sau đó nói
-        thử trong 7 giây. Bạn có thể phát lại và bật/tắt lọc nhiễu để so sánh.
+        Thu thử 10 giây: giữ im lặng trong 3 giây đầu để đo tiếng ồn nền, sau đó nói
+        thử trong 7 giây. Bạn có thể phát lại và kiểm tra độ rõ ràng của micro.
         Bản thử chỉ giữ tạm trên máy, không gửi lên server.
       </p>
       <p className="muted">
@@ -112,7 +115,7 @@ export default function NoiseCheck({
         {status === "checking" &&
           `Đang thu thử… ${progress}% — ${progress <= 30 ? "vui lòng giữ im lặng." : "hãy nói thử vào mic."}`}
         {status === "quiet" &&
-          "Môi trường đủ yên lặng. Bạn có thể bắt đầu thi."}
+          "Môi trường đủ yên lặng. Hãy nghe lại bản thu và tick xác nhận bên dưới để mở khóa bài thi."}
         {status === "noisy" &&
           "Môi trường quá ồn. Vui lòng tìm chỗ yên lặng hơn rồi kiểm tra lại, hoặc bỏ qua để tiếp tục thi."}
         {status === "no_signal" &&
@@ -167,21 +170,35 @@ export default function NoiseCheck({
                   : recording.raw
               }
             />
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() => {
-                void playback.current
-                  ?.play()
-                  .catch(() =>
-                    setError(
-                      "Không phát được bản ghi. Hãy kiểm tra thiết bị phát âm thanh hoặc thu lại.",
-                    ),
-                  );
-              }}
-            >
-              {listenFiltered ? "Phát bản đã lọc nhiễu" : "Phát bản gốc"}
-            </button>
+            <div className="inline" style={{ marginTop: "0.5rem" }}>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => {
+                  void playback.current
+                    ?.play()
+                    .catch(() =>
+                      setError(
+                        "Không phát được bản ghi. Hãy kiểm tra thiết bị phát âm thanh hoặc thu lại.",
+                      ),
+                    );
+                }}
+              >
+                {listenFiltered ? "Phát bản đã lọc nhiễu" : "Phát bản gốc"}
+              </button>
+            </div>
+            <label className="check" style={{ marginTop: "1rem", fontWeight: 600 }}>
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={(event) => {
+                  const val = event.target.checked;
+                  setConfirmed(val);
+                  onReady(val && (status === "quiet" || status === "skipped"));
+                }}
+              />
+              Tôi đã nghe lại bản thu thử và xác nhận microphone thu rõ giọng, không bị nghẽn hay vỡ tiếng.
+            </label>
           </>
         )}
       </div>
@@ -202,6 +219,7 @@ export default function NoiseCheck({
             controller.current?.abort();
             setError("");
             setStatus("skipped");
+            setConfirmed(true);
             onReady(true);
           }}
         >
@@ -209,8 +227,7 @@ export default function NoiseCheck({
         </button>
       </div>
       <p className="muted">
-        Kết quả mang tính tham khảo, phụ thuộc độ nhạy microphone. Bỏ qua bước
-        này vẫn cần cấp quyền camera và mic.
+        Kết quả mang tính tham khảo, phụ thuộc độ nhạy microphone. Đảm bảo âm thanh rõ ràng để hệ thống chấm phát âm chuẩn xác nhất.
       </p>
     </section>
   );

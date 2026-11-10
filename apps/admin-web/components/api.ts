@@ -198,6 +198,24 @@ export type Assessment = {
       prosody: number;
       total: number;
     };
+    audio_quality?: {
+      status: "PASSED" | "WARNING" | "POOR";
+      snr_db: number;
+      rms_dbfs: number;
+      clipping_ratio: number;
+      speech_ratio: number;
+      speech_duration: number;
+      duration: number;
+      issues: string[];
+      recommendation: string;
+    };
+    metrics?: {
+      wpm: number;
+      speech_duration_seconds: number;
+      speech_ratio: number;
+      snr_db: number;
+      word_count: number;
+    };
     segments?: number;
     phones?: number;
   };

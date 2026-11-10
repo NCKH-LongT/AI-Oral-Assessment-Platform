@@ -60,6 +60,7 @@ interface AssessmentResponse {
   review_required?: boolean;
   review_reason?: string | null;
   message?: string;
+  recognized?: string;
 }
 
 const SAMPLE_SENTENCES = [
@@ -664,6 +665,18 @@ export default function TestAudioPage() {
                   <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Độ bao phủ câu nói</span>
                 </div>
               </div>
+
+              {/* Đối chiếu nhận diện từ vựng */}
+              {result.recognized && (
+                <div style={{ marginBottom: "1rem", padding: "0.85rem 1rem", background: "#f8fafc", borderRadius: 8, border: "1px dashed #94a3b8", fontSize: "0.85rem" }}>
+                  <div style={{ fontWeight: 600, color: "#334155", marginBottom: "0.35rem" }}>
+                    🎙️ Đối chiếu ngữ âm & từ vựng nhận diện (Phonetic & ASR Alignment):
+                  </div>
+                  <div style={{ color: "#0f172a", fontStyle: "italic", background: "#ffffff", padding: "0.5rem 0.75rem", borderRadius: 6, border: "1px solid #e2e8f0" }}>
+                    "{result.recognized}"
+                  </div>
+                </div>
+              )}
 
               {/* Chỉ số ngôn ngữ chi tiết */}
               {result.metrics && (

@@ -95,45 +95,6 @@ async def test_pronunciation(
     except Exception:
         pass
 
-    # 2. Resilient standalone preview fallback when GOPT container is offline in dev
-    words = [w for w in transcript.split() if w]
-    word_count = len(words)
-    est_duration = max(2.0, float(len(content)) / 16000.0)
-    wpm = round(float(word_count / (est_duration / 60.0)), 1)
-    
-    return {
-        "status": "COMPLETED",
-        "model": "gopt-librispeech",
-        "model_revision": "hubert-base-ls960-qa-v1",
-        "backend_source": "standalone_preview",
-        "audio_quality": {
-            "status": "PASSED",
-            "snr_db": 21.4,
-            "rms_dbfs": -19.2,
-            "clipping_ratio": 0.0,
-            "speech_ratio": 0.84,
-            "speech_duration": round(est_duration * 0.84, 2),
-            "duration": round(est_duration, 2),
-            "issues": [],
-            "recommendation": "Âm thanh rõ ràng, tỉ lệ tín hiệu trên nhiễu (SNR) đạt tiêu chuẩn.",
-        },
-        "scores": {
-            "accuracy": 8.6,
-            "completeness": 9.2,
-            "fluency": 8.4,
-            "prosody": 8.2,
-            "total": 8.62,
-        },
-        "metrics": {
-            "wpm": wpm,
-            "speech_duration_seconds": round(est_duration * 0.84, 2),
-            "speech_ratio": 0.84,
-            "snr_db": 21.4,
-            "word_count": word_count,
-        },
-        "segments": 1,
-        "phones": word_count * 4,
-        "reference_source": "transcript",
-        "review_required": False,
-        "review_reason": None,
-    }
+    # 2. Dynamic acoustic and phonetic evaluation via local HuBERT / Whisper / Audio QA engine
+    from .pronunciation_eval import evaluate_pronunciation
+    return evaluate_pronunciation(content, transcript)

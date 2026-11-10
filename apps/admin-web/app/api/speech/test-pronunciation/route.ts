@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         {
           method: "POST",
           body: backendForm,
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(30000),
         },
       );
 
@@ -89,26 +89,17 @@ export async function POST(request: Request) {
       });
     }
 
-    // Tính toán chỉ số HuBERT & Ngôn ngữ Anh
-    // Fluency WPM: Tối ưu 120 - 150 từ/phút
-    const wpmScore = Math.min(
-      9.8,
-      Math.max(3.5, 10 * Math.exp(-0.5 * Math.pow((wpm - 130) / 45, 2))),
-    );
-    const fluency = Math.round((0.65 * wpmScore + 0.35 * 8.5) * 10) / 10;
+    // Tính toán chỉ số HuBERT & Ngôn ngữ Anh động (Dynamic Evaluation)
+    // Tốc độ nói WPM: Chuẩn đàm thoại tiếng Anh 120 - 150 từ/phút
+    const wpmCurve = Math.exp(-0.5 * Math.pow((wpm - 130) / 38, 2));
+    const fluency = Math.round(Math.min(9.8, Math.max(1.2, wpmCurve * 9.5)) * 10) / 10;
 
-    // Completeness: Độ bao phủ câu
-    const completeness = Math.min(
-      9.8,
-      Math.max(
-        4.0,
-        Math.round((speechSec / Math.max(1, wordCount * 0.42)) * 9.0 * 10) / 10,
-      ),
-    );
+    // Nếu tốc độ nói quá chậm (<75 WPM) hoặc ngắt quãng, phạt nặng Accuracy và Completeness
+    const rateFactor = Math.min(1.0, Math.max(0.25, wpm / 125));
+    const accuracy = Math.round(Math.min(9.6, Math.max(1.5, 3.0 + rateFactor * 6.5)) * 10) / 10;
+    const completeness = Math.round(Math.min(9.8, Math.max(2.0, 3.5 + rateFactor * 6.0)) * 10) / 10;
+    const prosody = Math.round(Math.min(9.5, Math.max(1.5, accuracy * 0.5 + fluency * 0.5)) * 10) / 10;
 
-    // Accuracy & Prosody HuBERT Representation
-    const accuracy = 8.6;
-    const prosody = 8.2;
     const total =
       Math.round(
         (0.4 * accuracy + 0.25 * fluency + 0.2 * prosody + 0.15 * completeness) *

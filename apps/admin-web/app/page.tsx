@@ -155,7 +155,7 @@ export default function Home() {
             <Field label="Mật khẩu" name="password" type="password" />
           </Form>
           <GoogleLogin onLogin={setUser} />
-          <div style={{ marginTop: 14, textAlign: "center" }}>
+          <div style={{ marginTop: 14, textAlign: "center", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
             <Link
               href="/test-camera"
               style={{
@@ -169,6 +169,20 @@ export default function Home() {
               }}
             >
               📹 Thử nghiệm nhận diện Camera & Gian lận
+            </Link>
+            <Link
+              href="/test-audio"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--teal)",
+                textDecoration: "underline",
+              }}
+            >
+              🎙️ Thử nghiệm Micro & Chấm Phát Âm HuBERT
             </Link>
           </div>
           {typeof window !== "undefined" && window.oralDesktop && (
@@ -299,7 +313,7 @@ export default function Home() {
             </button>
           ))}
         </nav>
-        <div style={{ padding: "8px 16px" }}>
+        <div style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
           <Link
             href="/test-camera"
             style={{
@@ -313,6 +327,20 @@ export default function Home() {
             }}
           >
             📹 Test Camera & Gian lận
+          </Link>
+          <Link
+            href="/test-audio"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              color: "var(--teal)",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            🎙️ Test Mic & Chấm Phát Âm
           </Link>
         </div>
         <div className="sidebar-note">

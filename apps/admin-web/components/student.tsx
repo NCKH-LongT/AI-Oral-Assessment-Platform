@@ -147,6 +147,12 @@ export default function Student() {
   const autoSubmitRecording = useRef(false);
   const answerUploads = useRef(new Map<string, UploadJob[]>());
   const cameraRequired = session?.desktop_policy?.require_camera ?? true;
+  const [bypassCamera, setBypassCamera] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("oral_bypass_camera") === "true";
+    }
+    return false;
+  });
   const timedQuestions = !!session?.timed_questions;
   const serverProcessing = !!session?.server_processing;
   const sessionFinished =
@@ -384,25 +390,45 @@ export default function Student() {
         throw new Error(
           "Cần trình duyệt hỗ trợ MediaRecorder trên HTTPS hoặc localhost.",
         );
-      const s = await navigator.mediaDevices.getUserMedia({
-        video: cameraRequired
-          ? {
-              ...(selectedCamera
-                ? { deviceId: { exact: selectedCamera } }
-                : {}),
-              width: { ideal: 640 },
-              height: { ideal: 480 },
-            }
-          : false,
-        audio: {
-          ...(selectedMic ? { deviceId: { exact: selectedMic } } : {}),
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: { ideal: 1 },
-          sampleRate: { ideal: 16000 },
-        },
-      });
+      let s: MediaStream;
+      const wantVideo = cameraRequired;
+      try {
+        s = await navigator.mediaDevices.getUserMedia({
+          video: wantVideo
+            ? {
+                ...(selectedCamera
+                  ? { deviceId: { exact: selectedCamera } }
+                  : {}),
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+              }
+            : false,
+          audio: {
+            ...(selectedMic ? { deviceId: { exact: selectedMic } } : {}),
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: { ideal: 1 },
+            sampleRate: { ideal: 16000 },
+          },
+        });
+      } catch (error) {
+        if (bypassCamera && wantVideo) {
+          s = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: {
+              ...(selectedMic ? { deviceId: { exact: selectedMic } } : {}),
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: { ideal: 1 },
+              sampleRate: { ideal: 16000 },
+            },
+          });
+        } else {
+          throw error;
+        }
+      }
       if (generation !== deviceGeneration.current) {
         s.getTracks().forEach((t) => t.stop());
         return;
@@ -1410,7 +1436,7 @@ export default function Student() {
                   disabled={
                     session.entry_open === false ||
                     !stream ||
-                    (cameraRequired && !faceCheck.ready) ||
+                    (cameraRequired && !bypassCamera && !faceCheck.ready) ||
                     !!deviceError ||
                     !noiseReady ||
                     connecting ||
@@ -1420,7 +1446,7 @@ export default function Student() {
                     (session.screen_required && !screenConsent)
                   }
                   action={async () => {
-                    if (cameraRequired && !faceCheck.ready)
+                    if (cameraRequired && !bypassCamera && !faceCheck.ready)
                       throw new Error(
                         "Hoàn tất kiểm tra khuôn mặt trước khi bắt đầu.",
                       );
@@ -1739,14 +1765,50 @@ export default function Student() {
                 </div>
               )}
               {cameraRequired && (
-                <p role="status">
-                  Khung mặt: {faceCheck.areaPercent}% ảnh ·{" "}
-                  {stream
-                    ? faceCheck.message
-                    : "Kết nối camera để bắt đầu kiểm tra."}
-                  <br />
-                  {faceCheck.eyeHint}
-                </p>
+                <div style={{ margin: "0.5rem 0" }}>
+                  <p role="status" style={{ margin: 0 }}>
+                    Khung mặt: {bypassCamera ? "Đã bỏ qua" : `${faceCheck.areaPercent}% ảnh`} ·{" "}
+                    {bypassCamera
+                      ? "Đã bật chế độ bỏ qua kiểm tra camera cho thử nghiệm."
+                      : stream
+                        ? faceCheck.message
+                        : "Kết nối camera để bắt đầu kiểm tra."}
+                    {!bypassCamera && faceCheck.eyeHint && (
+                      <>
+                        <br />
+                        {faceCheck.eyeHint}
+                      </>
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    className="button-link"
+                    style={{
+                      fontSize: "0.82rem",
+                      marginTop: "0.35rem",
+                      padding: "4px 10px",
+                      cursor: "pointer",
+                      borderRadius: "6px",
+                      border: bypassCamera ? "1px solid #f59e0b" : "1px dashed #64748b",
+                      backgroundColor: bypassCamera ? "#fef3c7" : "#f1f5f9",
+                      color: bypassCamera ? "#b45309" : "#334155",
+                      fontWeight: 500,
+                    }}
+                    onClick={() => {
+                      setBypassCamera((prev) => {
+                        const next = !prev;
+                        try {
+                          localStorage.setItem("oral_bypass_camera", String(next));
+                        } catch {}
+                        return next;
+                      });
+                    }}
+                  >
+                    {bypassCamera
+                      ? "✓ Đang bỏ qua kiểm tra camera (Nhấn để bật lại)"
+                      : "⚡ Bỏ qua kiểm tra camera (Dành cho thử nghiệm)"}
+                  </button>
+                </div>
               )}
               <div className="mic-meter">
                 <Mic size={16} />

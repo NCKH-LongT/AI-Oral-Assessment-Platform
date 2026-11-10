@@ -1641,19 +1641,44 @@ function RubricForm({
             </button>
           </div>
         ))}
-        <button
-          type="button"
-          className="text-button"
-          disabled={criteria.length >= 20}
-          onClick={() =>
-            setCriteria([
-              ...criteria,
-              { name: "", description: "", max_score: 5, weight: 1 },
-            ])
-          }
-        >
-          + Thêm tiêu chí
-        </button>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "0.5rem" }}>
+          <button
+            type="button"
+            className="text-button"
+            disabled={criteria.length >= 20}
+            onClick={() =>
+              setCriteria([
+                ...criteria,
+                { name: "", description: "", max_score: 5, weight: 1 },
+              ])
+            }
+          >
+            + Thêm tiêu chí
+          </button>
+          <button
+            type="button"
+            className="text-button"
+            style={{ color: "#2563eb", fontWeight: 600 }}
+            disabled={
+              criteria.length >= 20 ||
+              criteria.some((c) => /\b(pronunciation|pronounce|phat\s+am)\b/i.test(c.name))
+            }
+            onClick={() =>
+              setCriteria([
+                ...criteria,
+                {
+                  name: "Phát âm tiếng Anh (Pronunciation)",
+                  description:
+                    "Độ chính xác âm vị, độ trôi chảy (WPM), ngữ điệu và kiểm định âm học qua HuBERT & Audio QA",
+                  max_score: 10,
+                  weight: 2,
+                },
+              ])
+            }
+          >
+            + Thêm tiêu chí Phát âm tiếng Anh (HuBERT AI)
+          </button>
+        </div>
       </Form>
     </section>
   );
